@@ -3,8 +3,10 @@ export class ItemDTO {
     Name: string;
     DisplayName: string;
     BasePrice: number;
-    BaseItemId: number;
+    BaseItemId?: number;
+    BaseItemName?: string;
     CategoryId: number;
+    CategoryName: string;
     GradeId: number;
     ItemtypeId: number;
 }
