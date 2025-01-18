@@ -1,31 +1,23 @@
-import { serviceCall } from '../services/serviceCall';
-import ConfigurationHelper from '../utils/config-helper';
-import { logging } from '../utils/logging';
-import { BehaviorSubject } from 'rxjs';
-import { InvokeServiceArgs } from './interfaces';
-import { HttpMethod, Controllers, ItemOperation } from '../utils';
+import { serviceCall, ServiceCall } from "../services/serviceCall";
+import { Controllers, HttpMethod, logging, StructuresOperation } from "../utils";
+import ConfigurationHelper from "../utils/config-helper";
+import { InvokeServiceArgs } from "./interfaces";
+import { ApiItem } from "./items";
 
-export interface ApiItem {
-    getAll(data: any): Promise<any[]>;
-    getItemById(data: any): Promise<any>;
-    createItem(data: any): Promise<any>;
-    updateItem(data: any): Promise<any>;
-}
-
-export class ItemsManager implements ApiItem {
-    private static instance: ItemsManager;
-    private readonly logger  = logging.getLogger('ItemsManager');
+export class StructuresManager implements ApiItem {
+    private static instance: StructuresManager;
+    private readonly logger  = logging.getLogger('StructuresManager');
 
     public static getInstance() {
-        if (!ItemsManager.instance) {
-            ItemsManager.instance = new ItemsManager();
+        if (!StructuresManager.instance) {
+            StructuresManager.instance = new StructuresManager();
         }
 
-        return ItemsManager.instance;
+        return StructuresManager.instance;
     }
 
     getAll(data?: any): Promise<any[]> {
-        return this.invokeServiceCall(data, ItemOperation.GetAll, Controllers.Items, HttpMethod.Get);
+        return this.invokeServiceCall(data, StructuresOperation.GetAll, Controllers.Structures, HttpMethod.Get);
     }
     getItemById(data: any): Promise<any> {
         throw new Error('Method not implemented.');
@@ -50,6 +42,7 @@ export class ItemsManager implements ApiItem {
                 requestData: data,
                 responseHandler: {
                     success: (result: any) => {
+                        console.log(result);
                         resolve(result);
                         clearTimeout(timeoutId);
                     },
@@ -61,10 +54,9 @@ export class ItemsManager implements ApiItem {
                     }
                 }
             };
-
             serviceCall.invokeApiService(args);
         });
     }
-}
+}  
 
-export const itemsManager = ItemsManager.getInstance();
+export const structuresManager = StructuresManager.getInstance();

@@ -11,8 +11,15 @@ export enum ItemOperation {
     GetItemByName = 'GetItemByName'
 }
 
-export enum ItemController {
-    Items = 'Items'
+export enum StructuresOperation {
+    GetAll = '',
+    GetById = 'GetStructure',
+    GetByName = 'GetStructureyName'
+}
+
+export enum Controllers {
+    Items = 'Items',
+    Structures = 'Structures'
 }
 
 export enum FormPlaceHolder {

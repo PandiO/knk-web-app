@@ -19,7 +19,7 @@ export class ServiceCall {
         let requestParams: any = {
             method: HttpMethod.Get,
             headers:  {
-                '': ''
+                'Accept': '*/*',
             }
         };
 
