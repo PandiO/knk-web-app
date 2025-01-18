@@ -14,3 +14,9 @@ export enum ItemOperation {
 export enum ItemController {
     Items = 'Items'
 }
+
+export enum FormPlaceHolder {
+    Name = 'TestName',
+    Mail = 'JohnDoe@gmail.com',
+    Number = 128
+}
