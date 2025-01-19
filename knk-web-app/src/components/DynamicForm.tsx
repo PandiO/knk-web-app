@@ -4,6 +4,8 @@ import type { FormField, ObjectConfig } from '../types/common';
 import { objectConfigs, placeholderConfigs } from '../config/objectConfigs';
 import { SearchableDropdown } from './SearchableDropdown';
 import { MultiSelectDropdown } from './MultiSelectDropdown';
+import { DistrictManager } from '../io/districts';
+import { LocationsManager } from '../io/locations';
 
 interface DynamicFormProps {
   config: ObjectConfig;
@@ -41,17 +43,36 @@ export function DynamicForm({
     // Load relationship data
     Object.entries(config.fields).forEach(([key, field]) => {
       if (field.type === 'object' || field.type === 'array') {
+        switch (field.objectConfig?.type) {
+          case 'district': {
+            DistrictManager.getInstance().getAll().then((data) => {
+              setRelationshipData(prev => ({
+                ...prev,
+                [key]: data.map((o: any) => ({ id: o.id, name: o.name }))
+              }));
+            }).catch((err) => { console.error(err); });
+          }; break;
+          break;
+          case 'location': { 
+            LocationsManager.getInstance().getAll().then((data) => {
+              setRelationshipData(prev => ({
+                ...prev,
+                [key]: data.map((o: any) => ({ id: o.id, name: 'Location' }))
+              }));
+            }).catch((err) => { console.error(err); });
+          }; break;
+        }
         // Simulated API call to load relationship data
-        setTimeout(() => {
-          setRelationshipData(prev => ({
-            ...prev,
-            [key]: [
-              { id: '1', name: 'Test Instance 1' },
-              { id: '2', name: 'Test Instance 2' },
-              { id: '3', name: 'Test Instance 3' },
-            ]
-          }));
-        }, 500);
+        // setTimeout(() => {
+        //   setRelationshipData(prev => ({
+        //     ...prev,
+        //     [key]: [
+        //       { id: '1', name: 'Test Instance 1' },
+        //       { id: '2', name: 'Test Instance 2' },
+        //       { id: '3', name: 'Test Instance 3' },
+        //     ]
+        //   }));
+        // }, 500);
       }
     });
   }, [config.fields]);
@@ -99,6 +120,7 @@ export function DynamicForm({
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
+    isNested && handleNestedSubmit(config.type, formData);
     e.preventDefault();
     
     if (!validateForm()) {
@@ -303,6 +325,8 @@ export function DynamicForm({
         <button
           type="submit"
           disabled={loading}
+          onClick={handleSubmit}
+
           className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
         >
           {loading ? (

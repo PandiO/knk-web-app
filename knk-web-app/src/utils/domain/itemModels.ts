@@ -1,5 +1,5 @@
-export class ItemDTO {
-    Id: number = -1;
+export interface ItemDTO {
+    Id: number;
     Name: string;
     DisplayName: string;
     BasePrice: number;

@@ -14,12 +14,27 @@ export enum ItemOperation {
 export enum StructuresOperation {
     GetAll = '',
     GetById = 'GetStructure',
-    GetByName = 'GetStructureyName'
+    GetByName = 'GetStructureyName',
+    Create = ''
 }
+
+export enum DistrictsOperation {
+    GetAll = '',
+    GetById = 'GetDistrict',
+    GetByName = 'GetDistrictByName'
+}
+
+export enum LocationsOperation {
+    GetAll = '',
+    GetById = 'GetLocation',
+    GetByName = 'GetLocationByName'
+}    
 
 export enum Controllers {
     Items = 'Items',
-    Structures = 'Structures'
+    Structures = 'Structures',
+    Districts = 'Districts',
+    Locations = 'Locations'
 }
 
 export enum FormPlaceHolder {
