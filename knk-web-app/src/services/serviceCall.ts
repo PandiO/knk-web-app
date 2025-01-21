@@ -14,7 +14,7 @@ export class ServiceCall {
             baseUrl = args.fetchApiUrl;
         }
 
-        let url = `${baseUrl}/${args.controller}/${args.operation}`;
+        let url = `${baseUrl}/${args.controller}`;
 
         let requestParams: any = {
             method: HttpMethod.Get,
@@ -22,6 +22,10 @@ export class ServiceCall {
                 'Accept': '*/*',
             }
         };
+
+        if (args.httpMethod && args.httpMethod != HttpMethod.Post) {
+            url = `${url}/${args.operation}`;
+        }
 
         if (!args.httpMethod && args.requestData) {
             args.httpMethod = HttpMethod.Post;
@@ -56,8 +60,14 @@ export class ServiceCall {
             const response = await fetch(url, requestParams);
             const result = await response.json();
 
-            if (args.responseHandler) {
-                args.responseHandler.success(result);
+            if (response.ok) {
+                if (args.responseHandler) {
+                    args.responseHandler.success(result);
+                }
+            } else {
+                if (args.responseHandler) {
+                    args.responseHandler.error(result);
+                }
             }
         } catch (ex) {
 

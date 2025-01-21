@@ -2,14 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Search, Plus, Loader2, ChevronDown, X } from 'lucide-react';
 
 interface Instance {
-  id: string;
+  id: number;
   name: string;
 }
 
 interface SearchableDropdownProps {
   instances: Instance[];
-  selectedId?: string;
-  onSelect: (id: string | null) => void;
+  selectedId?: number;
+  onSelect: (id: number | null) => void;
   onCreateNew: () => void;
   label: string;
   loading?: boolean;
@@ -37,7 +37,7 @@ export function SearchableDropdown({
     instance.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const selectedInstance = instances.find(instance => instance.id === selectedId);
+  const selectedInstance = instances.find(instance => instance.id == selectedId);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -112,7 +112,7 @@ export function SearchableDropdown({
             </div>
           ) : selectedInstance ? (
             <div className="flex items-center justify-between">
-              <span>{selectedInstance.name} ({selectedInstance.id})</span>
+              <span>{selectedInstance.name} ({selectedInstance.id}) {selectedInstance.id == -1 && '(New)'}</span>
               <button
                 type="button"
                 onClick={(e) => {
@@ -155,7 +155,7 @@ export function SearchableDropdown({
 
             {filteredInstances.map((instance, index) => (
               <div
-                key={instance.id}
+                key={instance.id ?? '/'}
                 className={`
                   cursor-pointer select-none relative py-2 pl-3 pr-9
                   ${highlightedIndex === index ? 'bg-blue-600 text-white' : 'text-gray-900'}

@@ -8,7 +8,7 @@ export interface BaseEntity {
 export interface FormField<T = any> {
   name: string;
   label: string;
-  type: 'text' | 'number' | 'select' | 'date' | 'object' | 'array';
+  type: 'text' | 'number' | 'select' | 'date' | 'object' | 'array' | 'bool';
   required?: boolean;
   defaultValue?: T;
   options?: { label: string; value: any }[];
@@ -19,7 +19,8 @@ export interface FormField<T = any> {
   min?: number;
   max?: number;
   step?: number;
-  placeholder?: string;
+  placeholder?: string;   
+  hidden?: boolean;
 }
 
 export interface ObjectConfig {

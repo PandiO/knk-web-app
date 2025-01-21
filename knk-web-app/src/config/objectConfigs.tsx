@@ -32,6 +32,7 @@ export const objectConfigs: Record<string, ObjectConfig> = {
     label: 'Location',
     icon: <MapPin className="h-5 w-5" />,
     fields: {
+      name: { name: 'name', label: 'Name', type: 'text', required: false, defaultValue: 'Location', hidden: true },
       x: { name: 'x', label: 'X', type: 'number', required: true },
       y: { name: 'y', label: 'Y', type: 'number', required: true },
       z: { name: 'z', label: 'Z', type: 'number', required: true },
@@ -209,7 +210,7 @@ export const objectConfigs: Record<string, ObjectConfig> = {
         name: 'StreetNumber',
         label: 'Street Number',
         type: 'number',
-        required: true,
+        required: false,
         validation: (value) => {
           if (value < 1) return 'Street number must be positive';
         }

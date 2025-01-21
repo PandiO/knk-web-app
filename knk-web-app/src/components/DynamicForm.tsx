@@ -88,6 +88,9 @@ export function DynamicForm({
 
   const handleNestedSubmit = (fieldName: string, data: Record<string, any>) => {
     console.log('Nested form submitted:', fieldName, data);
+    relationshipData[fieldName].push(data);
+
+    data.id = -1;
     handleChange(fieldName, data);
     setNestedForms(prev => ({ ...prev, [fieldName]: false }));
   };
@@ -110,7 +113,7 @@ export function DynamicForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     console.log('Form submitted:', formData);
-    isNested && handleNestedSubmit(config.type, formData);
+    // isNested && handleNestedSubmit(config.label, formData);
     e.preventDefault();
     
     if (!validateForm()) {
@@ -126,7 +129,7 @@ export function DynamicForm({
   };
 
   const renderField = (name: string, field: FormField) => {
-    const showField = !field.dependsOn || field.dependsOn.every(dep => formData[dep]);
+    const showField = !field.dependsOn || field.dependsOn.every(dep => formData[dep]) || !field.hidden;
 
     if (!showField) return null;
 
