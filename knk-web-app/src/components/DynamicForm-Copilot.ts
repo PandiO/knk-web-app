@@ -6,7 +6,8 @@ import { SearchableDropdown } from './SearchableDropdown';
 import { MultiSelectDropdown } from './MultiSelectDropdown';
 import { DistrictManager } from '../io/districts';
 import { LocationsManager } from '../io/locations';
-import { StreetManager } from '../io/streets';
+import { extractFieldsFromDTO, mergeDTOWithConfig } from '../utils/fieldConfigUtils';
+import { StructureCreateDTO } from '../utils/domain/dto/StructureCreateDTO';
 
 interface DynamicFormProps {
   config: ObjectConfig;
@@ -32,9 +33,13 @@ export function DynamicForm({
   const [relationshipData, setRelationshipData] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
+    // Extract fields from DTO and merge with config
+    const dtoFields = extractFieldsFromDTO(new StructureCreateDTO());
+    const mergedFields = mergeDTOWithConfig(dtoFields, config.fields);
+
     // Initialize form with default values
     const defaultData: Record<string, any> = {};
-    Object.entries(config.fields).forEach(([key, field]) => {
+    Object.entries(mergedFields).forEach(([key, field]) => {
       if (field.defaultValue !== undefined && formData[key] === undefined) {
         defaultData[key] = field.defaultValue;
       }
@@ -42,7 +47,7 @@ export function DynamicForm({
     setFormData(prev => ({ ...prev, ...defaultData }));
 
     // Load relationship data
-    Object.entries(config.fields).forEach(([key, field]) => {
+    Object.entries(mergedFields).forEach(([key, field]) => {
       if (field.type === 'object' || field.type === 'array') {
         switch (field.objectConfig?.type) {
           case 'district': {
@@ -61,15 +66,6 @@ export function DynamicForm({
               }));
             }).catch((err) => { console.error(err); });
           }; break;
-          case 'street': {
-            StreetManager.getInstance().getAll().then((data) => {
-              setRelationshipData(prev => ({
-                ...prev,
-                [key]: data.map((o: any) => ({ id: o.id, name: o.name }))
-              }));
-            }).catch((err) => { console.error(err); });
-          }
-          break;
         }
       }
     });
@@ -100,7 +96,6 @@ export function DynamicForm({
     console.log('Nested form submitted:', fieldName, data);
     relationshipData[fieldName].push(data);
 
-    data.id = -1;
     handleChange(fieldName, data);
     setNestedForms(prev => ({ ...prev, [fieldName]: false }));
   };
@@ -139,7 +134,7 @@ export function DynamicForm({
   };
 
   const renderField = (name: string, field: FormField) => {
-    const showField = !field.dependsOn || field.dependsOn.every(dep => formData[dep]) || !field.hidden;
+    const showField = !field.dependsOn || field.dependsOn.every(dep => formData[dep]);
 
     if (!showField) return null;
 

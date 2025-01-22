@@ -1,4 +1,5 @@
 import { logging, LocationsOperation, Controllers, HttpMethod } from "../utils";
+import { LocationCreateDTO } from "../utils/domain/dto/LocationCreateDTO";
 import { ObjectManager } from "./objectManager";
 
 export class LocationsManager extends ObjectManager {
@@ -13,7 +14,7 @@ export class LocationsManager extends ObjectManager {
         return LocationsManager.instance;
     }
 
-    getAll(data?: any): Promise<any[]> {
+    getAll(data?: any): Promise<LocationCreateDTO[]> {
         return this.invokeServiceCall(data, LocationsOperation.GetAll, Controllers.Locations, HttpMethod.Get);
     }
 }

@@ -30,11 +30,18 @@ export enum LocationsOperation {
     GetByName = 'GetLocationByName'
 }    
 
+export enum StreetsOperation {
+    GetAll = '',
+    GetById = 'GetStreet',
+    GetByName = 'GetStreetByName'
+}
+
 export enum Controllers {
     Items = 'Items',
     Structures = 'Structures',
     Districts = 'Districts',
-    Locations = 'Locations'
+    Locations = 'Locations',
+    Streets = 'Streets'
 }
 
 export enum FormPlaceHolder {

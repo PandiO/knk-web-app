@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { objectConfigs } from '../config/objectConfigs';
 import { DynamicForm } from './DynamicForm';
 import { StructuresManager } from '../io/structures';
-import { StructureCreateDTO } from '../utils/domain/dto/StructureCreateDTO';
+import { StructureCreateDTO, mapFormDataToFields as mapStructureFormDataToFields } from '../utils/domain/dto/StructureCreateDTO';
 
 export function ObjectCreator() {
   const { objectType } = useParams<{ objectType: string }>();
@@ -31,8 +31,10 @@ export function ObjectCreator() {
     try {
       switch (objectType) {
         case 'structure': {
-          StructuresManager.getInstance().create(data as StructureCreateDTO).then((result) => {
-            console.log('Saved:', data);
+          const structureCreateDTO: StructureCreateDTO = mapStructureFormDataToFields(data);
+          console.log('saving:', structureCreateDTO);
+          StructuresManager.getInstance().create(structureCreateDTO).then((result) => {
+            console.log('Saved:', structureCreateDTO);
             navigate('/');
           }).catch((err) => {console.error('Error saving:', err);});
         }

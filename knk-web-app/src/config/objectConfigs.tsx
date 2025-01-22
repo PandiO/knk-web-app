@@ -1,6 +1,6 @@
 import React from 'react';
 import { Building2, MapPin, Home, Package, User } from 'lucide-react';
-import type { ObjectConfig } from '../types/common';
+import type { FormField, ObjectConfig } from '../types/common';
 import type { Location } from '../types/Location';
 
 const defaultLocationValue: Location = {
@@ -26,187 +26,164 @@ export const placeholderConfigs = {
   },
 }
 
-export const objectConfigs: Record<string, ObjectConfig> = {
-  location: {
-    type: 'location',
-    label: 'Location',
-    icon: <MapPin className="h-5 w-5" />,
-    fields: {
-      name: { name: 'name', label: 'Name', type: 'text', required: false, defaultValue: 'Location', hidden: true },
-      x: { name: 'x', label: 'X', type: 'number', required: true },
-      y: { name: 'y', label: 'Y', type: 'number', required: true },
-      z: { name: 'z', label: 'Z', type: 'number', required: true },
-      yaw: { name: 'yaw', label: 'Yaw', type: 'number', required: false, defaultValue: 0 },
-      pitch: { name: 'pitch', label: 'Pitch', type: 'number', required: false, defaultValue: 0 }
-    },
-  },
-  town: {
-    type: 'town',
-    label: 'Town',
-    icon: <Home className="h-5 w-5" />,
-    fields: {
-      Name: {
-        name: 'Name',
-        label: 'Town Name',
-        type: 'text',
-        required: true,
-        validation: (value) => {
-          if (!value || value.length < 3) return 'Town name must be at least 3 characters';
-        }
-      },
-      Description: {
-        name: 'Description',
-        label: 'Description',
-        type: 'text',
-        required: false
-      },
-      RegionName: {
-        name: 'RegionName',
-        label: 'Region',
-        type: 'text',
-        required: true
-      },
-      Location: {
-        name: 'Location',
-        label: 'Location',
-        type: 'object',
-        required: true,
-        defaultValue: defaultLocationValue,
-        objectConfig: {
-          type: 'location',
-          label: 'Location',
-          icon: <MapPin className="h-5 w-5" />,
-          fields: {
-            x: { name: 'x', label: 'X', type: 'number', required: true },
-            y: { name: 'y', label: 'Y', type: 'number', required: true },
-            z: { name: 'z', label: 'Z', type: 'number', required: true },
-            yaw: { name: 'yaw', label: 'Yaw', type: 'number', required: false, defaultValue: 0 },
-            pitch: { name: 'pitch', label: 'Pitch', type: 'number', required: false, defaultValue: 0 }
-          }
-        }
-      },
-      Districts: {
-        name: 'Districts',
-        label: 'Districts',
-        type: 'array',
-        required: false,
-        objectConfig: {
-          type: 'district',
-          label: 'District',
-          icon: <MapPin className="h-5 w-5" />,
-          fields: {} // Will be populated from district config
-        }
-      }
-    },
-    formatters: {
-      RegionName: (value) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          {value}
-        </span>
-      ),
-      Created: (value: Date) => value.toLocaleDateString()
+export const commonFields: Record<string, FormField> = {
+  id: { name: 'id', label: 'Id', type: 'number', required: false, hidden: true, defaultValue: -1 },
+  name: {
+    name: 'name',
+    label: 'Name',
+    type: 'text',
+    required: true,
+    validation: (value) => {
+      if (!value || value.length < 3) return 'Town name must be at least 3 characters';
     }
   },
-  district: {
-    type: 'district',
-    label: 'District',
-    icon: <MapPin className="h-5 w-5" />,
-    fields: {
-      Name: {
-        name: 'Name',
-        label: 'District Name',
-        type: 'text',
-        required: true,
-        validation: (value) => {
-          if (!value || value.length < 3) return 'District name must be at least 3 characters';
-        }
-      },
-      Description: {
-        name: 'Description',
-        label: 'Description',
-        type: 'text',
-        required: false
-      },
-      RegionName: {
-        name: 'RegionName',
-        label: 'Region',
-        type: 'text',
-        required: true
-      },
-      Town: {
-        name: 'Town',
-        label: 'Town',
-        type: 'object',
-        required: true,
-        objectConfig: {
-          type: 'town',
-          label: 'Town',
-          icon: <Home className="h-5 w-5" />,
-          fields: {} // Will be populated from town config
-        }
-      },
-      Location: {
-        name: 'Location',
-        label: 'Location',
-        type: 'object',
-        required: true,
-        defaultValue: defaultLocationValue,
-        objectConfig: {
-          type: 'location',
-          label: 'Location',
-          icon: <MapPin className="h-5 w-5" />,
-          fields: {
-            x: { name: 'x', label: 'X', type: 'number', required: true },
-            y: { name: 'y', label: 'Y', type: 'number', required: true },
-            z: { name: 'z', label: 'Z', type: 'number', required: true },
-            yaw: { name: 'yaw', label: 'Yaw', type: 'number', required: false, defaultValue: 0 },
-            pitch: { name: 'pitch', label: 'Pitch', type: 'number', required: false, defaultValue: 0 }
-          }
-        }
-      }
+  description: {
+    name: 'description',
+    label: 'Description',
+    type: 'text',
+    required: false
+  }
+}
+
+const locationConfig: ObjectConfig = {
+  type: 'location',
+  label: 'Location',
+  icon: <MapPin className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: { name: 'name', label: 'Name', type: 'text', required: false, defaultValue: 'Location', hidden: true },
+    x: { name: 'x', label: 'X', type: 'number', required: true },
+    y: { name: 'y', label: 'Y', type: 'number', required: true },
+    z: { name: 'z', label: 'Z', type: 'number', required: true },
+    yaw: { name: 'yaw', label: 'Yaw', type: 'number', required: false, defaultValue: 0 },
+    pitch: { name: 'pitch', label: 'Pitch', type: 'number', required: false, defaultValue: 0 },
+    worldName: { name: 'WorldName', label: 'World Name', type: 'text', required: true, defaultValue: 'world' }
+  }
+}
+
+const dominionConfig: ObjectConfig = {
+  type: 'dominion',
+  label: 'Dominion',
+  icon: <Home className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    description: commonFields.description,
+    allowEntry: {
+      name: 'AllowEntry',
+      label: 'Allow Entry',
+      type: 'bool',
+      required: true,
+      defaultValue: true
     },
-    formatters: {
-      RegionName: (value) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-          {value}
-        </span>
-      ),
-      Created: (value: Date) => value.toLocaleDateString()
+    wgRegionId: {
+      name: 'RegionName',
+      label: 'Region',
+      type: 'text',
+      required: true
+    },
+    created: {
+      name: 'Created',
+      label: 'Created',
+      type: 'date',
+      required: false,
+      hidden: true,
+      defaultValue: new Date()
+    },
+    location: {
+      name: 'Location',
+      label: 'Location',
+      type: 'object',
+      required: true,
+      objectConfig: locationConfig
     }
   },
-  structure: {
-    type: 'structure',
+  formatters: {
+    wgRegionId: (value) => (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+        {value}
+      </span>
+    ),
+    created: (value: Date) => value.toLocaleDateString()
+  }
+}
+
+const townConfig: ObjectConfig = {
+  type: 'town',
+  label: 'Town',
+  icon: <Home className="h-5 w-5" />,
+  fields: {
+    ...dominionConfig.fields,
+    requiredTitle: {
+      name: 'RequiredTitle',
+      label: 'Required Title',
+      type: 'number',
+      required: true,
+      defaultValue: 1,
+      validation: (value) => {
+        if (value < 1) return 'Title must be larger than 0';
+      }
+    }
+  },
+  formatters: dominionConfig.formatters
+}
+
+const districtConfig: ObjectConfig = {
+  type: 'district',
+  label: 'District',
+  icon: <MapPin className="h-5 w-5" />,
+  fields: {
+    ...dominionConfig.fields,
+    town: {
+      name: 'Town',
+      label: 'Town',
+      type: 'object',
+      required: true,
+      objectConfig: townConfig
+    },
+  },
+  formatters: dominionConfig.formatters
+}
+
+const streetConfig: ObjectConfig = {
+  type: 'street',
+  label: 'Street',
+  icon: <MapPin className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    district: {
+      name: 'District',
+      label: 'District',
+      type: 'object',
+      required: true,
+      objectConfig: districtConfig
+    }
+  },
+  formatters: dominionConfig.formatters
+}
+
+const structureConfig: ObjectConfig = {
+  type: 'structure',
     label: 'Structure',
     icon: <Building2 className="h-5 w-5" />,
     fields: {
-      Name: {
-        name: 'Name',
-        label: 'Structure Name',
-        type: 'text',
-        required: true,
-        validation: (value) => {
-          if (!value || value.length < 3) return 'Structure name must be at least 3 characters';
-        }
-      },
-      Description: {
-        name: 'Description',
-        label: 'Description',
-        type: 'text',
-        required: false
-      },
-      District: {
+      ...dominionConfig.fields,
+      district: {
         name: 'District',
         label: 'District',
         type: 'object',
         required: true,
-        objectConfig: {
-          type: 'district',
-          label: 'District',
-          icon: <MapPin className="h-5 w-5" />,
-          fields: {} // Will be populated from district config
-        }
+        objectConfig: districtConfig
       },
-      StreetNumber: {
+      street: {
+        name: 'Street',
+        label: 'Street',
+        type: 'object',
+        required: true,
+        objectConfig: streetConfig
+      },
+      streetNumber: {
         name: 'StreetNumber',
         label: 'Street Number',
         type: 'number',
@@ -215,36 +192,20 @@ export const objectConfigs: Record<string, ObjectConfig> = {
           if (value < 1) return 'Street number must be positive';
         }
       },
-      Location: {
-        name: 'Location',
-        label: 'Location',
-        type: 'object',
-        required: true,
-        defaultValue: defaultLocationValue,
-        objectConfig: {
-          type: 'location',
-          label: 'Location',
-          icon: <MapPin className="h-5 w-5" />,
-          fields: {
-            x: { name: 'x', label: 'X', type: 'number', required: true },
-            y: { name: 'y', label: 'Y', type: 'number', required: true },
-            z: { name: 'z', label: 'Z', type: 'number', required: true },
-            yaw: { name: 'yaw', label: 'Yaw', type: 'number', required: false, defaultValue: 0 },
-            pitch: { name: 'pitch', label: 'Pitch', type: 'number', required: false, defaultValue: 0 }
-          }
-        }
-      }
     },
     formatters: {
-      RegionName: (value) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          {value}
-        </span>
-      ),
-      Created: (value: Date) => value.toLocaleDateString(),
-      StreetNumber: (value) => `#${value}`
+      ...dominionConfig.formatters,
+      streetNumber: (value) => `#${value}`
     }
-  },
+}
+
+export const objectConfigs: Record<string, ObjectConfig> = {
+  location: locationConfig,
+  dominion: dominionConfig,
+  town: townConfig,
+  district: districtConfig,
+  structure: structureConfig,
+  street: streetConfig,
   item: {
     type: 'item',
     label: 'Item',
@@ -360,9 +321,8 @@ export const objectConfigs: Record<string, ObjectConfig> = {
     },
     formatters: {
       isActive: (value) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-        }`}>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
           {value ? 'Active' : 'Inactive'}
         </span>
       ),
