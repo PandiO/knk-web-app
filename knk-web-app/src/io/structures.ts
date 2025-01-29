@@ -1,5 +1,6 @@
 import { Controllers, HttpMethod, logging, StructuresOperation } from "../utils";
 import { StructureCreateDTO } from "../utils/domain/dto/StructureCreateDTO";
+import { StructureViewDTO } from "../utils/domain/dto/StructureViewDTO";
 import { ObjectManager } from "./objectManager";
 
 export class StructuresManager extends ObjectManager {
@@ -20,6 +21,10 @@ export class StructuresManager extends ObjectManager {
 
     create(data: StructureCreateDTO): Promise<any> {
         return this.invokeServiceCall(data, StructuresOperation.Create, Controllers.Structures, HttpMethod.Post);
+    }
+
+    getViewById(id: number): Promise<StructureViewDTO> {
+        return this.invokeServiceCall({id: id}, StructuresOperation.GetViewById, Controllers.Structures, HttpMethod.Get);
     }
 
     // invokeServiceCall(data: any, operation: string, controller: string, httpMethod: string): Promise<any> {

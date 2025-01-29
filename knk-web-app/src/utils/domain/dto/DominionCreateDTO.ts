@@ -1,4 +1,4 @@
-import { iLocationCreateDTO, mapFormDataToFields as mapLocationFormDataToFields } from "./LocationCreateDTO";
+import { iLocationCreateDTO, mapFormDataToFields as mapLocationFormDataToFields, mapFieldDataToForm as mapLocationFieldDataToForm } from "./LocationCreateDTO";
 
 export interface DominionCreateDTO {
     Id: number;
@@ -22,4 +22,16 @@ export function mapFormDataToFields(data: any): DominionCreateDTO {
         LocationId: data.location.id,
         LocationCreateDTO: data.location.id < 0 ? mapLocationFormDataToFields(data.location) : undefined
     } as DominionCreateDTO;
+}
+
+export function mapFieldDataToForm(data: DominionCreateDTO): any {
+    return {
+        id: data.Id,
+        name: data.Name,
+        allowEntry: data.AllowEntry,
+        created: data.Created,
+        description: data.Description,
+        wgRegionId: data.WgRegionId,
+        location: data.LocationCreateDTO ? mapLocationFieldDataToForm(data.LocationCreateDTO) : { id: data.LocationId }
+    };
 }

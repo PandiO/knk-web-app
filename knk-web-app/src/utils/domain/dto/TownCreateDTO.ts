@@ -1,4 +1,4 @@
-import { DominionCreateDTO, mapFormDataToFields as mapDominionFormDataToFields } from "./DominionCreateDTO";
+import { DominionCreateDTO, mapFormDataToFields as mapDominionFormDataToFields, mapFieldDataToForm as mapDominionFieldDataToForm } from "./DominionCreateDTO";
 
 export interface TownCreateDTO extends DominionCreateDTO {
     RequiredTitle: number;
@@ -15,4 +15,15 @@ export function mapFormDataToFields(data: any): TownCreateDTO {
     };
 
     return townDTO;
+}
+
+export function mapFieldDataToForm(data: TownCreateDTO): any {
+    // First map the DominionCreateDTO fields
+    const dominionForm = mapDominionFieldDataToForm(data);
+
+    // Then map the TownCreateDTO fields
+    return {
+        ...dominionForm,
+        requiredTitle: data.RequiredTitle
+    };
 }

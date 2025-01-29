@@ -23,3 +23,15 @@ export function mapFormDataToFields(data: any): iLocationCreateDTO {
         WorldName: data.worldName
     } as iLocationCreateDTO;
 }
+
+export function mapFieldDataToForm(data: iLocationCreateDTO): any {
+    return {
+        id: data.Id,
+        x: data.X,
+        y: data.Y,
+        z: data.Z,
+        pitch: data.Pitch,
+        yaw: data.Yaw,
+        worldName: data.WorldName
+    };
+}

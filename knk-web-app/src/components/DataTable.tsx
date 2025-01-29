@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, MoreVertical } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown, MoreVertical, Eye, Pencil, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 type SortDirection = 'asc' | 'desc' | null;
 
@@ -16,6 +17,7 @@ interface ActionItem {
 
 interface DataTableProps<T extends Record<string, any>> {
   data: T[];
+  type: string;
   excludeColumns?: (keyof T)[];
   formatters?: Partial<Record<keyof T, (value: any) => React.ReactNode>>;
   headers?: Partial<Record<keyof T, string>>;
@@ -24,6 +26,7 @@ interface DataTableProps<T extends Record<string, any>> {
 
 export function DataTable<T extends Record<string, any>>({
   data,
+  type,
   excludeColumns = [],
   formatters = {},
   headers = {},
@@ -33,15 +36,51 @@ export function DataTable<T extends Record<string, any>>({
   const [activeMenu, setActiveMenu] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setActiveMenu(null);
-      }
-    };
+  const navigate = useNavigate();
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+  const handleView = (item: T) => {
+    console.log('View item:', item);
+    navigate(`/view/${type}/${item.id}`);
+  };
+
+  const handleEdit = (item: T) => {
+    console.log('Edit item:', item);
+  };
+
+  const handleDelete = (item: T) => {
+    console.log('Delete item:', item);
+  };
+
+  const defaultActions: ActionItem[] = [
+    {
+      label: 'View',
+      onClick: handleView,
+      icon: <Eye className="h-4 w-4" />,
+    },
+    {
+      label: 'Edit',
+      onClick: handleEdit,
+      icon: <Pencil className="h-4 w-4" />,
+    },
+    {
+      label: 'Delete',
+      onClick: handleDelete,
+      icon: <Trash2 className="h-4 w-4" />,
+    },
+  ];
+
+
+  const combinedActions: ActionItem[] = [...defaultActions, ...actions];
+
+  useEffect(() => {
+    // const handleClickOutside = (event: MouseEvent) => {
+    //   if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+    //     setActiveMenu(null);
+    //   }
+    // };
+
+    // document.addEventListener('mousedown', handleClickOutside);
+    // return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   if (!data.length) return null;
@@ -184,7 +223,7 @@ export function DataTable<T extends Record<string, any>>({
                 </div>
               </th>
             ))}
-            {actions.length > 0 && (
+            {combinedActions.length > 0 && (
               <th scope="col" className="relative px-6 py-3">
                 <span className="sr-only">Actions</span>
               </th>
@@ -205,7 +244,7 @@ export function DataTable<T extends Record<string, any>>({
                   {formatValue(column, item[column])}
                 </td>
               ))}
-              {actions.length > 0 && (
+              {combinedActions.length > 0 && (
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="relative" ref={menuRef}>
                     <button
@@ -217,7 +256,7 @@ export function DataTable<T extends Record<string, any>>({
                     {activeMenu === index && (
                       <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
                         <div className="py-1" role="menu">
-                          {actions.map((action, actionIndex) => (
+                          {combinedActions.map((action, actionIndex) => (
                             <button
                               key={actionIndex}
                               onClick={() => {

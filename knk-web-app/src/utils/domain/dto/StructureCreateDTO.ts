@@ -1,6 +1,6 @@
-import { DistrictCreateDTO, mapFormDataToFields as mapDistrictFormDataToFields } from "./DistrictCreateDTO";
-import { DominionCreateDTO, mapFormDataToFields as mapDominionFormDataToFields } from "./DominionCreateDTO";
-import { StreetCreateDTO, mapFormDataToFields as mapStreetFormDataToFields } from "./StreetCreateDTO";
+import { DistrictCreateDTO, mapFormDataToFields as mapDistrictFormDataToFields, mapFieldDataToForm as mapDistrictFieldDataToForm } from "./DistrictCreateDTO";
+import { DominionCreateDTO, mapFormDataToFields as mapDominionFormDataToFields, mapFieldDataToForm as mapDominionFieldDataToForm } from "./DominionCreateDTO";
+import { StreetCreateDTO, mapFormDataToFields as mapStreetFormDataToFields, mapFieldDataToForm as mapStreetFieldDataToForm } from "./StreetCreateDTO";
 
 export interface StructureCreateDTO extends DominionCreateDTO {
     StreetId?: number;
@@ -25,4 +25,17 @@ export function mapFormDataToFields(data: any): StructureCreateDTO {
     };
 
     return structureDTO;
+}
+
+export function mapFieldDataToForm(data: StructureCreateDTO): any {
+    // First map the DominionCreateDTO fields
+    const dominionForm = mapDominionFieldDataToForm(data);
+
+    // Then map the StructureCreateDTO fields
+    return {
+        ...dominionForm,
+        street: data.Street ? mapStreetFieldDataToForm(data.Street) : { id: data.StreetId },
+        streetNumber: data.StreetNumber,
+        district: data.District ? mapDistrictFieldDataToForm(data.District) : { id: data.DistrictId }
+    };
 }

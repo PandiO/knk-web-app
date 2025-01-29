@@ -1,5 +1,5 @@
-import { DominionCreateDTO, mapFormDataToFields as mapDominionFormDataToFields } from "./DominionCreateDTO";
-import { TownCreateDTO, mapFormDataToFields as mapTownFormDataToFields } from "./TownCreateDTO";
+import { DominionCreateDTO, mapFormDataToFields as mapDominionFormDataToFields, mapFieldDataToForm as mapDominionFieldDataToForm } from "./DominionCreateDTO";
+import { TownCreateDTO, mapFormDataToFields as mapTownFormDataToFields, mapFieldDataToForm as mapTownFieldDataToForm } from "./TownCreateDTO";
 
 export interface DistrictCreateDTO extends DominionCreateDTO {
     TownId?: number;
@@ -18,4 +18,15 @@ export function mapFormDataToFields(data: any): DistrictCreateDTO {
     };
 
     return districtDTO;
+}
+
+export function mapFieldDataToForm(data: DistrictCreateDTO): any {
+    // First map the DominionCreateDTO fields
+    const dominionForm = mapDominionFieldDataToForm(data);
+
+    // Then map the DistrictCreateDTO fields
+    return {
+        ...dominionForm,
+        town: data.Town && mapTownFieldDataToForm(data.Town) || { id: data.TownId }
+    };
 }

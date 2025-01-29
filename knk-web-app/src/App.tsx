@@ -1,28 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { ObjectCreator } from './components/ObjectCreator';
 import { DataTable } from './components/DataTable';
-import { Pencil, Trash2, Eye } from 'lucide-react';
-import { objectConfigs } from './config/objectConfigs';
 import { testData } from './data/testData';
-import { ItemsManager } from './io/items';
 import { StructuresManager } from './io/structures';
+import { ObjectViewPage } from './pages/ObjectViewPage';
 
 function App() {
   const [itemsList, setItemsList] = useState<any[]>([]);
-  
-  const handleView = (item: any) => {
-    console.log('View item:', item);
-  };
 
-  const handleEdit = (item: any) => {
-    console.log('Edit item:', item);
-  };
-
-  const handleDelete = (item: any) => {
-    console.log('Delete item:', item);
-  };
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -34,23 +21,6 @@ function App() {
 
     fetchItems();
   }, []);
-  const tableActions = [
-    {
-      label: 'View',
-      onClick: handleView,
-      icon: <Eye className="h-4 w-4" />,
-    },
-    {
-      label: 'Edit',
-      onClick: handleEdit,
-      icon: <Pencil className="h-4 w-4" />,
-    },
-    {
-      label: 'Delete',
-      onClick: handleDelete,
-      icon: <Trash2 className="h-4 w-4" />,
-    },
-  ];
 
   // Default formatters for common fields
   const defaultFormatters = {
@@ -66,6 +36,7 @@ function App() {
           <div className="max-w-7xl mx-auto space-y-12">
             <Routes>
               <Route path="/create/:objectType" element={<ObjectCreator />} />
+              <Route path="/view/:type/:id" element={<ObjectViewPage />} />
               <Route path="/" element={
                 <>
                   {/* Towns Table */}
@@ -73,6 +44,7 @@ function App() {
                     <h2 className="text-3xl font-bold text-gray-900 mb-8">Towns</h2>
                     <DataTable
                       data={itemsList}
+                      type='structure'
                       formatters={{
                         ...defaultFormatters,
                         RegionName: (value) => (
@@ -81,7 +53,6 @@ function App() {
                           </span>
                         ),
                       }}
-                      actions={tableActions}
                     />
                   </div>
 
@@ -90,6 +61,7 @@ function App() {
                     <h2 className="text-3xl font-bold text-gray-900 mb-8">Districts</h2>
                     <DataTable
                       data={[testData.districts.northDistrict, testData.districts.southDistrict]}
+                      type='district'
                       formatters={{
                         ...defaultFormatters,
                         RegionName: (value) => (
@@ -99,7 +71,6 @@ function App() {
                         ),
                         Town: (value) => value?.Name || '-',
                       }}
-                      actions={tableActions}
                     />
                   </div>
 
@@ -112,6 +83,7 @@ function App() {
                         testData.structures.structure2,
                         testData.structures.structure3
                       ]}
+                      type='structure'
                       formatters={{
                         ...defaultFormatters,
                         RegionName: (value) => (
@@ -123,7 +95,6 @@ function App() {
                         Street: (value) => value?.Name || '-',
                         StreetNumber: (value) => `#${value}`,
                       }}
-                      actions={tableActions}
                     />
                   </div>
                 </>
