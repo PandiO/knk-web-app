@@ -40,7 +40,7 @@ export function DataTable<T extends Record<string, any>>({
 
   const handleView = (item: T) => {
     console.log('View item:', item);
-    navigate(`/view/${type}/${item.id}`);
+    navigate(`/view/${type}/${item.id}`, { state: { object: item}});
   };
 
   const handleEdit = (item: T) => {
