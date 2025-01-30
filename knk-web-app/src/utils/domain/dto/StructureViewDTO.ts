@@ -9,7 +9,7 @@ export interface StructureStreetViewDTO {
 
 export function mapStreetFieldDataToForm(data: any): StructureStreetViewDTO {
     var districts = new Map<number, string>();
-    data.districts.forEach((district: any) => {
+    data.districts?.forEach((district: any) => {
         districts.set(district.id, district.name);
     });
 
@@ -28,8 +28,8 @@ export interface StructureViewDTO extends DominionViewDTO {
 
 export function mapFieldDataToForm(data: any): StructureViewDTO {
     var dominionForm = mapDominionFieldDataToForm(data);
-    var streetForm = mapStreetFieldDataToForm(data.street);
-    var districtForm = mapDistrictFieldDataToForm(data.district);
+    var streetForm = data.street ? mapStreetFieldDataToForm(data.street) : null;
+    var districtForm = data.district ? mapDistrictFieldDataToForm(data.district) : null;
 
     return {
         ...dominionForm,

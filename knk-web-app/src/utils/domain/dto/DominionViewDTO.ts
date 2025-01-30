@@ -17,8 +17,8 @@ export function mapFieldDataToForm(data: DominionViewDTO): any {
         name: data.Name,
         description: data.Description,
         allowEntry: data.AllowEntry,
-        created: data.Created,
+        created: new Date(data.Created),
         wgRegionId: data.WgRegionId,
-        location: mapLocationFieldDataToForm(data.Location)
+        location: data.Location ? mapLocationFieldDataToForm(data.Location) : null
     };
 }
