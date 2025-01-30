@@ -6,6 +6,7 @@ import { DataTable } from './components/DataTable';
 import { testData } from './data/testData';
 import { StructuresManager } from './io/structures';
 import { ObjectViewPage } from './pages/ObjectViewPage';
+import { mapFieldDataToForm as mapStructureFieldDataToForm } from './utils/domain/dto/StructureViewDTO';
 
 function App() {
   const [itemsList, setItemsList] = useState<any[]>([]);
@@ -15,7 +16,9 @@ function App() {
     const fetchItems = async () => {
       const items = await StructuresManager.getInstance().getAll().then((data) => {
         console.log(data);
-        setItemsList(data);
+        var list = data.map(mapStructureFieldDataToForm);
+        setItemsList(list);
+        console.log("Displaying: ", itemsList);
       }).catch((err) => { console.error(err); });
     };
 
