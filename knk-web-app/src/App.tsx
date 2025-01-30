@@ -18,7 +18,7 @@ function App() {
         console.log(data);
         var list = data.map(mapStructureFieldDataToForm);
         setItemsList(list);
-        console.log("Displaying: ", itemsList);
+        console.log("Displaying: ", list);
       }).catch((err) => { console.error(err); });
     };
 

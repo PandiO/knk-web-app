@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { ObjectView } from '../components/ObjectView';
 import { objectConfigs } from '../config/objectConfigs';
-import { StructureViewDTO } from '../utils/domain/dto/StructureViewDTO';
+import { StructureViewDTO, mapFieldDataToForm as mapStructureFieldDataToForm } from '../utils/domain/dto/StructureViewDTO';
 import { StructuresManager } from '../io/structures';
 import { DistrictViewDTO } from '../utils/domain/dto/DistrictViewDTO';
 import { TownViewDTO } from '../utils/domain/dto/TownViewDTO';
@@ -61,7 +61,7 @@ export function ObjectViewPage() {
         switch (type) {
           case 'structure':
             await StructuresManager.getInstance().getViewById(numericId).then((result) => {
-              data = result;
+              data = mapStructureFieldDataToForm(result);
             }).catch((err) => {setFetchState({data: null, loading: false, error: err})});
             break;
           // Add other cases as they are implemented

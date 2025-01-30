@@ -7,17 +7,17 @@ export interface StructureStreetViewDTO {
     Districts: Map<number, string>;
 }
 
-export function mapStreetFieldDataToForm(data: any): StructureStreetViewDTO {
+export function mapStreetFieldDataToForm(data: any): any {
     var districts = new Map<number, string>();
-    data.districts?.forEach((district: any) => {
-        districts.set(district.id, district.name);
+    data.Districts?.forEach((d: any) => {
+        districts.set(d.id, d.name);
     });
 
     return {
-        Id: data.id,
-        Name: data.name,
-        Districts: districts
-    } as StructureStreetViewDTO;
+        id: data.Id,
+        name: data.Name,
+        districts: districts
+    };
 }
 
 export interface StructureViewDTO extends DominionViewDTO {
@@ -26,15 +26,15 @@ export interface StructureViewDTO extends DominionViewDTO {
     District: DistrictViewDTO;
 }
 
-export function mapFieldDataToForm(data: any): StructureViewDTO {
+export function mapFieldDataToForm(data: StructureViewDTO): any {
     var dominionForm = mapDominionFieldDataToForm(data);
-    var streetForm = data.street ? mapStreetFieldDataToForm(data.street) : null;
-    var districtForm = data.district ? mapDistrictFieldDataToForm(data.district) : null;
+    var streetForm = data.Street ? mapStreetFieldDataToForm(data.Street) : null;
+    var districtForm = data.District ? mapDistrictFieldDataToForm(data.District) : null;
 
     return {
         ...dominionForm,
-        Street: streetForm,
-        StreetNumber: data.streetNumber,
-        District: districtForm
-    } as StructureViewDTO;
+        street: streetForm,
+        streetNumber: data.StreetNumber,
+        district: districtForm
+    };
 }

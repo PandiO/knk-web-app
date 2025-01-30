@@ -8,15 +8,15 @@ export interface DistrictViewDTO extends DominionViewDTO {
     StreetNames: Map<number, string>;
 }
 
-export function mapFieldDataToForm(data: any): DistrictViewDTO {
+export function mapFieldDataToForm(data: any): any {
     var dominionForm = mapDominionFieldDataToForm(data);
-    var townForm = mapTownFieldDataToForm(data.town);
-    var streets = data.streets?.map((street: any) => mapStreetFieldDataToForm(street));
-    var streetNames = new Map<number, string>(Object.entries(data.streetNames).map(([key, value]) => [parseInt(key), value as string]));
+    var townForm = mapTownFieldDataToForm(data.Town);
+    var streets = data.Streets?.map((s: any) => mapStreetFieldDataToForm(s));
+    var streetNames = new Map<number, string>(Object.entries(data.StreetNames).map(([key, value]) => [parseInt(key), value as string]));
     return {
         ...dominionForm,
-        Town: townForm,
-        Streets: streets,
-        StreetNames: streetNames
-    } as DistrictViewDTO;
+        town: townForm,
+        streets: streets,
+        streetNames: streetNames
+    };
 }
