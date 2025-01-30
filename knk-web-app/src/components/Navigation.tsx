@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, ChevronRight } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Plus, ChevronRight, Home, Table2 } from 'lucide-react';
 import { objectConfigs } from '../config/objectConfigs';
 
 export function Navigation() {
@@ -8,6 +8,7 @@ export function Navigation() {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const objectTypes = Object.entries(objectConfigs).map(([type, config]) => ({
     id: type,
@@ -50,22 +51,50 @@ export function Navigation() {
   };
 
   return (
-    <nav className="bg-white shadow-sm">
+    <nav className="panel fixed w-full top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          <div className="flex">
+          <div className="flex items-center space-x-8">
             <div className="flex-shrink-0 flex items-center">
-              <h1 className="text-xl font-bold text-gray-900" onClick={() => {
-                navigate('/');
-                setSelectedIndex(-1);
-              }}>Dashboard</h1>
+              <Link to="/" className="flex items-center">
+                <img
+                  src="https://www.dropbox.com/scl/fi/dshx4j5951wsc0dvxvk22/favicon.png?rlkey=te7efq8ukvzy8mx6uj654h54h&raw=1"
+                  alt="Logo"
+                  className="h-10 w-10 mr-3 hover:opacity-90 transition-opacity"
+                />
+              </Link>
+              <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
+            </div>
+            <div className="hidden sm:flex sm:space-x-8">
+              <Link
+                to="/"
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  location.pathname === '/'
+                    ? 'border-b-2 border-primary text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
+                }`}
+              >
+                <Home className="h-4 w-4 mr-2" />
+                Home
+              </Link>
+              <Link
+                to="/dashboard"
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  location.pathname === '/dashboard'
+                    ? 'border-b-2 border-primary text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
+                }`}
+              >
+                <Table2 className="h-4 w-4 mr-2" />
+                Dashboard
+              </Link>
             </div>
           </div>
           <div className="flex items-center">
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                className="btn-primary"
                 title="Create a new object"
               >
                 <Plus className="h-5 w-5 mr-2" />

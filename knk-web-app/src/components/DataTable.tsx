@@ -117,7 +117,15 @@ export function DataTable<T extends Record<string, any>>({
     if (value === null || value === undefined) return '-';
 
     // Handle basic types
-    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    if (typeof value === 'boolean') {
+      return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        }`}>
+          {value ? 'Yes' : 'No'}
+        </span>
+      );
+    }
     if (value instanceof Date) return value.toLocaleDateString();
     
     // Handle objects
@@ -131,7 +139,16 @@ export function DataTable<T extends Record<string, any>>({
     }
 
     // Return primitive values as is
-    return value;
+    // Special handling for Name field
+    if (key === 'name' || key === 'Name') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+          {value}
+        </span>
+      );
+    } else {
+      return value;
+    }
   };
 
   const getHeaderText = (key: string): string => {
@@ -206,15 +223,15 @@ export function DataTable<T extends Record<string, any>>({
   });
 
   return (
-    <div className="w-full overflow-x-auto bg-white rounded-lg shadow-lg">
+    <div className="w-full overflow-x-auto panel bg-white/95 backdrop-blur">
       <table className="w-full min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+        <thead className="bg-slate-50">
           <tr>
             {columns.map((column) => (
               <th
                 key={column}
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
                 onClick={() => handleSort(column)}
               >
                 <div className="flex items-center space-x-1">
@@ -230,11 +247,11 @@ export function DataTable<T extends Record<string, any>>({
             )}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="divide-y divide-[var(--color-wood-light)]">
           {sortedData.map((item, index) => (
             <tr
               key={index}
-              className="hover:bg-gray-50 transition-colors relative group"
+              className="hover:bg-slate-50 transition-colors relative group"
             >
               {columns.map((column) => (
                 <td
@@ -249,12 +266,12 @@ export function DataTable<T extends Record<string, any>>({
                   <div className="relative" ref={menuRef}>
                     <button
                       onClick={() => setActiveMenu(activeMenu === index ? null : index)}
-                      className="invisible group-hover:visible p-2 rounded-full hover:bg-gray-100 transition-colors"
+                      className="invisible group-hover:visible p-2 rounded-full hover:bg-slate-100 transition-colors"
                     >
-                      <MoreVertical className="h-4 w-4 text-gray-500" />
+                      <MoreVertical className="h-4 w-4 text-slate-400" />
                     </button>
                     {activeMenu === index && (
-                      <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                      <div className="absolute right-0 mt-2 w-48 panel shadow-lg z-10">
                         <div className="py-1" role="menu">
                           {combinedActions.map((action, actionIndex) => (
                             <button
@@ -263,7 +280,7 @@ export function DataTable<T extends Record<string, any>>({
                                 action.onClick(item);
                                 setActiveMenu(null);
                               }}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                              className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
                               role="menuitem"
                             >
                               {action.icon && <span>{action.icon}</span>}

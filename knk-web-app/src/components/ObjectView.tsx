@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, ExternalLink } from 'lucide-react';
 import { objectConfigs } from '../config/objectConfigs';
 
@@ -20,8 +20,23 @@ export function ObjectView({ data, config }: ObjectViewProps) {
       return <span className="text-gray-400">-</span>;
     }
 
+    // Special handling for Name field
+    if (key === 'name' || key === 'Name') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+          {value}
+        </span>
+      );
+    }
+
     if (typeof value === 'boolean') {
-      return value ? 'Yes' : 'No';
+      return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        }`}>
+          {value ? 'Yes' : 'No'}
+        </span>
+      );
     }
 
     if (value instanceof Date) {
@@ -90,21 +105,21 @@ export function ObjectView({ data, config }: ObjectViewProps) {
       <div className="mb-8">
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+          className="btn-secondary"
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
           Back
         </button>
       </div>
 
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:px-6">
-          <h2 className="text-xl font-semibold text-gray-900">
+      <div className="panel">
+        <div className="px-4 py-5 sm:px-6 border-b border-slate-200">
+          <h2 className="text-xl font-semibold text-slate-900">
             {data.Name || config.label} Details
           </h2>
         </div>
 
-        <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
+        <div className="px-4 py-5 sm:px-6">
           <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
             {Object.entries(config.fields).map(([key, field]: [string, any]) => {
               const value = data[key];
@@ -124,10 +139,10 @@ export function ObjectView({ data, config }: ObjectViewProps) {
 
               return (
                 <div key={key} className="sm:col-span-1">
-                  <dt className="text-sm font-medium text-gray-500">
+                  <dt className="text-sm font-medium text-slate-500">
                     {field.label}
                   </dt>
-                  <dd className="mt-1 text-sm text-gray-900">
+                  <dd className="mt-1 text-sm text-slate-900">
                     {renderValue(key, value, config.formatters?.[key])}
                   </dd>
                 </div>
