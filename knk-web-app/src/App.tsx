@@ -7,6 +7,7 @@ import { testData } from './data/testData';
 import { StructuresManager } from './io/structures';
 import { ObjectViewPage } from './pages/ObjectViewPage';
 import { mapFieldDataToForm as mapStructureFieldDataToForm } from './utils/domain/dto/StructureViewDTO';
+import { LandingPage } from './pages/LandingPage';
 
 function App() {
   const [itemsList, setItemsList] = useState<any[]>([]);
@@ -38,9 +39,10 @@ function App() {
         <div className="p-8">
           <div className="max-w-7xl mx-auto space-y-12">
             <Routes>
+              <Route path="/" element={<LandingPage />} />
               <Route path="/create/:objectType" element={<ObjectCreator />} />
               <Route path="/view/:type/:id" element={<ObjectViewPage />} />
-              <Route path="/" element={
+              <Route path="/dashboard" element={
                 <>
                   {/* Towns Table */}
                   <div>
