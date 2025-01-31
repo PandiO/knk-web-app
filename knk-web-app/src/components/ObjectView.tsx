@@ -61,13 +61,13 @@ export function ObjectView({ data, config }: ObjectViewProps) {
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {Object.entries(value).map(([subKey, subValue]) => {
               // Skip internal or complex fields
-              if (
-                subKey === 'Id' ||
-                typeof subValue === 'object' ||
-                Array.isArray(subValue)
-              ) {
-                return null;
-              }
+              // if (
+              //   subKey === 'Id' ||
+              //   typeof subValue === 'object' ||
+              //   Array.isArray(subValue)
+              // ) {
+              //   return null;
+              // }
 
               const subField = entityConfig.fields[subKey];
               if (!subField) return null;
@@ -133,9 +133,9 @@ export function ObjectView({ data, config }: ObjectViewProps) {
               }
 
               // Skip complex objects without formatters
-              if (typeof value === 'object' && !config.formatters?.[key]) {
-                return null;
-              }
+              // if (typeof value === 'object' && !config.formatters?.[key]) {
+              //   return null;
+              // }
 
               return (
                 <div key={key} className="sm:col-span-1">

@@ -141,6 +141,12 @@ const districtConfig: ObjectConfig = {
       required: true,
       objectConfig: townConfig
     },
+    streetNames: {
+      name: 'Street Names',
+      label: 'Street Names',
+      type: 'array',
+      required: false,
+    }
   },
   formatters: dominionConfig.formatters
 }
