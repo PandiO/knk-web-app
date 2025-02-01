@@ -14,7 +14,7 @@ export class LocationsManager extends ObjectManager {
         return LocationsManager.instance;
     }
 
-    getAll(data?: any): Promise<LocationCreateDTO[]> {
+    getAll(data?: any): Promise<any[]> {
         return this.invokeServiceCall(data, LocationsOperation.GetAll, Controllers.Locations, HttpMethod.Get);
     }
 }

@@ -24,7 +24,7 @@ export function mapFormDataToFields(data: any): iLocationCreateDTO {
     } as iLocationCreateDTO;
 }
 
-export function mapFieldDataToForm(data: iLocationCreateDTO): any {
+export function mapFieldDataToForm(data: any): any {
     return {
         id: data.Id,
         x: data.X,

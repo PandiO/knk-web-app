@@ -21,6 +21,7 @@ export interface FormField<T = any> {
   step?: number;
   placeholder?: string;   
   hidden?: boolean;
+  fieldDisplayMode?: 'all' | 'idAndName' | 'nameOnly';
 }
 
 export interface ObjectConfig {
@@ -30,6 +31,13 @@ export interface ObjectConfig {
   fields: Record<string, FormField>;
   formatters?: Record<string, (value: any) => React.ReactNode>;
   validators?: Record<string, (value: any) => string | undefined>;
+  showViewButton?: boolean;
+  fieldDisplayConfig?: Record<string, {
+    fieldDisplayMode?: 'all' | 'idAndName' | 'nameOnly';
+    fields?: Record<string, {
+      fieldDisplayMode?: 'all' | 'idAndName' | 'nameOnly';
+    }>;
+  }>;
 }
 
 export interface NestedFormData {
