@@ -7,6 +7,9 @@ import { MultiSelectDropdown } from './MultiSelectDropdown';
 import { DistrictManager } from '../io/districts';
 import { LocationsManager } from '../io/locations';
 import { StreetManager } from '../io/streets';
+import { mapFieldDataToForm as mapLocationFieldDataToForm } from '../utils/domain/dto/LocationCreateDTO';
+import { mapFieldDataToForm as mapDistrictFieldDataToForm } from '../utils/domain/dto/DistrictCreateDTO';
+import { mapFieldDataToForm as mapStreetFieldDataToForm } from '../utils/domain/dto/StreetCreateDTO';
 
 interface DynamicFormProps {
   config: ObjectConfig;
@@ -49,7 +52,7 @@ export function DynamicForm({
             DistrictManager.getInstance().getAll().then((data) => {
               setRelationshipData(prev => ({
                 ...prev,
-                [key]: data.map((o: any) => ({ id: o.id, name: o.name }))
+                [key]: data.map(mapDistrictFieldDataToForm).map((o: any) => ({ id: o.id, name: o.name }))
               }));
             }).catch((err) => { console.error(err); });
           }; break;
@@ -57,7 +60,7 @@ export function DynamicForm({
             LocationsManager.getInstance().getAll().then((data) => {
               setRelationshipData(prev => ({
                 ...prev,
-                [key]: data.map((o: any) => ({ id: o.id, name: 'Location' }))
+                [key]: data.map(mapLocationFieldDataToForm).map((o: any) => ({ id: o.id, name: 'Location' }))
               }));
             }).catch((err) => { console.error(err); });
           }; break;
@@ -65,7 +68,7 @@ export function DynamicForm({
             StreetManager.getInstance().getAll().then((data) => {
               setRelationshipData(prev => ({
                 ...prev,
-                [key]: data.map((o: any) => ({ id: o.id, name: o.name }))
+                [key]: data.map(mapStreetFieldDataToForm).map((o: any) => ({ id: o.id, name: o.name }))
               }));
             }).catch((err) => { console.error(err); });
           }

@@ -33,11 +33,11 @@ export function SearchableDropdown({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const filteredInstances = instances.filter(instance =>
+  const filteredInstances = instances?.filter(instance =>
     instance.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const selectedInstance = instances.find(instance => instance.id == selectedId);
+  const selectedInstance = instances?.find(instance => instance.id == selectedId);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
