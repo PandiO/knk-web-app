@@ -6,31 +6,49 @@ import { ImageUploadModal } from '../components/ImageUploadModal';
 const DEMO_IMAGES = [
   {
     id: '1',
-    url: 'https://previews.dropbox.com/p/thumb/ACh6trT201Gtnz2JCtSCqJ-a_2SYHa9QN2iimrCZquTZuixusxEcHwBBVhsZ6GmWUwEvuwNY_yFQxo4K9-yHPx-F3ewj5rZC7BuweHjKleHzvUCWa4mQtuOr2WL8tG6M1YC9l7LJnJt99eQ_MIcdEdW8TsSLOzdijp2MorSScBVqAU55L5SJRjREDttdtgx2HF-Ji3T_7C2j_G2-AM4F06Y2YMJBm59wx7L771x6OZ7_OdAM50vosPaCHHGwmlJwPX55bXeqnORCBaHWnJdnER9GbXdECCWfzl38heNNkTYz1nEs1GnppAI63BycKlb85xjy-dJD_S5YbzJHWnIL2yr513k4rnPyrxjrRP7ju0SA3xQ-j_JL-hJoLmIkY67Ec2bGW9I07wKgn2DvzyFxWxAD/p.jpeg?is_prewarmed=true',
+    url: '/images/1.jpg',
     title: 'Cinix from north west Gate',
-    // photographer: 'Bailey Zindel',
-    // description: 'Sunrise at Yosemite National Park'
   },
   {
     id: '2',
-    url: 'https://previews.dropbox.com/p/thumb/ACgUXbiuF12VY0whmI2WXOVNwtt1NfXTWmKhbGPuqV-debNG-M9tNcmNldxBXbyE-rG-X-E7-_dELghWikC4fA4F5PpW4-gyShi_3ezlO0cQquBGnNv32CtesnUQvsl9ZymSbDUAt8DVGUB3Na2xxP4xBIZXlDJ73vKpXCszL7k581pQzV_6RYLny23EwV5h2_7WCdTO3uUgYJdt254wqbX5DxpWN31amcsNPRKJXXwT5CpkUB2B7I15Cwfyghx2pDik2A5ovsY85yilngMuqTh_UrF9QchovhJgDV7AkYSIhsZWJZFV6Zs-3Ei3NtBJWBZHAVyJk3j6rMVKqbU70TpIDi6TjZbcB6xtvtBkBmm0ZeiYp-ypo-LfnLhrlO6m7mUMwhjCwLoOfhA1itrjc8lw11w3dTbacVmlLCPoYrXmCYfUJRZqHuoVfHRA01ySnX9AVFeEEnnX85nTG2WV5fTh/p.jpeg?is_prewarmed=true',
+    url: '/images/2.jpg',
     title: 'Cinix from south west Forrest',
-    // photographer: 'Jonatan Pie',
-    // description: 'Aurora Borealis in Iceland'
   },
   {
     id: '3',
-    url: 'https://previews.dropbox.com/p/thumb/ACjXV1Z_4skF4qkcuxsXlyKxUmPO4BcZo8H6RJYw1jWn6owRgZtySBgwFrgjlcAk55OVrkPRKyphtOk26zC-Y9SEMxcvm9da9qfihQJDEA3xEm61dJ9gY3EzhWIkLZerdG7g1i1B0hNeRglHYdMNCYM66miC_lYDqEzRHdl7bgYJnFrDcLeg3fqlUvkKY14OkUXmpUsuByR9djkQbWCzaRZM0be2lkLUm4YnM4iWhdSFjjX8c6jFXKZbaBJlEwufMCq-bgbqANeIeeRHVWb_lRRwVZvkvQEQuQyAGOH6vmm4G2p9htTppJ5Lj-Qa0wUEuP1yKi7INHgoj-2YjzLVh6tipx90t_iJWyHT33R6ShVuVfSwGpP4pbfOg_QPt2qX1kUwKaQllld4f0pXIYzstRor5X-PnYkhllverKm6suGTR2WCyVMf5mwPFIGmZvwr8YFab4CoXK2hvMdV3B5FGHp0/p.jpeg?is_prewarmed=true',
+    url: '/images/3.jpg',
     title: 'Cinix',
-    // photographer: 'Aman Upadhyay',
-    // description: 'Light beams in Upper Antelope Canyon'
   },
   {
     id: '4',
-    url: 'https://previews.dropbox.com/p/thumb/ACgGAlCV0tKHT0ZQuyqGoP2kFSuR7ikPF6S9Y3_NU5Nx06PBrhrXLMVFrc3u9kxtsdRUTOFDmY8yhB9DRan8mRyjpLzUcvvj_T_HbntnsEDKtTOkp0Ha86uYdJDdx98q4xswUvqGC86GlSqFqPVrIPDe5fq4jsZHlMDhDirgNBlWYqVtqECUpZokDtsoPZosKe6qRd2H4n9Omvbnr6MbvwV-Yy8YBwywv1g7tpvfAcdkJWr3vCTDFftiDQO38PvlPurdOvCBT2aNXNcDSLcz1rnM39jVPOs7v-wtRTDx7dkCRLn2g_xIWaoY8CzpZHSUUwWQaAyiWwaSic7M5fXcI2H0_jpphpyAMYY46r-Y4wN2jMyEfIr5ObCPYB2Wi6de6Vhp1kDni9CKsJQktsB-CXnG/p.jpeg?is_prewarmed=true',
+    url: '/images/4.jpg',
     title: 'Cinix',
-    // photographer: 'Aman Upadhyay',
-    // description: 'Light beams in Upper Antelope Canyon'
+  },
+  {
+    id: '5',
+    url: '/images/5.jpg',
+    title: 'Cinix',
+  },
+  {
+    id: '6',
+    url: '/images/6.jpg',
+    title: 'Cinix',
+  }
+  ,
+  {
+    id: '7',
+    url: '/images/7.jpg',
+    title: 'Cinix',
+  },
+  {
+    id: '8',
+    url: '/images/8.jpg',
+    title: 'Cinix',
+  },
+  {
+    id: '9',
+    url: '/images/9.jpg',
+    title: 'Cinix',
   }
 ];
 
