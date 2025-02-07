@@ -3,14 +3,18 @@ import { DistrictViewDTO, mapFieldDataToForm as mapDistrictFieldDataToForm } fro
 export interface StreetViewDTO {
     Id: number;
     Name: string;
-    Districts: DistrictViewDTO[];
+    Districts?: DistrictViewDTO[];
 }
 
-export function mapFieldDataToForm(data: any): StreetViewDTO {
-    var districtsForm = data.districts.map((district: any) => mapDistrictFieldDataToForm(district));
+export function mapFieldDataToForm(data: any): StreetViewDTO | null {
+    if (!data) return null;
+
+    const districts = data.Districts || data.districts || [];
+    const districtsForm = districts.map((district: any) => mapDistrictFieldDataToForm(district)).filter(Boolean);
+
     return {
-        Id: data.id,
-        Name: data.name,
+        Id: data.Id || data.id,
+        Name: data.Name || data.name,
         Districts: districtsForm
     } as StreetViewDTO;
 }

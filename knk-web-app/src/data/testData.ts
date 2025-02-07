@@ -1,210 +1,178 @@
-// Basic location for reuse
-const createLocation = (id: number, x: number, y: number, z: number, yaw: number = 0, pitch: number = 0) => ({
-  Id: id,
-  x,
-  y,
-  z,
-  yaw,
-  pitch
-});
+import { LocationViewDTO } from '../utils/domain/dto/LocationViewDTO';
+import { StreetViewDTO } from '../utils/domain/dto/StreetViewDTO';
+import { DistrictViewDTO } from '../utils/domain/dto/DistrictViewDTO';
+import { TownViewDTO } from '../utils/domain/dto/TownViewDTO';
+import { StructureViewDTO, StructureStreetViewDTO } from '../utils/domain/dto/StructureViewDTO';
 
-// Create Streets
-const mainStreet = {
+// Create LocationViewDTO instances
+const locations: LocationViewDTO[] = [
+  {
+    Id: 1,
+    X: 245,
+    Y: 64,
+    Z: -128,
+    Pitch: 0,
+    Yaw: 180,
+    WorldName: 'world'
+  },
+  {
+    Id: 2,
+    X: 312,
+    Y: 67,
+    Z: -156,
+    Pitch: 15,
+    Yaw: 90,
+    WorldName: 'world'
+  },
+  {
+    Id: 3,
+    X: 198,
+    Y: 65,
+    Z: -142,
+    Pitch: 0,
+    Yaw: 270,
+    WorldName: 'world'
+  },
+  {
+    Id: 4,
+    X: 275,
+    Y: 68,
+    Z: -134,
+    Pitch: 30,
+    Yaw: 45,
+    WorldName: 'world'
+  }
+];
+
+// Create TownViewDTO instance
+const town: TownViewDTO = {
   Id: 1,
-  Name: "Main Street"
+  Name: "Silverbrook",
+  Description: "A prosperous medieval town nestled in a scenic valley",
+  AllowEntry: true,
+  Created: new Date("2024-01-15T08:00:00Z"),
+  WgRegionId: 1001,
+  Location: locations[0],
+  RequiredTitle: 2
 };
 
-const highStreet = {
-  Id: 2,
-  Name: "High Street"
-};
+// Create DistrictViewDTO instances
+const districts: DistrictViewDTO[] = [
+  {
+    Id: 1,
+    Name: "Merchant Quarter",
+    Description: "The bustling commercial heart of Silverbrook",
+    AllowEntry: true,
+    Created: new Date("2024-01-15T09:00:00Z"),
+    WgRegionId: 2001,
+    Location: locations[1],
+    Town: town,
+    Streets: [], // Will be populated after street creation
+    StreetNames: new Map([
+      [1, "Market Street"],
+      [2, "Guild Row"]
+    ])
+  },
+  {
+    Id: 2,
+    Name: "Noble District",
+    Description: "An elegant residential area for the town's elite",
+    AllowEntry: false,
+    Created: new Date("2024-01-15T09:30:00Z"),
+    WgRegionId: 2002,
+    Location: locations[2],
+    Town: town,
+    Streets: [], // Will be populated after street creation
+    StreetNames: new Map([
+      [3, "High Street"],
+      [4, "Royal Avenue"]
+    ])
+  }
+];
 
-// Create Town
-const town = {
-  Id: 1,
-  Name: "Riverside",
-  Description: "A peaceful town by the river",
-  Created: new Date("2024-03-15T10:00:00Z"),
-  Location: createLocation(1, 100, 64, 100),
-  RegionName: "Central",
-  Districts: [] as any[] // Will be populated after district creation
-};
+// Create StreetViewDTO instances
+const streets: StreetViewDTO[] = [
+  {
+    Id: 1,
+    Name: "Market Street"
+  },
+  {
+    Id: 2,
+    Name: "Guild Row"
+  },
+  {
+    Id: 3,
+    Name: "High Street"
+  },
+  {
+    Id: 4,
+    Name: "Royal Avenue"
+  }
+];
 
-// Create Districts
-const northDistrict = {
-  Id: 2,
-  Name: "North District",
-  Description: "The northern residential area",
-  Created: new Date("2024-03-15T10:30:00Z"),
-  Location: createLocation(2, 150, 64, 50),
-  RegionName: "North",
-  Town: town,
-  Streets: [mainStreet]
-};
+// Update districts with their streets
+districts[0].Streets = [streets[0], streets[1]];
+districts[1].Streets = [streets[2], streets[3]];
 
-const southDistrict = {
-  Id: 3,
-  Name: "South District",
-  Description: "The southern commercial district",
-  Created: new Date("2024-03-15T11:00:00Z"),
-  Location: createLocation(3, 50, 64, 150),
-  RegionName: "South",
-  Town: town,
-  Streets: [highStreet]
-};
+// Create StructureStreetViewDTO instances
+const structureStreets: StructureStreetViewDTO[] = [
+  {
+    Id: 1,
+    Name: "Market Street",
+    Districts: new Map([[1, "Merchant Quarter"]])
+  },
+  {
+    Id: 3,
+    Name: "High Street",
+    Districts: new Map([[2, "Noble District"]])
+  }
+];
 
-// Link districts to town
-town.Districts = [northDistrict, southDistrict];
-
-// Create Structures
-const structure1 = {
-  Id: 4,
-  Name: "Town Hall",
-  Description: "The central administrative building",
-  Created: new Date("2024-03-15T12:00:00Z"),
-  Location: createLocation(4, 155, 64, 55),
-  RegionName: "North",
-  District: northDistrict,
-  Street: mainStreet,
-  StreetNumber: 1,
-  Storages: [] as any[] // Will be populated after storage creation
-};
-
-const structure2 = {
-  Id: 5,
-  Name: "Market",
-  Description: "The main marketplace",
-  Created: new Date("2024-03-15T12:30:00Z"),
-  Location: createLocation(5, 45, 64, 145),
-  RegionName: "South",
-  District: southDistrict,
-  Street: highStreet,
-  StreetNumber: 2,
-  Storages: [] as any[] // Will be populated after storage creation
-};
-
-const structure3 = {
-  Id: 6,
-  Name: "Library",
-  Description: "Public library and archive",
-  Created: new Date("2024-03-15T13:00:00Z"),
-  Location: createLocation(6, 160, 64, 60),
-  RegionName: "North",
-  District: northDistrict,
-  Street: mainStreet,
-  StreetNumber: 3,
-  Storages: [] as any[] // Will be populated after storage creation
-};
-
-// Create Storages
-const storage1 = {
-  Id: 7,
-  Name: "Storage",
-  Structure: structure1,
-  ItemAmountMax: 999,
-  CapacityMax: 999999,
-  ItemAmount: 0,
-  Capacity: 0,
-  StorageItems: new Map()
-};
-
-const storage2 = {
-  Id: 8,
-  Name: "Storage",
-  Structure: structure2,
-  ItemAmountMax: 999,
-  CapacityMax: 999999,
-  ItemAmount: 0,
-  Capacity: 0,
-  StorageItems: new Map()
-};
-
-const storage3 = {
-  Id: 9,
-  Name: "Storage",
-  Structure: structure3,
-  ItemAmountMax: 999,
-  CapacityMax: 999999,
-  ItemAmount: 0,
-  Capacity: 0,
-  StorageItems: new Map()
-};
-
-// Link storages to structures
-structure1.Storages = [storage1];
-structure2.Storages = [storage2];
-structure3.Storages = [storage3];
+// Create StructureViewDTO instances
+const structures: StructureViewDTO[] = [
+  {
+    Id: 1,
+    Name: "Grand Marketplace",
+    Description: "The central trading hub of Silverbrook",
+    AllowEntry: true,
+    Created: new Date("2024-01-16T10:00:00Z"),
+    WgRegionId: 3001,
+    Location: locations[1],
+    Street: structureStreets[0],
+    StreetNumber: 1,
+    District: districts[0]
+  },
+  {
+    Id: 2,
+    Name: "Noble Manor",
+    Description: "An impressive mansion with ornate architecture",
+    AllowEntry: false,
+    Created: new Date("2024-01-16T11:00:00Z"),
+    WgRegionId: 3002,
+    Location: locations[2],
+    Street: structureStreets[1],
+    StreetNumber: 15,
+    District: districts[1]
+  },
+  {
+    Id: 3,
+    Name: "Craftsmen's Guild Hall",
+    Description: "Headquarters of the town's artisan guilds",
+    AllowEntry: true,
+    Created: new Date("2024-01-16T12:00:00Z"),
+    WgRegionId: 3003,
+    Location: locations[3],
+    Street: structureStreets[0],
+    StreetNumber: 8,
+    District: districts[0]
+  }
+];
 
 // Export all created objects
 export const testData = {
+  locations,
   town,
-  districts: {
-    northDistrict,
-    southDistrict
-  },
-  streets: {
-    mainStreet,
-    highStreet
-  },
-  structures: {
-    structure1,
-    structure2,
-    structure3
-  },
-  storages: {
-    storage1,
-    storage2,
-    storage3
-  }
+  districts,
+  streets,
+  structures
 };
-
-// Type definitions
-export interface Location {
-  Id: number;
-  x: number;
-  y: number;
-  z: number;
-  yaw: number;
-  pitch: number;
-}
-
-export interface Dominion {
-  Id: number;
-  Name: string;
-  Description?: string;
-  Created: Date;
-  Location: Location;
-  RegionName?: string;
-}
-
-export interface Street {
-  Id: number;
-  Name: string;
-}
-
-export interface District extends Dominion {
-  Town?: Town;
-  Streets: Street[];
-}
-
-export interface Town extends Dominion {
-  Districts?: District[];
-}
-
-export interface Structure extends Dominion {
-  District?: District;
-  Street: Street;
-  StreetNumber: number;
-  Storages?: Storage[];
-}
-
-export interface Storage {
-  Id: number;
-  Name: string;
-  Structure?: Structure;
-  ItemAmountMax: number;
-  CapacityMax: number;
-  ItemAmount: number;
-  Capacity: number;
-  StorageItems: Map<any, number>; // Using 'any' for Item type as it's not defined
-}

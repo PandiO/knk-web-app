@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, ExternalLink, ChevronDown, ChevronRight, MapPin, Building2, Home, Brackets, Hash, Database } from 'lucide-react';
+import { ChevronLeft, ExternalLink, ChevronDown, ChevronRight, MapPin, Building2, Home, Brackets, Hash, Database, Map as MapIcon } from 'lucide-react';
+import { DistrictViewDTO } from '../utils/domain/dto/DistrictViewDTO';
 import { objectConfigs } from '../config/objectConfigs';
 import { ObjectConfig } from '../types/common';
 
@@ -97,7 +98,7 @@ function RelatedEntity({ title, icon, data, fields, fieldDisplayMode = 'all', on
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {Object.entries(data).map(([key, value]) => {
             const field = fields[key];
-            if (!field || !shouldShowField(key) || typeof value === 'object' || Array.isArray(value)) return null;
+            if (!field || !shouldShowField(key)) return null;
 
             return (
               <div key={key} className="sm:col-span-1">
@@ -123,9 +124,49 @@ function RelatedEntity({ title, icon, data, fields, fieldDisplayMode = 'all', on
   );
 }
 
+function isDistrictViewDTO(value: any): value is DistrictViewDTO {
+  return value && 
+         typeof value === 'object' && 
+         'StreetNames' in value &&
+         value.StreetNames instanceof Map;
+}
+
+function renderStreetNamesMap(streetNames: Map<number, string>): React.ReactNode {
+  if (!streetNames || streetNames.size === 0) {
+    return <span className="text-gray-400">No streets assigned</span>;
+  }
+
+  return (
+    <CollapsibleSection
+      title="Street Names"
+      type={`Map<number, string>`}
+      count={streetNames.size}
+      icon={<MapIcon className="h-4 w-4" />}
+      defaultExpanded={true}
+    >
+      <div className="space-y-2">
+        {Array.from(streetNames.entries()).map(([id, name]) => (
+          <div key={id} className="flex items-center space-x-2">
+            <span className="text-gray-500 font-mono">{id}</span>
+            <span className="text-gray-400">→</span>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              {name}
+            </span>
+          </div>
+        ))}
+      </div>
+    </CollapsibleSection>
+  );
+}
+
 function renderComplexValue(value: any, indent: number = 0): React.ReactNode {
   if (value === null || value === undefined) {
     return <span className="text-gray-400">-</span>;
+  }
+
+  // Handle DistrictViewDTO's StreetNames map
+  if (isDistrictViewDTO(value) && value.StreetNames) {
+    return renderStreetNamesMap(value.StreetNames);
   }
 
   if (Array.isArray(value)) {

@@ -12,12 +12,14 @@ export interface DominionViewDTO {
 }
 
 export function mapFieldDataToForm(data: DominionViewDTO): any {
+    if (!data) return null;
+    
     return {
         id: data.Id,
         name: data.Name,
         description: data.Description,
         allowEntry: data.AllowEntry,
-        created: new Date(data.Created),
+        created: data.Created ? new Date(data.Created) : null,
         wgRegionId: data.WgRegionId,
         location: data.Location ? mapLocationFieldDataToForm(data.Location) : null
     };

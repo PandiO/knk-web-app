@@ -9,10 +9,25 @@ export interface DistrictViewDTO extends DominionViewDTO {
 }
 
 export function mapFieldDataToForm(data: any): any {
-    var dominionForm = mapDominionFieldDataToForm(data);
-    var townForm = data.Town ? mapTownFieldDataToForm(data.Town) : null;
-    var streets = data.Streets?.map((s: any) => mapStreetFieldDataToForm(s));
-    var streetNames = data.StreetNames ? new Map<number, string>(Object.entries(data.StreetNames).map(([key, value]) => [parseInt(key), value as string])) : null;
+    if (!data) return null;
+    
+    const dominionForm = mapDominionFieldDataToForm(data);
+    if (!dominionForm) return null;
+
+    const townForm = data.Town ? mapTownFieldDataToForm(data.Town) : null;
+    const streets = Array.isArray(data.Streets) 
+        ? data.Streets.map((s: any) => mapStreetFieldDataToForm(s)).filter(Boolean)
+        : [];
+    
+    let streetNames = new Map<number, string>();
+    if (data.StreetNames) {
+        if (data.StreetNames instanceof Map) {
+            streetNames = data.StreetNames;
+        } else if (typeof data.StreetNames === 'object') {
+            streetNames = new Map(Object.entries(data.StreetNames).map(([k, v]) => [Number(k), String(v)]));
+        }
+    }
+    
     return {
         ...dominionForm,
         town: townForm,

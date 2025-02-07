@@ -7,6 +7,7 @@ import { testData } from './data/testData';
 import { StructuresManager } from './io/structures';
 import { ObjectViewPage } from './pages/ObjectViewPage';
 import { mapFieldDataToForm as mapStructureFieldDataToForm } from './utils/domain/dto/StructureViewDTO';
+import { mapFieldDataToForm as mapDistrictFieldDataToForm } from './utils/domain/dto/DistrictViewDTO';
 import { LandingPage } from './pages/LandingPage';
 
 function App() {
@@ -65,40 +66,16 @@ function App() {
                   <div>
                     <h2 className="text-3xl font-bold text-gray-900 mb-8">Districts</h2>
                     <DataTable
-                      data={[testData.districts.northDistrict, testData.districts.southDistrict]}
+                      data={testData.districts.map(mapDistrictFieldDataToForm)}
                       type='district'
                       formatters={{
                         ...defaultFormatters,
-                        RegionName: (value) => (
+                        WgRegionId: (value) => (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                             {value}
                           </span>
                         ),
                         Town: (value) => value?.Name || '-',
-                      }}
-                    />
-                  </div>
-
-                  {/* Structures Table */}
-                  <div>
-                    <h2 className="text-3xl font-bold text-gray-900 mb-8">Structures</h2>
-                    <DataTable
-                      data={[
-                        testData.structures.structure1,
-                        testData.structures.structure2,
-                        testData.structures.structure3
-                      ]}
-                      type='structure'
-                      formatters={{
-                        ...defaultFormatters,
-                        RegionName: (value) => (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            {value}
-                          </span>
-                        ),
-                        District: (value) => value?.Name || '-',
-                        Street: (value) => value?.Name || '-',
-                        StreetNumber: (value) => `#${value}`,
                       }}
                     />
                   </div>
