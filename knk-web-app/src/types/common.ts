@@ -5,6 +5,11 @@ export interface BaseEntity {
   Created?: Date;
 }
 
+export interface Dependency {
+  object: string;
+  fieldName: string;
+}
+
 export interface FormField<T = any> {
   name: string;
   label: string;
@@ -15,7 +20,7 @@ export interface FormField<T = any> {
   validation?: (value: T) => string | undefined;
   objectConfig?: ObjectConfig;
   formatValue?: (value: T) => React.ReactNode;
-  dependsOn?: string[];
+  dependsOn?: Dependency[];
   min?: number;
   max?: number;
   step?: number;

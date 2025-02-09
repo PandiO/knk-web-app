@@ -1,15 +1,15 @@
-import { Loader2, Plus, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { objectConfigs, placeholderConfigs } from '../config/objectConfigs';
+import { objectConfigs } from '../config/objectConfigs';
 import { DistrictManager } from '../io/districts';
-import { LocationsManager } from '../io/locations';
 import { StreetManager } from '../io/streets';
 import type { FormField, ObjectConfig } from '../types/common';
-import { mapFieldDataToForm as mapDistrictFieldDataToForm } from '../utils/domain/dto/district/DistrictCreateDTO';
-import { mapFieldDataToForm as mapLocationFieldDataToForm } from '../utils/domain/dto/location/LocationCreateDTO';
-import { mapFieldDataToForm as mapStreetFieldDataToForm } from '../utils/domain/dto/street/StreetCreateDTO';
 import { MultiSelectDropdown } from './MultiSelectDropdown';
 import { SearchableDropdown } from './SearchableDropdown';
+import { X, Loader2, Plus } from 'lucide-react';
+import { mapFieldDataToForm as mapDistrictFieldDataToForm } from '../utils/domain/dto/district/DistrictViewDTO';
+import { mapFieldDataToForm as mapLocationFieldDataToForm } from '../utils/domain/dto/location/LocationViewDTO';
+import { mapFieldDataToForm as mapStreetFieldDataToForm } from '../utils/domain/dto/street/StreetViewDTO';
+import { LocationsManager } from '../io/locations';
 
 interface DynamicFormProps {
   config: ObjectConfig;
@@ -33,6 +33,7 @@ export function DynamicForm({
   const [loading, setLoading] = useState(false);
   const [nestedForms, setNestedForms] = useState<Record<string, boolean>>({});
   const [relationshipData, setRelationshipData] = useState<Record<string, any[]>>({});
+  const [filteredOptions, setFilteredOptions] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     // Initialize form with default values
@@ -52,8 +53,9 @@ export function DynamicForm({
             DistrictManager.getInstance().getAll().then((data) => {
               setRelationshipData(prev => ({
                 ...prev,
-                [key]: data.map(mapDistrictFieldDataToForm).map((o: any) => ({ id: o.id, name: o.name }))
+                [key]: data.map(mapDistrictFieldDataToForm)
               }));
+              console.log('retrieved districts: ', relationshipData[key]);
             }).catch((err) => { console.error(err); });
           }; break;
           case 'location': { 
@@ -97,6 +99,22 @@ export function DynamicForm({
     setFormData(prev => ({ ...prev, [name]: value }));
     const error = validateField(name, value);
     setErrors(prev => ({ ...prev, [name]: error }));
+
+    // Handle relationships based on dependsOn property
+    Object.entries(config.fields).forEach(([key, field]) => {
+      if (field.dependsOn?.some(dep => dep.object === name) && value) {
+        const relatedData = relationshipData[key]?.filter((item: any) => {
+          return field.dependsOn?.every(dep => {
+            const parentField = config.fields[dep.object];
+            if (parentField.type === 'array' || parentField.type === 'object') {
+              return Array.isArray(value[dep.fieldName]) && value[dep.fieldName].some((parentItem: any) => parentItem.id == item.id);
+            }
+            return value[dep.fieldName] === item.id;
+          });
+        });
+        setFilteredOptions(prev => ({ ...prev, [key]: relatedData }));
+      }
+    });
   };
 
   const handleNestedSubmit = (fieldName: string, data: Record<string, any>) => {
@@ -126,7 +144,6 @@ export function DynamicForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     console.log('Form submitted:', formData);
-    // isNested && handleNestedSubmit(config.label, formData);
     e.preventDefault();
     
     if (!validateForm()) {
@@ -151,7 +168,7 @@ export function DynamicForm({
         {field.type === 'object' && (
           <SearchableDropdown
             label={field.label}
-            instances={relationshipData[name] || []}
+            instances={filteredOptions[name] || relationshipData[name] || []}
             selectedId={formData[name]?.id}
             onSelect={(id) => {
               if (id) {
@@ -206,7 +223,7 @@ export function DynamicForm({
                   : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
                 }
               `}
-              placeholder={placeholderConfigs[field.type as keyof typeof placeholderConfigs].placeholder}
+              placeholder={field.placeholder}
             />
             {errors[name] && (
               <p className="mt-1 text-sm text-red-600">{errors[name]}</p>

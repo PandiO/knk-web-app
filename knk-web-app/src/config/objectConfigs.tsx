@@ -204,6 +204,7 @@ const structureConfig: ObjectConfig = {
       label: 'Street',
       type: 'object',
       required: true,
+      dependsOn: [{object: 'district', fieldName: 'streets'}],
       objectConfig: streetConfig
     },
     streetNumber: {

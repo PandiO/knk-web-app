@@ -6,15 +6,15 @@ export interface StreetViewDTO {
     Districts?: DistrictViewDTO[];
 }
 
-export function mapFieldDataToForm(data: any): StreetViewDTO | null {
+export function mapFieldDataToForm(data: any): any | null {
     if (!data) return null;
 
     const districts = data.Districts || data.districts || [];
     const districtsForm = districts.map((district: any) => mapDistrictFieldDataToForm(district)).filter(Boolean);
 
     return {
-        Id: data.Id || data.id,
-        Name: data.Name || data.name,
-        Districts: districtsForm
-    } as StreetViewDTO;
+        id: data.Id || data.id,
+        name: data.Name || data.name,
+        districts: districtsForm
+    };
 }
