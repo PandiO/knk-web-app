@@ -1,8 +1,8 @@
-import { LocationViewDTO } from '../utils/domain/dto/LocationViewDTO';
-import { StreetViewDTO } from '../utils/domain/dto/StreetViewDTO';
-import { DistrictViewDTO } from '../utils/domain/dto/DistrictViewDTO';
-import { TownViewDTO } from '../utils/domain/dto/TownViewDTO';
-import { StructureViewDTO, StructureStreetViewDTO } from '../utils/domain/dto/StructureViewDTO';
+import { LocationViewDTO } from '../utils/domain/dto/location/LocationViewDTO';
+import { StreetViewDTO } from '../utils/domain/dto/street/StreetViewDTO';
+import { DistrictViewDTO } from '../utils/domain/dto/district/DistrictViewDTO';
+import { TownViewDTO } from '../utils/domain/dto/town/TownViewDTO';
+import { StructureViewDTO, StructureStreetViewDTO } from '../utils/domain/dto/structure/StructureViewDTO';
 
 // Create LocationViewDTO instances
 const locations: LocationViewDTO[] = [

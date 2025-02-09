@@ -1,6 +1,6 @@
 import { Controllers, DominionOperation, HttpMethod, logging } from "../utils";
 import { DominionViewDTO } from "../utils/domain/dto/DominionViewDTO";
-import { TownViewDTO } from "../utils/domain/dto/TownViewDTO";
+import { TownViewDTO } from "../utils/domain/dto/town/TownViewDTO";
 import { ObjectManager } from "./objectManager";
 
 export class TownsManager extends ObjectManager {

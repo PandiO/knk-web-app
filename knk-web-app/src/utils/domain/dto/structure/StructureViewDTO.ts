@@ -1,5 +1,5 @@
-import { DistrictViewDTO, mapFieldDataToForm as mapDistrictFieldDataToForm } from "./DistrictViewDTO";
-import { DominionViewDTO, mapFieldDataToForm as mapDominionFieldDataToForm } from "./DominionViewDTO";
+import { DistrictViewDTO, mapFieldDataToForm as mapDistrictFieldDataToForm } from "../district/DistrictViewDTO";
+import { DominionViewDTO, mapFieldDataToForm as mapDominionFieldDataToForm } from "../dominion/DominionViewDTO";
 
 export interface StructureStreetViewDTO {
     Id: number;

@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
 import { Loader2, Plus, X } from 'lucide-react';
-import type { FormField, ObjectConfig } from '../types/common';
+import React, { useEffect, useState } from 'react';
 import { objectConfigs, placeholderConfigs } from '../config/objectConfigs';
-import { SearchableDropdown } from './SearchableDropdown';
-import { MultiSelectDropdown } from './MultiSelectDropdown';
 import { DistrictManager } from '../io/districts';
 import { LocationsManager } from '../io/locations';
 import { StreetManager } from '../io/streets';
-import { mapFieldDataToForm as mapLocationFieldDataToForm } from '../utils/domain/dto/LocationCreateDTO';
-import { mapFieldDataToForm as mapDistrictFieldDataToForm } from '../utils/domain/dto/DistrictCreateDTO';
-import { mapFieldDataToForm as mapStreetFieldDataToForm } from '../utils/domain/dto/StreetCreateDTO';
+import type { FormField, ObjectConfig } from '../types/common';
+import { mapFieldDataToForm as mapDistrictFieldDataToForm } from '../utils/domain/dto/district/DistrictCreateDTO';
+import { mapFieldDataToForm as mapLocationFieldDataToForm } from '../utils/domain/dto/location/LocationCreateDTO';
+import { mapFieldDataToForm as mapStreetFieldDataToForm } from '../utils/domain/dto/street/StreetCreateDTO';
+import { MultiSelectDropdown } from './MultiSelectDropdown';
+import { SearchableDropdown } from './SearchableDropdown';
 
 interface DynamicFormProps {
   config: ObjectConfig;

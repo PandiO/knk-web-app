@@ -1,4 +1,4 @@
-import { DominionViewDTO, mapFieldDataToForm as mapDominionFieldDataToForm } from "./DominionViewDTO";
+import { DominionViewDTO, mapFieldDataToForm as mapDominionFieldDataToForm } from "../dominion/DominionViewDTO";
 
 export interface TownViewDTO extends DominionViewDTO {
     RequiredTitle: number;

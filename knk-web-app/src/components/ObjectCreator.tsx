@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { objectConfigs } from '../config/objectConfigs';
 import { DynamicForm } from './DynamicForm';
 import { StructuresManager } from '../io/structures';
-import { StructureCreateDTO, mapFormDataToFields as mapStructureFormDataToFields } from '../utils/domain/dto/StructureCreateDTO';
+import { StructureCreateDTO, mapFormDataToFields as mapStructureFormDataToFields } from '../utils/domain/dto/structure/StructureCreateDTO';
 
 export function ObjectCreator() {
   const { objectType } = useParams<{ objectType: string }>();

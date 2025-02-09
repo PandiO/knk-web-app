@@ -1,6 +1,6 @@
-import { DominionViewDTO, mapFieldDataToForm as mapDominionFieldDataToForm } from "./DominionViewDTO";
-import { TownViewDTO, mapFieldDataToForm as mapTownFieldDataToForm } from "./TownViewDTO";
-import { StreetViewDTO, mapFieldDataToForm as mapStreetFieldDataToForm } from "./StreetViewDTO";
+import { DominionViewDTO, mapFieldDataToForm as mapDominionFieldDataToForm } from "../dominion/DominionViewDTO";
+import { TownViewDTO, mapFieldDataToForm as mapTownFieldDataToForm } from "../town/TownViewDTO";
+import { StreetViewDTO, mapFieldDataToForm as mapStreetFieldDataToForm } from "../street/StreetViewDTO";
 
 export interface DistrictViewDTO extends DominionViewDTO {
     Town: TownViewDTO;

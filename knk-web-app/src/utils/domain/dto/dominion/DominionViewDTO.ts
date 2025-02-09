@@ -1,5 +1,5 @@
-import { LocationViewDTO } from "./LocationViewDTO";
-import { mapFieldDataToForm as mapLocationFieldDataToForm } from "./LocationViewDTO";
+import { LocationViewDTO } from "../location/LocationViewDTO";
+import { mapFieldDataToForm as mapLocationFieldDataToForm } from "../location/LocationViewDTO";
 
 export interface DominionViewDTO {
     Id: number;

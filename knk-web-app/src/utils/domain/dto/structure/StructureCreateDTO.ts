@@ -1,6 +1,6 @@
-import { DistrictCreateDTO, mapFormDataToFields as mapDistrictFormDataToFields, mapFieldDataToForm as mapDistrictFieldDataToForm } from "./DistrictCreateDTO";
-import { DominionCreateDTO, mapFormDataToFields as mapDominionFormDataToFields, mapFieldDataToForm as mapDominionFieldDataToForm } from "./DominionCreateDTO";
-import { StreetCreateDTO, mapFormDataToFields as mapStreetFormDataToFields, mapFieldDataToForm as mapStreetFieldDataToForm } from "./StreetCreateDTO";
+import { DistrictCreateDTO, mapFormDataToFields as mapDistrictFormDataToFields, mapFieldDataToForm as mapDistrictFieldDataToForm } from "../district/DistrictCreateDTO";
+import { DominionCreateDTO, mapFormDataToFields as mapDominionFormDataToFields, mapFieldDataToForm as mapDominionFieldDataToForm } from "../dominion/DominionCreateDTO";
+import { StreetCreateDTO, mapFormDataToFields as mapStreetFormDataToFields, mapFieldDataToForm as mapStreetFieldDataToForm } from "../street/StreetCreateDTO";
 
 export interface StructureCreateDTO extends DominionCreateDTO {
     StreetId?: number;

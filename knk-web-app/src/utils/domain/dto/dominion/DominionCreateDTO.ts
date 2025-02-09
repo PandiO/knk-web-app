@@ -1,4 +1,4 @@
-import { iLocationCreateDTO, mapFormDataToFields as mapLocationFormDataToFields, mapFieldDataToForm as mapLocationFieldDataToForm } from "./LocationCreateDTO";
+import { iLocationCreateDTO, mapFormDataToFields as mapLocationFormDataToFields, mapFieldDataToForm as mapLocationFieldDataToForm } from "../location/LocationCreateDTO";
 
 export interface DominionCreateDTO {
     Id: number;

@@ -7,7 +7,7 @@ import { MultiSelectDropdown } from './MultiSelectDropdown';
 import { DistrictManager } from '../io/districts';
 import { LocationsManager } from '../io/locations';
 import { extractFieldsFromDTO, mergeDTOWithConfig } from '../utils/fieldConfigUtils';
-import { StructureCreateDTO } from '../utils/domain/dto/StructureCreateDTO';
+import { StructureCreateDTO } from '../utils/domain/dto/structure/StructureCreateDTO';
 
 interface DynamicFormProps {
   config: ObjectConfig;

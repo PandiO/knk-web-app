@@ -6,8 +6,8 @@ import { DataTable } from './components/DataTable';
 import { testData } from './data/testData';
 import { StructuresManager } from './io/structures';
 import { ObjectViewPage } from './pages/ObjectViewPage';
-import { mapFieldDataToForm as mapStructureFieldDataToForm } from './utils/domain/dto/StructureViewDTO';
-import { mapFieldDataToForm as mapDistrictFieldDataToForm } from './utils/domain/dto/DistrictViewDTO';
+import { mapFieldDataToForm as mapStructureFieldDataToForm } from './utils/domain/dto/structure/StructureViewDTO';
+import { mapFieldDataToForm as mapDistrictFieldDataToForm } from './utils/domain/dto/district/DistrictViewDTO';
 import { LandingPage } from './pages/LandingPage';
 
 function App() {

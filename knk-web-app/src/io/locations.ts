@@ -1,5 +1,5 @@
 import { logging, LocationsOperation, Controllers, HttpMethod } from "../utils";
-import { LocationCreateDTO } from "../utils/domain/dto/LocationCreateDTO";
+import { LocationCreateDTO } from "../utils/domain/dto/location/LocationCreateDTO";
 import { ObjectManager } from "./objectManager";
 
 export class LocationsManager extends ObjectManager {

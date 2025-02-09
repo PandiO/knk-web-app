@@ -1,4 +1,4 @@
-import { DistrictCreateDTO, mapFormDataToFields as mapDistrictFormDataToFields, mapFieldDataToForm as mapDistrictFieldDataToForm } from "./DistrictCreateDTO";
+import { DistrictCreateDTO, mapFormDataToFields as mapDistrictFormDataToFields, mapFieldDataToForm as mapDistrictFieldDataToForm } from "../district/DistrictCreateDTO";
 
 export interface StreetCreateDTO {
     Id: number;

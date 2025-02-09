@@ -1,4 +1,4 @@
-import { DominionCreateDTO, mapFormDataToFields as mapDominionFormDataToFields, mapFieldDataToForm as mapDominionFieldDataToForm } from "./DominionCreateDTO";
+import { DominionCreateDTO, mapFormDataToFields as mapDominionFormDataToFields, mapFieldDataToForm as mapDominionFieldDataToForm } from "../dominion/DominionCreateDTO";
 
 export interface TownCreateDTO extends DominionCreateDTO {
     RequiredTitle: number;

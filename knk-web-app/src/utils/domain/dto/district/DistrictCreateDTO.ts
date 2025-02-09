@@ -1,5 +1,5 @@
-import { DominionCreateDTO, mapFormDataToFields as mapDominionFormDataToFields, mapFieldDataToForm as mapDominionFieldDataToForm } from "./DominionCreateDTO";
-import { TownCreateDTO, mapFormDataToFields as mapTownFormDataToFields, mapFieldDataToForm as mapTownFieldDataToForm } from "./TownCreateDTO";
+import { DominionCreateDTO, mapFormDataToFields as mapDominionFormDataToFields, mapFieldDataToForm as mapDominionFieldDataToForm } from "../dominion/DominionCreateDTO";
+import { TownCreateDTO, mapFormDataToFields as mapTownFormDataToFields, mapFieldDataToForm as mapTownFieldDataToForm } from "../town/TownCreateDTO";
 
 export interface DistrictCreateDTO extends DominionCreateDTO {
     TownId?: number;

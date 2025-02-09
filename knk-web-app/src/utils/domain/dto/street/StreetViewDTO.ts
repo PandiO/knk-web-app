@@ -1,4 +1,4 @@
-import { DistrictViewDTO, mapFieldDataToForm as mapDistrictFieldDataToForm } from "./DistrictViewDTO";
+import { DistrictViewDTO, mapFieldDataToForm as mapDistrictFieldDataToForm } from "../district/DistrictViewDTO";
 
 export interface StreetViewDTO {
     Id: number;

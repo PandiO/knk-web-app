@@ -1,6 +1,6 @@
 import { Controllers, HttpMethod, logging, StructuresOperation } from "../utils";
-import { StructureCreateDTO } from "../utils/domain/dto/StructureCreateDTO";
-import { StructureViewDTO } from "../utils/domain/dto/StructureViewDTO";
+import { StructureCreateDTO } from "../utils/domain/dto/structure/StructureCreateDTO";
+import { StructureViewDTO } from "../utils/domain/dto/structure/StructureViewDTO";
 import { ObjectManager } from "./objectManager";
 
 export class StructuresManager extends ObjectManager {
