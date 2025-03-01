@@ -16,7 +16,8 @@ export enum StructuresOperation {
     GetById = 'GetStructure',
     GetViewById = 'GetStructureView',
     GetByName = 'GetStructureyName',
-    Create = ''
+    Create = '',
+    GetOverview = 'GetStructuresOverview'
 }
 
 export enum DistrictsOperation {
@@ -57,4 +58,16 @@ export enum FormPlaceHolder {
     Name = 'TestName',
     Mail = 'JohnDoe@gmail.com',
     Number = 128
+}
+
+export enum StructureOverviewFilter {
+    District = 0,
+    Town = 1,
+    Street = 2,
+    Entry = 3,
+}
+
+export enum FilterType {
+    Include = 0,
+    Exclude = 1
 }

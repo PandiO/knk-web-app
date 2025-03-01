@@ -1,5 +1,6 @@
 import { Controllers, HttpMethod, logging, StructuresOperation } from "../utils";
 import { StructureCreateDTO } from "../utils/domain/dto/structure/StructureCreateDTO";
+import { StructureOverviewArgumentsDTO } from "../utils/domain/dto/structure/StructureOverviewDTO";
 import { StructureViewDTO } from "../utils/domain/dto/structure/StructureViewDTO";
 import { ObjectManager } from "./objectManager";
 
@@ -27,6 +28,9 @@ export class StructuresManager extends ObjectManager {
         return this.invokeServiceCall({id: id}, StructuresOperation.GetViewById, Controllers.Structures, HttpMethod.Get);
     }
 
+    getOverview(parameters: StructureOverviewArgumentsDTO): Promise<any> {
+        return this.invokeServiceCall(parameters, StructuresOperation.GetOverview, Controllers.Structures, HttpMethod.Post);
+    }
     // invokeServiceCall(data: any, operation: string, controller: string, httpMethod: string): Promise<any> {
     //     return new Promise((resolve, reject) => {
     //         const timeoutId = setTimeout(() => {

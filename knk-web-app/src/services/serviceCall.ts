@@ -23,7 +23,9 @@ export class ServiceCall {
             }
         };
 
-        if (args.httpMethod && args.httpMethod != HttpMethod.Post) {
+        if (args.httpMethod 
+            // && args.httpMethod != HttpMethod.Post
+        ) {
             url = `${url}/${args.operation}`;
         }
 
@@ -35,28 +37,40 @@ export class ServiceCall {
             args.httpMethod = HttpMethod.Get;
         }
 
-        if (args.httpMethod == HttpMethod.Get) {
-            if (args.requestData) {
-                try {
-                    const queryString = Object.keys(args.requestData).map(key => key + '=' + args.requestData[key]).join('&');
-                    url = `${url}?${queryString}`;
-                } catch (ex) {
-                    console.log((ex as any).ErrorMessage);
-                }
-            }
-        } else {
-            requestParams = {
-                method: args.httpMethod,
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            };
+        // if (args.httpMethod == HttpMethod.Get) {
+        //     if (args.requestData) {
+        //         try {
+        //             // const queryString = Object.keys(args.requestData).map(key => key + '=' + args.requestData[key]).join('&');
+        //             // url = `${url}?${queryString}`;
+        //         } catch (ex) {
+        //             console.log((ex as any).ErrorMessage);
+        //         }
+        //     }
+        // } else {
+        //     requestParams = {
+        //         method: args.httpMethod,
+        //         headers: {
+        //             'Accept': 'application/json',
+        //             'Content-Type': 'application/json'
+        //         }
+        //     };
         
 
-            if (args.requestData) {
-                requestParams.body = JSON.stringify(args.requestData);
+        //     if (args.requestData) {
+        //         requestParams.body = JSON.stringify(args.requestData);
+        //     }
+        // }
+        requestParams = {
+            method: args.httpMethod,
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
             }
+        };
+    
+
+        if (args.requestData) {
+            requestParams.body = JSON.stringify(args.requestData);
         }
 
         try {

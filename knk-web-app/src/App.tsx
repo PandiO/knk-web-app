@@ -4,6 +4,7 @@ import { Navigation } from './components/Navigation';
 import { ObjectCreator } from './components/ObjectCreator';
 import { DataTable } from './components/DataTable';
 import { testData } from './data/testData';
+import { StructureOverviewPage } from './pages/StructureOverviewPage';
 import { StructuresManager } from './io/structures';
 import { ObjectViewPage } from './pages/ObjectViewPage';
 import { mapFieldDataToForm as mapStructureFieldDataToForm } from './utils/domain/dto/structure/StructureViewDTO';
@@ -43,6 +44,7 @@ function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/create/:objectType" element={<ObjectCreator />} />
               <Route path="/view/:type/:id" element={<ObjectViewPage />} />
+              <Route path="/structure-overview" element={<StructureOverviewPage />} />
               <Route path="/dashboard" element={
                 <>
                   {/* Towns Table */}
