@@ -1,5 +1,6 @@
 import { DistrictViewDTO, mapFieldDataToForm as mapDistrictFieldDataToForm } from "../district/DistrictViewDTO";
 import { DominionViewDTO, mapFieldDataToForm as mapDominionFieldDataToForm } from "../dominion/DominionViewDTO";
+import { StorageViewConciseDTO } from "../item/StorageViewConciseDTO";
 
 export interface StructureStreetViewDTO {
     Id: number;
@@ -24,6 +25,7 @@ export interface StructureViewDTO extends DominionViewDTO {
     Street: StructureStreetViewDTO;
     StreetNumber: number;
     District: DistrictViewDTO;
+    storages: StorageViewConciseDTO[];
 }
 
 export function mapFieldDataToForm(data: StructureViewDTO): any {
@@ -35,6 +37,7 @@ export function mapFieldDataToForm(data: StructureViewDTO): any {
         ...dominionForm,
         street: streetForm,
         streetNumber: data.StreetNumber,
-        district: districtForm
+        district: districtForm,
+        storages: data.storages
     };
 }
