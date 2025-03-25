@@ -10,6 +10,7 @@ import { ObjectViewPage } from './pages/ObjectViewPage';
 import { mapFieldDataToForm as mapStructureFieldDataToForm } from './utils/domain/dto/structure/StructureViewDTO';
 import { mapFieldDataToForm as mapDistrictFieldDataToForm } from './utils/domain/dto/district/DistrictViewDTO';
 import { LandingPage } from './pages/LandingPage';
+import {UIFieldConfigurationsPage} from './pages/UIFieldConfigurationsPage';
 
 function App() {
   const [itemsList, setItemsList] = useState<any[]>([]);
@@ -83,6 +84,7 @@ function App() {
                   </div>
                 </>
               } />
+              <Route path="/ui-field-configurations" element={<UIFieldConfigurationsPage />} />
             </Routes>
           </div>
         </div>

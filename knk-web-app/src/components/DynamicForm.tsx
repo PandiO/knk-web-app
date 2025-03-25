@@ -173,7 +173,7 @@ export function DynamicForm({
   };
 
   const renderField = (name: string, field: FormField) => {
-    const showField = !field.dependsOn || field.dependsOn.every(dep => formData[dep]) || !field.hidden;
+    const showField = !field.dependsOn || field.dependsOn.every(dep => formData[dep.object]) || !field.hidden;
 
     if (!showField) return null;
 
