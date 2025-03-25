@@ -142,6 +142,20 @@ export function DynamicForm({
     return isValid;
   };
 
+  /**
+   * Handles the form submission event.
+   * 
+   * @param {React.FormEvent} e - The form submission event.
+   * @returns {Promise<void>} A promise that resolves when the form submission is complete.
+   * 
+   * The function performs the following steps:
+   * 1. Logs the form data to the console.
+   * 2. Prevents the default form submission behavior.
+   * 3. Validates the form data. If the validation fails, the function returns early.
+   * 4. Sets the loading state to true.
+   * 5. Attempts to submit the form data using the `onSubmit` function.
+   * 6. Sets the loading state to false after the submission attempt, regardless of success or failure.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     console.log('Form submitted:', formData);
     e.preventDefault();
