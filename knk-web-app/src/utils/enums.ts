@@ -44,6 +44,13 @@ export enum DominionOperation {
     GetByName = 'GetDominionByName'
 }
 
+export enum UIFieldConfigurationsOperation {
+    GetAll = '',
+    Create = '',
+    Update = '',
+    Delete = ''
+}
+
 export enum Controllers {
     Items = 'Items',
     Structures = 'Structures',
@@ -51,7 +58,8 @@ export enum Controllers {
     Locations = 'Locations',
     Streets = 'Streets',
     Dominions = 'Dominions',
-    Towns = 'Towns'
+    Towns = 'Towns',
+    UIFieldConfigurations = 'UIFieldConfigurations'
 }
 
 export enum FormPlaceHolder {
