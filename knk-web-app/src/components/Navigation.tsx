@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, Building2 } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, Building2, Settings2 } from 'lucide-react';
 import { objectConfigs } from '../config/objectConfigs';
 
 export function Navigation() {
@@ -98,6 +98,17 @@ export function Navigation() {
               >
                 <Building2 className="h-4 w-4 mr-2" />
                 Structures
+              </Link>
+              <Link
+                to="/configurations/structure"
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  location.pathname === '/configurations/structure'
+                    ? 'border-b-2 border-primary text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
+                }`}
+              >
+                <Settings2 className="h-4 w-4 mr-2" />
+                Configurations
               </Link>
             </div>
           </div>

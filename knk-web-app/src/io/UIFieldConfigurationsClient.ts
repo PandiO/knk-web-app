@@ -14,7 +14,7 @@ export class UIFieldConfigurationsManager extends ObjectManager {
 
     // Fetch all UI object configurations
     getAll(): Promise<UIObjectConfigDto[]> {
-        return this.invokeServiceCall(null, UIObjectConfigurationOperation.GetAll, Controllers.UIObjectConfigurations, HttpMethod.Get);
+        return this.invokeServiceCall(null, UIObjectConfigurationOperation.GetAll, Controllers.UIObjectConfigurations, HttpMethod.Post);
     }
 
     // Fetch a specific UI object configuration by type

@@ -45,11 +45,11 @@ export enum DominionOperation {
 }
 
 export enum UIObjectConfigurationOperation {
-    GetAll = '',
-    GetByType = '',
-    Create = '',
-    Update = '',
-    Delete = ''
+    GetAll = 'GetAll',
+    GetByType = 'GetByType',
+    Create = 'Create',
+    Update = 'Update',
+    Delete = 'Delete',
 }
 
 export enum Controllers {
@@ -60,7 +60,7 @@ export enum Controllers {
     Streets = 'Streets',
     Dominions = 'Dominions',
     Towns = 'Towns',
-    UIObjectConfigurations = 'UIObjectConfigController',
+    UIObjectConfigurations = 'UIObjectConfig',
 }
 
 export enum FormPlaceHolder {
