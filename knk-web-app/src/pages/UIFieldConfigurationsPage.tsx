@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Settings2, AlertCircle, Loader2, Plus, Pencil, Trash2, LayoutGrid, ListPlus } from 'lucide-react';
-import { UIObjectConfigDto, UIFieldType, ValidationType, UIFieldGroupDto, UIFieldDto } from '../utils/domain/dto/UIFieldConfigurations';
+import { UIObjectConfigDto, UIFieldType, ValidationType, UIFieldGroupDto, UIFieldDto, UIFieldValidationDto } from '../utils/domain/dto/UIFieldConfigurations';
 import { uiFieldConfigurationsManager } from '../io/UIFieldConfigurationsClient';
 import { getConfig } from '../config/appConfig'; // Ensure this file exists at the specified path
 import { uiConfigTestData } from '../data/testData';
+import { mapApiToUIObjectConfigDto, map } from '../utils/domain/dto/UIFieldConfigurations'; // Ensure this file exists at the specified path
 
 interface UIFieldConfigurationsPageProps {
   objectType: string;
@@ -12,7 +13,7 @@ interface UIFieldConfigurationsPageProps {
 const createEmptyConfig = (): UIObjectConfigDto => ({
   objectType: '',
   title: '',
-  layoutStyle: 'standard',
+  layoutStyle: 'tabs', // Default to "tabs" as per EntityFramework model
   fields: [],
   fieldGroups: []
 });
@@ -22,7 +23,12 @@ const createEmptyField = (): UIFieldDto => ({
   label: '',
   type: UIFieldType.Text,
   required: false,
-  order: 0
+  order: 0,
+  placeholder: '', // Default to an empty string
+  validations: [], // Default to an empty array
+  defaultValue: null, // Default to null
+  componentType: '', // Default to an empty string
+  referenceObjectType: undefined // Default to undefined
 });
 
 const createEmptyFieldGroup = (): UIFieldGroupDto => ({
@@ -32,11 +38,17 @@ const createEmptyFieldGroup = (): UIFieldGroupDto => ({
   fields: []
 });
 
+const createEmptyValidation = (): UIFieldValidationDto => ({
+  type: ValidationType.Required,
+  value: '',
+});
+
 function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProps) {
   const [configs, setConfigs] = useState<UIObjectConfigDto[]>([]);
   const [editingConfig, setEditingConfig] = useState<UIObjectConfigDto | null>(null);
   const [editingField, setEditingField] = useState<UIFieldDto | null>(null);
   const [editingFieldGroup, setEditingFieldGroup] = useState<UIFieldGroupDto | null>(null);
+  const [editingValidation, setEditingValidation] = useState<UIFieldValidationDto | null>(null);
   const [selectedGroupIndex, setSelectedGroupIndex] = useState<number>(-1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,13 +62,13 @@ function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProp
         let data: UIObjectConfigDto[] = [];
 
         if (getConfig('useTestData')) {
-          data = uiConfigTestData;
+          data = uiConfigTestData.map(mapApiToUIObjectConfigDto); // Map test data
           // Simulate network delay
           await new Promise(resolve => setTimeout(resolve, 500));
         } else {
           data = await uiFieldConfigurationsManager.getAll();
         }
-
+        console.log('Fetched Configurations:', data);
         setConfigs(data);
       } catch (error) {
         setError('Failed to load configuration');
@@ -74,47 +86,67 @@ function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProp
 
     try {
       setLoading(true);
+      setError(null);
+
+      const configToSave = {
+        ...editingConfig,
+        fieldGroups: editingConfig.fieldGroups?.map(group => ({
+          ...group,
+          fields: group.fields || [],
+        })),
+      };
+
       if (getConfig('useTestData')) {
         // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         if (editingConfig.objectType === '') {
-          setConfigs(prev => [...prev, { ...editingConfig, objectType: `config-${Date.now()}` }]);
+          setConfigs(prev => [...prev, { ...configToSave, objectType: `config-${Date.now()}` }]);
         } else {
           setConfigs(prev => prev.map(c => 
-            c.objectType === editingConfig.objectType ? editingConfig : c
+            c.objectType === editingConfig.objectType ? configToSave : c
           ));
         }
       } else {
-        if (editingConfig.objectType === '') {
-          await uiFieldConfigurationsManager.create(editingConfig);
+        if (editingConfig.id === undefined) {
+          // Create new configuration
+          await uiFieldConfigurationsManager.create(configToSave);
         } else {
-          await uiFieldConfigurationsManager.update(editingConfig);
+          // Update existing configuration
+          await uiFieldConfigurationsManager.update(configToSave);
         }
-        // Refresh the list
         const updatedConfigs = await uiFieldConfigurationsManager.getAll();
         setConfigs(updatedConfigs);
       }
       setEditingConfig(null);
-    } catch (error) {
-      setError('Failed to save configuration');
+    } catch (error: any) {
+      const apiErrorMessage = error?.response?.data?.message || 'Failed to save configuration';
+      setError(apiErrorMessage);
       console.error('Error saving configuration:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (objectType: string) => {
+  const handleDelete = async (id: number) => {
     try {
-      if (!getConfig('useTestData')) {
-        await uiFieldConfigurationsManager.delete(parseInt(objectType));
-      }
-      setConfigs(prev => prev.filter(c => c.objectType !== objectType));
+        setLoading(true); // Show loading state while deleting
+
+        if (!getConfig('useTestData')) {
+            // Call the API to delete the configuration
+            await uiFieldConfigurationsManager.delete(id);
+        }
+
+        // Update the configs array by filtering out the deleted configuration
+        setConfigs(prevConfigs => prevConfigs.filter(config => config.id !== id));
     } catch (error) {
-      setError('Failed to delete configuration');
-      console.error('Error deleting configuration:', error);
+        // Handle errors and display an error message
+        setError('Failed to delete configuration');
+        console.error('Error deleting configuration:', error);
+    } finally {
+        setLoading(false); // Reset loading state
     }
-  };
+};
 
   if (loading) {
     return (
@@ -170,36 +202,61 @@ function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProp
           <div className="px-4 py-5 sm:p-6">
             {editingConfig ? (
               <div className="space-y-6">
+                {error && (
+                  <div className="bg-red-100 text-red-800 p-4 rounded-md">
+                    <p>{error}</p>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Configuration Name
+                    Object Type <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    value={editingConfig.objectType}
+                    value={editingConfig?.objectType || ''}
                     onChange={e => setEditingConfig({
-                      ...editingConfig,
+                      ...editingConfig!,
                       objectType: e.target.value
                     })}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                    placeholder="Enter configuration name"
+                    placeholder="Enter object type"
+                    required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Display Title
+                    Title
                   </label>
                   <input
                     type="text"
-                    value={editingConfig.title}
+                    value={editingConfig?.title || ''}
                     onChange={e => setEditingConfig({
-                      ...editingConfig,
+                      ...editingConfig!,
                       title: e.target.value
                     })}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                    placeholder="Enter configuration title"
+                    placeholder="Enter title"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Layout Style <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={editingConfig?.layoutStyle || 'tabs'}
+                    onChange={e => setEditingConfig({
+                      ...editingConfig!,
+                      layoutStyle: e.target.value
+                    })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                    required
+                  >
+                    <option value="tabs">Tabs</option>
+                    <option value="accordion">Accordion</option>
+                    <option value="inline">Inline</option>
+                  </select>
                 </div>
 
                 {/* Field Groups Section */}
@@ -323,18 +380,20 @@ function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProp
                               {config.title || 'Untitled Configuration'}
                             </h3>
                             <p className="mt-1 text-sm text-gray-500">
-                              Type: {config.objectType}
+                              Type: {config.objectType || 'N/A'}
                             </p>
                           </div>
                           <div className="flex space-x-2">
                             <button
-                              onClick={() => setEditingConfig(config)}
+                              onClick={() => {
+                                setEditingConfig({ ...config }); // Populate form fields with current data
+                              }}
                               className="text-gray-400 hover:text-gray-500"
                             >
                               <Pencil className="h-5 w-5" />
                             </button>
                             <button
-                              onClick={() => handleDelete(config.objectType)}
+                              onClick={() => handleDelete(config.id)}
                               className="text-gray-400 hover:text-red-500"
                             >
                               <Trash2 className="h-5 w-5" />
@@ -483,6 +542,55 @@ function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProp
                       Required Field
                     </label>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Default Value</label>
+                    <input
+                      type="text"
+                      value={editingField.defaultValue || ''}
+                      onChange={e => setEditingField({
+                        ...editingField,
+                        defaultValue: e.target.value
+                      })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                      placeholder="Enter default value"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Validations</label>
+                    <div className="space-y-2">
+                      {editingField.validations?.map((validation, index) => (
+                        <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                          <span className="text-sm text-gray-700">
+                            {validation.type}: {validation.value || 'N/A'}
+                          </span>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => setEditingValidation(validation)}
+                              className="text-gray-400 hover:text-gray-500"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                const updatedValidations = editingField.validations?.filter((_, i) => i !== index);
+                                setEditingField({ ...editingField, validations: updatedValidations });
+                              }}
+                              className="text-gray-400 hover:text-red-500"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => setEditingValidation(createEmptyValidation())}
+                        className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        <ListPlus className="h-4 w-4 mr-2" />
+                        Add Validation
+                      </button>
+                    </div>
+                  </div>
                   <div className="flex justify-end space-x-3 mt-6">
                     <button
                       onClick={() => setEditingField(null)}
@@ -494,18 +602,90 @@ function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProp
                       onClick={() => {
                         const newConfig = { ...editingConfig! };
                         const group = newConfig.fieldGroups![selectedGroupIndex];
-                        if (!editingField.name) {
-                          group.fields.push(editingField);
+                        if (!editingField!.name) {
+                          // Assign a unique name to the new field if it doesn't have one
+                          editingField!.name = `field-${Date.now()}`;
+                          group.fields = [...(group.fields || []), editingField!]; // Add the new field at the end
                         } else {
-                          const fieldIndex = group.fields.findIndex(f => f.name === editingField.name);
-                          group.fields[fieldIndex] = editingField;
+                          const fieldIndex = group.fields.findIndex(f => f.name === editingField!.name);
+                          if (fieldIndex !== -1) {
+                            group.fields[fieldIndex] = editingField!; // Update the existing field
+                          } else {
+                            group.fields.push(editingField!); // Add the new field if not found
+                          }
                         }
-                        setEditingConfig(newConfig);
-                        setEditingField(null);
+                        newConfig.fieldGroups![selectedGroupIndex] = group; // Update the field group
+                        console.log('Updated Config:', newConfig);
+                        setEditingConfig(newConfig); // Update the editing configuration
+                        console.log('Updated Configs:', newConfig);
+                        setEditingField(null); // Clear the field editor
                       }}
                       className="btn-primary"
                     >
                       Save Field
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Validation Editor Modal */}
+          {editingValidation && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-lg w-full">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  {editingValidation.type ? 'Edit Validation' : 'Add New Validation'}
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Validation Type</label>
+                    <select
+                      value={editingValidation.type}
+                      onChange={e => setEditingValidation({ ...editingValidation, type: e.target.value as ValidationType })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                    >
+                      {Object.values(ValidationType).map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Validation Value</label>
+                    <input
+                      type="text"
+                      value={editingValidation.value || ''}
+                      onChange={e => setEditingValidation({ ...editingValidation, value: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                      placeholder="Enter validation value"
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-3 mt-6">
+                    <button
+                      onClick={() => setEditingValidation(null)}
+                      className="btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        const updatedValidations = editingField?.validations || [];
+                        if (!editingValidation.type) {
+                          updatedValidations.push(editingValidation);
+                        } else {
+                          const index = updatedValidations.findIndex(v => v.type === editingValidation.type);
+                          if (index !== -1) {
+                            updatedValidations[index] = editingValidation;
+                          } else {
+                            updatedValidations.push(editingValidation);
+                          }
+                        }
+                        setEditingField({ ...editingField!, validations: updatedValidations });
+                        setEditingValidation(null);
+                      }}
+                      className="btn-primary"
+                    >
+                      Save Validation
                     </button>
                   </div>
                 </div>
