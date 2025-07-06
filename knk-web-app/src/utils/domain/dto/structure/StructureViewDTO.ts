@@ -23,7 +23,7 @@ export function mapStreetFieldDataToForm(data: any): any {
 
 export interface StructureViewDTO extends DominionViewDTO {
     Street: StructureStreetViewDTO;
-    StreetNumber: number;
+    StreetNumber?: number;
     District: DistrictViewDTO;
     storages: StorageViewConciseDTO[];
 }

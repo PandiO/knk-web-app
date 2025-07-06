@@ -2,14 +2,14 @@ import { Controllers, HttpMethod, UIObjectConfigurationOperation } from "../util
 import { UIObjectConfigDto, mapApiToUIObjectConfigDto } from "../utils/domain/dto/uiObjectConfig/UIFieldConfigurations";
 import { ObjectManager } from "./objectManager";
 
-export class UIFieldConfigurationsManager extends ObjectManager {
-    private static instance: UIFieldConfigurationsManager;
+export class UIObjectConfigClient extends ObjectManager {
+    private static instance: UIObjectConfigClient;
 
     public static getInstance() {
-        if (!UIFieldConfigurationsManager.instance) {
-            UIFieldConfigurationsManager.instance = new UIFieldConfigurationsManager();
+        if (!UIObjectConfigClient.instance) {
+            UIObjectConfigClient.instance = new UIObjectConfigClient();
         }
-        return UIFieldConfigurationsManager.instance;
+        return UIObjectConfigClient.instance;
     }
 
     // Fetch all UI object configurations
@@ -42,4 +42,4 @@ export class UIFieldConfigurationsManager extends ObjectManager {
     }
 }
 
-export const uiFieldConfigurationsManager = UIFieldConfigurationsManager.getInstance();
+export const uiObjectConfigClient = UIObjectConfigClient.getInstance();

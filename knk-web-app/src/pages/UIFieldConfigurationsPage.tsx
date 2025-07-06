@@ -1,30 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { Settings2, AlertCircle, Loader2, Plus, Pencil, Trash2, LayoutGrid, ListPlus } from 'lucide-react';
-import { UIObjectConfigDto, UIFieldType, ValidationType, UIFieldGroupDto, UIFieldDto, UIFieldValidationDto } from '../utils/domain/dto/UIFieldConfigurations';
-import { uiFieldConfigurationsManager } from '../io/UIFieldConfigurationsClient';
+import { UIObjectConfigDto, UIFieldType, ValidationType, UIFieldGroupDto, UIFieldDto, UIFieldValidationDto } from '../utils/domain/dto/uiObjectConfig/UIFieldConfigurations';
+import { uiObjectConfigClient } from '../io/UIObjectConfigClient';
 import { getConfig } from '../config/appConfig'; // Ensure this file exists at the specified path
 import { uiConfigTestData } from '../data/testData';
-import { mapApiToUIObjectConfigDto, map } from '../utils/domain/dto/UIFieldConfigurations'; // Ensure this file exists at the specified path
+import { mapApiToUIObjectConfigDto } from '../utils/domain/dto/uiObjectConfig/UIFieldConfigurations'; // Ensure this file exists at the specified path
 
 interface UIFieldConfigurationsPageProps {
   objectType: string;
 }
 
 const createEmptyConfig = (): UIObjectConfigDto => ({
+  id: undefined, // Default to -1 for new configurations
   objectType: '',
   title: '',
   layoutStyle: 'tabs', // Default to "tabs" as per EntityFramework model
   fields: [],
-  fieldGroups: []
+  fieldGroups: [],
 });
 
 const createEmptyField = (): UIFieldDto => ({
+  id: undefined,
   name: '',
   label: '',
   type: UIFieldType.Text,
   required: false,
   order: 0,
-  placeholder: '', // Default to an empty string
+  placeholder: 'placeholder', // Default to an empty string
   validations: [], // Default to an empty array
   defaultValue: null, // Default to null
   componentType: '', // Default to an empty string
@@ -32,6 +34,8 @@ const createEmptyField = (): UIFieldDto => ({
 });
 
 const createEmptyFieldGroup = (): UIFieldGroupDto => ({
+  id: undefined,
+  uiObjectConfigId: undefined,
   name: '',
   label: '',
   order: 0,
@@ -66,7 +70,7 @@ function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProp
           // Simulate network delay
           await new Promise(resolve => setTimeout(resolve, 500));
         } else {
-          data = await uiFieldConfigurationsManager.getAll();
+          data = await uiObjectConfigClient.getAll();
         }
         console.log('Fetched Configurations:', data);
         setConfigs(data);
@@ -110,12 +114,12 @@ function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProp
       } else {
         if (editingConfig.id === undefined) {
           // Create new configuration
-          await uiFieldConfigurationsManager.create(configToSave);
+          await uiObjectConfigClient.create(configToSave);
         } else {
           // Update existing configuration
-          await uiFieldConfigurationsManager.update(configToSave);
+          await uiObjectConfigClient.update(configToSave);
         }
-        const updatedConfigs = await uiFieldConfigurationsManager.getAll();
+        const updatedConfigs = await uiObjectConfigClient.getAll();
         setConfigs(updatedConfigs);
       }
       setEditingConfig(null);
@@ -134,7 +138,7 @@ function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProp
 
         if (!getConfig('useTestData')) {
             // Call the API to delete the configuration
-            await uiFieldConfigurationsManager.delete(id);
+            await uiObjectConfigClient.delete(id);
         }
 
         // Update the configs array by filtering out the deleted configuration
@@ -393,7 +397,7 @@ function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProp
                               <Pencil className="h-5 w-5" />
                             </button>
                             <button
-                              onClick={() => handleDelete(config.id)}
+                              onClick={() => handleDelete(config.id!)}
                               className="text-gray-400 hover:text-red-500"
                             >
                               <Trash2 className="h-5 w-5" />
@@ -553,6 +557,19 @@ function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProp
                       })}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                       placeholder="Enter default value"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Placeholder</label>
+                    <input
+                      type="text"
+                      value={editingField.defaultValue || ''}
+                      onChange={e => setEditingField({
+                        ...editingField,
+                        defaultValue: e.target.value
+                      })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                      placeholder="Enter placeholder value"
                     />
                   </div>
                   <div>

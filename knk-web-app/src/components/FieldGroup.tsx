@@ -1,5 +1,5 @@
 import React from "react";
-import { UIFieldGroupDto } from "../utils/domain/dto/UIFieldConfigurations";
+import { UIFieldGroupDto } from "../utils/domain/dto/uiObjectConfig/UIFieldConfigurations";
 import FieldComponent from "./FieldComponent";
 
 function FieldGroup({ group }: { group: UIFieldGroupDto }) {

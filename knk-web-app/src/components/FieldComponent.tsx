@@ -1,5 +1,5 @@
 import React from "react";
-import { UIFieldDto, UIFieldType } from "../utils/domain/dto/UIFieldConfigurations";
+import { UIFieldDto, UIFieldType } from "../utils/domain/dto/uiObjectConfig/UIFieldConfigurations";
 
 function FieldComponent({ field }: { field: UIFieldDto }) {
   switch (field.type) {

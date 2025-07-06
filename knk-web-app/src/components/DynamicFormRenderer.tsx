@@ -1,5 +1,5 @@
 import React from "react";
-import { UIObjectConfigDto } from "../utils/domain/dto/UIFieldConfigurations";
+import { UIObjectConfigDto } from "../utils/domain/dto/uiObjectConfig/UIFieldConfigurations";
 import FieldGroup from "./FieldGroup";
 import FieldComponent from "./FieldComponent";
 

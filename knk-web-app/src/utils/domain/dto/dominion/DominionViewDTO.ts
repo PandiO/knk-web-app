@@ -7,7 +7,7 @@ export interface DominionViewDTO {
     Description: string;
     AllowEntry: boolean;
     Created: Date;
-    WgRegionId: number;
+    WgRegionId: string;
     Location: LocationViewDTO;
 }
 

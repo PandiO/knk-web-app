@@ -1,5 +1,5 @@
 export interface UIObjectConfigDto {
-  id: number;
+  id: number | undefined;
   objectType: string;
   title: string;
   layoutStyle: string;
@@ -8,6 +8,8 @@ export interface UIObjectConfigDto {
 }
 
 export interface UIFieldGroupDto {
+  id: number | undefined;
+  uiObjectConfigId: number | undefined;
   name: string;
   label: string;
   order?: number;
@@ -15,6 +17,7 @@ export interface UIFieldGroupDto {
 }
 
 export interface UIFieldDto {
+  id: number | undefined;
   name: string;
   label: string;
   type: UIFieldType;
@@ -30,6 +33,7 @@ export interface UIFieldDto {
 export interface UIFieldValidationDto {
   type: ValidationType;
   value?: string | number;
+  message?: string;
 }
 
 export enum UIFieldType {
@@ -60,6 +64,8 @@ export function mapApiToUIObjectConfigDto(apiData: any): UIObjectConfigDto {
 
 export function mapApiToUIFieldGroupDto(apiData: any): UIFieldGroupDto {
   return {
+    id: apiData.Id,
+    uiObjectConfigId: apiData.UIObjectConfigId,
     name: apiData.Name,
     label: apiData.Label,
     order: apiData.Order,
@@ -69,6 +75,7 @@ export function mapApiToUIFieldGroupDto(apiData: any): UIFieldGroupDto {
 
 export function mapApiToUIFieldDto(apiData: any): UIFieldDto {
   return {
+    id: apiData.Id,
     name: apiData.Name,
     label: apiData.Label,
     type: apiData.Type,

@@ -6,7 +6,7 @@ import { StructureViewDTO, StructureStreetViewDTO } from '../utils/domain/dto/st
 import { StorageViewConciseDTO } from '../utils/domain/dto/item/StorageViewConciseDTO';
 import { ItemDTO } from '../utils/domain/dto/item/ItemDTO';
 import { StorageItemDTO } from '../utils/domain/dto/item/StorageItemDTO';
-import { UIObjectConfigDto, UIFieldType, ValidationType } from '../utils/domain/dto/UIFieldConfigurations';
+import { UIObjectConfigDto, UIFieldGroupDto, UIFieldDto, UIFieldValidationDto, ValidationType, UIFieldType } from "../utils/domain/dto/uiObjectConfig/UIFieldConfigurations";
 
 // Create LocationViewDTO instances
 const locations: LocationViewDTO[] = [
@@ -258,11 +258,12 @@ const structures: StructureViewDTO[] = [
     Description: "The central trading hub of Silverbrook",
     AllowEntry: true,
     Created: new Date("2024-01-16T10:00:00Z"),
-    WgRegionId: 3001,
+    WgRegionId: "3001",
     Location: locations[1],
     Street: structureStreets[0],
     StreetNumber: 1,
-    District: districts[0]
+    District: districts[0],
+    storages: []
   },
   {
     Id: 2,
@@ -270,11 +271,12 @@ const structures: StructureViewDTO[] = [
     Description: "An impressive mansion with ornate architecture",
     AllowEntry: false,
     Created: new Date("2024-01-16T11:00:00Z"),
-    WgRegionId: 3002,
+    WgRegionId: "3002",
     Location: locations[2],
     Street: structureStreets[1],
     StreetNumber: 15,
-    District: districts[1]
+    District: districts[1],
+    storages: []
   },
   {
     Id: 3,
@@ -282,7 +284,7 @@ const structures: StructureViewDTO[] = [
     Description: "Headquarters of the town's artisan guilds",
     AllowEntry: true,
     Created: new Date("2024-01-16T12:00:00Z"),
-    WgRegionId: 3003,
+    WgRegionId: "3003",
     Location: locations[3],
     Street: structureStreets[0],
     StreetNumber: 8,
@@ -326,9 +328,9 @@ const structures: StructureViewDTO[] = [
       Pitch: 2.40026,
       WorldName: "world"
     },
-    Street: null,
-    StreetNumber: null,
-    District: null,
+    Street: structureStreets[2],
+    streetNumber: null,
+    district: null,
     storages: [storages[1]]
   },
   {
@@ -337,7 +339,7 @@ const structures: StructureViewDTO[] = [
     Description: "This Stone Quarry generates stone, and some iron ore as byproduct.",
     AllowEntry: true,
     Created: new Date("2023-02-09T16:10:34"),
-    WgRegionId: "productionstructure_1000012",
+    wgRegionId: "productionstructure_1000012",
     Location: {
       Id: 10,
       X: 1507.5899658203125,
@@ -347,9 +349,9 @@ const structures: StructureViewDTO[] = [
       Pitch: 2.40026,
       WorldName: "world"
     },
-    Street: null,
-    StreetNumber: null,
-    District: null,
+    street: null,
+    streetNumber: null,
+    district: null,
     storages: [storages[2]]
   }
 ];
@@ -369,111 +371,139 @@ export const testData = {
 // UI Field Configurations Test Data
 export const uiConfigTestData: UIObjectConfigDto[] = [
   {
-    objectType: 'structure',
-    title: 'Structure Configuration',
-    layoutStyle: 'standard',
+    id: 1,
+    objectType: "type1",
+    title: "Test Object Config 1",
+    layoutStyle: "grid",
     fieldGroups: [
       {
-        name: 'basicInfo',
-        label: 'Basic Information',
+        id: 101,
+        uiObjectConfigId: 1,
+        name: "Group 1",
+        label: "Test Group 1",
         order: 1,
         fields: [
           {
-            name: 'name',
-            label: 'Structure Name',
+            id: 1001,
+            name: "Field 1",
+            label: "Test Field 1",
             type: UIFieldType.Text,
             required: true,
-            placeholder: 'Enter structure name',
+            defaultValue: "Default Value 1",
+            placeholder: "Enter value 1",
+            referenceObjectType: "ReferenceType1",
+            order: 1,
+            componentType: "input",
             validations: [
-              { type: ValidationType.Required },
-              { type: ValidationType.MinLength, value: 3 }
-            ]
+              {
+                type: ValidationType.MaxLength,
+                value: 50,
+                message: "Maximum length is 50 characters",
+              },
+            ],
           },
-          {
-            name: 'description',
-            label: 'Description',
-            type: UIFieldType.Text,
-            required: false,
-            placeholder: 'Enter structure description'
-          }
-        ]
-      },
-      {
-        name: 'location',
-        label: 'Location Details',
-        order: 2,
-        fields: [
-          {
-            name: 'coordinates',
-            label: 'Coordinates',
-            type: UIFieldType.Text,
-            required: true,
-            componentType: 'coordinates-input'
-          },
-          {
-            name: 'district',
-            label: 'District',
-            type: UIFieldType.Dropdown,
-            required: true,
-            referenceObjectType: 'district'
-          }
-        ]
+        ],
       }
-    ]
-  },
-  {
-    objectType: 'district',
-    title: 'District Configuration',
-    layoutStyle: 'compact',
+    ],
     fields: [
       {
-        name: 'name',
-        label: 'District Name',
-        type: UIFieldType.Text,
-        required: true,
-        placeholder: 'Enter district name',
+        id: 1002,
+        name: "Field 2",
+        label: "Test Field 2",
+        type: UIFieldType.Number,
+        required: false,
+        defaultValue: 10,
+        placeholder: "Enter value 2",
+        referenceObjectType: "ReferenceType2",
+        order: 2,
+        componentType: "number",
         validations: [
-          { type: ValidationType.Required },
-          { type: ValidationType.MinLength, value: 2 }
-        ]
+          {
+            id: 202,
+            type: ValidationType.Pattern,
+            value: "^[0-9]+$",
+            message: "Only numeric values are allowed",
+          },
+        ],
       },
-      {
-        name: 'allowEntry',
-        label: 'Allow Entry',
-        type: UIFieldType.Checkbox,
-        required: true,
-        defaultValue: true
-      }
-    ]
+    ],
   },
   {
-    objectType: 'storage',
-    title: 'Storage Configuration',
-    layoutStyle: 'detailed',
-    fieldGroups: [
-      {
-        name: 'capacity',
-        label: 'Capacity Settings',
-        order: 1,
-        fields: [
-          {
-            name: 'maxCapacity',
-            label: 'Maximum Capacity',
-            type: UIFieldType.Number,
-            required: true,
-            validations: [
-              { type: ValidationType.Required }
-            ]
-          },
-          {
-            name: 'itemLimit',
-            label: 'Item Limit',
-            type: UIFieldType.Number,
-            required: true,
-            defaultValue: 64
-          }
-        ]
-      }
-    ]
+    id: 2,
+    objectType: "type2",
+    title: "Test Object Config 2",
+    layoutStyle: "list",
+    fieldGroups: [],
+    fields: [],
   }
+];
+
+// Mockup API DTO objects
+export const uiConfigApiTestData = [
+  {
+    Id: 1,
+    ObjectType: "type1",
+    Title: "Test Object Config 1",
+    LayoutStyle: "grid",
+    FieldGroups: [
+      {
+        Id: 101,
+        UIObjectConfigId: 1,
+        Name: "Group 1",
+        Label: "Test Group 1",
+        Order: 1,
+        Fields: [
+          {
+            Id: 1001,
+            Name: "Field 1",
+            Label: "Test Field 1",
+            Type: "Text",
+            Required: true,
+            DefaultValue: "Default Value 1",
+            Placeholder: "Enter value 1",
+            ReferenceObjectType: "ReferenceType1",
+            Order: 1,
+            ComponentType: "input",
+            Validations: [
+              {
+                Type: "MaxLength",
+                Value: 50,
+                Message: "Maximum length is 50 characters",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    Fields: [
+      {
+        Id: 1002,
+        Name: "Field 2",
+        Label: "Test Field 2",
+        Type: "Number",
+        Required: false,
+        DefaultValue: 10,
+        Placeholder: "Enter value 2",
+        ReferenceObjectType: "ReferenceType2",
+        Order: 2,
+        ComponentType: "number",
+        Validations: [
+          {
+            Id: 202,
+            Type: "Pattern",
+            Value: "^[0-9]+$",
+            Message: "Only numeric values are allowed",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    Id: 2,
+    ObjectType: "type2",
+    Title: "Test Object Config 2",
+    LayoutStyle: "list",
+    FieldGroups: [],
+    Fields: [],
+  },
 ];
