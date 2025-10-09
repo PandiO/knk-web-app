@@ -24,8 +24,8 @@ export class StructuresManager extends ObjectManager {
         return this.invokeServiceCall(data, StructuresOperation.Create, Controllers.Structures, HttpMethod.Post);
     }
 
-    getViewById(id: number): Promise<StructureViewDTO> {
-        return this.invokeServiceCall({id: id}, StructuresOperation.GetViewById, Controllers.Structures, HttpMethod.Get);
+    getViewById(id: number): Promise<any> {
+        return this.invokeServiceCall(id, StructuresOperation.GetViewById, Controllers.Structures, HttpMethod.Post);
     }
 
     getOverview(parameters: StructureOverviewArgumentsDTO): Promise<any> {
