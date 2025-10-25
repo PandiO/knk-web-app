@@ -6,13 +6,21 @@ import { ObjectViewPage } from './pages/ObjectViewPage';
 import { LandingPage } from './pages/LandingPage';
 import ObjectDashboard from './components/ObjectDashboard';
 import UIFieldConfigurationsPage from './pages/UIFieldConfigurationsPage';
+import { objectConfigs } from './config/objectConfigs';
 
 function App() {
+
+  const objectTypes = Object.entries(objectConfigs).map(([type, config]) => ({
+    id: type,
+    label: config.label,
+    icon: config.icon,
+    createRoute: `/create/${type}`,
+  }));
 
   return (
     <Router>
       <div className="min-h-screen bg-gray-100">
-        <Navigation />
+        <Navigation objectTypes={objectTypes} />
         <div className="pt-16 p-8">
           <div className="max-w-7xl mx-auto space-y-12">
             <Routes>
@@ -23,7 +31,7 @@ function App() {
               <Route path="/structure-overview" element={<StructureOverviewPage />} />
               <Route path="/dashboard" element={
                 <>
-                  <ObjectDashboard />
+                  <ObjectDashboard objectTypes={objectTypes} />
                 </>
               } />
             </Routes>

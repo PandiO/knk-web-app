@@ -5,9 +5,15 @@ import ObjectTypeExplorer from '../ObjectTypeExplorer';
 import { StructuresManager } from '../../io/structures';
 import { mapFieldDataToForm as mapStructureFieldDataToForm } from '../../utils/domain/dto/structure/StructureViewDTO';
 import { mapFieldDataToForm as mapDistrictFieldDataToForm } from '../../utils/domain/dto/district/DistrictViewDTO';
+// @ts-ignore: side-effect import for CSS without type declarations
 import './ObjectDashboard.css';
+import { TownsManager } from '../../io/towns';
+import { StreetManager } from '../../io/streets';
 
-const ObjectDashboard = () => {
+type ObjectType = { id: string; label: string; icon: React.ReactNode; route: string };
+type Props = { objectTypes: ObjectType[] };
+
+const ObjectDashboard = ({objectTypes }: Props) => {
 
   const [itemsList, setItemsList] = useState<any[]>([]);
 
@@ -15,33 +21,43 @@ const ObjectDashboard = () => {
     console.log(`ObjectDashboard mounted`)
   }, [])
 
-
-
-  useEffect(() => {
-    const activeType = 'structure';
-    const fetchItems = async () => {
-      await StructuresManager.getInstance().getAll().then((data) => {
-        console.log(data);
-        const list = data.map(mapStructureFieldDataToForm);
-        setItemsList(list);
-        console.log("Displaying: ", list);
-      }).catch((err) => { console.error(err); });
-    };
-
-    fetchItems();
-  }, []);
-
-  const fetchObjects = ({ type }: { type: string }) => {
+const fetchObjects = ({ type }: { type: string }) => {
+    let list: any = [];
+    setItemsList([]);
     switch (type) {
       case 'structure':
-        return StructuresManager.getInstance().getAll().then((data) => data.map(mapStructureFieldDataToForm));
-      // Add more cases for different object types as needed
+        StructuresManager.getInstance().getAll().then((data) => {
+          setItemsList(data.map(mapStructureFieldDataToForm)); 
+        }).catch((err) => { console.error(err); });
+        break;
       case 'district':
-        return Promise.resolve(testData.districts.map(mapDistrictFieldDataToForm));
+        Promise.resolve(testData.districts.map(mapDistrictFieldDataToForm)).then((data) => {
+          setItemsList(data);
+        }).catch((err) => { console.error(err); });
+        break;
+      case 'town':
+        TownsManager.getInstance().getAll().then((data) => {
+          console.log("Fetched towns: ", data);
+          setItemsList(data);
+        }).catch((err) => { console.error(err); });
+        break;
+      case 'street':
+        StreetManager.getInstance().getAll().then((data) => {
+          console.log("Fetched streets: ", data);
+          setItemsList(data);
+        }).catch((err) => { console.error(err); });
+        break;
       default:
         return Promise.resolve([]);
     }
   }
+
+  useEffect(() => {
+    const activeType = 'structure';
+    fetchObjects({ type: activeType });
+  }, []);
+
+  
 
   // Default formatters for common fields
   const defaultFormatters = {
@@ -53,9 +69,8 @@ const ObjectDashboard = () => {
     <div className="dashboard-parent">
         <div className='dashboard-sidebar'>
             <ObjectTypeExplorer
-              items={[{Id: 1, Name: "Towns", Type: "structure"}, {Id: 2, Name: "Districts", Type: "district"}]}
-              onSelect={(type) => fetchObjects({ type })}
-            />
+          items={objectTypes}
+          onSelect={(type) => fetchObjects({ type })}/>
         </div>
         <div className='dashboard-content'>
           {/* Towns Table */}

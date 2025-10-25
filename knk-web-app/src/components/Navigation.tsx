@@ -1,21 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Plus, ChevronRight, Home, Table2, Building2, Settings2 } from 'lucide-react';
-import { objectConfigs } from '../config/objectConfigs';
 
-export function Navigation() {
+// added: explicit types for object types prop
+type ObjectType = { id: string; label: string; icon: React.ReactNode; route: string };
+type Props = { objectTypes: ObjectType[] };
+
+// changed: accept props object instead of raw array parameter
+export function Navigation({ objectTypes }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-
-  const objectTypes = Object.entries(objectConfigs).map(([type, config]) => ({
-    id: type,
-    label: config.label,
-    icon: config.icon,
-    route: `/create/${type}`
-  }));
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, MapPin, Home, Package, User } from 'lucide-react';
+import { Building2, MapPin, Home, Package, User, TagIcon, BrickWallIcon } from 'lucide-react';
 import type { FormField, ObjectConfig } from '../types/common';
 import type { Location } from '../types/Location';
 
@@ -223,6 +223,43 @@ const structureConfig: ObjectConfig = {
   }
 };
 
+const ItemTypeConfig: ObjectConfig = {
+  type: 'itemType',
+  label: 'Item Type',
+  icon: <BrickWallIcon className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    blockData: {name: 'blockData', label: 'Block Data', type: 'text', required: false},
+    data: {name: 'data', label: 'Data', type: 'text', required: true},
+    name: commonFields.name,
+  }
+};
+
+const CategoryConfig: ObjectConfig = {
+  type: 'category',
+  label: 'Category',
+  icon: <TagIcon className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    itemType: {
+      name: 'itemType',
+      label: 'Item Type',
+      type: 'object',
+      objectConfig: ItemTypeConfig},
+    parentCategory: {
+      name: 'parentCategory',
+      label: 'Parent Category',
+      type: 'object',
+      required: false,
+      objectConfig: undefined as unknown as ObjectConfig,
+    }
+  }
+};
+
+// assign self-reference after creation to avoid "used before declaration" errors
+(CategoryConfig.fields as any).parentCategory.objectConfig = CategoryConfig;
+
 export const objectConfigs: Record<string, ObjectConfig> = {
   location: locationConfig,
   dominion: dominionConfig,
@@ -230,6 +267,8 @@ export const objectConfigs: Record<string, ObjectConfig> = {
   district: districtConfig,
   structure: structureConfig,
   street: streetConfig,
+  category: CategoryConfig,
+  itemType: ItemTypeConfig,
   item: {
     type: 'item',
     label: 'Item',
