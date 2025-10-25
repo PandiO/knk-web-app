@@ -1,0 +1,32 @@
+.dashboard-parent {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+
+  /* Make the dashboard area a fixed-height viewport slice so inner column can scroll.
+     Calc accounts for the top padding/nav and bottom padding from your App.tsx wrapper.
+     Adjust the 6rem value if your nav/padding heights differ. */
+  height: calc(100vh - 6rem);
+  gap: 1rem;
+}
+
+/* Sidebar stays visible */
+.dashboard-sidebar {
+  width: 30%;
+  display: flex;
+  flex-direction: column;
+  /* remove float; make sidebar stick within the dashboard-parent */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100%;
+  overflow: auto; /* if sidebar content is taller than available height */
+}
+
+/* Content scrolls independently */
+.dashboard-content {
+  width: 70%;
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 1rem;
+}

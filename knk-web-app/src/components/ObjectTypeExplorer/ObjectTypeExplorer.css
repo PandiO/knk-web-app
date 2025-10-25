@@ -1,0 +1,54 @@
+.ObjectTypeExplorer-component {
+  display: flex;
+  flex-direction: column;
+
+}
+
+.sidebar-list {
+  background: #fff;
+  border: 1px solid rgba(226,232,240,1); /* tailwind slate-200 */
+  border-radius: 0.375rem; /* rounded-md */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  overflow: hidden;
+}
+
+/* header like a small section title */
+.sidebar-list-header {
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #0f172a; /* slate-900 */
+  border-bottom: 1px solid rgba(243,244,246,1); /* light divider */
+}
+
+/* scrollable body */
+.sidebar-list-body {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: calc(100% - 2.5rem); /* header height accounted */
+  overflow-y: auto;
+}
+
+/* rows similar to datatable rows */
+.sidebar-list-row {
+  padding: 0.625rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(243,244,246,1);
+}
+
+.sidebar-list-row:hover {
+  background: rgba(248,250,252,1); /* slate-50 */
+}
+
+.sidebar-list-row.selected {
+  background: rgba(226,232,240,0.5);
+}
+
+.sidebar-row-title {
+  font-size: 0.95rem;
+  color: #0f172a;
+}

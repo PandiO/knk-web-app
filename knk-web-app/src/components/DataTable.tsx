@@ -40,7 +40,7 @@ export function DataTable<T extends Record<string, any>>({
 
   const handleView = (item: T) => {
     console.log('View item:', item);
-    navigate(`/view/${type}/${item.id}`, { state: { object: item}});
+    navigate(`/view/${type}/${item.id}`, { state: { object: item } });
   };
 
   const handleEdit = (item: T) => {
@@ -92,10 +92,10 @@ export function DataTable<T extends Record<string, any>>({
       if (excludeColumns.includes(key as keyof T)) return false;
 
       const value = item[key];
-      
+
       // Exclude array properties to prevent circular references
       if (Array.isArray(value)) return false;
-      
+
       // Exclude complex objects without formatters
       if (typeof value === 'object' && value !== null && !formatters[key as keyof T]) {
         return false;
@@ -119,15 +119,14 @@ export function DataTable<T extends Record<string, any>>({
     // Handle basic types
     if (typeof value === 'boolean') {
       return (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-        }`}>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
           {value ? 'Yes' : 'No'}
         </span>
       );
     }
     if (value instanceof Date) return value.toLocaleDateString();
-    
+
     // Handle objects
     if (typeof value === 'object') {
       // If it's an object with a Name property, use that
@@ -163,8 +162,8 @@ export function DataTable<T extends Record<string, any>>({
 
   const getSortIcon = (column: string) => {
     if (sortState.column !== column) return <ArrowUpDown className="h-4 w-4" />;
-    return sortState.direction === 'asc' ? 
-      <ArrowUp className="h-4 w-4" /> : 
+    return sortState.direction === 'asc' ?
+      <ArrowUp className="h-4 w-4" /> :
       <ArrowDown className="h-4 w-4" />;
   };
 
@@ -194,14 +193,14 @@ export function DataTable<T extends Record<string, any>>({
     const strA = String(a).toLowerCase();
     const strB = String(b).toLowerCase();
 
-    return direction === 'asc' ? 
-      strA.localeCompare(strB) : 
+    return direction === 'asc' ?
+      strA.localeCompare(strB) :
       strB.localeCompare(strA);
   };
 
   function handleSort(column: string) {
     setSortState(prevState => {
-      const newDirection: SortDirection = 
+      const newDirection: SortDirection =
         prevState.column === column
           ? prevState.direction === 'asc'
             ? 'desc'
@@ -209,7 +208,7 @@ export function DataTable<T extends Record<string, any>>({
               ? null
               : 'asc'
           : 'asc';
-      
+
       return {
         column: newDirection ? column : null,
         direction: newDirection,
