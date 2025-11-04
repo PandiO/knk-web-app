@@ -12,6 +12,7 @@ import { useRef } from 'react';
 import { ErrorColor, logging } from './utils';
 import en from './utils/languages/en-en.json';
 import { ErrorView } from './components/ErrorView';
+import { FormWizardPage } from './pages/FormWizardPage';
 
 function App() {
 
@@ -87,6 +88,7 @@ function App() {
                   <ObjectDashboard objectTypes={objectTypes} />
                 </>
               } />
+              <Route path="/forms/:entityName" element={<FormWizardPage />} />
             </Routes>
           </div>
         </div>

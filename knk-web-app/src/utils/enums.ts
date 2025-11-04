@@ -61,6 +61,10 @@ export enum Controllers {
     Dominions = 'Dominions',
     Towns = 'Towns',
     UIObjectConfigurations = 'UIObjectConfig',
+    FormConfigurations = 'FormConfigurations',
+    FormSteps = 'FormSteps',
+    FormFields = 'FormFields',
+    FormSubmissionProgress = 'FormSubmissionProgress',
 }
 
 export enum FormPlaceHolder {
@@ -86,4 +90,77 @@ export enum ErrorColor {
     Yellow = 'Yellow',
     Blue = 'Blue',
     Grey = 'Grey'
+}
+
+export enum FieldType {
+    String = 'String',
+    Integer = 'Integer',
+    Boolean = 'Boolean',
+    DateTime = 'DateTime',
+    Decimal = 'Decimal',
+    Enum = 'Enum',
+    Object = 'Object',
+    List = 'List'
+}
+
+export enum ValidationType {
+    Required = 'Required',
+    MinLength = 'MinLength',
+    MaxLength = 'MaxLength',
+    Range = 'Range',
+    Regex = 'Regex',
+    Email = 'Email',
+    Custom = 'Custom'
+}
+
+export enum FormSubmissionStatus {
+    Draft = 'Draft',
+    InProgress = 'InProgress',
+    Paused = 'Paused',
+    Completed = 'Completed',
+    Abandoned = 'Abandoned'
+}
+
+export enum ConditionOperator {
+    Equals = 'Equals',
+    NotEquals = 'NotEquals',
+    GreaterThan = 'GreaterThan',
+    LessThan = 'LessThan',
+    Contains = 'Contains',
+    IsEmpty = 'IsEmpty',
+    IsNotEmpty = 'IsNotEmpty'
+}
+
+export enum FormConfigurationOperation {
+    GetAll = '',
+    GetById = 'GetFormConfiguration',
+    GetByEntity = 'GetByEntity',
+    GetByEntityAll = 'GetByEntityAll',
+    Create = '',
+    Update = '',
+    Delete = ''
+}
+
+export enum FormStepOperation {
+    GetAll = '',
+    GetById = 'GetFormStep',
+    Create = '',
+    Update = '',
+    Delete = ''
+}
+
+export enum FormFieldOperation {
+    GetAll = '',
+    GetById = 'GetFormField',
+    Create = '',
+    Update = '',
+    Delete = ''
+}
+
+export enum FormSubmissionProgressOperation {
+    GetByUser = 'GetByUser',
+    GetById = 'GetFormSubmissionProgress',
+    Create = '',
+    Update = '',
+    Delete = ''
 }
