@@ -75,6 +75,7 @@ export class ServiceCall {
 
         try {
             console.log(url);
+            console.log(requestParams);
             const response = await fetch(url, requestParams);
             const result = await response.json();
 

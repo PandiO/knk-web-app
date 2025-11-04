@@ -13,6 +13,8 @@ import { ErrorColor, logging } from './utils';
 import en from './utils/languages/en-en.json';
 import { ErrorView } from './components/ErrorView';
 import { FormWizardPage } from './pages/FormWizardPage';
+import { FormConfigBuilder } from './components/FormConfigBuilder/FormConfigBuilder';
+import { FormConfigListPage } from './pages/FormConfigListPage';
 
 function App() {
 
@@ -89,6 +91,9 @@ function App() {
                 </>
               } />
               <Route path="/forms/:entityName" element={<FormWizardPage />} />
+              <Route path="/admin/form-configurations" element={<FormConfigListPage />} />
+              <Route path="/admin/form-configurations/new" element={<FormConfigBuilder />} />
+              <Route path="/admin/form-configurations/edit/:id" element={<FormConfigBuilder />} />
             </Routes>
           </div>
         </div>
