@@ -5,6 +5,7 @@ import { uiObjectConfigClient } from '../io/UIObjectConfigClient';
 import { getConfig } from '../config/appConfig'; // Ensure this file exists at the specified path
 import { uiConfigTestData } from '../data/testData';
 import { mapApiToUIObjectConfigDto } from '../utils/domain/dto/uiObjectConfig/UIFieldConfigurations'; // Ensure this file exists at the specified path
+import { logging } from '../utils/logging';
 
 interface UIFieldConfigurationsPageProps {
   objectType: string;
@@ -70,13 +71,20 @@ function UIFieldConfigurationsPage({ objectType }: UIFieldConfigurationsPageProp
           // Simulate network delay
           await new Promise(resolve => setTimeout(resolve, 500));
         } else {
-          data = await uiObjectConfigClient.getAll();
+          await uiObjectConfigClient.getAll().then(response => {
+            if (response) {
+              data = response;
+            } else {
+              logging.errorHandler.next('ErrorMessage.UICOnfigurations.LoadFailed');
+            }
+          });
         }
         console.log('Fetched Configurations:', data);
         setConfigs(data);
       } catch (error) {
         setError('Failed to load configuration');
         console.error('Error fetching UIObjectConfig:', error);
+
       } finally {
         setLoading(false);
       }

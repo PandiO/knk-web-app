@@ -88,7 +88,7 @@ export class ServiceCall {
                 }
             }
         } catch (ex) {
-
+            args.responseHandler?.error(ex);
         }
 
     }

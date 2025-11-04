@@ -80,3 +80,10 @@ export enum FilterType {
     Include = 0,
     Exclude = 1
 }
+
+export enum ErrorColor {
+    Red = 'Red',
+    Yellow = 'Yellow',
+    Blue = 'Blue',
+    Grey = 'Grey'
+}

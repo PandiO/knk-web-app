@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "build",
+			"path": "knk-web-app",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "npm: build - knk-web-app",
+			"detail": "react-scripts build"
+		}
+	]
+}

@@ -7,8 +7,61 @@ import { LandingPage } from './pages/LandingPage';
 import ObjectDashboard from './components/ObjectDashboard';
 import UIFieldConfigurationsPage from './pages/UIFieldConfigurationsPage';
 import { objectConfigs } from './config/objectConfigs';
+import { Subscription } from 'rxjs/internal/Subscription';
+import { useRef } from 'react';
+import { ErrorColor, logging } from './utils';
+import en from './utils/languages/en-en.json';
+import { ErrorView } from './components/ErrorView';
 
 function App() {
+
+  var result: any[] = [];
+  const errorContent = useRef(result);
+
+  let loggingErrorHandler: Subscription | null = null;
+
+
+  const removeError = (value: string) => {
+    const errorContentWithRemovedItem = errorContent.current.filter(x => x.content.props.content !== value);
+    setTimeout(() => {
+      errorContent.current = errorContentWithRemovedItem;
+      clearTimeout(0);
+    }, 0);
+  }
+
+  const initialize = () => {
+    loggingErrorHandler = logging.errorHandler.subscribe((data: any) => {
+      const message = getMessageFromPath(String(data)) ?? String(data);
+      const errorMap = errorContent.current.map(x => x.content.props.content);
+
+      const isRed = data.includes("Red");
+
+      if (errorMap.includes(message) === false) {
+        var interval = setTimeout(() => {
+          errorContent.current.shift();
+          clearTimeout(interval);
+        }, isRed ? 20000 : 6000);
+
+        errorContent.current.push({
+          content: <ErrorView content={message} color={isRed ? ErrorColor.Red : ErrorColor.Grey} removeCallback={() => removeError(message)} />
+        });
+      }
+    });
+  }
+
+  function getMessageFromPath(path: string): string | undefined {
+    if (!path) return undefined;
+    const parts = path.split('.').filter(Boolean);
+    let current: any = en;
+    for (const part of parts) {
+      if (current && Object.prototype.hasOwnProperty.call(current, part)) {
+        current = current[part];
+      } else {
+        return undefined;
+      }
+    }
+    return typeof current === 'string' ? current : undefined;
+  }
 
   const objectTypes = Object.entries(objectConfigs).map(([type, config]) => ({
     id: type,

@@ -20,7 +20,7 @@ export class UIFieldConfigurationsManager extends ObjectManager {
 
     // Fetch a specific UI object configuration by type
     getByType(type: string): Promise<UIObjectConfigDto | null> {
-        return this.invokeServiceCall(type, UIObjectConfigurationOperation.GetByType, Controllers.UIObjectConfigurations, HttpMethod.Get)
+        return this.invokeServiceCall(type, UIObjectConfigurationOperation.GetByType, Controllers.UIObjectConfigurations, HttpMethod.Post)
             .then(response => (response ? mapApiToUIObjectConfigDto(response) : null));
     }
 

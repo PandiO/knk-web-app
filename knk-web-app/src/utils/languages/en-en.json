@@ -1,0 +1,8 @@
+{
+    "ErrorMessage": {
+        "Test": "This is a test error message.",
+        "UIConfigurations": {
+            "LoadFailed": "Failed to load UI configurations."
+        }
+    }
+}
