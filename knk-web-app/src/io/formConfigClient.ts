@@ -45,7 +45,10 @@ export class FormConfigClient extends ObjectManager {
     }
 
     update(data: FormConfigurationDto): Promise<FormConfigurationDto> {
-        return this.invokeServiceCall(data, FormConfigurationOperation.Update, Controllers.FormConfigurations, HttpMethod.Put);
+        if (!data.id) {
+            throw new Error('FormConfigurationDto id is required for update operation');
+        }
+        return this.invokeServiceCall(data, data.id, Controllers.FormConfigurations, HttpMethod.Put);
     }
 
     delete(id: string): Promise<void> {

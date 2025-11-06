@@ -27,7 +27,7 @@ export class FormFieldClient extends ObjectManager {
     }
 
     update(data: FormFieldDto): Promise<FormFieldDto> {
-        return this.invokeServiceCall(data, FormFieldOperation.Update, Controllers.FormFields, HttpMethod.Put);
+        return this.invokeServiceCall({id: data.id, data}, FormFieldOperation.Update, Controllers.FormFields, HttpMethod.Put);
     }
 
     delete(id: string): Promise<void> {

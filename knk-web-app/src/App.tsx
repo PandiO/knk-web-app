@@ -15,6 +15,7 @@ import { ErrorView } from './components/ErrorView';
 import { FormWizardPage } from './pages/FormWizardPage';
 import { FormConfigBuilder } from './components/FormConfigBuilder/FormConfigBuilder';
 import { FormConfigListPage } from './pages/FormConfigListPage';
+import React from 'react';
 
 function App() {
 
@@ -70,8 +71,16 @@ function App() {
     id: type,
     label: config.label,
     icon: config.icon,
-    createRoute: `/create/${type}`,
+    createRoute: `/forms/${type}`,
   }));
+
+  React.useEffect(() => {
+    initialize();
+
+    return () => {
+      loggingErrorHandler?.unsubscribe();
+    }
+  }, []);
 
   return (
     <Router>

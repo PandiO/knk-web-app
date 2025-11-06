@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Save, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Check, AlertCircle } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../utils/domain/dto/forms/FormModels';
 import { formConfigClient } from '../../io/formConfigClient';
 import { formSubmissionClient } from '../../io/formSubmissionClient';
@@ -29,6 +29,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const [progressId, setProgressId] = useState<string | undefined>(existingProgressId);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         loadConfiguration();
@@ -128,12 +129,19 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         });
 
         setErrors(newErrors);
+        // changed: clear page-level error when validating fields
+        if (isValid) {
+            setError(null);
+        }
         return isValid;
     };
 
     const saveProgress = async (status: FormSubmissionStatus = FormSubmissionStatus.Draft) => {
         try {
             setSaving(true);
+            // changed: clear error before attempting save
+            setError(null);
+
             const progressData: FormSubmissionProgressDto = {
                 id: progressId,
                 formConfigurationId: config!.id!,
@@ -150,9 +158,16 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 const created = await formSubmissionClient.create(progressData);
                 setProgressId(created.id);
             }
-        } catch (error) {
+            // changed: return true on success so caller knows save succeeded
+            return true;
+        } catch (error: any) {
             console.error('Failed to save progress:', error);
+            // changed: set user-friendly error message from API or fallback
+            const errorMessage = error?.response?.data?.message || 'Failed to save your progress. Please try again.';
+            setError(errorMessage);
             logging.errorHandler.next('ErrorMessage.FormSubmission.SaveFailed');
+            // changed: return false to indicate failure
+            return false;
         } finally {
             setSaving(false);
         }
@@ -182,23 +197,44 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         setAllStepsData(updatedAllData);
 
         if (currentStepIndex < config!.steps.length - 1) {
+            // changed: only proceed if save succeeds
+            const saved = await saveProgress(FormSubmissionStatus.InProgress);
+            if (!saved) {
+                // Don't advance to next step if save failed
+                return;
+            }
             setCurrentStepIndex(prev => prev + 1);
             setCurrentStepData({});
             setErrors({});
-            await saveProgress(FormSubmissionStatus.InProgress);
         } else {
             // Complete the form
-            await saveProgress(FormSubmissionStatus.Completed);
+            // changed: only call onComplete if save succeeds
+            const saved = await saveProgress(FormSubmissionStatus.Completed);
+            if (!saved) {
+                // Don't complete if save failed
+                return;
+            }
             onComplete?.(updatedAllData);
         }
     };
 
     const handlePrevious = () => {
         if (currentStepIndex > 0) {
+            // changed: clear error when navigating back
+            setError(null);
             setAllStepsData(prev => ({ ...prev, [currentStepIndex]: currentStepData }));
             setCurrentStepIndex(prev => prev - 1);
             setCurrentStepData(allStepsData[currentStepIndex - 1] || {});
             setErrors({});
+        }
+    };
+
+    // changed: add explicit save draft handler
+    const handleSaveDraft = async () => {
+        const saved = await saveProgress(FormSubmissionStatus.Draft);
+        if (saved) {
+            // Optional: show success message
+            console.log('Draft saved successfully');
         }
     };
 
@@ -225,6 +261,16 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg">
             {/* Progress Bar */}
             <div className="px-8 pt-8">
+                {/* added: error banner */}
+                {error && (
+                    <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4 flex items-start">
+                        <AlertCircle className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <p className="text-sm text-red-800">{error}</p>
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex items-center justify-between mb-4">
                     {config.steps.map((step, index) => (
                         <div key={step.id} className="flex items-center flex-1">
@@ -293,7 +339,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     Previous
                 </button>
                 <button
-                    onClick={() => saveProgress()}
+                    onClick={handleSaveDraft}
                     disabled={saving}
                     className="btn-secondary"
                 >
@@ -302,6 +348,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 </button>
                 <button
                     onClick={handleNext}
+                    disabled={saving}
                     className="btn-primary"
                 >
                     {currentStepIndex === config.steps.length - 1 ? 'Complete' : 'Next'}

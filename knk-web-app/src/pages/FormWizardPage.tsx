@@ -7,7 +7,7 @@ export const FormWizardPage: React.FC = () => {
     const navigate = useNavigate();
 
     // TODO: Get actual user ID from auth context
-    const userId = 'current-user-id';
+    const userId = '1';
 
     const handleComplete = (data: any) => {
         console.log('Form completed with data:', data);

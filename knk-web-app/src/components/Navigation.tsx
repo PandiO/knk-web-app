@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Plus, ChevronRight, Home, Table2, Building2, Settings2, FileText, Layout } from 'lucide-react';
 
 // added: explicit types for object types prop
-type ObjectType = { id: string; label: string; icon: React.ReactNode; route: string };
+type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
 
 // changed: accept props object instead of raw array parameter
@@ -154,7 +154,7 @@ export function Navigation({ objectTypes }: Props) {
                       <button
                         key={type.id}
                         onClick={() => {
-                          navigate(type.route);
+                          navigate(type.createRoute);
                           setIsOpen(false);
                         }}
                         className={`

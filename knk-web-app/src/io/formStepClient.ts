@@ -19,7 +19,7 @@ export class FormStepClient extends ObjectManager {
     }
 
     getById(id: string): Promise<FormStepDto> {
-        return this.invokeServiceCall({ id }, FormStepOperation.GetById, Controllers.FormSteps, HttpMethod.Get);
+        return this.invokeServiceCall(id, FormStepOperation.GetById, Controllers.FormSteps, HttpMethod.Get);
     }
 
     create(data: FormStepDto): Promise<FormStepDto> {
@@ -27,7 +27,7 @@ export class FormStepClient extends ObjectManager {
     }
 
     update(data: FormStepDto): Promise<FormStepDto> {
-        return this.invokeServiceCall(data, FormStepOperation.Update, Controllers.FormSteps, HttpMethod.Put);
+        return this.invokeServiceCall({ id: data.id, data }, FormStepOperation.Update, Controllers.FormSteps, HttpMethod.Put);
     }
 
     delete(id: string): Promise<void> {

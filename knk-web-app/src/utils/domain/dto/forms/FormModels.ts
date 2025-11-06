@@ -89,7 +89,7 @@ export interface FormConfigurationDto {
 export interface FormSubmissionProgressDto {
     id?: string;
     formConfigurationId: string;
-    userId: string;
+    userId?: string;
     entityId?: string;
     currentStepIndex: number;
     currentStepDataJson?: string;

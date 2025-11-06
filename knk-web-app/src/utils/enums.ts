@@ -133,7 +133,7 @@ export enum ConditionOperator {
 
 export enum FormConfigurationOperation {
     GetAll = '',
-    GetById = 'GetFormConfiguration',
+    GetById = '',
     GetByEntity = '',
     GetByEntityAll = '',
     Create = '',
@@ -143,7 +143,7 @@ export enum FormConfigurationOperation {
 
 export enum FormStepOperation {
     GetAll = '',
-    GetById = 'GetFormStep',
+    GetById = '',
     Create = '',
     Update = '',
     Delete = ''
