@@ -46,7 +46,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 setCurrentStepData(JSON.parse(progress.currentStepDataJson || '{}'));
                 setAllStepsData(JSON.parse(progress.allStepsDataJson || '{}'));
             } else {
-                const fetchedConfig = await formConfigClient.getByEntity(entityName, true);
+                const fetchedConfig = await formConfigClient.getByEntity(entityName, true).then(config => {
+                    if (!config) {
+                        throw new Error(`No default form configuration found for entity: ${entityName}`);
+                    }
+                    return config;
+                });
                 setConfig(fetchedConfig);
                 
                 // Initialize with default values

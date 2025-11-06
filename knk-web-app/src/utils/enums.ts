@@ -134,8 +134,8 @@ export enum ConditionOperator {
 export enum FormConfigurationOperation {
     GetAll = '',
     GetById = 'GetFormConfiguration',
-    GetByEntity = 'GetByEntity',
-    GetByEntityAll = 'GetByEntityAll',
+    GetByEntity = '',
+    GetByEntityAll = '',
     Create = '',
     Update = '',
     Delete = ''
