@@ -37,7 +37,7 @@ export function Navigation({ objectTypes }: Props) {
         break;
       case 'Enter':
         if (selectedIndex >= 0) {
-          navigate(objectTypes[selectedIndex].route);
+          navigate(objectTypes[selectedIndex].createRoute);
           setIsOpen(false);
         }
         break;
@@ -108,7 +108,7 @@ export function Navigation({ objectTypes }: Props) {
                 Configurations
               </Link>
               <Link
-                to="/forms/structure"
+                to="/forms"
                 className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
                   location.pathname.startsWith('/forms')
                     ? 'border-b-2 border-primary text-slate-900'

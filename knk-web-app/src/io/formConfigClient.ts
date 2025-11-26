@@ -24,7 +24,7 @@ export class FormConfigClient extends ObjectManager {
 
     getByEntity(entityName: string, defaultOnly: boolean = true): Promise<FormConfigurationDto> {
         return this.invokeServiceCall(
-            { defaultOnly },
+            { "defaultOnly": defaultOnly },
             entityName,
             Controllers.FormConfigurations,
             HttpMethod.Get

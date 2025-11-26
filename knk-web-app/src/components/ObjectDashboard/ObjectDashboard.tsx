@@ -10,7 +10,7 @@ import './ObjectDashboard.css';
 import { TownsManager } from '../../io/towns';
 import { StreetManager } from '../../io/streets';
 
-type ObjectType = { id: string; label: string; icon: React.ReactNode; route: string };
+type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
 
 const ObjectDashboard = ({objectTypes }: Props) => {

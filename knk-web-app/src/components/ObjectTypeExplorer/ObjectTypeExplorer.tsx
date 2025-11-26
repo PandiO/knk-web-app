@@ -6,7 +6,7 @@ type SidebarItem = {
   Type: string;
 };
 
-type ObjectType = { id: string; label: string; icon: React.ReactNode; route: string };
+type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 
 
 type Props = {

@@ -99,7 +99,8 @@ function App() {
                   <ObjectDashboard objectTypes={objectTypes} />
                 </>
               } />
-              <Route path="/forms/:entityName" element={<FormWizardPage />} />
+              <Route path="/forms" element={<FormWizardPage typeName='' objectTypes={objectTypes}/>} />
+              <Route path="/forms/:entityName" element={<FormWizardPage typeName='' objectTypes={objectTypes}/>} />
               <Route path="/admin/form-configurations" element={<FormConfigListPage />} />
               <Route path="/admin/form-configurations/new" element={<FormConfigBuilder />} />
               <Route path="/admin/form-configurations/edit/:id" element={<FormConfigBuilder />} />
