@@ -40,6 +40,15 @@ export class FormConfigClient extends ObjectManager {
         );
     }
 
+    getEntityNames(): Promise<string[]> {
+        return this.invokeServiceCall(
+            null,
+            FormConfigurationOperation.GetEntityNames,
+            Controllers.FormConfigurations,
+            HttpMethod.Get
+        );
+    }
+
     create(data: FormConfigurationDto): Promise<FormConfigurationDto> {
         return this.invokeServiceCall(data, FormConfigurationOperation.Create, Controllers.FormConfigurations, HttpMethod.Post);
     }

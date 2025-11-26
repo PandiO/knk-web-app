@@ -136,6 +136,7 @@ export enum FormConfigurationOperation {
     GetById = '',
     GetByEntity = '',
     GetByEntityAll = '',
+    GetEntityNames = 'entity-names',
     Create = '',
     Update = '',
     Delete = ''
