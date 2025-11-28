@@ -4,8 +4,8 @@ import type { FormField, ObjectConfig } from '../types/common';
 import { objectConfigs, placeholderConfigs } from '../config/objectConfigs';
 import { SearchableDropdown } from './SearchableDropdown';
 import { MultiSelectDropdown } from './MultiSelectDropdown';
-import { DistrictManager } from '../io/districts';
-import { LocationsManager } from '../io/locations';
+import { DistrictManager } from '../apiClients/districts';
+import { LocationsManager } from '../apiClients/locations';
 import { extractFieldsFromDTO, mergeDTOWithConfig } from '../utils/fieldConfigUtils';
 import { StructureCreateDTO } from '../utils/domain/dto/structure/StructureCreateDTO';
 

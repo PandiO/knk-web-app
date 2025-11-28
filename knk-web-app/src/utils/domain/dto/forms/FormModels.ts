@@ -75,7 +75,7 @@ export interface FormStepDto {
 
 export interface FormConfigurationDto {
     id?: string;
-    entityName: string;
+    entityTypeName: string;
     configurationName: string;
     description?: string;
     isDefault: boolean;
@@ -90,6 +90,7 @@ export interface FormSubmissionProgressDto {
     id?: string;
     formConfigurationId: string;
     userId?: string;
+    entityTypeName?: string;
     entityId?: string;
     currentStepIndex: number;
     currentStepDataJson?: string;
@@ -101,6 +102,42 @@ export interface FormSubmissionProgressDto {
     completedAt?: string;
     configuration?: FormConfigurationDto;
     childProgresses?: FormSubmissionProgressDto[];
+}
+
+    // public class FormSubmissionProgressSummaryDto
+    // {
+    //     [JsonPropertyName("id")]
+    //     public string? Id { get; set; }
+    //     [JsonPropertyName("formConfigurationId")]
+    //     public string FormConfigurationId { get; set; } = null!;
+    //     [JsonPropertyName("formConfigurationName")]
+    //     public string FormConfigurationName { get; set; } = null!;
+    //     [JsonPropertyName("userId")]
+    //     public string? UserId { get; set; }
+    //     [JsonPropertyName("entityTypeName")]
+    //     public string? EntityTypeName { get; set; }
+    //     [JsonPropertyName("parentProgressId")]
+    //     public string? ParentProgressId { get; set; }
+    //     [JsonPropertyName("currentStepIndex")]
+    //     public int CurrentStepIndex { get; set; }
+    //     [JsonPropertyName("status")]
+    //     public FormSubmissionStatus Status { get; set; }
+    //     [JsonPropertyName("createdAt")]
+    //     public string? CreatedAt { get; set; }
+    //     [JsonPropertyName("updatedAt")]
+    //     public string? UpdatedAt { get; set; }
+    // }
+export interface FormSubmissionProgressSummaryDto {
+    id?: string;
+    formConfigurationId: string;
+    formConfigurationName: string;
+    userId?: string;
+    entityTypeName?: string;
+    parentProgressId?: string;
+    currentStepIndex: number;
+    status: FormSubmissionStatus;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface StepData {

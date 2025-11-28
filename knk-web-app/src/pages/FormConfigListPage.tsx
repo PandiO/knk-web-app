@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Loader2, FileText } from 'lucide-react';
 import { FormConfigurationDto } from '../utils/domain/dto/forms/FormModels';
-import { formConfigClient } from '../io/formConfigClient';
+import { formConfigClient } from '../apiClients/formConfigClient';
 import { logging } from '../utils';
 
 export const FormConfigListPage: React.FC = () => {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Settings2, AlertCircle, Loader2, Plus, Pencil, Trash2, LayoutGrid, ListPlus } from 'lucide-react';
 import { UIObjectConfigDto, UIFieldType, ValidationType, UIFieldGroupDto, UIFieldDto, UIFieldValidationDto } from '../utils/domain/dto/uiObjectConfig/UIFieldConfigurations';
-import { uiObjectConfigClient } from '../io/UIObjectConfigClient';
+import { uiObjectConfigClient } from '../apiClients/UIObjectConfigClient';
 import { getConfig } from '../config/appConfig'; // Ensure this file exists at the specified path
 import { uiConfigTestData } from '../data/testData';
 import { mapApiToUIObjectConfigDto } from '../utils/domain/dto/uiObjectConfig/UIFieldConfigurations'; // Ensure this file exists at the specified path

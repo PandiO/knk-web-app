@@ -159,7 +159,8 @@ export enum FormFieldOperation {
 }
 
 export enum FormSubmissionProgressOperation {
-    GetByUser = 'GetByUser',
+    GetByEntityTypeName = 'entity',
+    GetByUser = 'user',
     GetById = 'GetFormSubmissionProgress',
     Create = '',
     Update = '',

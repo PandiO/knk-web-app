@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Save, Plus, GripVertical, Trash2, AlertCircle, Loader2, Copy } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, FormFieldDto } from '../../utils/domain/dto/forms/FormModels';
-import { formConfigClient } from '../../io/formConfigClient';
-import { formStepClient } from '../../io/formStepClient';
-import { formFieldClient } from '../../io/formFieldClient';
+import { formConfigClient } from '../../apiClients/formConfigClient';
+import { formStepClient } from '../../apiClients/formStepClient';
+import { formFieldClient } from '../../apiClients/formFieldClient';
 import { logging } from '../../utils';
 import { StepEditor } from './StepEditor';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -18,7 +18,7 @@ export const FormConfigBuilder: React.FC = () => {
     const isEditMode = configId !== 'new';
 
     const [config, setConfig] = useState<FormConfigurationDto>({
-        entityName: '',
+        entityTypeName: '',
         configurationName: '',
         description: '',
         isDefault: false,
@@ -165,7 +165,7 @@ export const FormConfigBuilder: React.FC = () => {
     };
 
     const validateConfig = (): boolean => {
-        if (!config.entityName.trim()) {
+        if (!config.entityTypeName.trim()) {
             setError('Entity name is required');
             return false;
         }
@@ -261,8 +261,8 @@ export const FormConfigBuilder: React.FC = () => {
                                 </label>
                                 <input
                                     type="text"
-                                    value={config.entityName}
-                                    onChange={e => setConfig({ ...config, entityName: e.target.value })}
+                                    value={config.entityTypeName}
+                                    onChange={e => setConfig({ ...config, entityTypeName: e.target.value })}
                                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                                     placeholder="e.g., Structure, User, Order"
                                 />

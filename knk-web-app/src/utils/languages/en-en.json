@@ -10,7 +10,8 @@
         },
         "FormSubmission": {
             "SaveFailed": "Failed to save form progress.",
-            "LoadFailed": "Failed to load form progress."
+            "LoadFailed": "Failed to load form progress.",
+            "DeleteFailed": "Failed to delete form progress."
         }
     }
 }

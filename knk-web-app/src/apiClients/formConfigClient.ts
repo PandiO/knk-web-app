@@ -19,12 +19,12 @@ export class FormConfigClient extends ObjectManager {
     }
 
     getById(id: string): Promise<FormConfigurationDto> {
-        return this.invokeServiceCall({ id }, FormConfigurationOperation.GetById, Controllers.FormConfigurations, HttpMethod.Get);
+        return this.invokeServiceCall(null, `${FormConfigurationOperation.GetById}${id}`, Controllers.FormConfigurations, HttpMethod.Get);
     }
 
-    getByEntity(entityName: string, defaultOnly: boolean = true): Promise<FormConfigurationDto> {
+    getByEntityTypeName(entityName: string, defaultOnly: boolean = true): Promise<FormConfigurationDto | FormConfigurationDto[] | undefined> {
         return this.invokeServiceCall(
-            { "defaultOnly": defaultOnly },
+            { defaultOnly },
             entityName,
             Controllers.FormConfigurations,
             HttpMethod.Get
@@ -61,7 +61,7 @@ export class FormConfigClient extends ObjectManager {
     }
 
     delete(id: string): Promise<void> {
-        return this.invokeServiceCall({ id }, FormConfigurationOperation.Delete, Controllers.FormConfigurations, HttpMethod.Delete);
+        return this.invokeServiceCall(null, `${FormConfigurationOperation.Delete}${id}`, Controllers.FormConfigurations, HttpMethod.Delete);
     }
 }
 

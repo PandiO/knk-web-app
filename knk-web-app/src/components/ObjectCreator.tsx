@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { objectConfigs } from '../config/objectConfigs';
 import { DynamicForm } from './DynamicForm';
-import { StructuresManager } from '../io/structures';
+import { StructuresManager } from '../apiClients/structures';
 import { StructureCreateDTO, mapFormDataToFields as mapStructureFormDataToFields } from '../utils/domain/dto/structure/StructureCreateDTO';
 
 export function ObjectCreator() {

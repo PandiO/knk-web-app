@@ -1,4 +1,4 @@
-import { InvokeServiceArgs } from "../io/interfaces";
+import { InvokeServiceArgs } from "../apiClients/interfaces";
 import ConfigurationHelper from "../utils/config-helper";
 import { HttpMethod } from "../utils/enums";
 

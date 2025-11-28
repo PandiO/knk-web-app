@@ -1,5 +1,5 @@
 import { Controllers, FormSubmissionProgressOperation, HttpMethod } from "../utils/enums";
-import { FormSubmissionProgressDto } from "../utils/domain/dto/forms/FormModels";
+import { FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from "../utils/domain/dto/forms/FormModels";
 import { ObjectManager } from "./objectManager";
 import { logging } from "../utils";
 
@@ -12,6 +12,10 @@ export class FormSubmissionClient extends ObjectManager {
             FormSubmissionClient.instance.logger = logging.getLogger('FormSubmissionClient');
         }
         return FormSubmissionClient.instance;
+    }
+
+    getByEntityTypeName(entityTypeName: string, userId: string | undefined, isSummary: boolean | undefined): Promise<FormSubmissionProgressDto[] | FormSubmissionProgressSummaryDto[]> {
+        return this.invokeServiceCall({entityTypeName, userId, isSummary}, FormSubmissionProgressOperation.GetByEntityTypeName, Controllers.FormSubmissionProgress, HttpMethod.Get);
     }
 
     getByUser(userId: string): Promise<FormSubmissionProgressDto[]> {

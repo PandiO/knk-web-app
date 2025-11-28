@@ -4,7 +4,7 @@ import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { ObjectView } from '../components/ObjectView';
 import { objectConfigs } from '../config/objectConfigs';
 import { StructureViewDTO, mapFieldDataToForm as mapStructureFieldDataToForm } from '../utils/domain/dto/structure/StructureViewDTO';
-import { StructuresManager } from '../io/structures';
+import { StructuresManager } from '../apiClients/structures';
 import { DistrictViewDTO } from '../utils/domain/dto/district/DistrictViewDTO';
 import { TownViewDTO } from '../utils/domain/dto/town/TownViewDTO';
 import { StreetViewDTO } from '../utils/domain/dto/StreetViewDTO';

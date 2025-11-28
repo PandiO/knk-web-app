@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { testData } from '../../data/testData';
 import { DataTable } from '../DataTable';
 import ObjectTypeExplorer from '../ObjectTypeExplorer';
-import { StructuresManager } from '../../io/structures';
+import { StructuresManager } from '../../apiClients/structures';
 import { mapFieldDataToForm as mapStructureFieldDataToForm } from '../../utils/domain/dto/structure/StructureViewDTO';
 import { mapFieldDataToForm as mapDistrictFieldDataToForm } from '../../utils/domain/dto/district/DistrictViewDTO';
 // @ts-ignore: side-effect import for CSS without type declarations
 import './ObjectDashboard.css';
-import { TownsManager } from '../../io/towns';
-import { StreetManager } from '../../io/streets';
+import { TownsManager } from '../../apiClients/towns';
+import { StreetManager } from '../../apiClients/streets';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };

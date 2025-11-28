@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Save, Check, AlertCircle } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../utils/domain/dto/forms/FormModels';
-import { formConfigClient } from '../../io/formConfigClient';
-import { formSubmissionClient } from '../../io/formSubmissionClient';
+import { formConfigClient } from '../../apiClients/formConfigClient';
+import { formSubmissionClient } from '../../apiClients/formSubmissionClient';
 import { ConditionEvaluator } from '../../utils/conditionEvaluator';
 import { FormSubmissionStatus } from '../../utils/enums';
 import { FieldRenderer } from './FieldRenderers';
@@ -11,7 +11,7 @@ import { logging } from '../../utils';
 interface FormWizardProps {
     entityName: string;
     userId: string;
-    onComplete?: (data: AllStepsData) => void;
+    onComplete?: (data: any, progress?: FormSubmissionProgressDto) => void;
     existingProgressId?: string;
 }
 
@@ -50,9 +50,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 if (!entityName) {
                     throw new Error('Entity name is required to load form configuration');
                 }
-                const fetchedConfig = await formConfigClient.getByEntity(entityName, true).then(config => {
+                const fetchedConfig = await formConfigClient.getByEntityTypeName(entityName, true).then((config: FormConfigurationDto | FormConfigurationDto[] | undefined) => {
                     if (!config) {
                         throw new Error(`No default form configuration found for entity: ${entityName}`);
+                    }
+                    if (Array.isArray(config)) {
+                        throw new Error(`Expected single form configuration but received array for entity: ${entityName}`);
                     }
                     return config;
                 });

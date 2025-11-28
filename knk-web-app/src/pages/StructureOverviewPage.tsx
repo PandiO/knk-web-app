@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Building2, MapPin, Home, Hash } from 'lucide-react';
-import { StructuresManager } from '../io/structures';
+import { StructuresManager } from '../apiClients/structures';
 import { StructureOverviewDTO } from '../utils/domain/dto/structure/StructureOverviewDTO';
 import { FilterType, StructureOverviewFilter } from '../utils/enums';
 import { useNavigate } from 'react-router-dom';
