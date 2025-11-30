@@ -140,7 +140,13 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
     const handleSetDefault = async (config: FormConfigurationDto) => {
         if (formConfigs.some(c => c.id !== config.id && c.isDefault)) {
             //Write code to display confirmation prompt to user asking if they want to change default, with display of current default config name and id
-            if (!confirm(`There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
+            if (confirm(`There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
+                //Remove default from other configs
+                const otherDefaults = formConfigs.filter(c => c.id !== config.id && c.isDefault);
+                for (const otherDefault of otherDefaults) {
+                    await handleRemoveDefault(otherDefault);
+                }
+            } else {
                 return;
             }
         }
@@ -150,7 +156,7 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
             await formConfigClient.update(updatedConfig);
             
             // Refresh configurations
-            const configs = await formConfigClient.getByEntityAll(selectedTypeName);
+            const configs = await formConfigClient.getByEntityTypeName(selectedTypeName, false) as FormConfigurationDto[];
             const sortedConfigs = [...configs].sort((a, b) => {
                 if (a.isDefault && !b.isDefault) return -1;
                 if (!a.isDefault && b.isDefault) return 1;
@@ -171,7 +177,7 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
             await formConfigClient.update(updatedConfig);
             
             // Refresh configurations
-            const configs = await formConfigClient.getByEntityAll(selectedTypeName);
+            const configs = await formConfigClient.getByEntityTypeName(selectedTypeName, false) as FormConfigurationDto[];
             const sortedConfigs = [...configs].sort((a, b) => {
                 if (a.isDefault && !b.isDefault) return -1;
                 if (!a.isDefault && b.isDefault) return 1;
