@@ -1,41 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Loader2, FileText } from 'lucide-react';
-import { FormConfigurationDto } from '../utils/domain/dto/forms/FormModels';
-import { formConfigClient } from '../apiClients/formConfigClient';
+import { Plus, Loader2, FileText } from 'lucide-react';
 import { logging } from '../utils';
+import { metadataClient } from '../apiClients/metadataClient';
+import { EntityMetadataDto } from '../utils/domain/dto/metadata/MetadataModels';
 
 export const FormConfigListPage: React.FC = () => {
     const navigate = useNavigate();
-    const [configs, setConfigs] = useState<FormConfigurationDto[]>([]);
+    const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        loadConfigs();
+        loadMetadata();
     }, []);
 
-    const loadConfigs = async () => {
+    const loadMetadata = async () => {
         try {
             setLoading(true);
-            const data = await formConfigClient.getAll();
-            setConfigs(data);
+            const data = await metadataClient.getAllEntityMetadata();
+            setEntityMetadata(data);
         } catch (error) {
-            console.error('Failed to load configurations:', error);
+            console.error('Failed to load entity metadata:', error);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.LoadFailed');
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this configuration?')) return;
-
-        try {
-            await formConfigClient.delete(id);
-            setConfigs(prev => prev.filter(c => c.id !== id));
-        } catch (error) {
-            console.error('Failed to delete configuration:', error);
-            logging.errorHandler.next('ErrorMessage.FormConfiguration.DeleteFailed');
         }
     };
 
@@ -53,9 +41,9 @@ export const FormConfigListPage: React.FC = () => {
                 <div className="bg-white shadow-sm rounded-lg">
                     <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Form Configurations</h1>
+                            <h1 className="text-2xl font-bold text-gray-900">Form Builder Entities</h1>
                             <p className="mt-1 text-sm text-gray-500">
-                                Manage dynamic form wizards for different entities
+                                Entities available for form configuration
                             </p>
                         </div>
                         <button
@@ -63,66 +51,65 @@ export const FormConfigListPage: React.FC = () => {
                             className="btn-primary"
                         >
                             <Plus className="h-5 w-5 mr-2" />
-                            Create Configuration
+                            New (No Prefill)
                         </button>
                     </div>
 
                     <div className="px-6 py-4">
-                        {configs.length === 0 ? (
+                        {entityMetadata.length === 0 ? (
                             <div className="text-center py-12">
                                 <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                                <h3 className="mt-2 text-sm font-medium text-gray-900">No configurations</h3>
+                                <h3 className="mt-2 text-sm font-medium text-gray-900">No entities</h3>
                                 <p className="mt-1 text-sm text-gray-500">
-                                    Get started by creating a new form configuration.
+                                    No form-configurable entities were returned.
                                 </p>
                             </div>
                         ) : (
                             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                                {configs.map(config => (
+                                {entityMetadata.map(em => (
                                     <div
-                                        key={config.id}
+                                        key={em.entityName}
                                         className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
                                     >
-                                        <div className="flex justify-between items-start mb-4">
+                                        <div className="flex justify-between items-start mb-2">
                                             <div className="flex-1">
-                                                <h3 className="text-lg font-medium text-gray-900">
-                                                    {config.configurationName}
+                                                <h3 className="text-lg font-medium text-gray-900" title={em.displayName}>
+                                                    {em.displayName}
                                                 </h3>
-                                                <p className="text-sm text-gray-500 mt-1">
-                                                    {config.entityName}
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    ({em.entityName})
                                                 </p>
-                                                {config.isDefault && (
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-2">
-                                                        Default
-                                                    </span>
-                                                )}
                                             </div>
                                         </div>
-
-                                        {config.description && (
-                                            <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                                                {config.description}
-                                            </p>
-                                        )}
-
-                                        <div className="text-sm text-gray-500 mb-4">
-                                            {config.steps.length} step{config.steps.length !== 1 ? 's' : ''}
+                                        <div className="text-xs text-gray-500 mb-4">
+                                            {em.fields.length} field{em.fields.length !== 1 ? 's' : ''}
                                         </div>
-
-                                        <div className="flex space-x-2">
+                                        <div className="space-y-2">
                                             <button
-                                                onClick={() => navigate(`/admin/form-configurations/edit/${config.id}`)}
-                                                className="flex-1 btn-secondary text-sm"
+                                                onClick={() => navigate(`/admin/form-configurations/new?entity=${encodeURIComponent(em.entityName)}`)}
+                                                className="w-full btn-primary text-sm"
                                             >
-                                                <Pencil className="h-4 w-4 mr-1" />
-                                                Edit
+                                                Configure Form
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(config.id!)}
-                                                className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
+                                                onClick={() => navigate(`/admin/form-configurations/new?entity=${encodeURIComponent(em.entityName)}&default=true`)}
+                                                className="w-full btn-secondary text-xs"
                                             >
-                                                <Trash2 className="h-4 w-4" />
+                                                Configure As Default
                                             </button>
+                                        </div>
+                                        <div className="mt-4">
+                                            <details className="text-xs">
+                                                <summary className="cursor-pointer text-gray-600">Fields</summary>
+                                                <ul className="mt-2 space-y-1 max-h-32 overflow-y-auto pr-1">
+                                                    {em.fields.map(f => (
+                                                        <li key={f.fieldName} className="flex justify-between">
+                                                            <span className="truncate" title={f.fieldName}>{f.fieldName}</span>
+                                                            <span className="text-gray-400">{f.fieldType}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </details>
                                         </div>
                                     </div>
                                 ))}

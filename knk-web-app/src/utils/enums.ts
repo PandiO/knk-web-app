@@ -65,6 +65,7 @@ export enum Controllers {
     FormSteps = 'FormSteps',
     FormFields = 'FormFields',
     FormSubmissionProgress = 'FormSubmissionProgress',
+    Metadata = 'Metadata', // added
 }
 
 export enum FormPlaceHolder {
@@ -165,4 +166,9 @@ export enum FormSubmissionProgressOperation {
     Create = '',
     Update = '',
     Delete = ''
+}
+
+export enum MetadataOperation {
+    Entities = 'entities',
+    EntityNames = 'entity-names',
 }

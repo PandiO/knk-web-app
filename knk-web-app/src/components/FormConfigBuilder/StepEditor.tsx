@@ -7,14 +7,16 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { FieldEditor } from './FieldEditor';
+import { FieldMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
 
 interface Props {
     step: FormStepDto;
     reusableFields: FormFieldDto[];
     onUpdate: (step: FormStepDto) => void;
+    metadataFields?: FieldMetadataDto[]; // added
 }
 
-export const StepEditor: React.FC<Props> = ({ step, reusableFields, onUpdate }) => {
+export const StepEditor: React.FC<Props> = ({ step, reusableFields, onUpdate, metadataFields = [] }) => {
     const [editingField, setEditingField] = useState<{ field: FormFieldDto; index: number } | null>(null);
     const [showReusableFields, setShowReusableFields] = useState(false);
 
@@ -220,6 +222,7 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, onUpdate }) 
                     field={editingField.field}
                     onSave={handleSaveField}
                     onCancel={() => setEditingField(null)}
+                    metadataFields={metadataFields} // added
                 />
             )}
         </div>

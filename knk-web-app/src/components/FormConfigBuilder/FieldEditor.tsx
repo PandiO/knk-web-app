@@ -2,15 +2,52 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { FormFieldDto } from '../../utils/domain/dto/forms/FormModels';
 import { FieldType } from '../../utils/enums';
+import { FieldMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
 
 interface Props {
     field: FormFieldDto;
     onSave: (field: FormFieldDto) => void;
     onCancel: () => void;
+    metadataFields?: FieldMetadataDto[]; // added
 }
 
-export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCancel }) => {
+export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCancel, metadataFields = [] }) => {
     const [field, setField] = useState<FormFieldDto>(initialField);
+
+    // added: map backend field type to frontend FieldType enum
+    const mapFieldType = (backendType: string): FieldType => {
+        const typeMap: Record<string, FieldType> = {
+            'string': FieldType.String,
+            'int': FieldType.Integer,
+            'int32': FieldType.Integer,
+            'int64': FieldType.Integer,
+            'bool': FieldType.Boolean,
+            'boolean': FieldType.Boolean,
+            'datetime': FieldType.DateTime,
+            'decimal': FieldType.Decimal,
+            'double': FieldType.Decimal,
+            'float': FieldType.Decimal,
+        };
+        const normalized = backendType.toLowerCase();
+        return typeMap[normalized] || FieldType.Object;
+    };
+
+    // added: handler for selecting field from metadata dropdown
+    const handleFieldNameChange = (selectedFieldName: string) => {
+        const metaField = metadataFields.find(mf => mf.fieldName === selectedFieldName);
+        if (metaField) {
+            setField(prev => ({
+                ...prev,
+                fieldName: metaField.fieldName,
+                label: metaField.fieldName, // auto-populate label
+                fieldType: mapFieldType(metaField.fieldType), // auto-populate type
+                // optionally set objectType if it's a related entity
+                objectType: metaField.isRelatedEntity ? metaField.relatedEntityType || undefined : undefined
+            }));
+        } else {
+            setField(prev => ({ ...prev, fieldName: selectedFieldName }));
+        }
+    };
 
     const handleSave = () => {
         if (!field.fieldName.trim() || !field.label.trim()) {
@@ -38,13 +75,33 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Field Name <span className="text-red-500">*</span>
                             </label>
-                            <input
-                                type="text"
-                                value={field.fieldName}
-                                onChange={e => setField({ ...field, fieldName: e.target.value })}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                placeholder="e.g., streetName, totalCost"
-                            />
+                            {metadataFields.length > 0 ? (
+                                <select
+                                    value={field.fieldName}
+                                    onChange={e => handleFieldNameChange(e.target.value)}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                >
+                                    <option value="">Select a field...</option>
+                                    {metadataFields.map(mf => (
+                                        <option key={mf.fieldName} value={mf.fieldName}>
+                                            {mf.fieldName} ({mf.fieldType})
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <input
+                                    type="text"
+                                    value={field.fieldName}
+                                    onChange={e => setField({ ...field, fieldName: e.target.value })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                    placeholder="e.g., streetName, totalCost"
+                                />
+                            )}
+                            {metadataFields.length > 0 && (
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Select from entity fields or leave empty to add custom field
+                                </p>
+                            )}
                         </div>
 
                         <div>

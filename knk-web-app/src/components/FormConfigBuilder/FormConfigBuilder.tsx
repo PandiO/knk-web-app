@@ -5,6 +5,8 @@ import { FormConfigurationDto, FormStepDto, FormFieldDto } from '../../utils/dom
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { formStepClient } from '../../apiClients/formStepClient';
 import { formFieldClient } from '../../apiClients/formFieldClient';
+import { metadataClient } from '../../apiClients/metadataClient';
+import { EntityMetadataDto, FieldMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
 import { logging } from '../../utils';
 import { StepEditor } from './StepEditor';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -33,6 +35,8 @@ export const FormConfigBuilder: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showReusableSteps, setShowReusableSteps] = useState(false);
+    const [metadata, setMetadata] = useState<EntityMetadataDto[]>([]);
+    const [selectedEntityMeta, setSelectedEntityMeta] = useState<EntityMetadataDto | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -44,6 +48,45 @@ export const FormConfigBuilder: React.FC = () => {
     useEffect(() => {
         loadData();
     }, [configId]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const entityParam = params.get('entity');
+        const defaultFlag = params.get('default') === 'true';
+
+        const loadMeta = async () => {
+            try {
+                const all = await metadataClient.getAllEntityMetadata();
+                setMetadata(all);
+                if (!isEditMode) {
+                    const pre = entityParam
+                        ? all.find(m => m.entityName.toLowerCase() === entityParam.toLowerCase())
+                        : null;
+                    if (pre) {
+                        setConfig(prev => ({
+                            ...prev,
+                            entityTypeName: pre.entityName,
+                            isDefault: defaultFlag ? true : prev.isDefault
+                        }));
+                        setSelectedEntityMeta(pre);
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load metadata', e);
+                logging.errorHandler.next('ErrorMessage.FormConfiguration.LoadFailed');
+            }
+        };
+        loadMeta();
+    }, [configId, isEditMode]);
+
+    useEffect(() => {
+        if (config.entityTypeName) {
+            const meta = metadata.find(m => m.entityName === config.entityTypeName) || null;
+            setSelectedEntityMeta(meta);
+        } else {
+            setSelectedEntityMeta(null);
+        }
+    }, [config.entityTypeName, metadata]);
 
     const loadData = async () => {
         try {
@@ -237,15 +280,12 @@ export const FormConfigBuilder: React.FC = () => {
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Header */}
                 <div className="bg-white shadow-sm rounded-lg mb-6">
                     <div className="px-6 py-4 border-b border-gray-200">
                         <h1 className="text-2xl font-bold text-gray-900">
                             {isEditMode ? 'Edit Form Configuration' : 'Create Form Configuration'}
                         </h1>
                     </div>
-
-                    {/* Basic Info */}
                     <div className="px-6 py-4 space-y-4">
                         {error && (
                             <div className="bg-red-50 border border-red-200 rounded-md p-4 flex items-start">
@@ -253,21 +293,25 @@ export const FormConfigBuilder: React.FC = () => {
                                 <p className="text-sm text-red-800">{error}</p>
                             </div>
                         )}
-
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Entity Name <span className="text-red-500">*</span>
+                                    Entity <span className="text-red-500">*</span>
                                 </label>
-                                <input
-                                    type="text"
+                                <select
                                     value={config.entityTypeName}
-                                    onChange={e => setConfig({ ...config, entityTypeName: e.target.value })}
+                                    onChange={e => setConfig(prev => ({ ...prev, entityTypeName: e.target.value }))}
+                                    disabled={isEditMode} // lock entity when editing
                                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                    placeholder="e.g., Structure, User, Order"
-                                />
+                                >
+                                    <option value="">Select an entity...</option>
+                                    {metadata.map(m => (
+                                        <option key={m.entityName} value={m.entityName}>
+                                            {m.displayName} ({m.entityName})
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Configuration Name <span className="text-red-500">*</span>
@@ -281,7 +325,6 @@ export const FormConfigBuilder: React.FC = () => {
                                 />
                             </div>
                         </div>
-
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                             <textarea
@@ -292,7 +335,6 @@ export const FormConfigBuilder: React.FC = () => {
                                 placeholder="Optional description of this form configuration"
                             />
                         </div>
-
                         <div className="flex items-center">
                             <input
                                 type="checkbox"
@@ -387,6 +429,7 @@ export const FormConfigBuilder: React.FC = () => {
                                 step={config.steps[selectedStepIndex]}
                                 reusableFields={reusableFields}
                                 onUpdate={handleUpdateStep}
+                                metadataFields={selectedEntityMeta?.fields ?? []}
                             />
                         ) : (
                             <div className="bg-white shadow-sm rounded-lg p-12 text-center text-gray-500">
