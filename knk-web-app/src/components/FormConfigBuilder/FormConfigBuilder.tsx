@@ -38,6 +38,9 @@ export const FormConfigBuilder: React.FC = () => {
     const [metadata, setMetadata] = useState<EntityMetadataDto[]>([]);
     const [selectedEntityMeta, setSelectedEntityMeta] = useState<EntityMetadataDto | null>(null);
 
+    // added: state to track default conflict notification
+    const [defaultConflictMsg, setDefaultConflictMsg] = useState<string | null>(null);
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, {
@@ -233,6 +236,17 @@ export const FormConfigBuilder: React.FC = () => {
         return true;
     };
 
+    const handleRemoveDefault = async (config: FormConfigurationDto) => {
+        try {
+            // Update the configuration to be default
+            const updatedConfig = { ...config, isDefault: false };
+            await formConfigClient.update(updatedConfig);
+        } catch (error) {
+            console.error('Failed to set default configuration:', error);
+            logging.errorHandler.next('ErrorMessage.FormConfiguration.SaveFailed');
+        }
+    };
+
     const handleSave = async () => {
         if (!validateConfig()) return;
 
@@ -250,21 +264,70 @@ export const FormConfigBuilder: React.FC = () => {
                 }))
             };
 
+            if (configToSave.isDefault) {
+                try {
+                    // If setting this config as default, unset others for the same entity
+                    const existingDefaults: FormConfigurationDto = await formConfigClient.getByEntityTypeName(config.entityTypeName, true) as FormConfigurationDto;
+                    if (existingDefaults && existingDefaults.id && existingDefaults.id !== config.id) {
+                        //Show same confirm dialog as the handleSetDefault const in the FormWizardPage.tsx and unset if confirmed
+                        if (confirm(`There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
+                            await handleRemoveDefault(existingDefaults);
+                        } else {
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error checking existing default configuration:', error);
+                    logging.errorHandler.next('ErrorMessage.FormConfiguration.SaveFailed');
+                }
+
+            }
+
             if (isEditMode) {
                 await formConfigClient.update(configToSave);
             } else {
                 await formConfigClient.create(configToSave);
             }
 
-            navigate('/admin/form-configurations');
         } catch (err) {
             console.error('Failed to save configuration:', err);
             setError('Failed to save configuration');
             logging.errorHandler.next('ErrorMessage.FormConfiguration.SaveFailed');
         } finally {
             setSaving(false);
+            navigate('/admin/form-configurations');
         }
     };
+
+    // added: helper to check existing default for selected entity
+    const checkExistingDefault = async (entityTypeName: string, currentId?: string) => {
+        if (!entityTypeName) {
+            setDefaultConflictMsg(null);
+            return;
+        }
+        try {
+            const existingDefault = await formConfigClient.getByEntityTypeName(entityTypeName, true) as FormConfigurationDto;
+            if (existingDefault && existingDefault.id && existingDefault.id !== currentId) {
+                setDefaultConflictMsg(
+                    `There cannot be more than one default form configuration for "${entityTypeName}". A default already exists: "${existingDefault.configurationName}".`
+                );
+            } else {
+                setDefaultConflictMsg(null);
+            }
+        } catch {
+            // No default exists or endpoint returns 404 → clear message
+            setDefaultConflictMsg(null);
+        }
+    };
+
+    // changed: when entity changes, only check conflict if current config is marked as default
+    useEffect(() => {
+        if (config.isDefault) {
+            checkExistingDefault(config.entityTypeName, config.id);
+        } else {
+            setDefaultConflictMsg(null);
+        }
+    }, [config.entityTypeName, config.id, config.isDefault]);
 
     if (loading) {
         return (
@@ -286,6 +349,19 @@ export const FormConfigBuilder: React.FC = () => {
                             {isEditMode ? 'Edit Form Configuration' : 'Create Form Configuration'}
                         </h1>
                     </div>
+
+                    {/* changed: show warning only when isDefault is true and a conflict exists */}
+                    {config.isDefault && defaultConflictMsg && (
+                        <div className="px-6 pt-4">
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 flex items-center">
+                                <svg className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="text-sm text-yellow-800">{defaultConflictMsg}</span>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="px-6 py-4 space-y-4">
                         {error && (
                             <div className="bg-red-50 border border-red-200 rounded-md p-4 flex items-start">
@@ -340,7 +416,15 @@ export const FormConfigBuilder: React.FC = () => {
                                 type="checkbox"
                                 id="isDefault"
                                 checked={config.isDefault}
-                                onChange={e => setConfig({ ...config, isDefault: e.target.checked })}
+                                onChange={async e => {
+                                    const next = e.target.checked;
+                                    setConfig(prev => ({ ...prev, isDefault: next }));
+                                    if (next) {
+                                        await checkExistingDefault(config.entityTypeName, config.id);
+                                    } else {
+                                        setDefaultConflictMsg(null);
+                                    }
+                                }}
                                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                             />
                             <label htmlFor="isDefault" className="ml-2 block text-sm text-gray-900">

@@ -10,6 +10,7 @@ import { logging } from '../../utils';
 
 interface FormWizardProps {
     entityName: string;
+    entityId?: string;
     userId: string;
     onComplete?: (data: any, progress?: FormSubmissionProgressDto) => void;
     existingProgressId?: string;
@@ -17,6 +18,7 @@ interface FormWizardProps {
 
 export const FormWizard: React.FC<FormWizardProps> = ({
     entityName,
+    entityId,
     userId,
     onComplete,
     existingProgressId
@@ -42,7 +44,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             if (existingProgressId) {
                 const progress = await formSubmissionClient.getById(existingProgressId);
                 setProgressId(progress.id);
-                setConfig(progress.configuration!);
+                setConfig(await formConfigClient.getById(progress.formConfigurationId));
                 setCurrentStepIndex(progress.currentStepIndex);
                 setCurrentStepData(JSON.parse(progress.currentStepDataJson || '{}'));
                 setAllStepsData(JSON.parse(progress.allStepsDataJson || '{}'));
@@ -142,7 +144,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         return isValid;
     };
 
-    const saveProgress = async (status: FormSubmissionStatus = FormSubmissionStatus.Draft) => {
+    const saveProgress = async (status: FormSubmissionStatus = FormSubmissionStatus.Paused) => {
         try {
             setSaving(true);
             // changed: clear error before attempting save
@@ -152,10 +154,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 id: progressId,
                 formConfigurationId: config!.id!,
                 userId,
+                entityTypeName: entityName,
+                entityId: entityId,
                 currentStepIndex,
                 currentStepDataJson: JSON.stringify(currentStepData),
                 allStepsDataJson: JSON.stringify({ ...allStepsData, [currentStepIndex]: currentStepData }),
                 status,
+                updatedAt: new Date().toISOString(),
             };
 
             if (progressId) {
@@ -237,7 +242,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
     // changed: add explicit save draft handler
     const handleSaveDraft = async () => {
-        const saved = await saveProgress(FormSubmissionStatus.Draft);
+        const saved = await saveProgress(FormSubmissionStatus.Paused);
         if (saved) {
             // Optional: show success message
             console.log('Draft saved successfully');

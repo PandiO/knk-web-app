@@ -115,7 +115,7 @@ export enum ValidationType {
 }
 
 export enum FormSubmissionStatus {
-    Draft = 'Draft',
+    // Draft = 'Draft',
     InProgress = 'InProgress',
     Paused = 'Paused',
     Completed = 'Completed',
@@ -162,7 +162,7 @@ export enum FormFieldOperation {
 export enum FormSubmissionProgressOperation {
     GetByEntityTypeName = 'entity',
     GetByUser = 'user',
-    GetById = 'GetFormSubmissionProgress',
+    GetById = '',
     Create = '',
     Update = '',
     Delete = ''

@@ -47,7 +47,7 @@ export class ServiceCall {
                     console.log((ex as any).ErrorMessage);
                 }
             }
-        } else {
+        } else if (args.httpMethod == HttpMethod.Delete) {} else{
             requestParams = {
                 method: args.httpMethod,
                 headers: {

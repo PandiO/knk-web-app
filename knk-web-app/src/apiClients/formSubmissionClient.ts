@@ -23,7 +23,7 @@ export class FormSubmissionClient extends ObjectManager {
     }
 
     getById(id: string): Promise<FormSubmissionProgressDto> {
-        return this.invokeServiceCall({ id }, FormSubmissionProgressOperation.GetById, Controllers.FormSubmissionProgress, HttpMethod.Get);
+        return this.invokeServiceCall(null, `${FormSubmissionProgressOperation.GetById}${id}`, Controllers.FormSubmissionProgress, HttpMethod.Get);
     }
 
     create(data: FormSubmissionProgressDto): Promise<FormSubmissionProgressDto> {
@@ -31,7 +31,7 @@ export class FormSubmissionClient extends ObjectManager {
     }
 
     update(data: FormSubmissionProgressDto): Promise<FormSubmissionProgressDto> {
-        return this.invokeServiceCall(data, FormSubmissionProgressOperation.Update, Controllers.FormSubmissionProgress, HttpMethod.Put);
+        return this.invokeServiceCall(data, `${FormSubmissionProgressOperation.Update}${data.id}`, Controllers.FormSubmissionProgress, HttpMethod.Put);
     }
 
     delete(id: string): Promise<void> {

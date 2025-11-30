@@ -28,7 +28,8 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
     const [savedProgress, setSavedProgress] = useState<FormSubmissionProgressSummaryDto[]>([]);
     const [loadingConfigs, setLoadingConfigs] = useState(false);
     const [activeWizard, setActiveWizard] = useState<{
-        config: FormConfigurationDto;
+        configId?: string;
+        config?: FormConfigurationDto;
         progressId?: string;
     } | null>(null);
 
@@ -132,8 +133,8 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
     const userId = '1';
 
     // added: handler for opening a configuration
-    const handleOpenConfiguration = (config: FormConfigurationDto, progressId?: string) => {
-        setActiveWizard({ config, progressId });
+    const handleOpenConfiguration = (configId?: string, config?: FormConfigurationDto, progressId?: string) => {
+        setActiveWizard({ configId, config, progressId });
     };
 
     // added: handler for setting default configuration
@@ -198,8 +199,8 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
     const handleResumeProgress = async (progress: FormSubmissionProgressSummaryDto) => {
         try {
             const fullProgress = await formSubmissionClient.getById(progress.id!);
-            if (fullProgress.configuration) {
-                handleOpenConfiguration(fullProgress.configuration, fullProgress.id);
+            if (fullProgress.formConfigurationId) {
+                handleOpenConfiguration(fullProgress.formConfigurationId, undefined, fullProgress.id);
             }
         } catch (error) {
             console.error('Failed to resume progress:', error);
@@ -343,7 +344,7 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
                                     ? `No form configurations found for "${selectedObjectType?.label}". Please create a configuration first.`
                                     : showNoDefault
                                     ? `No default configuration set for "${selectedObjectType?.label}". Please set one as default to enable form wizard.`
-                                    : `Too many default configurations found for "${selectedObjectType?.label}". Please ensure only one default is set.`}
+                                    : `Too many default configurations found for "${selectedObjectType?.label}". A default already exists: "${formConfigs.find(cfg => cfg.isDefault)?.configurationName}". Please ensure only one default is set.`}
                             </span>
                         </div>
                     </div>
@@ -369,7 +370,7 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
                                     <>
                                         <FormConfigurationTable
                                             configurations={formConfigs}
-                                            onOpen={(config) => handleOpenConfiguration(config)}
+                                            onOpen={(config) => handleOpenConfiguration(undefined, config)}
                                             onSetDefault={handleSetDefault}
                                             onRemoveDefault={handleRemoveDefault}
                                             onEdit={handleEditConfiguration}

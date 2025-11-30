@@ -133,6 +133,7 @@ export interface FormSubmissionProgressSummaryDto {
     formConfigurationName: string;
     userId?: string;
     entityTypeName?: string;
+    entityId?: string;
     parentProgressId?: string;
     currentStepIndex: number;
     status: FormSubmissionStatus;

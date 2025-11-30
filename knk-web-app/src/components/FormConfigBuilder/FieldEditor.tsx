@@ -1,20 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { FormFieldDto } from '../../utils/domain/dto/forms/FormModels';
 import { FieldType } from '../../utils/enums';
-import { FieldMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
+import { FieldMetadataDto, EntityMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
+import { metadataClient } from '../../apiClients/metadataClient';
 
 interface Props {
     field: FormFieldDto;
     onSave: (field: FormFieldDto) => void;
     onCancel: () => void;
-    metadataFields?: FieldMetadataDto[]; // added
+    metadataFields?: FieldMetadataDto[];
 }
 
 export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCancel, metadataFields = [] }) => {
     const [field, setField] = useState<FormFieldDto>(initialField);
+    const [collectionElementType, setCollectionElementType] = useState<FieldType>(
+        initialField.defaultValue ? (initialField.defaultValue as FieldType) : FieldType.String
+    );
+    const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto[]>([]);
 
-    // added: map backend field type to frontend FieldType enum
+    useEffect(() => {
+        const loadMetadata = async () => {
+            try {
+                const data = await metadataClient.getAllEntityMetadata();
+                setEntityMetadata(data);
+            } catch (error) {
+                console.error('Failed to load entity metadata:', error);
+            }
+        };
+        loadMetadata();
+    }, []);
+
+    const isCollectionType = (type: FieldType): boolean => {
+        return type === FieldType.List;
+    };
+
     const mapFieldType = (backendType: string): FieldType => {
         const typeMap: Record<string, FieldType> = {
             'string': FieldType.String,
@@ -32,7 +52,6 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
         return typeMap[normalized] || FieldType.Object;
     };
 
-    // added: handler for selecting field from metadata dropdown
     const handleFieldNameChange = (selectedFieldName: string) => {
         const metaField = metadataFields.find(mf => mf.fieldName === selectedFieldName);
         if (metaField) {
@@ -54,7 +73,33 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
             alert('Field name and label are required');
             return;
         }
-        onSave(field);
+        if (!field.fieldType) {
+            alert('Field type is required');
+            return;
+        }
+        if (isCollectionType(field.fieldType) && !collectionElementType) {
+            alert('Element type is required for collection fields');
+            return;
+        }
+        if ((field.fieldType === FieldType.Object || 
+            (isCollectionType(field.fieldType) && collectionElementType === FieldType.Object)) &&
+            !field.objectType?.trim()) {
+            alert('Object type is required for Object fields');
+            return;
+        }
+
+        const fieldToSave: FormFieldDto = {
+            ...field,
+            defaultValue: isCollectionType(field.fieldType) ? collectionElementType : field.defaultValue
+        };
+        onSave(fieldToSave);
+    };
+
+    const handleFieldTypeChange = (newType: FieldType) => {
+        setField({ ...field, fieldType: newType });
+        if (isCollectionType(newType)) {
+            setCollectionElementType(FieldType.String);
+        }
     };
 
     return (
@@ -119,17 +164,69 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Field Type</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Field Type <span className="text-red-500">*</span>
+                        </label>
                         <select
                             value={field.fieldType}
-                            onChange={e => setField({ ...field, fieldType: e.target.value as FieldType })}
+                            onChange={e => handleFieldTypeChange(e.target.value as FieldType)}
                             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                            required
                         >
                             {Object.values(FieldType).map(type => (
                                 <option key={type} value={type}>{type}</option>
                             ))}
                         </select>
                     </div>
+
+                    {isCollectionType(field.fieldType) && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Element Type <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                value={collectionElementType}
+                                onChange={e => setCollectionElementType(e.target.value as FieldType)}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                required
+                            >
+                                {Object.values(FieldType).filter(t => t !== FieldType.List).map(type => (
+                                    <option key={type} value={type}>{type}</option>
+                                ))}
+                            </select>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Specify the type of elements this {field.fieldType.toLowerCase()} will contain
+                            </p>
+                        </div>
+                    )}
+
+                    {(field.fieldType === FieldType.Object || 
+                      (isCollectionType(field.fieldType) && collectionElementType === FieldType.Object)) && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Object Type <span className="text-red-500">*</span>
+                                {isCollectionType(field.fieldType) && <span className="text-xs text-gray-500 font-normal ml-1">(for List elements)</span>}
+                            </label>
+                            <select
+                                value={field.objectType || ''}
+                                onChange={e => setField({ ...field, objectType: e.target.value })}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                required
+                            >
+                                <option value="">Select an entity...</option>
+                                {entityMetadata.map(m => (
+                                    <option key={m.entityName} value={m.entityName}>
+                                        {m.displayName} ({m.entityName})
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="mt-1 text-xs text-gray-500">
+                                {isCollectionType(field.fieldType) 
+                                    ? 'The type of objects this list will contain'
+                                    : 'The type of this object field'}
+                            </p>
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Placeholder</label>
@@ -178,19 +275,6 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                             </label>
                         </div>
                     </div>
-
-                    {field.fieldType === FieldType.Object && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Object Type</label>
-                            <input
-                                type="text"
-                                value={field.objectType || ''}
-                                onChange={e => setField({ ...field, objectType: e.target.value })}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                placeholder="e.g., District, Town"
-                            />
-                        </div>
-                    )}
 
                     {field.fieldType === FieldType.Integer && (
                         <div>
