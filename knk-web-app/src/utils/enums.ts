@@ -176,9 +176,10 @@ export enum MetadataOperation {
 
 export enum CategoryOperation {
     GetAll = '',
-    GetById = 'GetCategory',
+    GetById = '',
     Create = '',
     Update = '',
-    Delete = ''
+    Delete = '',
+    SearchPaged = 'search'
 }
 

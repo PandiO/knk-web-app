@@ -1,173 +1,176 @@
 import { useEffect, useState } from 'react';
-import { testData } from '../../data/testData';
-import { DataTable } from '../DataTable';
+import { useNavigate } from 'react-router-dom';
+import { Eye, Pencil, Trash2 } from 'lucide-react';
 import ObjectTypeExplorer from '../ObjectTypeExplorer';
-import { StructuresManager } from '../../apiClients/structures';
-import { mapFieldDataToForm as mapStructureFieldDataToForm } from '../../utils/domain/dto/structure/StructureViewDTO';
-import { mapFieldDataToForm as mapDistrictFieldDataToForm } from '../../utils/domain/dto/district/DistrictViewDTO';
+import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 // @ts-ignore: side-effect import for CSS without type declarations
 import './ObjectDashboard.css';
-import { TownsManager } from '../../apiClients/towns';
-import { StreetManager } from '../../apiClients/streets';
-import { CategoryClient } from '../../apiClients/categoryClient';
+import { StructuresManager } from '../../apiClients/structures';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
 
-const ObjectDashboard = ({objectTypes }: Props) => {
+const ObjectDashboard = ({ objectTypes }: Props) => {
+    const navigate = useNavigate();
+    const [selectedType, setSelectedType] = useState<string>('structure');
 
-  const [itemsList, setItemsList] = useState<any[]>([]);
-
-  useEffect(() => {
-    console.log(`ObjectDashboard mounted`)
-  }, [])
-
-const fetchObjects = ({ type }: { type: string }) => {
-    let list: any = [];
-    setItemsList([]);
-    switch (type) {
-      case 'structure':
-        StructuresManager.getInstance().getAll().then((data) => {
-          setItemsList(data.map(mapStructureFieldDataToForm)); 
-        }).catch((err) => { console.error(err); });
-        break;
-      case 'district':
-        Promise.resolve(testData.districts.map(mapDistrictFieldDataToForm)).then((data) => {
-          setItemsList(data);
-        }).catch((err) => { console.error(err); });
-        break;
-      case 'town':
-        TownsManager.getInstance().getAll().then((data) => {
-          console.log("Fetched towns: ", data);
-          setItemsList(data);
-        }).catch((err) => { console.error(err); });
-        break;
-      case 'street':
-        StreetManager.getInstance().getAll().then((data) => {
-          console.log("Fetched streets: ", data);
-          setItemsList(data);
-        }).catch((err) => { console.error(err); });
-        break;
-      case 'category':
-        CategoryClient.getInstance().getAll().then((data) => {
-          console.log("Fetched categories: ", data);
-          setItemsList(data);
-        }).catch((err) => { console.error(err); });
-        break;
-      default:
-        return Promise.resolve([]);
-    }
-  }
-
-  useEffect(() => {
-    const activeType = 'structure';
-    fetchObjects({ type: activeType });
-  }, []);
-
+    // const fetchObjects = ({ type }: { type: string }) => {
+    //     let list: any = [];
+    //     switch (type) {
+    //       case 'structure':
+    //         return StructuresManager.getInstance().getAll().then((data) => {
+    //           setItemsList(data.map(mapStructureFieldDataToForm)); 
+    //         }).catch((err) => { console.error(err); });
+    //       case 'district':
+    //         return Promise.resolve(testData.districts.map(mapDistrictFieldDataToForm)).then((data) => {
+    //           setItemsList(data);
+    //         }).catch((err) => { console.error(err); });
+    //       case 'town':
+    //         return TownsManager.getInstance().getAll().then((data) => {
+    //           console.log("Fetched towns: ", data);
+    //           setItemsList(data);
+    //         }).catch((err) => { console.error(err); });
+    //       case 'street':
+    //         return StreetManager.getInstance().getAll().then((data) => {
+    //           console.log("Fetched streets: ", data);
+    //           setItemsList(data);
+    //         }).catch((err) => { console.error(err); });
+    //       case 'category':
+    //         return CategoryClient.getInstance().getAll().then((data) => {
+    //           console.log("Fetched categories: ", data);
+    //           setItemsList(data);
+    //         }).catch((err) => { console.error(err); });
+    //       default:
+    //         return Promise.resolve([]);
+    //     }
+    // };
   
+    useEffect(() => {
+        const activeType = 'structure';
+        // fetchObjects({ type: activeType });
+    }, []);
 
-  // Default formatters for common fields
-  const defaultFormatters = {
-    Created: (value: Date) => value?.toLocaleDateString(),
-    Location: (value: any) => `(${value.x}, ${value.y}, ${value.z})`,
-  };
+    const handleView = (entityTypeName: string, item: any) => {
+        navigate(`/view/${entityTypeName}/${item.id}`, { state: { object: item } });
+    };
 
-  return (
-    <div className="dashboard-parent">
-        <div className='dashboard-sidebar'>
-            <ObjectTypeExplorer
-          items={objectTypes}
-          onSelect={(type) => fetchObjects({ type })}/>
+    // changed: navigate to FormWizardPage with entity type and ID for editing
+    const handleEdit = (entityTypeName: string, item: any) => {
+        // Navigate to forms page with entity type and ID
+        navigate(`/forms/${entityTypeName}/edit/${item.id}`);
+    };
+
+    const handleDelete = (entityTypeName: string, item: any) => {
+        console.log('Delete item:', item);
+        // TODO: Implement delete confirmation and API call
+    };
+
+    // Define columns based on selected type
+    const getColumnsForType = (type: string) => {
+        switch (type) {
+            case 'structure':
+                return [
+                    { key: 'id', label: 'ID', sortable: true },
+                    { key: 'Name', label: 'Name', sortable: true },
+                    { key: 'Description', label: 'Description', sortable: false },
+                    { 
+                        key: 'Location', 
+                        label: 'Location', 
+                        sortable: false,
+                        render: (row: any) => row.Location ? `(${row.Location.x}, ${row.Location.y}, ${row.Location.z})` : '-'
+                    },
+                    { 
+                        key: 'Created', 
+                        label: 'Created', 
+                        sortable: true,
+                        render: (row: any) => row.Created ? new Date(row.Created).toLocaleDateString() : '-'
+                    },
+                    {
+                        key: 'RegionName',
+                        label: 'Region',
+                        sortable: false,
+                        render: (value: any) => (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {value}
+                            </span>
+                        )
+                    }
+                ];
+            case 'category':
+                return [
+                    { key: 'id', label: 'ID', sortable: true },
+                    { key: 'name', label: 'Name', sortable: true },
+                    { key: 'itemType', label: 'Item Type', sortable: false, render: (row: any) => row.itemType?.name || '-' },
+                ];
+            default:
+                return [
+                    { key: 'id', label: 'ID', sortable: true },
+                    { key: 'Name', label: 'Name', sortable: true },
+                ];
+        }
+    };
+
+    return (
+        <div className="dashboard-parent">
+            <div className="dashboard-sidebar">
+                <ObjectTypeExplorer
+                    items={objectTypes}
+                    onSelect={(type) => setSelectedType(type)}
+                />
+            </div>
+            <div className="dashboard-content">
+                <div>
+                    <h2 className="text-3xl font-bold text-gray-900 mb-8">
+                        {objectTypes.find(ot => ot.id === selectedType)?.label || 'Items'}
+                    </h2>
+                    <PagedEntityTable
+                        entityTypeName={selectedType}
+                        columns={getColumnsForType(selectedType)}
+                        initialQuery={{ page: 1, pageSize: 10 }}
+                        onRowClick={(row) => handleView(selectedType, row)}
+                        rowActions={[
+                            (row) => (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleView(selectedType, row);
+                                    }}
+                                    className="p-2 text-gray-400 hover:text-gray-600"
+                                    title="View"
+                                >
+                                    <Eye className="h-4 w-4" />
+                                </button>
+                            ),
+                            (row) => (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEdit(selectedType, row);
+                                    }}
+                                    className="p-2 text-gray-400 hover:text-gray-600"
+                                    title="Edit"
+                                >
+                                    <Pencil className="h-4 w-4" />
+                                </button>
+                            ),
+                            (row) => (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDelete(selectedType, row);
+                                    }}
+                                    className="p-2 text-gray-400 hover:text-red-600"
+                                    title="Delete"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                            )
+                        ]}
+                    />
+                </div>
+            </div>
         </div>
-        <div className='dashboard-content'>
-          {/* Towns Table */}
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-8">Towns</h2>
-            <DataTable
-              data={itemsList}
-              type='structure'
-              formatters={{
-                ...defaultFormatters,
-                RegionName: (value) => (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {value}
-                  </span>
-                ),
-              }}
-            />
-          </div>
-
-                    {/* Towns Table */}
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-8">Towns</h2>
-            <DataTable
-              data={itemsList}
-              type='structure'
-              formatters={{
-                ...defaultFormatters,
-                RegionName: (value) => (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {value}
-                  </span>
-                ),
-              }}
-            />
-          </div>
-
-                    {/* Towns Table */}
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-8">Towns</h2>
-            <DataTable
-              data={itemsList}
-              type='structure'
-              formatters={{
-                ...defaultFormatters,
-                RegionName: (value) => (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {value}
-                  </span>
-                ),
-              }}
-            />
-          </div>
-
-                    {/* Towns Table */}
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-8">Towns</h2>
-            <DataTable
-              data={itemsList}
-              type='structure'
-              formatters={{
-                ...defaultFormatters,
-                RegionName: (value) => (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {value}
-                  </span>
-                ),
-              }}
-            />
-          </div>
-
-          {/* Districts Table */}
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-8">Districts</h2>
-            <DataTable
-              data={testData.districts.map(mapDistrictFieldDataToForm)}
-              type='district'
-              formatters={{
-                ...defaultFormatters,
-                WgRegionId: (value) => (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                    {value}
-                  </span>
-                ),
-                Town: (value) => value?.Name || '-',
-              }}
-            />
-          </div>
-        </div>
-    </div>
-  )
-}
+    );
+};
 
 export default ObjectDashboard;

@@ -1,4 +1,5 @@
 import { logging, Controllers, HttpMethod, CategoryOperation } from "../utils";
+import { PagedQueryDto } from "../utils/domain/dto/common/PagedQuery";
 import { CategoryDto } from "../utils/domain/dto/forms/FormModels";
 import { ObjectManager } from "./objectManager";
 
@@ -34,5 +35,9 @@ export class CategoryClient extends ObjectManager {
 
     delete(id: string): Promise<void> {
         return this.invokeServiceCall(null, id, Controllers.Categories, HttpMethod.Delete);
+    }
+
+    public searchPaged(queryParams: PagedQueryDto): Promise<any> {
+        return this.invokeServiceCall(queryParams, CategoryOperation.SearchPaged, Controllers.Categories, HttpMethod.Post);
     }
 }

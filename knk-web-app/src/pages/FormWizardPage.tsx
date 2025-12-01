@@ -13,48 +13,45 @@ import { logging } from '../utils';
 import { CategoryClient } from '../apiClients/categoryClient';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
-type Props = { typeName: string; objectTypes: ObjectType[] };
+type Props = { entityTypeName: string; objectTypes: ObjectType[]; entityId?: string };
 type ApiClient = {
     getInstance: () => ApiClient;
     create: (data: any) => Promise<any>;
     update: (data: any) => Promise<any>;
+    getById: (id: string) => Promise<any>;
 };
 
-export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props) => {
+export const FormWizardPage: React.FC<Props> = ({ entityTypeName: typeName, objectTypes, entityId: propsEntityId }: Props) => {
     const navigate = useNavigate();
-    // This const extracts the entityName from the URL if typeName prop is not provided
-    const { entityName } = useParams<{ entityName: string }>();
-    // This state holds the currently selected type name
-    const [selectedTypeName, setSelectedTypeName] = useState(typeName || entityName || '');
-    const [selectedObjectType, setSelectedObjectType] = useState<ObjectType | null>(objectTypes.find(ot => ot.id === (typeName || entityName)) || null);
-    const [loading, setLoading] = useState(true);
+    const { entityName, entityId: urlEntityId } = useParams<{ entityName: string; entityId?: string }>();
+    
+    // Prioritize URL params over props
+    const entityId = urlEntityId || propsEntityId;
+    const selectedTypeName = entityName || typeName || '';
+    
+    const [selectedObjectType, setSelectedObjectType] = useState<ObjectType | null>(
+        objectTypes.find(ot => ot.id === selectedTypeName) || null
+    );
+    const [initialLoading, setInitialLoading] = useState(true);
     const [entityNamesLower, setEntityNamesLower] = useState<string[]>([]);
     
     const [formConfigs, setFormConfigs] = useState<FormConfigurationDto[]>([]);
+    const [defaultConfig, setDefaultConfig] = useState<FormConfigurationDto | null>(null);
     const [savedProgress, setSavedProgress] = useState<FormSubmissionProgressSummaryDto[]>([]);
     const [loadingConfigs, setLoadingConfigs] = useState(false);
-    const [activeWizard, setActiveWizard] = useState<{
-        configId?: string;
-        config?: FormConfigurationDto;
-        progressId?: string;
-    } | null>(null);
+    
+    // State to track if FormWizard should be shown
+    const [showWizard, setShowWizard] = useState(false);
+    const [wizardConfig, setWizardConfig] = useState<FormConfigurationDto | null>(null);
+    const [wizardProgressId, setWizardProgressId] = useState<string | undefined>(undefined);
 
-    // changed: if prop is empty, use the URL param
-    useEffect(() => {
-        if (!typeName || typeName.trim() === '') {
-            setSelectedTypeName(entityName || '');
-            setSelectedObjectType(objectTypes.find(ot => ot.id === (entityName || '')) || null);
-        } else {
-            setSelectedTypeName(typeName);
-            setSelectedObjectType(objectTypes.find(ot => ot.id === typeName) || null);
-        }
-    }, [typeName, entityName]);
+    const userId = '1'; // TODO: Get from auth context
 
-    // changed: fetch entity names and store normalized list
+    // Load available entity names on mount
     useEffect(() => {
         const fetchAvailableEntityNames = async () => {
             try {
-                setLoading(true);
+                setInitialLoading(true);
                 const entityNames = await formConfigClient.getEntityNames();
                 const normalized = (entityNames || [])
                     .map((n: string) => n?.trim().toLowerCase())
@@ -62,61 +59,17 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
                 setEntityNamesLower(normalized);
             } catch (error) {
                 console.error('Failed to fetch entity names:', error);
-                // fallback: show all provided objectTypes if API fails
-                setEntityNamesLower(
-                    Object.keys(objectConfigs).map(k => k.toLowerCase())
-                );
+                setEntityNamesLower(Object.keys(objectConfigs).map(k => k.toLowerCase()));
             } finally {
-                setLoading(false);
+                setInitialLoading(false);
             }
         };
         fetchAvailableEntityNames();
-    }, [objectTypes]);
+    }, []);
 
-    // added: fetch configurations and progress when selectedTypeName changes
-    useEffect(() => {
-        if (!selectedTypeName) return;
-
-        const fetchConfigurationsAndProgress = async () => {
-            try {
-                setLoadingConfigs(true);
-                
-                // Fetch all configurations for the selected entity
-                const configs = await formConfigClient.getByEntityTypeName(selectedTypeName, false) as FormConfigurationDto[];
-                
-                // Sort configurations: default first
-                const sortedConfigs = [...configs].sort((a, b) => {
-                    if (a.isDefault && !b.isDefault) return -1;
-                    if (!a.isDefault && b.isDefault) return 1;
-                    return 0;
-                });
-                
-                setFormConfigs(sortedConfigs);
-
-                // Fetch saved progress for current user
-                const userId = '1'; // TODO: Get from auth context
-                const progress: FormSubmissionProgressSummaryDto[] | [] = await formSubmissionClient.getByEntityTypeName(selectedTypeName, userId, true) as FormSubmissionProgressSummaryDto[];
-                
-                // Filter progress for current entity
-                const entityProgress = progress.filter(p => 
-                    p.entityTypeName?.toLowerCase() === selectedTypeName.toLowerCase()
-                );
-                
-                setSavedProgress(entityProgress);
-            } catch (error) {
-                console.error('Failed to fetch configurations or progress:', error);
-                logging.errorHandler.next('ErrorMessage.FormConfiguration.LoadFailed');
-            } finally {
-                setLoadingConfigs(false);
-            }
-        };
-
-        fetchConfigurationsAndProgress();
-    }, [selectedTypeName]);
-
-    // added: derive filtered sidebar items from objectConfigs + normalized names
+    // Sidebar items filtered by available entity names
     const sidebarItems = useMemo(() => {
-        let items = Object.entries(objectConfigs)
+        return Object.entries(objectConfigs)
             .filter(([key, config]) => {
                 const keyLower = key.toLowerCase();
                 const typeLower = (config.type || '').toLowerCase();
@@ -133,80 +86,142 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
                 icon: config.icon,
                 createRoute: `/forms/${type}`,
             }));
-        return items;
     }, [entityNamesLower]);
 
-    const userId = '1';
+    // Main effect: Handle the three use cases
+    useEffect(() => {
+        // Use Case 3: No entity selected
+        if (!selectedTypeName) {
+            setShowWizard(false);
+            setFormConfigs([]);
+            setSavedProgress([]);
+            setDefaultConfig(null);
+            return;
+        }
 
-    // added: handler for opening a configuration
-    const handleOpenConfiguration = (configId?: string, config?: FormConfigurationDto, progressId?: string) => {
-        setActiveWizard({ configId, config, progressId });
-    };
+        // Use Case 1: Entity ID provided (edit mode)
+        if (entityId) {
+            loadDefaultConfigForEdit(selectedTypeName);
+            return;
+        }
 
-    // added: handler for setting default configuration
-    const handleSetDefault = async (config: FormConfigurationDto) => {
-        if (formConfigs.some(c => c.id !== config.id && c.isDefault)) {
-            //Write code to display confirmation prompt to user asking if they want to change default, with display of current default config name and id
-            if (confirm(`There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
-                //Remove default from other configs
-                const otherDefaults = formConfigs.filter(c => c.id !== config.id && c.isDefault);
-                for (const otherDefault of otherDefaults) {
-                    await handleRemoveDefault(otherDefault);
-                }
-            } else {
+        // Use Case 2: Only entity name provided (show configs and progress)
+        loadConfigurationsAndProgress(selectedTypeName);
+    }, [selectedTypeName, entityId]);
+
+    // Use Case 1: Load default config for editing an existing entity
+    const loadDefaultConfigForEdit = async (entityTypeName: string) => {
+        try {
+            setLoadingConfigs(true);
+            setShowWizard(false);
+
+            // Fetch all configurations to find the default
+            const configs = await formConfigClient.getByEntityTypeName(entityTypeName, false) as FormConfigurationDto[];
+            setFormConfigs(configs);
+
+            // Find default configuration
+            const defaultCfg = configs.find(c => c.isDefault) || configs[0];
+            
+            if (!defaultCfg) {
+                logging.errorHandler.next('ErrorMessage.FormConfiguration.LoadFailed');
                 return;
             }
+
+            setDefaultConfig(defaultCfg);
+            setWizardConfig(defaultCfg);
+            setWizardProgressId(undefined);
+            setShowWizard(true);
+        } catch (error) {
+            console.error('Failed to load configuration for edit:', error);
+            logging.errorHandler.next('ErrorMessage.FormConfiguration.LoadFailed');
+        } finally {
+            setLoadingConfigs(false);
         }
+    };
+
+    // Use Case 2: Load configurations and saved progress for entity
+    const loadConfigurationsAndProgress = async (entityTypeName: string) => {
         try {
-            // Update the configuration to be default
+            setLoadingConfigs(true);
+            setShowWizard(false);
+
+            // Fetch all configurations
+            const configs = await formConfigClient.getByEntityTypeName(entityTypeName, false) as FormConfigurationDto[];
+            const sortedConfigs = [...configs].sort((a, b) => {
+                if (a.isDefault && !b.isDefault) return -1;
+                if (!a.isDefault && b.isDefault) return 1;
+                return 0;
+            });
+            setFormConfigs(sortedConfigs);
+            setDefaultConfig(sortedConfigs.find(c => c.isDefault) || null);
+
+            // Fetch saved progress
+            const progress = await formSubmissionClient.getByEntityTypeName(entityTypeName, userId, true) as FormSubmissionProgressSummaryDto[];
+            const entityProgress = progress.filter(p => 
+                p.entityTypeName?.toLowerCase() === entityTypeName.toLowerCase()
+            );
+            setSavedProgress(entityProgress);
+        } catch (error) {
+            console.error('Failed to fetch configurations or progress:', error);
+            logging.errorHandler.next('ErrorMessage.FormConfiguration.LoadFailed');
+        } finally {
+            setLoadingConfigs(false);
+        }
+    };
+
+    // Handler: Open wizard with specific configuration
+    const handleOpenConfiguration = (config: FormConfigurationDto, progressId?: string) => {
+        setWizardConfig(config);
+        setWizardProgressId(progressId);
+        setShowWizard(true);
+    };
+
+    // Handler: Set default configuration
+    const handleSetDefault = async (config: FormConfigurationDto) => {
+        const existingDefault = formConfigs.find(c => c.id !== config.id && c.isDefault);
+        
+        if (existingDefault) {
+            if (!confirm(`There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
+                return;
+            }
+            await handleRemoveDefault(existingDefault);
+        }
+
+        try {
             const updatedConfig = { ...config, isDefault: true };
             await formConfigClient.update(updatedConfig);
-            
-            // Refresh configurations
-            const configs = await formConfigClient.getByEntityTypeName(selectedTypeName, false) as FormConfigurationDto[];
-            const sortedConfigs = [...configs].sort((a, b) => {
-                if (a.isDefault && !b.isDefault) return -1;
-                if (!a.isDefault && b.isDefault) return 1;
-                return 0;
-            });
-            setFormConfigs(sortedConfigs);
+            await loadConfigurationsAndProgress(selectedTypeName);
         } catch (error) {
             console.error('Failed to set default configuration:', error);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.SaveFailed');
         }
     };
 
-        // added: handler for setting default configuration
+    // Handler: Remove default status
     const handleRemoveDefault = async (config: FormConfigurationDto) => {
         try {
-            // Update the configuration to be default
             const updatedConfig = { ...config, isDefault: false };
             await formConfigClient.update(updatedConfig);
-            
-            // Refresh configurations
-            const configs = await formConfigClient.getByEntityTypeName(selectedTypeName, false) as FormConfigurationDto[];
-            const sortedConfigs = [...configs].sort((a, b) => {
-                if (a.isDefault && !b.isDefault) return -1;
-                if (!a.isDefault && b.isDefault) return 1;
-                return 0;
-            });
-            setFormConfigs(sortedConfigs);
+            await loadConfigurationsAndProgress(selectedTypeName);
         } catch (error) {
-            console.error('Failed to set default configuration:', error);
+            console.error('Failed to remove default configuration:', error);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.SaveFailed');
         }
     };
 
-    // added: handler for editing configuration
+    // Handler: Edit configuration
     const handleEditConfiguration = (config: FormConfigurationDto) => {
         navigate(`/admin/form-configurations/edit/${config.id}`);
     };
 
+    // Handler: Resume progress
     const handleResumeProgress = async (progress: FormSubmissionProgressSummaryDto) => {
         try {
             const fullProgress = await formSubmissionClient.getById(progress.id!);
-            if (fullProgress.formConfigurationId) {
-                handleOpenConfiguration(fullProgress.formConfigurationId, undefined, fullProgress.id);
+            const config = formConfigs.find(c => c.id === fullProgress.formConfigurationId);
+            
+            if (config) {
+                handleOpenConfiguration(config, fullProgress.id);
             }
         } catch (error) {
             console.error('Failed to resume progress:', error);
@@ -214,6 +229,7 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
         }
     };
 
+    // Handler: Delete progress
     const handleDeleteProgress = async (progress: FormSubmissionProgressSummaryDto) => {
         if (!confirm('Are you sure you want to delete this saved progress?')) return;
 
@@ -226,6 +242,7 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
         }
     };
 
+    // Handler: Delete configuration
     const handleFormConfigDelete = async (config: FormConfigurationDto) => {
         if (!confirm('Are you sure you want to delete this form configuration?')) return;
 
@@ -237,23 +254,14 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
             logging.errorHandler.next('ErrorMessage.FormConfiguration.DeleteFailed');
         }
     };
-    // Utility: get correct client singleton from io folder
-    const getApiClient: (entityTypeName: string) => ApiClient | null = (entityTypeName) => {
-        // Map entityTypeName to client variable name
-        // Normalize the entity type name to lowercase for matching
+
+    // Utility: Get API client for entity type
+    const getApiClient = (entityTypeName: string): ApiClient | null => {
         const normalizedTypeName = entityTypeName.toLowerCase();
         
         const clientMap: Record<string, ApiClient> = {
-            category: {
-                create: (data: any) => CategoryClient.getInstance().create(data),
-                update: (data: any) => CategoryClient.getInstance().update(data),
-            },
+            category: CategoryClient.getInstance() as unknown as ApiClient,
             // Add other clients here as needed
-            // Example: 
-            // structure: {
-            //     create: (data: any) => structuresManager.create(data),
-            //     update: (data: any) => structuresManager.update(data),
-            // },
         };
         
         const client = clientMap[normalizedTypeName];
@@ -265,13 +273,9 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
         return client;
     };
 
-    // added: handler for completing wizard
+    // Handler: Complete wizard
     const handleComplete = async (data: any, progress?: FormSubmissionProgressDto) => {
-        console.log('Form completed with data:', data);
-
-        // --- DYNAMIC ENTITY CREATION/UPDATE ---
         try {
-            // Use progress from FormWizard if available, else skip
             if (progress && progress.entityTypeName) {
                 const client = getApiClient(progress.entityTypeName);
                 if (!client) {
@@ -279,19 +283,12 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
                     return;
                 }
 
-                // Build entity object from allStepsData or progress
-                // You may need to adapt this mapping for your domain
-                const entityData = {
-                    ...data,
-                    id: progress.entityId ?? undefined,
-                };
+                const entityIdToUse = entityId || progress.entityId;
+                const entityData = { ...data, id: entityIdToUse ?? undefined };
 
-                // Call create or update based on entityId
-                if (progress.entityId) {
-                    // Update existing entity
-                    await client.getInstance().update(entityData);
+                if (entityIdToUse) {
+                    await client.update(entityData);
                 } else {
-                    // Create new entity
                     await client.create(entityData);
                 }
             }
@@ -300,25 +297,20 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
             console.error('Failed to create/update entity:', err);
         }
 
-        setActiveWizard(null);
-        // Refresh saved progress
-        const fetchProgress = async () => {
-            const progress = await formSubmissionClient.getByEntityTypeName(selectedTypeName, userId, true);
-            const entityProgress = progress.filter(p => 
-                p.entityTypeName?.toLowerCase() === selectedTypeName.toLowerCase()
-            );
-            setSavedProgress(entityProgress as FormSubmissionProgressSummaryDto[]);
-        };
-        fetchProgress();
+        setShowWizard(false);
+        setWizardConfig(null);
+        setWizardProgressId(undefined);
+        navigate(`/dashboard`);
     };
 
-    const fetchDefaultFormConfig = ({ type }: { type: string }) => {
-        setSelectedTypeName(type);
-        setActiveWizard(null); // Close any active wizard
+    // Handler: Select entity from sidebar
+    const handleSelectEntity = (type: string) => {
+        navigate(`/forms/${type}`);
         setSelectedObjectType(objectTypes.find(ot => ot.id === type) || null);
     };
 
-    if (loading) {
+    // Loading state
+    if (initialLoading) {
         return (
             <div className="flex items-center justify-center min-h-96">
                 <div className="text-center">
@@ -330,16 +322,16 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
     }
 
     // Notification logic
-    const showNoConfigs = selectedTypeName && formConfigs.length === 0;
-    const showNoDefault = selectedTypeName && formConfigs.length > 0 && !formConfigs.some(cfg => cfg.isDefault);
-    const showTooManyDefaults = selectedTypeName && formConfigs.filter(cfg => cfg.isDefault).length > 1;
+    const showNoConfigs = selectedTypeName && formConfigs.length === 0 && !showWizard;
+    const showNoDefault = selectedTypeName && formConfigs.length > 0 && !defaultConfig && !showWizard;
+    const showTooManyDefaults = selectedTypeName && formConfigs.filter(cfg => cfg.isDefault).length > 1 && !showWizard;
 
     return (
         <div className="dashboard-parent">
             <div className='dashboard-sidebar'>
                 <ObjectTypeExplorer
                     items={sidebarItems}
-                    onSelect={(type) => fetchDefaultFormConfig({ type })}
+                    onSelect={handleSelectEntity}
                 />
             </div>
             <div className='dashboard-content'>
@@ -355,21 +347,23 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
                                     ? `No form configurations found for "${selectedObjectType?.label}". Please create a configuration first.`
                                     : showNoDefault
                                     ? `No default configuration set for "${selectedObjectType?.label}". Please set one as default to enable form wizard.`
-                                    : `Too many default configurations found for "${selectedObjectType?.label}". A default already exists: "${formConfigs.find(cfg => cfg.isDefault)?.configurationName}". Please ensure only one default is set.`}
+                                    : `Too many default configurations found for "${selectedObjectType?.label}". Please ensure only one default is set.`}
                             </span>
                         </div>
                     </div>
                 )}
-                {activeWizard ? (
-                    // Show FormWizard when a configuration is opened
+
+                {/* Use Case 1 or when user opens a config: Show FormWizard */}
+                {showWizard && wizardConfig ? (
                     <FormWizard
                         entityName={selectedTypeName}
+                        entityId={entityId}
                         userId={userId}
                         onComplete={(data, progress) => handleComplete(data, progress)}
-                        existingProgressId={activeWizard.progressId}
+                        existingProgressId={wizardProgressId}
                     />
                 ) : (
-                    // Show configurations and saved progress
+                    /* Use Case 2 or 3: Show configurations and progress */
                     <div className="space-y-6">
                         {loadingConfigs ? (
                             <div className="flex items-center justify-center py-12">
@@ -378,10 +372,11 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
                         ) : (
                             <>
                                 {selectedTypeName ? (
+                                    /* Use Case 2: Entity selected, show configs and progress */
                                     <>
                                         <FormConfigurationTable
                                             configurations={formConfigs}
-                                            onOpen={(config) => handleOpenConfiguration(undefined, config)}
+                                            onOpen={(config) => handleOpenConfiguration(config)}
                                             onSetDefault={handleSetDefault}
                                             onRemoveDefault={handleRemoveDefault}
                                             onEdit={handleEditConfiguration}
@@ -395,6 +390,7 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
                                         />
                                     </>
                                 ) : (
+                                    /* Use Case 3: No entity selected */
                                     <div className="text-center py-12 bg-white rounded-lg shadow-sm">
                                         <p className="text-gray-500">
                                             Select an entity from the sidebar to view available forms

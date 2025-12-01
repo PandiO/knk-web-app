@@ -7,10 +7,12 @@ import { ConditionEvaluator } from '../../utils/conditionEvaluator';
 import { FormSubmissionStatus } from '../../utils/enums';
 import { FieldRenderer } from './FieldRenderers';
 import { logging } from '../../utils';
+import { getFetchByIdFunctionForEntity } from '../../utils/entityApiMapping';
+import { findValueByFieldName } from '../../utils/fieldNameMapper';
 
 interface FormWizardProps {
     entityName: string;
-    entityId?: string;
+    entityId?: string; // added: optional entity ID for edit mode
     userId: string;
     onComplete?: (data: any, progress?: FormSubmissionProgressDto) => void;
     existingProgressId?: string;
@@ -18,7 +20,7 @@ interface FormWizardProps {
 
 export const FormWizard: React.FC<FormWizardProps> = ({
     entityName,
-    entityId,
+    entityId, // added
     userId,
     onComplete,
     existingProgressId
@@ -67,7 +69,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
     useEffect(() => {
         loadConfiguration();
-    }, [entityName, existingProgressId]);
+    }, [entityName, existingProgressId, entityId]); // added entityId dependency
 
     const loadConfiguration = async () => {
         try {
@@ -103,18 +105,50 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 });
                 setConfig(fetchedConfig);
                 
-                // Initialize all fields for step 0 to default/null
-                const initialData: StepData = normalizeStepData(fetchedConfig.steps[0], {});
-                setCurrentStepData(initialData);
+                // changed: if entityId provided, load existing entity data
+                if (entityId) {
+                    await loadExistingEntityData(entityName, entityId, fetchedConfig);
+                } else {
+                    // Initialize all fields for step 0 to default/null
+                    const initialData: StepData = normalizeStepData(fetchedConfig.steps[0], {});
+                    setCurrentStepData(initialData);
 
-                // Initialize allStepsData for all steps
-                setAllStepsData(normalizeAllStepsData(fetchedConfig, {} as AllStepsData));
+                    // Initialize allStepsData for all steps
+                    setAllStepsData(normalizeAllStepsData(fetchedConfig, {} as AllStepsData));
+                }
             }
         } catch (error) {
             console.error('Failed to load form configuration:', error);
             logging.errorHandler.next('ErrorMessage.UIConfigurations.LoadFailed');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // changed: simplified using utility function
+    const loadExistingEntityData = async (entityTypeName: string, id: string, cfg: FormConfigurationDto) => {
+        try {
+            const entityData: any = await getFetchByIdFunctionForEntity(entityTypeName)(id);
+            
+            const populatedStepsData: AllStepsData = {};
+            cfg.steps.forEach((step, stepIndex) => {
+                const stepData: StepData = {};
+                step.fields.forEach(field => {
+                    // Use utility function for case-insensitive lookup
+                    const value = findValueByFieldName(entityData, field.fieldName);
+                    stepData[field.fieldName] = value !== undefined ? value : (field.defaultValue ?? null);
+                });
+                populatedStepsData[stepIndex] = stepData;
+            });
+
+            setAllStepsData(populatedStepsData);
+            setCurrentStepData(populatedStepsData[0] || normalizeStepData(cfg.steps[0], {}));
+        } catch (error) {
+            console.error('Failed to load existing entity data:', error);
+            logging.errorHandler.next(`ErrorMessage.${entityTypeName}.LoadFailed`);
+            const initialData: StepData = normalizeStepData(cfg.steps[0], {});
+            setCurrentStepData(initialData);
+            setAllStepsData(normalizeAllStepsData(cfg, {} as AllStepsData));
         }
     };
 
@@ -303,6 +337,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         }
     };
 
+    // changed: update form title to indicate edit mode
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-96">
@@ -361,7 +396,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     ))}
                 </div>
                 <div className="text-center">
-                    <h2 className="text-2xl font-bold text-gray-900">{currentStep.title}</h2>
+                    {/* changed: show edit mode in title */}
+                    <h2 className="text-2xl font-bold text-gray-900">
+                        {entityId ? `Edit ${entityName}` : currentStep.title}
+                    </h2>
                     {currentStep.description && (
                         <p className="mt-2 text-sm text-gray-600">{currentStep.description}</p>
                     )}
@@ -405,19 +443,24 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 </button>
                 <button
                     onClick={handleSaveDraft}
-                    disabled={saving}
-                    className="btn-secondary"
+                    className="btn-tertiary"
                 >
                     <Save className="h-5 w-5 mr-2" />
-                    {saving ? 'Saving...' : 'Save Draft'}
+                    Save Draft
                 </button>
                 <button
                     onClick={handleNext}
-                    disabled={saving}
                     className="btn-primary"
+                    disabled={saving}
                 >
-                    {currentStepIndex === config.steps.length - 1 ? 'Complete' : 'Next'}
-                    <ChevronRight className="h-5 w-5 ml-2" />
+                    {saving ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    ) : (
+                        <>
+                            <ChevronRight className="h-5 w-5 mr-2" />
+                            {currentStepIndex === config.steps.length - 1 ? 'Submit' : 'Next'}
+                        </>
+                    )}
                 </button>
             </div>
         </div>
