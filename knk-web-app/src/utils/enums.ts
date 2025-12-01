@@ -66,6 +66,7 @@ export enum Controllers {
     FormFields = 'FormFields',
     FormSubmissionProgress = 'FormSubmissionProgress',
     Metadata = 'Metadata', // added
+    Categories = 'Categories'
 }
 
 export enum FormPlaceHolder {
@@ -172,3 +173,12 @@ export enum MetadataOperation {
     Entities = 'entities',
     EntityNames = 'entity-names',
 }
+
+export enum CategoryOperation {
+    GetAll = '',
+    GetById = 'GetCategory',
+    Create = '',
+    Update = '',
+    Delete = ''
+}
+

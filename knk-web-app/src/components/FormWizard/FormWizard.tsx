@@ -33,6 +33,38 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Helpers to enforce full field shape per step and flatten for DTO
+    const normalizeStepData = (step: FormStepDto, data: StepData | undefined): StepData => {
+        const result: StepData = {};
+        step.fields
+            .sort((a, b) => a.order - b.order)
+            .forEach(field => {
+                const hasValue = data && Object.prototype.hasOwnProperty.call(data, field.fieldName);
+                const value = hasValue ? (data as any)[field.fieldName] : (field.defaultValue ?? null);
+                result[field.fieldName] = value;
+            });
+        return result;
+    };
+
+    const normalizeAllStepsData = (cfg: FormConfigurationDto, stepsData: AllStepsData): AllStepsData => {
+        const normalized: AllStepsData = {};
+        cfg.steps.forEach((step, idx) => {
+            normalized[idx] = normalizeStepData(step, stepsData?.[idx]);
+        });
+        return normalized;
+    };
+
+    const flattenAllStepsData = (cfg: FormConfigurationDto, stepsData: AllStepsData): Record<string, any> => {
+        const flat: Record<string, any> = {};
+        cfg.steps.forEach((step, idx) => {
+            step.fields.forEach(field => {
+                const val = stepsData?.[idx]?.[field.fieldName];
+                flat[field.fieldName] = val ?? field.defaultValue ?? null;
+            });
+        });
+        return flat;
+    };
+
     useEffect(() => {
         loadConfiguration();
     }, [entityName, existingProgressId]);
@@ -44,10 +76,18 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             if (existingProgressId) {
                 const progress = await formSubmissionClient.getById(existingProgressId);
                 setProgressId(progress.id);
-                setConfig(await formConfigClient.getById(progress.formConfigurationId));
+
+                const fetchedCfg = await formConfigClient.getById(progress.formConfigurationId);
+                setConfig(fetchedCfg);
+
                 setCurrentStepIndex(progress.currentStepIndex);
-                setCurrentStepData(JSON.parse(progress.currentStepDataJson || '{}'));
-                setAllStepsData(JSON.parse(progress.allStepsDataJson || '{}'));
+
+                const parsedCurrent = JSON.parse(progress.currentStepDataJson || '{}');
+                const parsedAll = JSON.parse(progress.allStepsDataJson || '{}');
+
+                // Ensure all fields present with null/defaults
+                setCurrentStepData(normalizeStepData(fetchedCfg.steps[progress.currentStepIndex], parsedCurrent));
+                setAllStepsData(normalizeAllStepsData(fetchedCfg, parsedAll));
             } else {
                 if (!entityName) {
                     throw new Error('Entity name is required to load form configuration');
@@ -63,14 +103,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 });
                 setConfig(fetchedConfig);
                 
-                // Initialize with default values
-                const initialData: StepData = {};
-                fetchedConfig.steps[0]?.fields.forEach(field => {
-                    if (field.defaultValue) {
-                        initialData[field.fieldName] = field.defaultValue;
-                    }
-                });
+                // Initialize all fields for step 0 to default/null
+                const initialData: StepData = normalizeStepData(fetchedConfig.steps[0], {});
                 setCurrentStepData(initialData);
+
+                // Initialize allStepsData for all steps
+                setAllStepsData(normalizeAllStepsData(fetchedConfig, {} as AllStepsData));
             }
         } catch (error) {
             console.error('Failed to load form configuration:', error);
@@ -144,24 +182,34 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         return isValid;
     };
 
-    const saveProgress = async (status: FormSubmissionStatus = FormSubmissionStatus.Paused) => {
-        try {
-            setSaving(true);
-            // changed: clear error before attempting save
-            setError(null);
-
-            const progressData: FormSubmissionProgressDto = {
+    const getProgressData = (): FormSubmissionProgressDto | null => {
+        const mergedAllSteps = { ...allStepsData, [currentStepIndex]: normalizeStepData(config!.steps[currentStepIndex], currentStepData) };
+        const progressData: FormSubmissionProgressDto = {
                 id: progressId,
                 formConfigurationId: config!.id!,
                 userId,
                 entityTypeName: entityName,
                 entityId: entityId,
                 currentStepIndex,
-                currentStepDataJson: JSON.stringify(currentStepData),
-                allStepsDataJson: JSON.stringify({ ...allStepsData, [currentStepIndex]: currentStepData }),
-                status,
+                currentStepDataJson: JSON.stringify(normalizeStepData(config!.steps[currentStepIndex], currentStepData)),
+                allStepsDataJson: JSON.stringify(mergedAllSteps),
+                status: FormSubmissionStatus.InProgress,
                 updatedAt: new Date().toISOString(),
             };
+        return progressData;
+    };
+
+    const saveProgress = async (status: FormSubmissionStatus = FormSubmissionStatus.Paused) => {
+        try {
+            setSaving(true);
+            // changed: clear error before attempting save
+            setError(null);
+
+            const progressData = getProgressData();
+            if (!progressData) {
+                throw new Error('No progress data to save');
+            }
+            progressData.status = status;
 
             if (progressId) {
                 await formSubmissionClient.update(progressData);
@@ -204,39 +252,45 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             }
         }
 
-        const updatedAllData = { ...allStepsData, [currentStepIndex]: currentStepData };
+        // Ensure current step includes all fields
+        const normalizedCurrent = normalizeStepData(currentStep!, currentStepData);
+        const updatedAllData = { ...allStepsData, [currentStepIndex]: normalizedCurrent };
         setAllStepsData(updatedAllData);
 
         if (currentStepIndex < config!.steps.length - 1) {
-            // changed: only proceed if save succeeds
             const saved = await saveProgress(FormSubmissionStatus.InProgress);
-            if (!saved) {
-                // Don't advance to next step if save failed
-                return;
-            }
-            setCurrentStepIndex(prev => prev + 1);
-            setCurrentStepData({});
-            setErrors({});
+            if (!saved) return;
+
+            // Advance and initialize next step data to defaults/nulls
+            setCurrentStepIndex(prev => {
+                const nextIndex = prev + 1;
+                setCurrentStepData(normalizeStepData(config!.steps[nextIndex], updatedAllData[nextIndex] || {}));
+                setErrors({});
+                return nextIndex;
+            });
         } else {
-            // Complete the form
-            // changed: only call onComplete if save succeeds
             const saved = await saveProgress(FormSubmissionStatus.Completed);
-            if (!saved) {
-                // Don't complete if save failed
-                return;
-            }
-            onComplete?.(updatedAllData);
+            if (!saved) return;
+
+            // Flatten to DTO shape so API receives all fields with nulls where empty
+            const normalizedAll = normalizeAllStepsData(config!, updatedAllData);
+            const flattenedDto = flattenAllStepsData(config!, normalizedAll);
+
+            onComplete?.(flattenedDto, getProgressData()!);
         }
     };
 
     const handlePrevious = () => {
         if (currentStepIndex > 0) {
-            // changed: clear error when navigating back
             setError(null);
-            setAllStepsData(prev => ({ ...prev, [currentStepIndex]: currentStepData }));
-            setCurrentStepIndex(prev => prev - 1);
-            setCurrentStepData(allStepsData[currentStepIndex - 1] || {});
-            setErrors({});
+            // Persist normalized current step before going back
+            setAllStepsData(prev => ({ ...prev, [currentStepIndex]: normalizeStepData(currentStep!, currentStepData) }));
+            setCurrentStepIndex(prev => {
+                const previousIndex = prev - 1;
+                setCurrentStepData(normalizeStepData(config!.steps[previousIndex], allStepsData[previousIndex] || {}));
+                setErrors({});
+                return previousIndex;
+            });
         }
     };
 

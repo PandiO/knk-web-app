@@ -9,6 +9,7 @@ import { mapFieldDataToForm as mapDistrictFieldDataToForm } from '../../utils/do
 import './ObjectDashboard.css';
 import { TownsManager } from '../../apiClients/towns';
 import { StreetManager } from '../../apiClients/streets';
+import { CategoryClient } from '../../apiClients/categoryClient';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
@@ -44,6 +45,12 @@ const fetchObjects = ({ type }: { type: string }) => {
       case 'street':
         StreetManager.getInstance().getAll().then((data) => {
           console.log("Fetched streets: ", data);
+          setItemsList(data);
+        }).catch((err) => { console.error(err); });
+        break;
+      case 'category':
+        CategoryClient.getInstance().getAll().then((data) => {
+          console.log("Fetched categories: ", data);
           setItemsList(data);
         }).catch((err) => { console.error(err); });
         break;

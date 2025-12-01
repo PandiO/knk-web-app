@@ -141,6 +141,13 @@ export interface FormSubmissionProgressSummaryDto {
     updatedAt?: string;
 }
 
+export interface CategoryDto {
+    id?: string;
+    name: string;
+    itemtypeId?: number;
+    parentCategoryId?: string;
+}
+
 export interface StepData {
     [fieldName: string]: any;
 }

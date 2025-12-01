@@ -10,9 +10,15 @@ import { FormConfigurationTable } from '../components/FormWizard/FormConfigurati
 import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
 import { Loader2 } from 'lucide-react';
 import { logging } from '../utils';
+import { CategoryClient } from '../apiClients/categoryClient';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { typeName: string; objectTypes: ObjectType[] };
+type ApiClient = {
+    getInstance: () => ApiClient;
+    create: (data: any) => Promise<any>;
+    update: (data: any) => Promise<any>;
+};
 
 export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props) => {
     const navigate = useNavigate();
@@ -231,27 +237,32 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
             logging.errorHandler.next('ErrorMessage.FormConfiguration.DeleteFailed');
         }
     };
-
     // Utility: get correct client singleton from io folder
-    const getApiClient = (entityTypeName: string) => {
+    const getApiClient: (entityTypeName: string) => ApiClient | null = (entityTypeName) => {
         // Map entityTypeName to client variable name
-        // Example: "formStepClient" => formStepClient
-        try {
-            // All clients should be imported at the top of this file
-            // Add more mappings as needed
-            const clientMap: Record<string, any> = {
-                formStepClient: require('../io/formStepClient').formStepClient,
-                formConfigClient: require('../io/formConfigClient').formConfigClient,
-                formFieldClient: require('../io/formFieldClient').formFieldClient,
-                formSubmissionClient: require('../io/formSubmissionClient').formSubmissionClient,
-                // Add other clients here as needed
-                // Example: structuresManager: require('../io/structures').structuresManager,
-            };
-            return clientMap[entityTypeName];
-        } catch (err) {
+        // Normalize the entity type name to lowercase for matching
+        const normalizedTypeName = entityTypeName.toLowerCase();
+        
+        const clientMap: Record<string, ApiClient> = {
+            category: {
+                create: (data: any) => CategoryClient.getInstance().create(data),
+                update: (data: any) => CategoryClient.getInstance().update(data),
+            },
+            // Add other clients here as needed
+            // Example: 
+            // structure: {
+            //     create: (data: any) => structuresManager.create(data),
+            //     update: (data: any) => structuresManager.update(data),
+            // },
+        };
+        
+        const client = clientMap[normalizedTypeName];
+        if (!client) {
+            console.error(`No API client found for entity type: ${entityTypeName}`);
             logging.errorHandler.next(`ErrorMessage.${entityTypeName}.ClientNotFound`);
             return null;
         }
+        return client;
     };
 
     // added: handler for completing wizard
@@ -278,7 +289,7 @@ export const FormWizardPage: React.FC<Props> = ({ typeName, objectTypes }: Props
                 // Call create or update based on entityId
                 if (progress.entityId) {
                     // Update existing entity
-                    await client.update(entityData);
+                    await client.getInstance().update(entityData);
                 } else {
                     // Create new entity
                     await client.create(entityData);
