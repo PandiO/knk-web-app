@@ -227,7 +227,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
     };
 
     const handleSelectionChange = (selected: any[]) => {
-        onChange(selected);
+        onChange(selected[0] || null);
     };
 
     // changed: handler to remove selected item
@@ -407,7 +407,7 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                                 Selected ({value.length}):
                             </p>
                             <div className="max-h-32 overflow-y-auto space-y-2">
-                                {value.map((item: any) => (
+                                {value.map((item) => (
                                     <div
                                         key={item.id}
                                         className="p-2 bg-green-50 border border-green-200 rounded-md flex items-center justify-between"
