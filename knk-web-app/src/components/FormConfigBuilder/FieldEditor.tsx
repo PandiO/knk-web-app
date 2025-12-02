@@ -228,6 +228,44 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                         </div>
                     )}
 
+                    {isCollectionType(field.fieldType) && collectionElementType === FieldType.Object && (
+                        <>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Minimum Selection
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={field.minSelection ?? 0}
+                                        onChange={e => setField({ ...field, minSelection: parseInt(e.target.value) || 0 })}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Minimum number of items user must select (0 = no minimum)
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Maximum Selection
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={field.maxSelection ?? ''}
+                                        onChange={e => setField({ ...field, maxSelection: e.target.value ? parseInt(e.target.value) : undefined })}
+                                        placeholder="No limit"
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Maximum number of items user can select (empty = no limit)
+                                    </p>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Placeholder</label>
                         <input

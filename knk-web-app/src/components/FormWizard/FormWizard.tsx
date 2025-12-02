@@ -165,6 +165,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 return newErrors;
             });
         }
+        console.log(`Field ${fieldName} changed to`, value);
     };
 
     const validateField = (field: any): string | null => {

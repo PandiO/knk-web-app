@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { FormFieldDto, StepData } from '../../utils/domain/dto/forms/FormModels';
 import { FieldType } from '../../utils/enums';
-import { Calendar, Plus, Minus, Search } from 'lucide-react';
+import { Calendar, Plus, Minus, Search, X } from 'lucide-react';
+import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
+import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 
 interface FieldRendererProps {
     field: FormFieldDto;
@@ -219,7 +221,19 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
 
 const ObjectField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onCreateNew }) => {
     const [searchTerm, setSearchTerm] = useState('');
-    // TODO: Fetch objects from API based on field.objectType
+
+    const selectionConfig: SelectionConfig = {
+        mode: 'single'
+    };
+
+    const handleSelectionChange = (selected: any[]) => {
+        onChange(selected);
+    };
+
+    // changed: handler to remove selected item
+    const handleRemoveSelection = () => {
+        onChange(null);
+    };
 
     return (
         <div>
@@ -228,33 +242,57 @@ const ObjectField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
             {field.description && <p className="text-xs text-gray-500 mb-2">{field.description}</p>}
+            
+            {/* changed: moved selected item display above the table */}
+            {value && (
+                <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-md flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                            <span className="text-green-600 font-medium text-sm">
+                                {(value.name || value.Name || '?').charAt(0).toUpperCase()}
+                            </span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-green-900">
+                                {value.name || value.Name || 'Selected Item'}
+                            </p>
+                            <p className="text-xs text-green-600">ID: {value.id}</p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleRemoveSelection}
+                        className="text-red-600 hover:text-red-800 hover:bg-red-100 rounded-full p-1"
+                        title="Remove selection"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+            )}
+
             <div className="flex space-x-2">
                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                    <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        placeholder={`Search ${field.objectType || 'objects'}...`}
-                        className="block w-full pl-10 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                    <PagedEntityTable
+                        entityTypeName={field.objectType!}
+                        columns={columnDefinitionsRegistry[field.objectType!]?.default || defaultColumnDefinitions.default}
+                        initialQuery={{ page: 1, pageSize: 10}}
+                        selectionConfig={selectionConfig}
+                        selectedItems={value ? [value] : []}
+                        onSelectionChange={handleSelectionChange}
+                        showSelectionBanner={false}
                     />
                 </div>
                 {onCreateNew && (
                     <button
                         type="button"
                         onClick={onCreateNew}
-                        className="btn-secondary whitespace-nowrap"
+                        className="btn-secondary whitespace-nowrap self-start"
                     >
                         <Plus className="h-4 w-4 mr-1" />
                         Create New
                     </button>
                 )}
             </div>
-            {value && (
-                <div className="mt-2 p-2 bg-indigo-50 rounded-md">
-                    <span className="text-sm text-indigo-800">Selected: {value.name || value.id}</span>
-                </div>
-            )}
             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         </div>
     );
@@ -262,8 +300,91 @@ const ObjectField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
 
 const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error }) => {
     const items = Array.isArray(value) ? value : [];
-    const addItem = () => onChange([...items, {}]);
-    const removeItem = (index: number) => onChange(items.filter((_, i) => i !== index));
+    
+    const elementType = field.defaultValue as FieldType || FieldType.String;
+    const isObjectList = elementType === FieldType.Object;
+
+    const selectionConfig: SelectionConfig = {
+        mode: 'multiple',
+        min: field.minSelection,
+        max: field.maxSelection
+    };
+
+    const handleSelectionChange = (selected: any[]) => {
+
+        onChange(selected);
+    };
+
+    const handleRemoveItem = (itemId: string) => {
+        onChange(items.filter(item => item.id !== itemId));
+    };
+
+    if (!isObjectList) {
+        const addItem = () => onChange([...items, '']);
+        const removeItem = (index: number) => onChange(items.filter((_, i) => i !== index));
+        const updateItem = (index: number, newValue: any) => {
+            const updated = [...items];
+            updated[index] = newValue;
+            onChange(updated);
+        };
+
+        return (
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {field.label}
+                    {field.isRequired && <span className="text-red-500 ml-1">*</span>}
+                </label>
+                {field.description && <p className="text-xs text-gray-500 mb-2">{field.description}</p>}
+                <div className="space-y-2">
+                    {items.map((item, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                            {elementType === FieldType.String && (
+                                <input
+                                    type="text"
+                                    value={item || ''}
+                                    onChange={e => updateItem(index, e.target.value)}
+                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                />
+                            )}
+                            {elementType === FieldType.Integer && (
+                                <input
+                                    type="number"
+                                    value={item || 0}
+                                    onChange={e => updateItem(index, parseInt(e.target.value) || 0)}
+                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                />
+                            )}
+                            {elementType === FieldType.Decimal && (
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={item || 0}
+                                    onChange={e => updateItem(index, parseFloat(e.target.value) || 0)}
+                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                />
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => removeItem(index)}
+                                className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md"
+                            >
+                                <Minus className="h-4 w-4" />
+                            </button>
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={addItem}
+                        className="btn-secondary w-full"
+                    >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Item
+                    </button>
+                </div>
+                {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+            </div>
+        );
+    }
 
     return (
         <div>
@@ -272,28 +393,66 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
             {field.description && <p className="text-xs text-gray-500 mb-2">{field.description}</p>}
-            <div className="space-y-2">
-                {items.map((item, index) => (
-                    <div key={index} className="flex items-center space-x-2 p-3 border border-gray-200 rounded-md">
-                        <span className="flex-1 text-sm">Item {index + 1}</span>
-                        <button
-                            type="button"
-                            onClick={() => removeItem(index)}
-                            className="text-red-600 hover:text-red-800"
-                        >
-                            Remove
-                        </button>
+            
+            {!field.objectType ? (
+                <div className="text-sm text-red-600">
+                    Object type is required for Object lists. Please configure this field.
+                </div>
+            ) : (
+                <>
+                    {/* changed: moved selected items display above the table */}
+                    {value.length > 0 && (
+                        <div className="mb-3 space-y-2">
+                            <p className="text-xs font-medium text-gray-700">
+                                Selected ({value.length}):
+                            </p>
+                            <div className="max-h-32 overflow-y-auto space-y-2">
+                                {value.map((item: any) => (
+                                    <div
+                                        key={item.id}
+                                        className="p-2 bg-green-50 border border-green-200 rounded-md flex items-center justify-between"
+                                    >
+                                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
+                                                <span className="text-green-600 font-medium text-xs">
+                                                    {(item.name || item.Name || '?').charAt(0).toUpperCase()}
+                                                </span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-green-900 truncate">
+                                                    {item.name || item.Name || 'Item'}
+                                                </p>
+                                                <p className="text-xs text-green-600">ID: {item.id}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveItem(item.id)}
+                                            className="text-green-600 hover:text-green-800 hover:bg-green-100 rounded-full p-1 flex-shrink-0"
+                                            title="Remove from selection"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="border border-gray-200 rounded-md p-4">
+                        <PagedEntityTable
+                            entityTypeName={field.objectType}
+                            columns={columnDefinitionsRegistry[field.objectType]?.default || defaultColumnDefinitions.default}
+                            initialQuery={{ page: 1, pageSize: 5 }}
+                            selectionConfig={selectionConfig}
+                            selectedItems={value}
+                            onSelectionChange={handleSelectionChange}
+                            showSearchBar={true}
+                            showSelectionBanner={false}
+                        />
                     </div>
-                ))}
-                <button
-                    type="button"
-                    onClick={addItem}
-                    className="btn-secondary w-full"
-                >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Item
-                </button>
-            </div>
+                </>
+            )}
             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         </div>
     );

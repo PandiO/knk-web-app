@@ -1,6 +1,6 @@
 import React from 'react';
 import { Building2, MapPin, Home, Package, User, TagIcon, BrickWallIcon } from 'lucide-react';
-import type { FormField, ObjectConfig } from '../types/common';
+import type { ColumnDefinition, FormField, ObjectConfig } from '../types/common';
 import type { Location } from '../types/Location';
 
 const defaultLocationValue: Location = {
@@ -25,6 +25,53 @@ export const placeholderConfigs = {
     placeholder: 'Enter a number'
   },
 }
+
+export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
+  default: [
+    { key: 'id', label: 'ID', sortable: true },
+    { key: 'name', label: 'Name', sortable: true },
+  ]
+};
+
+export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefinition<any>[]>> = {
+  category: {
+    //Used for category listing in ObjectDashboard. Currently also used for FormWizard PagedEntityTable
+    "default": [
+      ...defaultColumnDefinitions.default,
+      { key: 'itemType', label: 'Item Type', sortable: false, render: (row: any) => row.itemType?.name || '-' },
+      { key: 'parentCategory', label: 'Parent Category', sortable: false, render: (row: any) => row.parentCategory ? `${row.parentCategory?.name}(${row.parentCategory?.id})` : '-' },
+    ]
+  },
+  structure: {
+    //Used for structure listing in ObjectDashboard. Currently also used for FormWizard PagedEntityTable
+    "default": [
+      ...defaultColumnDefinitions.default,
+      { key: 'Description', label: 'Description', sortable: false },
+      { 
+          key: 'Location', 
+          label: 'Location', 
+          sortable: false,
+          render: (row: any) => row.Location ? `(${row.Location.x}, ${row.Location.y}, ${row.Location.z})` : '-'
+      },
+      { 
+          key: 'Created', 
+          label: 'Created', 
+          sortable: true,
+          render: (row: any) => row.Created ? new Date(row.Created).toLocaleDateString() : '-'
+      },
+      {
+          key: 'RegionName',
+          label: 'Region',
+          sortable: false,
+          render: (value: any) => (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {value}
+              </span>
+          )
+      }
+    ]
+  }
+};
 
 export const commonFields: Record<string, FormField> = {
   id: { name: 'id', label: 'Id', type: 'number', required: false, hidden: true, defaultValue: -1 },

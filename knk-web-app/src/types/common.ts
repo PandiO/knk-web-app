@@ -53,3 +53,10 @@ export interface NestedFormData {
     id: string | number;
   };
 }
+
+export interface ColumnDefinition<T> {
+    key: string;
+    label: string;
+    sortable?: boolean;
+    render?: (row: T) => React.ReactNode;
+}

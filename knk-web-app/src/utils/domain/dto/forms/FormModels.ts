@@ -57,6 +57,9 @@ export interface FormFieldDto {
     isReusable: boolean;
     sourceFieldId?: string;
     validations: FieldValidationDto[];
+    // added: min/max selection for List/collection types
+    minSelection?: number;
+    maxSelection?: number;
 }
 
 export interface FormStepDto {

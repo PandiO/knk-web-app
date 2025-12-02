@@ -6,6 +6,7 @@ import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 // @ts-ignore: side-effect import for CSS without type declarations
 import './ObjectDashboard.css';
 import { StructuresManager } from '../../apiClients/structures';
+import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
@@ -65,51 +66,6 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         // TODO: Implement delete confirmation and API call
     };
 
-    // Define columns based on selected type
-    const getColumnsForType = (type: string) => {
-        switch (type) {
-            case 'structure':
-                return [
-                    { key: 'id', label: 'ID', sortable: true },
-                    { key: 'Name', label: 'Name', sortable: true },
-                    { key: 'Description', label: 'Description', sortable: false },
-                    { 
-                        key: 'Location', 
-                        label: 'Location', 
-                        sortable: false,
-                        render: (row: any) => row.Location ? `(${row.Location.x}, ${row.Location.y}, ${row.Location.z})` : '-'
-                    },
-                    { 
-                        key: 'Created', 
-                        label: 'Created', 
-                        sortable: true,
-                        render: (row: any) => row.Created ? new Date(row.Created).toLocaleDateString() : '-'
-                    },
-                    {
-                        key: 'RegionName',
-                        label: 'Region',
-                        sortable: false,
-                        render: (value: any) => (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {value}
-                            </span>
-                        )
-                    }
-                ];
-            case 'category':
-                return [
-                    { key: 'id', label: 'ID', sortable: true },
-                    { key: 'name', label: 'Name', sortable: true },
-                    { key: 'itemType', label: 'Item Type', sortable: false, render: (row: any) => row.itemType?.name || '-' },
-                ];
-            default:
-                return [
-                    { key: 'id', label: 'ID', sortable: true },
-                    { key: 'Name', label: 'Name', sortable: true },
-                ];
-        }
-    };
-
     return (
         <div className="dashboard-parent">
             <div className="dashboard-sidebar">
@@ -125,7 +81,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                     </h2>
                     <PagedEntityTable
                         entityTypeName={selectedType}
-                        columns={getColumnsForType(selectedType)}
+                        columns={columnDefinitionsRegistry[selectedType]?.default || defaultColumnDefinitions.default}
                         initialQuery={{ page: 1, pageSize: 10 }}
                         onRowClick={(row) => handleView(selectedType, row)}
                         rowActions={[
