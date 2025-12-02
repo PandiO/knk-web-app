@@ -39,7 +39,7 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
     "default": [
       ...defaultColumnDefinitions.default,
       { key: 'itemType', label: 'Item Type', sortable: false, render: (row: any) => row.itemType?.name || '-' },
-      { key: 'parentCategory', label: 'Parent Category', sortable: false, render: (row: any) => row.parentCategory ? `${row.parentCategory?.name}(${row.parentCategory?.id})` : '-' },
+      { key: 'parentCategory', label: 'Parent Category', sortable: false, render: (row: any) => row.parentCategoryName ? `${row.parentCategoryName}(${row.parentCategoryId})` : '-' },
     ]
   },
   structure: {

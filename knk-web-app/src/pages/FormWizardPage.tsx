@@ -11,6 +11,8 @@ import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
 import { Loader2 } from 'lucide-react';
 import { logging } from '../utils';
 import { CategoryClient } from '../apiClients/categoryClient';
+import { metadataClient } from '../apiClients/metadataClient';
+import { FieldMetadataDto } from '../utils/domain/dto/metadata/MetadataModels';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { entityTypeName: string; objectTypes: ObjectType[]; entityId?: string };
@@ -44,6 +46,7 @@ export const FormWizardPage: React.FC<Props> = ({ entityTypeName: typeName, obje
     const [showWizard, setShowWizard] = useState(false);
     const [wizardConfig, setWizardConfig] = useState<FormConfigurationDto | null>(null);
     const [wizardProgressId, setWizardProgressId] = useState<string | undefined>(undefined);
+    const [entityMetadata, setEntityMetadata] = useState<FieldMetadataDto[]>([]);
 
     const userId = '1'; // TODO: Get from auth context
 
@@ -291,22 +294,39 @@ export const FormWizardPage: React.FC<Props> = ({ entityTypeName: typeName, obje
                 } else {
                     await client.create(entityData);
                 }
+
+                setShowWizard(false);
+                setWizardConfig(null);
+                setWizardProgressId(undefined);
+                navigate('/dashboard', { state: { entityTypeName: progress.entityTypeName } });
             }
         } catch (err) {
             logging.errorHandler.next('ErrorMessage.Entity.SaveFailed');
             console.error('Failed to create/update entity:', err);
         }
-
-        setShowWizard(false);
-        setWizardConfig(null);
-        setWizardProgressId(undefined);
-        navigate(`/dashboard`);
     };
 
     // Handler: Select entity from sidebar
     const handleSelectEntity = (type: string) => {
         navigate(`/forms/${type}`);
         setSelectedObjectType(objectTypes.find(ot => ot.id === type) || null);
+    };
+
+    // added: load entity metadata for better normalization
+    useEffect(() => {
+        if (selectedTypeName) {
+            loadEntityMetadata(selectedTypeName);
+        }
+    }, [selectedTypeName]);
+
+    const loadEntityMetadata = async (entityTypeName: string) => {
+        try {
+            const metadata = await metadataClient.getEntityMetadata(entityTypeName);
+            setEntityMetadata(metadata.fields);
+        } catch (error) {
+            console.error('Failed to load entity metadata:', error);
+            // Non-critical - normalization will work without it using conventions
+        }
     };
 
     // Loading state
@@ -361,6 +381,7 @@ export const FormWizardPage: React.FC<Props> = ({ entityTypeName: typeName, obje
                         userId={userId}
                         onComplete={(data, progress) => handleComplete(data, progress)}
                         existingProgressId={wizardProgressId}
+                        // entityMetadata={entityMetadata} // optional: can be added to FormWizard props
                     />
                 ) : (
                     /* Use Case 2 or 3: Show configurations and progress */

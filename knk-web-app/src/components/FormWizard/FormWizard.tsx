@@ -9,6 +9,7 @@ import { FieldRenderer } from './FieldRenderers';
 import { logging } from '../../utils';
 import { getFetchByIdFunctionForEntity } from '../../utils/entityApiMapping';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
+import { normalizeFormSubmission } from '../../utils/forms/normalizeFormSubmission';
 
 interface FormWizardProps {
     entityName: string;
@@ -307,11 +308,23 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             const saved = await saveProgress(FormSubmissionStatus.Completed);
             if (!saved) return;
 
-            // Flatten to DTO shape so API receives all fields with nulls where empty
+            // Flatten to get all field values
             const normalizedAll = normalizeAllStepsData(config!, updatedAllData);
             const flattenedDto = flattenAllStepsData(config!, normalizedAll);
 
-            onComplete?.(flattenedDto, getProgressData()!);
+            // changed: normalize the form data before sending to API
+            // This converts nested objects (e.g., parentCategory) to foreign keys (e.g., parentCategoryId)
+            const normalizedPayload = normalizeFormSubmission({
+                entityTypeName: entityName,
+                formConfiguration: config!,
+                rawFormValue: flattenedDto,
+                // entityMetadata can be passed here if available from parent component
+            });
+
+            console.log('Raw form data:', flattenedDto);
+            console.log('Normalized payload for API:', normalizedPayload);
+
+            onComplete?.(normalizedPayload, getProgressData()!);
         }
     };
 
