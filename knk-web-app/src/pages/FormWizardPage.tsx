@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { FormWizard } from '../components/FormWizard/FormWizard';
 import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
 import { objectConfigs } from '../config/objectConfigs';
@@ -15,7 +15,13 @@ import { metadataClient } from '../apiClients/metadataClient';
 import { FieldMetadataDto } from '../utils/domain/dto/metadata/MetadataModels';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
-type Props = { entityTypeName: string; objectTypes: ObjectType[]; entityId?: string };
+type Props = { 
+    entityTypeName: string; 
+    objectTypes: ObjectType[]; 
+    entityId?: string;
+    // added: explicit prop to control auto-opening of default form
+    autoOpenDefaultForm?: boolean;
+};
 type ApiClient = {
     getInstance: () => ApiClient;
     create: (data: any) => Promise<any>;
@@ -23,14 +29,25 @@ type ApiClient = {
     getById: (id: string) => Promise<any>;
 };
 
-export const FormWizardPage: React.FC<Props> = ({ entityTypeName: typeName, objectTypes, entityId: propsEntityId }: Props) => {
+// changed: destructure new prop with default value
+export const FormWizardPage: React.FC<Props> = ({ 
+    entityTypeName: typeName, 
+    objectTypes, 
+    entityId: propsEntityId,
+    autoOpenDefaultForm = false 
+}: Props) => {
     const navigate = useNavigate();
     const { entityName, entityId: urlEntityId } = useParams<{ entityName: string; entityId?: string }>();
+    // added: read query parameter for auto-open
+    const [searchParams] = useSearchParams();
     
     // Prioritize URL params over props
     const entityId = urlEntityId || propsEntityId;
     const selectedTypeName = entityName || typeName || '';
     
+    // changed: check both prop and query parameter for auto-open
+    const shouldAutoOpen = autoOpenDefaultForm || searchParams.get('autoOpen') === 'true';
+
     const [selectedObjectType, setSelectedObjectType] = useState<ObjectType | null>(
         objectTypes.find(ot => ot.id === selectedTypeName) || null
     );
@@ -47,6 +64,7 @@ export const FormWizardPage: React.FC<Props> = ({ entityTypeName: typeName, obje
     const [wizardConfig, setWizardConfig] = useState<FormConfigurationDto | null>(null);
     const [wizardProgressId, setWizardProgressId] = useState<string | undefined>(undefined);
     const [entityMetadata, setEntityMetadata] = useState<FieldMetadataDto[]>([]);
+    const [autoOpenForm, setAutoOpenForm] = useState(false); // removed: old auto-open flag logic
 
     const userId = '1'; // TODO: Get from auth context
 
@@ -91,7 +109,17 @@ export const FormWizardPage: React.FC<Props> = ({ entityTypeName: typeName, obje
             }));
     }, [entityNamesLower]);
 
-    // Main effect: Handle the three use cases
+    // added: Update selectedObjectType whenever selectedTypeName changes
+    useEffect(() => {
+        if (selectedTypeName) {
+            const matchingType = objectTypes.find(ot => ot.id === selectedTypeName);
+            setSelectedObjectType(matchingType || null);
+        } else {
+            setSelectedObjectType(null);
+        }
+    }, [selectedTypeName, objectTypes]);
+
+    // Main effect: Handle the four use cases
     useEffect(() => {
         // Use Case 3: No entity selected
         if (!selectedTypeName) {
@@ -99,18 +127,33 @@ export const FormWizardPage: React.FC<Props> = ({ entityTypeName: typeName, obje
             setFormConfigs([]);
             setSavedProgress([]);
             setDefaultConfig(null);
+            setAutoOpenForm(false);
             return;
         }
 
         // Use Case 1: Entity ID provided (edit mode)
         if (entityId) {
             loadDefaultConfigForEdit(selectedTypeName);
+            setAutoOpenForm(false);
             return;
         }
 
-        // Use Case 2: Only entity name provided (show configs and progress)
+        // changed: Use Case 4 detection uses both prop and query param
+        setAutoOpenForm(shouldAutoOpen && !!selectedTypeName && !urlEntityId);
+
+        // Use Case 2 or 4: Only entity name provided
         loadConfigurationsAndProgress(selectedTypeName);
-    }, [selectedTypeName, entityId]);
+    }, [selectedTypeName, entityId, shouldAutoOpen, urlEntityId]);
+
+    // added: Auto-open default form when configurations are loaded (Use Case 4)
+    useEffect(() => {
+        if (autoOpenForm && defaultConfig && !showWizard && !loadingConfigs) {
+            // Automatically open the default form configuration
+            setWizardConfig(defaultConfig);
+            setWizardProgressId(undefined);
+            setShowWizard(true);
+        }
+    }, [autoOpenForm, defaultConfig, showWizard, loadingConfigs]);
 
     // Use Case 1: Load default config for editing an existing entity
     const loadDefaultConfigForEdit = async (entityTypeName: string) => {
@@ -306,27 +349,9 @@ export const FormWizardPage: React.FC<Props> = ({ entityTypeName: typeName, obje
         }
     };
 
-    // Handler: Select entity from sidebar
+    // changed: simplified handleSelectEntity since selectedObjectType is now synced automatically
     const handleSelectEntity = (type: string) => {
         navigate(`/forms/${type}`);
-        setSelectedObjectType(objectTypes.find(ot => ot.id === type) || null);
-    };
-
-    // added: load entity metadata for better normalization
-    useEffect(() => {
-        if (selectedTypeName) {
-            loadEntityMetadata(selectedTypeName);
-        }
-    }, [selectedTypeName]);
-
-    const loadEntityMetadata = async (entityTypeName: string) => {
-        try {
-            const metadata = await metadataClient.getEntityMetadata(entityTypeName);
-            setEntityMetadata(metadata.fields);
-        } catch (error) {
-            console.error('Failed to load entity metadata:', error);
-            // Non-critical - normalization will work without it using conventions
-        }
     };
 
     // Loading state
@@ -343,7 +368,7 @@ export const FormWizardPage: React.FC<Props> = ({ entityTypeName: typeName, obje
 
     // Notification logic
     const showNoConfigs = selectedTypeName && formConfigs.length === 0 && !showWizard;
-    const showNoDefault = selectedTypeName && formConfigs.length > 0 && !defaultConfig && !showWizard;
+    const showNoDefault = selectedTypeName && formConfigs.length > 0 && !defaultConfig && !showWizard && !shouldAutoOpen;
     const showTooManyDefaults = selectedTypeName && formConfigs.filter(cfg => cfg.isDefault).length > 1 && !showWizard;
 
     return (
@@ -364,16 +389,16 @@ export const FormWizardPage: React.FC<Props> = ({ entityTypeName: typeName, obje
                             </svg>
                             <span className="text-sm text-yellow-800">
                                 {showNoConfigs
-                                    ? `No form configurations found for "${selectedObjectType?.label}". Please create a configuration first.`
+                                    ? `No form configurations found for "${selectedObjectType?.label || selectedTypeName}". Please create a configuration first.`
                                     : showNoDefault
-                                    ? `No default configuration set for "${selectedObjectType?.label}". Please set one as default to enable form wizard.`
-                                    : `Too many default configurations found for "${selectedObjectType?.label}". Please ensure only one default is set.`}
+                                    ? `No default configuration set for "${selectedObjectType?.label || selectedTypeName}". Please set one as default to enable form wizard.`
+                                    : `Too many default configurations found for "${selectedObjectType?.label || selectedTypeName}". Please ensure only one default is set.`}
                             </span>
                         </div>
                     </div>
                 )}
 
-                {/* Use Case 1 or when user opens a config: Show FormWizard */}
+                {/* Use Case 1 or 4: Show FormWizard */}
                 {showWizard && wizardConfig ? (
                     <FormWizard
                         entityName={selectedTypeName}

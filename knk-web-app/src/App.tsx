@@ -99,9 +99,12 @@ function App() {
                   <ObjectDashboard objectTypes={objectTypes} />
                 </>
               } />
-              <Route path="/forms" element={<FormWizardPage entityTypeName='' objectTypes={objectTypes}/>} />
-              <Route path="/forms/:entityName" element={<FormWizardPage entityTypeName='' objectTypes={objectTypes}/>} />
-              <Route path="/forms/:entityName/edit/:entityId" element={<FormWizardPage entityTypeName='' objectTypes={objectTypes}/>} />
+              {/* changed: Use Case 3 - Browse forms (no auto-open) */}
+              <Route path="/forms" element={<FormWizardPage entityTypeName='' objectTypes={objectTypes} autoOpenDefaultForm={false} />} />
+              {/* changed: Use Case 2 - Browse entity forms (no auto-open) */}
+              <Route path="/forms/:entityName" element={<FormWizardPage entityTypeName='' objectTypes={objectTypes} autoOpenDefaultForm={false} />} />
+              {/* changed: Use Case 1 - Edit entity (no auto-open, loads default for edit) */}
+              <Route path="/forms/:entityName/edit/:entityId" element={<FormWizardPage entityTypeName='' objectTypes={objectTypes} autoOpenDefaultForm={false} />} />
               <Route path="/admin/form-configurations" element={<FormConfigListPage />} />
               <Route path="/admin/form-configurations/new" element={<FormConfigBuilder />} />
               <Route path="/admin/form-configurations/edit/:id" element={<FormConfigBuilder />} />

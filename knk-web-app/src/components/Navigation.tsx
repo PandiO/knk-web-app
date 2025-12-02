@@ -154,7 +154,8 @@ export function Navigation({ objectTypes }: Props) {
                       <button
                         key={type.id}
                         onClick={() => {
-                          navigate(type.createRoute);
+                          // changed: Navigate to forms with autoOpenDefaultForm=true for Use Case 4
+                          navigate(`/forms/${type.id}?autoOpen=true`);
                           setIsOpen(false);
                         }}
                         className={`
