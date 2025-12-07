@@ -1,7 +1,8 @@
 import { CategoryClient } from '../apiClients/categoryClient';
-import { StructuresManager } from '../apiClients/structures';
-import { TownsManager } from '../apiClients/towns';
-import { StreetManager } from '../apiClients/streets';
+import { StructureClient } from '../apiClients/structureClient';
+import { StreetClient } from '../apiClients/streetClient';
+import { TownClient } from '../apiClients/townClient';
+import { DistrictClient } from '../apiClients/districtClient';
 import { PagedQueryDto, PagedResultDto } from './domain/dto/common/PagedQuery';
 import { LocationClient } from '../apiClients/locationClient';
 
@@ -13,16 +14,18 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
     switch (normalized) {
         case 'category':
             return (query) => CategoryClient.getInstance().searchPaged(query);
+        case 'street':
+            return (query) => StreetClient.getInstance().searchPaged(query);
+        case 'town':
+            return (query) => TownClient.getInstance().searchPaged(query);
+        case 'district':
+            return (query) => DistrictClient.getInstance().searchPaged(query);
+        case 'structure':
+            return (query) => StructureClient.getInstance().searchPaged(query);
         case 'user':
             return () => Promise.reject(new Error('User search not implemented'));
         case 'location':
             return (query) => LocationClient.getInstance().searchPaged(query);
-        // case 'structure':
-        //     return (query) => StructuresManager.getInstance().searchPaged(query);
-        // case 'town':
-        //     return (query) => TownsManager.getInstance().searchPaged(query);
-        // case 'street':
-        //     return (query) => StreetManager.getInstance().searchPaged(query);
         default:
             throw new Error(`No search function registered for entity type: ${entityTypeName}`);
     }
@@ -34,15 +37,18 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
     switch (normalized) {
         case 'category':
             return (id) => CategoryClient.getInstance().getById(id);
+        case 'street':
+            return (id) => StreetClient.getInstance().getById(Number(id));
+        case 'town':
+            return (id) => TownClient.getInstance().getById(Number(id));
+        case 'district':
+            return (id) => DistrictClient.getInstance().getById(Number(id));
+        case 'structure':
+            return (id) => StructureClient.getInstance().getById(Number(id));
         case 'location':
             return (id) => LocationClient.getInstance().getById(Number(id));
         case 'user':
             return () => Promise.reject(new Error('User fetchById not implemented'));
-        // case 'town':
-        //     return (id) => TownsManager.getInstance().getById(Number(id));
-        // case 'street':
-        //     return (id) => StreetManager.getInstance().getById(Number(id));
-        // case 'structure':
         default:
             throw new Error(`No fetchById function registered for entity type: ${entityTypeName}`);
     }

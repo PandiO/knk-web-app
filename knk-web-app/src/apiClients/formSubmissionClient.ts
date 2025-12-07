@@ -35,7 +35,7 @@ export class FormSubmissionClient extends ObjectManager {
     }
 
     delete(id: string): Promise<void> {
-        return this.invokeServiceCall({ id }, FormSubmissionProgressOperation.Delete, Controllers.FormSubmissionProgress, HttpMethod.Delete);
+        return this.invokeServiceCall(null, `${FormSubmissionProgressOperation.Delete}${id}`, Controllers.FormSubmissionProgress, HttpMethod.Delete);
     }
 }
 

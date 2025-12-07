@@ -17,7 +17,7 @@ export class ServiceCall {
         let url = `${baseUrl}/${args.controller}`;
 
         let requestParams: any = {
-            method: HttpMethod.Get,
+            method: args.httpMethod,
             headers:  {
                 'Accept': '*/*',
             }
@@ -78,7 +78,20 @@ export class ServiceCall {
             console.log(url);
             console.log(requestParams);
             const response = await fetch(url, requestParams);
-            const result = await response.json();
+
+            // Handle APIs that return no content (204) without throwing on response.json()
+            let result: any = null;
+            if (response.status !== 204) {
+                const contentType = response.headers.get('content-type') || '';
+                const isJson = contentType.includes('application/json');
+
+                if (isJson) {
+                    result = await response.json();
+                } else {
+                    const text = await response.text();
+                    result = text?.length ? text : null;
+                }
+            }
 
             if (response.ok) {
                 if (args.responseHandler) {
