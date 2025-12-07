@@ -47,6 +47,7 @@ export interface FormFieldDto {
     description?: string;
     fieldType: FieldType;
     defaultValue?: string;
+    elementType?: FieldType; // Type of elements for List/collection fields
     isRequired: boolean;
     isReadOnly: boolean;
     order: number;

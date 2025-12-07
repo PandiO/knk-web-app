@@ -299,10 +299,11 @@ const ObjectField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
 };
 
 const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error }) => {
+    console.log('Rendering ListField with value:', value);
     const items = Array.isArray(value) ? value : [];
     
-    const elementType = field.defaultValue as FieldType || FieldType.String;
-    const isObjectList = elementType === FieldType.Object;
+    const listElementType = field.elementType || FieldType.String;
+    const isObjectList = field.objectType != null;
 
     const selectionConfig: SelectionConfig = {
         mode: 'multiple',
@@ -311,7 +312,6 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
     };
 
     const handleSelectionChange = (selected: any[]) => {
-
         onChange(selected);
     };
 
@@ -338,27 +338,27 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                 <div className="space-y-2">
                     {items.map((item, index) => (
                         <div key={index} className="flex items-center space-x-2">
-                            {elementType === FieldType.String && (
+                            {listElementType === FieldType.String && (
                                 <input
                                     type="text"
-                                    value={item || ''}
+                                    value={item ?? ''}
                                     onChange={e => updateItem(index, e.target.value)}
                                     className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                                 />
                             )}
-                            {elementType === FieldType.Integer && (
+                            {listElementType === FieldType.Integer && (
                                 <input
                                     type="number"
-                                    value={item || 0}
+                                    value={item ?? 0}
                                     onChange={e => updateItem(index, parseInt(e.target.value) || 0)}
                                     className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                                 />
                             )}
-                            {elementType === FieldType.Decimal && (
+                            {listElementType === FieldType.Decimal && (
                                 <input
                                     type="number"
                                     step="0.01"
-                                    value={item || 0}
+                                    value={item ?? 0}
                                     onChange={e => updateItem(index, parseFloat(e.target.value) || 0)}
                                     className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                                 />
@@ -401,13 +401,13 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
             ) : (
                 <>
                     {/* changed: moved selected items display above the table */}
-                    {value.length > 0 && (
+                    {items.length > 0 && (
                         <div className="mb-3 space-y-2">
                             <p className="text-xs font-medium text-gray-700">
-                                Selected ({value.length}):
+                                Selected ({items.length}):
                             </p>
                             <div className="max-h-32 overflow-y-auto space-y-2">
-                                {value.map((item) => (
+                                {items.map((item) => (
                                     <div
                                         key={item.id}
                                         className="p-2 bg-green-50 border border-green-200 rounded-md flex items-center justify-between"
@@ -445,7 +445,7 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                             columns={columnDefinitionsRegistry[field.objectType]?.default || defaultColumnDefinitions.default}
                             initialQuery={{ page: 1, pageSize: 5 }}
                             selectionConfig={selectionConfig}
-                            selectedItems={value}
+                            selectedItems={items}
                             onSelectionChange={handleSelectionChange}
                             showSearchBar={true}
                             showSelectionBanner={false}

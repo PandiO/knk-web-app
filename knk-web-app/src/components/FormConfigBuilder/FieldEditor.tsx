@@ -15,7 +15,7 @@ interface Props {
 export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCancel, metadataFields = [] }) => {
     const [field, setField] = useState<FormFieldDto>(initialField);
     const [collectionElementType, setCollectionElementType] = useState<FieldType>(
-        initialField.defaultValue ? (initialField.defaultValue as FieldType) : FieldType.String
+        initialField.elementType || FieldType.String
     );
     const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto[]>([]);
 
@@ -47,6 +47,7 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
             'decimal': FieldType.Decimal,
             'double': FieldType.Decimal,
             'float': FieldType.Decimal,
+            'list': FieldType.List,
         };
         const normalized = backendType.toLowerCase();
         return typeMap[normalized] || FieldType.Object;
@@ -90,7 +91,7 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
 
         const fieldToSave: FormFieldDto = {
             ...field,
-            defaultValue: isCollectionType(field.fieldType) ? collectionElementType : field.defaultValue
+            elementType: isCollectionType(field.fieldType) ? collectionElementType : undefined
         };
         onSave(fieldToSave);
     };

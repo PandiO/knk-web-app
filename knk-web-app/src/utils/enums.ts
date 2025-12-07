@@ -66,7 +66,8 @@ export enum Controllers {
     FormFields = 'FormFields',
     FormSubmissionProgress = 'FormSubmissionProgress',
     Metadata = 'Metadata', // added
-    Categories = 'Categories'
+    Categories = 'Categories',
+    Locations = 'locations'
 }
 
 export enum FormPlaceHolder {
