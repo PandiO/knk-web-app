@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Save, Plus, GripVertical, Trash2, AlertCircle, Loader2, Copy } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, FormFieldDto } from '../../utils/domain/dto/forms/FormModels';
@@ -12,6 +12,7 @@ import { StepEditor } from './StepEditor';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableStepItem } from './SortableStepItem';
+import { FeedbackModal } from '../FeedbackModal';
 
 export const FormConfigBuilder: React.FC = () => {
     const { id } = useParams<{ id?: string }>();
@@ -41,12 +42,52 @@ export const FormConfigBuilder: React.FC = () => {
     // added: state to track default conflict notification
     const [defaultConflictMsg, setDefaultConflictMsg] = useState<string | null>(null);
 
+    type SaveFeedbackState = {
+        open: boolean;
+        title: string;
+        message: string;
+        status: 'success' | 'error' | 'info';
+    };
+    const [saveFeedback, setSaveFeedback] = useState<SaveFeedbackState>({
+        open: false,
+        title: '',
+        message: '',
+        status: 'info'
+    });
+    const autoCloseRef = useRef<number | undefined>(undefined);
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, {
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
+
+    const clearAutoClose = () => {
+        if (autoCloseRef.current) {
+            window.clearTimeout(autoCloseRef.current);
+            autoCloseRef.current = undefined;
+        }
+    };
+
+    useEffect(() => {
+        return () => clearAutoClose();
+    }, []);
+
+    const closeSaveModal = () => {
+        clearAutoClose();
+        const shouldNavigate = saveFeedback.status === 'success';
+        setSaveFeedback(prev => ({ ...prev, open: false }));
+        if (shouldNavigate) {
+            navigate('/admin/form-configurations');
+        }
+    };
+
+    const handleSaveContinue = () => {
+        clearAutoClose();
+        setSaveFeedback(prev => ({ ...prev, open: false }));
+        navigate('/admin/form-configurations');
+    };
 
     useEffect(() => {
         loadData();
@@ -289,13 +330,32 @@ export const FormConfigBuilder: React.FC = () => {
                 await formConfigClient.create(configToSave);
             }
 
+            const successMessage = isEditMode
+                ? 'Configuration updated successfully.'
+                : 'Configuration created successfully.';
+            setSaveFeedback({
+                open: true,
+                title: 'Saved',
+                message: successMessage,
+                status: 'success'
+            });
+            clearAutoClose();
+            autoCloseRef.current = window.setTimeout(() => {
+                handleSaveContinue();
+            }, 3000);
+
         } catch (err) {
             console.error('Failed to save configuration:', err);
             setError('Failed to save configuration');
             logging.errorHandler.next('ErrorMessage.FormConfiguration.SaveFailed');
+            setSaveFeedback({
+                open: true,
+                title: 'Save failed',
+                message: 'Failed to save configuration. Please fix errors and try again.',
+                status: 'error'
+            });
         } finally {
             setSaving(false);
-            navigate('/admin/form-configurations');
         }
     };
 
@@ -541,6 +601,15 @@ export const FormConfigBuilder: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            <FeedbackModal
+                open={saveFeedback.open}
+                title={saveFeedback.title}
+                message={saveFeedback.message}
+                status={saveFeedback.status}
+                onClose={closeSaveModal}
+                onContinue={handleSaveContinue}
+            />
         </div>
     );
 };

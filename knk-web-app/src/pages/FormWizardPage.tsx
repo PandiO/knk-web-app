@@ -13,6 +13,7 @@ import { logging } from '../utils';
 import { CategoryClient } from '../apiClients/categoryClient';
 import { metadataClient } from '../apiClients/metadataClient';
 import { FieldMetadataDto } from '../utils/domain/dto/metadata/MetadataModels';
+import { FeedbackModal } from '../components/FeedbackModal';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { 
@@ -65,6 +66,37 @@ export const FormWizardPage: React.FC<Props> = ({
     const [wizardProgressId, setWizardProgressId] = useState<string | undefined>(undefined);
     const [entityMetadata, setEntityMetadata] = useState<FieldMetadataDto[]>([]);
     const [autoOpenForm, setAutoOpenForm] = useState(false); // removed: old auto-open flag logic
+
+    type FeedbackState = {
+        open: boolean;
+        title: string;
+        message: string;
+        status: 'success' | 'error' | 'info';
+        onContinue?: () => void;
+        autoCloseMs?: number;
+    };
+    const [feedbackModal, setFeedbackModal] = useState<FeedbackState>({
+        open: false,
+        title: '',
+        message: '',
+        status: 'info',
+        onContinue: undefined,
+        autoCloseMs: undefined,
+    });
+
+    const showFeedback = (payload: Omit<FeedbackState, 'open'>) => {
+        setFeedbackModal({ ...payload, open: true });
+    };
+
+    const closeFeedbackModal = () => {
+        setFeedbackModal(prev => ({ ...prev, open: false, onContinue: undefined }));
+    };
+
+    const handleFeedbackContinue = () => {
+        const action = feedbackModal.onContinue;
+        closeFeedbackModal();
+        action?.();
+    };
 
     const userId = '1'; // TODO: Get from auth context
 
@@ -282,9 +314,22 @@ export const FormWizardPage: React.FC<Props> = ({
         try {
             await formSubmissionClient.delete(progress.id!);
             setSavedProgress(prev => prev.filter(p => p.id !== progress.id));
+            showFeedback({
+                title: 'Progress deleted',
+                message: 'The saved progress has been removed.',
+                status: 'success',
+                onContinue: undefined,
+                autoCloseMs: 3000,
+            });
         } catch (error) {
             console.error('Failed to delete progress:', error);
             logging.errorHandler.next('ErrorMessage.FormSubmission.DeleteFailed');
+            showFeedback({
+                title: 'Delete failed',
+                message: 'Unable to delete the saved progress. Please try again.',
+                status: 'error',
+                onContinue: undefined,
+            });
         }
     };
 
@@ -295,9 +340,22 @@ export const FormWizardPage: React.FC<Props> = ({
         try {
             await formConfigClient.delete(config.id!);
             setFormConfigs(prev => prev.filter(c => c.id !== config.id));
+            showFeedback({
+                title: 'Configuration deleted',
+                message: 'The form configuration has been removed.',
+                status: 'success',
+                onContinue: undefined,
+                autoCloseMs: 3000,
+            });
         } catch (error) {
             console.error('Failed to delete configuration:', error);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.DeleteFailed');
+            showFeedback({
+                title: 'Delete failed',
+                message: 'Unable to delete the form configuration. Please try again.',
+                status: 'error',
+                onContinue: undefined,
+            });
         }
     };
 
@@ -341,11 +399,23 @@ export const FormWizardPage: React.FC<Props> = ({
                 setShowWizard(false);
                 setWizardConfig(null);
                 setWizardProgressId(undefined);
-                navigate('/dashboard', { state: { entityTypeName: progress.entityTypeName } });
+                showFeedback({
+                    title: 'Form completed',
+                    message: 'Your form has been submitted successfully.',
+                    status: 'success',
+                    onContinue: () => navigate('/dashboard', { state: { entityTypeName: progress.entityTypeName } }),
+                    autoCloseMs: 3000,
+                });
             }
         } catch (err) {
             logging.errorHandler.next('ErrorMessage.Entity.SaveFailed');
             console.error('Failed to create/update entity:', err);
+            showFeedback({
+                title: 'Submit failed',
+                message: 'The form could not be submitted. Please review and try again.',
+                status: 'error',
+                onContinue: undefined,
+            });
         }
     };
 
@@ -372,82 +442,94 @@ export const FormWizardPage: React.FC<Props> = ({
     const showTooManyDefaults = selectedTypeName && formConfigs.filter(cfg => cfg.isDefault).length > 1 && !showWizard;
 
     return (
-        <div className="dashboard-parent">
-            <div className='dashboard-sidebar'>
-                <ObjectTypeExplorer
-                    items={sidebarItems}
-                    onSelect={handleSelectEntity}
-                />
-            </div>
-            <div className='dashboard-content'>
-                {/* Notification bar */}
-                {(showNoConfigs || showNoDefault || showTooManyDefaults) && (
-                    <div className="mb-4">
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 flex items-center">
-                            <svg className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="text-sm text-yellow-800">
-                                {showNoConfigs
-                                    ? `No form configurations found for "${selectedObjectType?.label || selectedTypeName}". Please create a configuration first.`
-                                    : showNoDefault
-                                    ? `No default configuration set for "${selectedObjectType?.label || selectedTypeName}". Please set one as default to enable form wizard.`
-                                    : `Too many default configurations found for "${selectedObjectType?.label || selectedTypeName}". Please ensure only one default is set.`}
-                            </span>
-                        </div>
-                    </div>
-                )}
-
-                {/* Use Case 1 or 4: Show FormWizard */}
-                {showWizard && wizardConfig ? (
-                    <FormWizard
-                        entityName={selectedTypeName}
-                        entityId={entityId}
-                        userId={userId}
-                        onComplete={(data, progress) => handleComplete(data, progress)}
-                        existingProgressId={wizardProgressId}
-                        // entityMetadata={entityMetadata} // optional: can be added to FormWizard props
+        <>
+            <div className="dashboard-parent">
+                <div className='dashboard-sidebar'>
+                    <ObjectTypeExplorer
+                        items={sidebarItems}
+                        onSelect={handleSelectEntity}
                     />
-                ) : (
-                    /* Use Case 2 or 3: Show configurations and progress */
-                    <div className="space-y-6">
-                        {loadingConfigs ? (
-                            <div className="flex items-center justify-center py-12">
-                                <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                </div>
+                <div className='dashboard-content'>
+                    {/* Notification bar */}
+                    {(showNoConfigs || showNoDefault || showTooManyDefaults) && (
+                        <div className="mb-4">
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 flex items-center">
+                                <svg className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="text-sm text-yellow-800">
+                                    {showNoConfigs
+                                        ? `No form configurations found for "${selectedObjectType?.label || selectedTypeName}". Please create a configuration first.`
+                                        : showNoDefault
+                                        ? `No default configuration set for "${selectedObjectType?.label || selectedTypeName}". Please set one as default to enable form wizard.`
+                                        : `Too many default configurations found for "${selectedObjectType?.label || selectedTypeName}". Please ensure only one default is set.`}
+                                </span>
                             </div>
-                        ) : (
-                            <>
-                                {selectedTypeName ? (
-                                    /* Use Case 2: Entity selected, show configs and progress */
-                                    <>
-                                        <FormConfigurationTable
-                                            configurations={formConfigs}
-                                            onOpen={(config) => handleOpenConfiguration(config)}
-                                            onSetDefault={handleSetDefault}
-                                            onRemoveDefault={handleRemoveDefault}
-                                            onEdit={handleEditConfiguration}
-                                            onDelete={handleFormConfigDelete}
-                                        />
-                                        
-                                        <SavedProgressList
-                                            progressList={savedProgress}
-                                            onResume={(progress) => handleResumeProgress(progress as FormSubmissionProgressSummaryDto)}
-                                            onDelete={(progress) => handleDeleteProgress(progress as FormSubmissionProgressSummaryDto)}
-                                        />
-                                    </>
-                                ) : (
-                                    /* Use Case 3: No entity selected */
-                                    <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-                                        <p className="text-gray-500">
-                                            Select an entity from the sidebar to view available forms
-                                        </p>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                )}
+                        </div>
+                    )}
+
+                    {/* Use Case 1 or 4: Show FormWizard */}
+                    {showWizard && wizardConfig ? (
+                        <FormWizard
+                            entityName={selectedTypeName}
+                            entityId={entityId}
+                            userId={userId}
+                            onComplete={(data, progress) => handleComplete(data, progress)}
+                            existingProgressId={wizardProgressId}
+                            // entityMetadata={entityMetadata} // optional: can be added to FormWizard props
+                        />
+                    ) : (
+                        /* Use Case 2 or 3: Show configurations and progress */
+                        <div className="space-y-6">
+                            {loadingConfigs ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                                </div>
+                            ) : (
+                                <>
+                                    {selectedTypeName ? (
+                                        /* Use Case 2: Entity selected, show configs and progress */
+                                        <>
+                                            <FormConfigurationTable
+                                                configurations={formConfigs}
+                                                onOpen={(config) => handleOpenConfiguration(config)}
+                                                onSetDefault={handleSetDefault}
+                                                onRemoveDefault={handleRemoveDefault}
+                                                onEdit={handleEditConfiguration}
+                                                onDelete={handleFormConfigDelete}
+                                            />
+                                            
+                                            <SavedProgressList
+                                                progressList={savedProgress}
+                                                onResume={(progress) => handleResumeProgress(progress as FormSubmissionProgressSummaryDto)}
+                                                onDelete={(progress) => handleDeleteProgress(progress as FormSubmissionProgressSummaryDto)}
+                                            />
+                                        </>
+                                    ) : (
+                                        /* Use Case 3: No entity selected */
+                                        <div className="text-center py-12 bg-white rounded-lg shadow-sm">
+                                            <p className="text-gray-500">
+                                                Select an entity from the sidebar to view available forms
+                                            </p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
+
+            <FeedbackModal
+                open={feedbackModal.open}
+                title={feedbackModal.title}
+                message={feedbackModal.message}
+                status={feedbackModal.status}
+                onClose={closeFeedbackModal}
+                onContinue={handleFeedbackContinue}
+                autoCloseMs={feedbackModal.autoCloseMs}
+            />
+        </>
     );
 };

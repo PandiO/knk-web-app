@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Save, Check, AlertCircle } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../utils/domain/dto/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
@@ -10,6 +10,7 @@ import { logging } from '../../utils';
 import { getFetchByIdFunctionForEntity } from '../../utils/entityApiMapping';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
 import { normalizeFormSubmission } from '../../utils/forms/normalizeFormSubmission';
+import { FeedbackModal } from '../FeedbackModal';
 
 interface FormWizardProps {
     entityName: string;
@@ -35,6 +36,36 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    type SaveFeedbackState = {
+        open: boolean;
+        title: string;
+        message: string;
+        status: 'success' | 'error' | 'info';
+    };
+    const [saveFeedback, setSaveFeedback] = useState<SaveFeedbackState>({
+        open: false,
+        title: '',
+        message: '',
+        status: 'info'
+    });
+    const autoCloseRef = useRef<number | undefined>(undefined);
+
+    const clearAutoClose = () => {
+        if (autoCloseRef.current) {
+            window.clearTimeout(autoCloseRef.current);
+            autoCloseRef.current = undefined;
+        }
+    };
+
+    const closeSaveModal = () => {
+        clearAutoClose();
+        setSaveFeedback(prev => ({ ...prev, open: false }));
+    };
+
+    useEffect(() => {
+        return () => clearAutoClose();
+    }, []);
 
     // Helpers to enforce full field shape per step and flatten for DTO
     const normalizeStepData = (step: FormStepDto, data: StepData | undefined): StepData => {
@@ -253,6 +284,20 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 const created = await formSubmissionClient.create(progressData);
                 setProgressId(created.id);
             }
+            // Only surface modal feedback for explicit draft saves to avoid interrupting step navigation
+            if (status === FormSubmissionStatus.Paused) {
+                setSaveFeedback({
+                    open: true,
+                    title: 'Progress saved',
+                    message: 'Your draft has been saved. You can continue later.',
+                    status: 'success'
+                });
+                clearAutoClose();
+                autoCloseRef.current = window.setTimeout(() => {
+                    closeSaveModal();
+                }, 3000);
+            }
+
             // changed: return true on success so caller knows save succeeded
             return true;
         } catch (error: any) {
@@ -261,6 +306,15 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             const errorMessage = error?.response?.data?.message || 'Failed to save your progress. Please try again.';
             setError(errorMessage);
             logging.errorHandler.next('ErrorMessage.FormSubmission.SaveFailed');
+            if (status === FormSubmissionStatus.Paused) {
+                setSaveFeedback({
+                    open: true,
+                    title: 'Save failed',
+                    message: errorMessage,
+                    status: 'error'
+                });
+                clearAutoClose();
+            }
             // changed: return false to indicate failure
             return false;
         } finally {
@@ -477,6 +531,15 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     )}
                 </button>
             </div>
+
+            <FeedbackModal
+                open={saveFeedback.open}
+                title={saveFeedback.title}
+                message={saveFeedback.message}
+                status={saveFeedback.status}
+                onClose={closeSaveModal}
+                onContinue={closeSaveModal}
+            />
         </div>
     );
 };
