@@ -61,6 +61,8 @@ export interface FormFieldDto {
     // added: min/max selection for List/collection types
     minSelection?: number;
     maxSelection?: number;
+    // added: whether user can create new instances on-the-fly for Object/List fields
+    canCreate?: boolean;
 }
 
 export interface FormStepDto {

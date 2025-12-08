@@ -1,19 +1,23 @@
+import { Loader2 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { FormWizard } from '../components/FormWizard/FormWizard';
-import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
-import { objectConfigs } from '../config/objectConfigs';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { CategoryClient } from '../apiClients/categoryClient';
 import { formConfigClient } from '../apiClients/formConfigClient';
 import { formSubmissionClient } from '../apiClients/formSubmissionClient';
-import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../utils/domain/dto/forms/FormModels';
-import { FormConfigurationTable } from '../components/FormWizard/FormConfigurationTable';
-import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
-import { Loader2 } from 'lucide-react';
-import { logging } from '../utils';
-import { CategoryClient } from '../apiClients/categoryClient';
-import { metadataClient } from '../apiClients/metadataClient';
-import { FieldMetadataDto } from '../utils/domain/dto/metadata/MetadataModels';
 import { FeedbackModal } from '../components/FeedbackModal';
+import { FormConfigurationTable } from '../components/FormWizard/FormConfigurationTable';
+import { FormWizard } from '../components/FormWizard/FormWizard';
+import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
+import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
+import { objectConfigs } from '../config/objectConfigs';
+import { logging } from '../utils';
+import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../utils/domain/dto/forms/FormModels';
+import { FieldMetadataDto } from '../utils/domain/dto/metadata/MetadataModels';
+import { DistrictClient } from '../apiClients/districtClient';
+import { LocationClient } from '../apiClients/locationClient';
+import { StreetClient } from '../apiClients/streetClient';
+import { StructureClient } from '../apiClients/structureClient';
+import { TownClient } from '../apiClients/townClient';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { 
@@ -365,6 +369,12 @@ export const FormWizardPage: React.FC<Props> = ({
         
         const clientMap: Record<string, ApiClient> = {
             category: CategoryClient.getInstance() as unknown as ApiClient,
+            location: LocationClient.getInstance() as unknown as ApiClient,
+            street: StreetClient.getInstance() as unknown as ApiClient,
+            town: TownClient.getInstance() as unknown as ApiClient,
+            district: DistrictClient.getInstance() as unknown as ApiClient,
+            structure: StructureClient.getInstance() as unknown as ApiClient,
+            // user: UserClient.getInstance() as unknown as ApiClient, // User client not implemented
             // Add other clients here as needed
         };
         

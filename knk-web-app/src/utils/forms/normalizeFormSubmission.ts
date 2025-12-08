@@ -85,16 +85,26 @@ function isRelationshipField(field: FormFieldDto, entityMetadata?: FieldMetadata
  * Extracts the ID from a nested object or returns the value as-is if it's already an ID.
  * 
  * @param value - The value to extract ID from
- * @returns The extracted ID or the original value
+ * @returns The extracted ID or the original value, or null if value is an object without an id
  */
 function extractId(value: any): any {
     if (value === null || value === undefined) {
         return value;
     }
     
-    // If it's an object with an id property, extract it
-    if (typeof value === 'object' && 'id' in value) {
-        return value.id;
+    // Check if it's a plain object (not array, Date, etc.)
+    const isPlainObject = typeof value === 'object' && 
+                          value !== null && 
+                          value.constructor === Object && 
+                          !Array.isArray(value);
+    
+    if (isPlainObject) {
+        // It's an object - try to extract the id property
+        if ('id' in value && value.id !== undefined && value.id !== null) {
+            return value.id;
+        }
+        // Object exists but has no valid id - return null since we can't normalize it
+        return null;
     }
     
     // If it's already a primitive (string/number), assume it's the ID
@@ -157,9 +167,19 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
     
     // Also copy any properties in rawFormValue that weren't in the field configuration
     // (e.g., id for updates, or other backend-generated fields)
+    // IMPORTANT: Extract IDs from any objects to handle foreign key fields
     Object.keys(rawFormValue).forEach(key => {
         if (!(key in normalized)) {
-            normalized[key] = rawFormValue[key];
+            const value = rawFormValue[key];
+            
+            // Check if this looks like a foreign key field (ends with 'Id')
+            if (key.endsWith('Id') && typeof value === 'object' && value !== null) {
+                // Extract the ID from the object
+                normalized[key] = extractId(value);
+            } else {
+                // Copy as-is for non-relationship fields
+                normalized[key] = value;
+            }
         }
     });
     
@@ -182,19 +202,23 @@ function handleSingleObjectRelationship(
 ): void {
     // Determine if this field is already a foreign key field (ends with "Id")
     const isForeignKeyField = fieldName.endsWith('Id');
+    const extractedId = extractId(rawValue);
     
     if (isForeignKeyField) {
         // Field is already the foreign key (e.g., parentCategoryId)
-        // Just extract ID if it's an object, or keep as-is if already an ID
-        normalized[fieldName] = extractId(rawValue);
+        // Only add to normalized if we successfully extracted an ID
+        if (extractedId !== null && extractedId !== undefined) {
+            normalized[fieldName] = extractedId;
+        }
     } else {
         // Field is a navigation property (e.g., parentCategory)
-        // Need to convert to foreign key field name
-        const foreignKeyFieldName = toForeignKeyFieldName(fieldName);
-        normalized[foreignKeyFieldName] = extractId(rawValue);
-        
-        // DO NOT include the navigation property itself in the payload
-        // (backend typically doesn't expect nested objects on create/update)
+        // Only convert to foreign key format if we can extract a valid ID
+        if (extractedId !== null && extractedId !== undefined) {
+            const foreignKeyFieldName = toForeignKeyFieldName(fieldName);
+            normalized[foreignKeyFieldName] = extractedId;
+        }
+        // If no valid ID could be extracted, skip this field
+        // (don't include the navigation property in the payload)
     }
 }
 

@@ -221,6 +221,7 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
 
 const ObjectField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onCreateNew }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const canCreate = field.canCreate !== false; // default true if not specified
 
     const selectionConfig: SelectionConfig = {
         mode: 'single'
@@ -282,7 +283,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
                         showSelectionBanner={false}
                     />
                 </div>
-                {onCreateNew && (
+                {onCreateNew && canCreate && (
                     <button
                         type="button"
                         onClick={onCreateNew}

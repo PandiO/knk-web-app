@@ -10,7 +10,10 @@ import { logging } from '../../utils';
 import { getFetchByIdFunctionForEntity } from '../../utils/entityApiMapping';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
 import { normalizeFormSubmission } from '../../utils/forms/normalizeFormSubmission';
+import { metadataClient } from '../../apiClients/metadataClient';
+import { EntityMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
 import { FeedbackModal } from '../FeedbackModal';
+import { ChildFormModal } from './ChildFormModal';
 
 interface FormWizardProps {
     entityName: string;
@@ -18,6 +21,9 @@ interface FormWizardProps {
     userId: string;
     onComplete?: (data: any, progress?: FormSubmissionProgressDto) => void;
     existingProgressId?: string;
+    parentProgressId?: string; // added: for nested child forms
+    fieldName?: string; // added: field name this child form is for
+    currentStepIndex?: number; // added: step index where child form is being created
 }
 
 export const FormWizard: React.FC<FormWizardProps> = ({
@@ -25,9 +31,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     entityId, // added
     userId,
     onComplete,
-    existingProgressId
+    existingProgressId,
+    parentProgressId, // added
+    fieldName: _childFieldName, // added: unused in current implementation
+    currentStepIndex: _parentStepIndex // added: unused in current implementation
 }) => {
     const [config, setConfig] = useState<FormConfigurationDto | null>(null);
+    const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto | null>(null);
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [currentStepData, setCurrentStepData] = useState<StepData>({});
     const [allStepsData, setAllStepsData] = useState<AllStepsData>({});
@@ -50,6 +60,18 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         status: 'info'
     });
     const autoCloseRef = useRef<number | undefined>(undefined);
+
+    // added: state for child form modal
+    type ChildFormState = {
+        open: boolean;
+        entityTypeName: string;
+        fieldName: string;
+    };
+    const [childFormModal, setChildFormModal] = useState<ChildFormState>({
+        open: false,
+        entityTypeName: '',
+        fieldName: ''
+    });
 
     const clearAutoClose = () => {
         if (autoCloseRef.current) {
@@ -122,6 +144,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 // Ensure all fields present with null/defaults
                 setCurrentStepData(normalizeStepData(fetchedCfg.steps[progress.currentStepIndex], parsedCurrent));
                 setAllStepsData(normalizeAllStepsData(fetchedCfg, parsedAll));
+
+                // Load entity metadata for normalization
+                if (progress.entityTypeName) {
+                    const metadata = await metadataClient.getEntityMetadata(progress.entityTypeName);
+                    setEntityMetadata(metadata);
+                }
             } else {
                 if (!entityName) {
                     throw new Error('Entity name is required to load form configuration');
@@ -148,6 +176,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     // Initialize allStepsData for all steps
                     setAllStepsData(normalizeAllStepsData(fetchedConfig, {} as AllStepsData));
                 }
+
+                // Load entity metadata for normalization
+                const metadata = await metadataClient.getEntityMetadata(entityName);
+                setEntityMetadata(metadata);
             }
         } catch (error) {
             console.error('Failed to load form configuration:', error);
@@ -200,6 +232,76 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         console.log(`Field ${fieldName} changed to`, value);
     };
 
+    // added: open child form modal for creating new object
+    const handleOpenChildForm = (field: any) => {
+        setChildFormModal({
+            open: true,
+            entityTypeName: field.objectType || '',
+            fieldName: field.fieldName
+        });
+    };
+
+    // added: close child form modal
+    const handleCloseChildForm = () => {
+        setChildFormModal(prev => ({ ...prev, open: false }));
+    };
+
+    // added: handle child form completion and data insertion
+    const handleChildFormComplete = async (childData: any) => {
+        const fieldName = childFormModal.fieldName;
+
+        try {
+            // Extract ID from the created entity if it exists
+            // The normalizeFormSubmission will handle the conversion from navigation property to foreign key
+            // but we want to store the full object in the form state for display purposes
+            const createdEntity = childData;
+
+            console.log(`Child form completed for field: ${fieldName}`, {
+                entityType: childFormModal.entityTypeName,
+                childData: createdEntity,
+                extractedId: createdEntity?.id
+            });
+
+            // If this is a child form (has parentProgressId), save to childProgresses
+            if (parentProgressId && progressId && currentStepIndex !== undefined) {
+                // Save child progress to parent's childProgresses array
+                const childProgress: FormSubmissionProgressDto = {
+                    id: undefined,
+                    formConfigurationId: config!.id!,
+                    userId,
+                    entityTypeName: childFormModal.entityTypeName,
+                    currentStepIndex: 0,
+                    currentStepDataJson: JSON.stringify(childData),
+                    allStepsDataJson: JSON.stringify({ 0: childData }),
+                    parentProgressId: parentProgressId,
+                    status: FormSubmissionStatus.Completed
+                };
+
+                // Create the child progress in the backend
+                await formSubmissionClient.create(childProgress);
+
+                // Insert the entity data into the field
+                // Store the full object for display, normalizeFormSubmission will extract ID when submitting
+                setCurrentStepData(prev => ({
+                    ...prev,
+                    [childFormModal.fieldName]: createdEntity
+                }));
+            } else {
+                // Regular child form: insert data directly into the field
+                // Store the full object for display, normalizeFormSubmission will extract ID when submitting
+                setCurrentStepData(prev => ({
+                    ...prev,
+                    [fieldName]: createdEntity
+                }));
+            }
+
+            handleCloseChildForm();
+        } catch (error) {
+            console.error('Failed to complete child form:', error);
+            logging.errorHandler.next('ErrorMessage.FormSubmission.ChildFormFailed');
+        }
+    };
+
     const validateField = (field: any): string | null => {
         const value = currentStepData[field.fieldName];
 
@@ -210,7 +312,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         for (const validation of field.validations) {
             if (!validation.isActive) continue;
 
-            const params = validation.parametersJson ? JSON.parse(validation.parametersJson) : {};
+            // Parse validation parameters if needed (commented: validation logic placeholder)
+            // const params = validation.parametersJson ? JSON.parse(validation.parametersJson) : {};
             
             // Add validation logic based on ValidationType
             // For brevity, showing Required only
@@ -372,11 +475,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 entityTypeName: entityName,
                 formConfiguration: config!,
                 rawFormValue: flattenedDto,
-                // entityMetadata can be passed here if available from parent component
+                entityMetadata: entityMetadata?.fields || []
             });
 
-            console.log('Raw form data:', flattenedDto);
-            console.log('Normalized payload for API:', normalizedPayload);
+            console.log('Raw form data (flattened):', flattenedDto);
+            console.log('Normalized payload for API (with IDs extracted):', normalizedPayload);
 
             onComplete?.(normalizedPayload, getProgressData()!);
         }
@@ -494,6 +597,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                             onChange={value => handleFieldChange(field.fieldName, value)}
                             error={errors[field.fieldName]}
                             onBlur={() => validateField(field)}
+                            onCreateNew={() => handleOpenChildForm(field)}
                         />
                     );
                 })}
@@ -539,6 +643,18 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 status={saveFeedback.status}
                 onClose={closeSaveModal}
                 onContinue={closeSaveModal}
+            />
+
+            {/* added: child form modal for creating objects on-the-fly */}
+            <ChildFormModal
+                open={childFormModal.open}
+                entityTypeName={childFormModal.entityTypeName}
+                parentProgressId={progressId || ''}
+                userId={userId}
+                fieldName={childFormModal.fieldName}
+                currentStepIndex={currentStepIndex}
+                onComplete={handleChildFormComplete}
+                onClose={handleCloseChildForm}
             />
         </div>
     );
