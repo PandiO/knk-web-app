@@ -1,21 +1,11 @@
-import { useLocation, useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { ObjectView } from '../components/ObjectView';
 import { objectConfigs } from '../config/objectConfigs';
-import { StructureViewDTO, mapFieldDataToForm as mapStructureFieldDataToForm } from '../utils/domain/dto/structure/StructureViewDTO';
-import { StructuresManager } from '../apiClients/structures';
-import { DistrictViewDTO } from '../utils/domain/dto/district/DistrictViewDTO';
-import { TownViewDTO } from '../utils/domain/dto/town/TownViewDTO';
-import { StreetViewDTO } from '../utils/domain/dto/StreetViewDTO';
-import { LocationViewDTO } from '../utils/domain/dto/location/LocationViewDTO';
+import { getFetchByIdFunctionForEntity } from '../utils/entityApiMapping';
 
-type ObjectViewData = 
-  | StructureViewDTO 
-  | DistrictViewDTO 
-  | TownViewDTO 
-  | StreetViewDTO 
-  | LocationViewDTO;
+type ObjectViewData = any;
 
 interface FetchState {
   data: ObjectViewData | null;
@@ -24,15 +14,13 @@ interface FetchState {
 }
 
 export function ObjectViewPage() {
-  const { type, id } = useParams<{ type: string; id: string, object?: any }>();
-  const location = useLocation();
+  const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const [fetchState, setFetchState] = useState<FetchState>({
     data: null,
     loading: false,
     error: null
   });
-  const { object } = location.state || {};
 
   useEffect(() => {
     if (!type || !id) {
@@ -46,28 +34,12 @@ export function ObjectViewPage() {
       return;
     }
 
-    // If we have the object from navigation state, use it directly
-    if (object) {
-      setFetchState({ data: object, loading: false, error: null });
-      return;
-    }
-
+    // Always fetch full data from API to ensure we have complete object details
     const fetchData = async () => {
       setFetchState(prev => ({ ...prev, loading: true, error: null }));
       try {
-        const numericId = parseInt(id);
-        let data: ObjectViewData | null = null;
-
-        switch (type) {
-          case 'structure':
-            await StructuresManager.getInstance().getViewById(numericId).then((result) => {
-              data = mapStructureFieldDataToForm(result);
-            }).catch((err) => {setFetchState({data: null, loading: false, error: err})});
-            break;
-          // Add other cases as they are implemented
-          default:
-            throw new Error(`Data fetching not implemented for type: ${type}`);
-        }
+        const fetchById = getFetchByIdFunctionForEntity(type);
+        const data = await fetchById(id);
 
         if (!data) {
           throw new Error('No data received from API');
@@ -84,7 +56,7 @@ export function ObjectViewPage() {
     };
 
     fetchData();
-  }, [type, id, object]);
+  }, [type, id]); // removed object dependency since we always fetch from API
 
   const config = type ? objectConfigs[type as keyof typeof objectConfigs] : null;
 

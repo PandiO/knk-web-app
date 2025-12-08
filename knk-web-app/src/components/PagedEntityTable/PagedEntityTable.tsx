@@ -251,8 +251,26 @@ export function PagedEntityTable<T extends Record<string, any>>({
             return value.toLocaleDateString();
         }
 
-        if (typeof value === 'object' && value.Name) {
-            return value.Name;
+        // Handle objects - try common property names for display
+        if (typeof value === 'object') {
+            // Try various common property names (case-insensitive)
+            if ('name' in value && value.name) {
+                return String(value.name);
+            }
+            if ('Name' in value && value.Name) {
+                return String(value.Name);
+            }
+            if ('title' in value && value.title) {
+                return String(value.title);
+            }
+            if ('label' in value && value.label) {
+                return String(value.label);
+            }
+            if ('id' in value) {
+                return String(value.id);
+            }
+            // Fallback: don't render the object, show a placeholder
+            return <span className="text-gray-400">-</span>;
         }
 
         return String(value);
