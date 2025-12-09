@@ -67,7 +67,9 @@ export enum Controllers {
     FormSubmissionProgress = 'FormSubmissionProgress',
     Metadata = 'Metadata', // added
     Categories = 'Categories',
-    Locations = 'locations'
+    Locations = 'locations',
+    MinecraftBlockRefs = 'MinecraftBlockRefs',
+    MinecraftMaterialRefs = 'MinecraftMaterialRefs'
 }
 
 export enum FormPlaceHolder {
@@ -176,6 +178,24 @@ export enum MetadataOperation {
 }
 
 export enum CategoryOperation {
+    GetAll = '',
+    GetById = '',
+    Create = '',
+    Update = '',
+    Delete = '',
+    SearchPaged = 'search'
+}
+
+export enum MinecraftBlockRefOperation {
+    GetAll = '',
+    GetById = '',
+    Create = '',
+    Update = '',
+    Delete = '',
+    SearchPaged = 'search'
+}
+
+export enum MinecraftMaterialRefOperation {
     GetAll = '',
     GetById = '',
     Create = '',

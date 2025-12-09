@@ -3,6 +3,8 @@ import { StructureClient } from '../apiClients/structureClient';
 import { StreetClient } from '../apiClients/streetClient';
 import { TownClient } from '../apiClients/townClient';
 import { DistrictClient } from '../apiClients/districtClient';
+import { MinecraftBlockRefClient } from '../apiClients/minecraftBlockRefClient';
+import { MinecraftMaterialRefClient } from '../apiClients/minecraftMaterialRefClient';
 import { PagedQueryDto, PagedResultDto } from './domain/dto/common/PagedQuery';
 import { LocationClient } from '../apiClients/locationClient';
 
@@ -26,6 +28,10 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return () => Promise.reject(new Error('User search not implemented'));
         case 'location':
             return (query) => LocationClient.getInstance().searchPaged(query);
+        case 'minecraftblockref':
+            return (query) => MinecraftBlockRefClient.getInstance().searchPaged(query);
+        case 'minecraftmaterialref':
+            return (query) => MinecraftMaterialRefClient.getInstance().searchPaged(query);
         default:
             throw new Error(`No search function registered for entity type: ${entityTypeName}`);
     }
@@ -47,6 +53,10 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => StructureClient.getInstance().getById(Number(id));
         case 'location':
             return (id) => LocationClient.getInstance().getById(Number(id));
+        case 'minecraftblockref':
+            return (id) => MinecraftBlockRefClient.getInstance().getById(Number(id));
+        case 'minecraftmaterialref':
+            return (id) => MinecraftMaterialRefClient.getInstance().getById(Number(id));
         case 'user':
             return () => Promise.reject(new Error('User fetchById not implemented'));
         default:

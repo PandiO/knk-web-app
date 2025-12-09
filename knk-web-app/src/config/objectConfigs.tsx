@@ -42,6 +42,22 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'parentCategory', label: 'Parent Category', sortable: false, render: (row: any) => row.parentCategoryName ? `${row.parentCategoryName}(${row.parentCategoryId})` : '-' },
     ]
   },
+  minecraftblockref: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'namespaceKey', label: 'Namespace Key', sortable: true },
+      { key: 'logicalType', label: 'Logical Type', sortable: false },
+      { key: 'blockStateString', label: 'Block State', sortable: false }
+    ]
+  },
+  minecraftmaterialref: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'namespaceKey', label: 'Namespace Key', sortable: true },
+      { key: 'category', label: 'Category', sortable: true },
+      { key: 'legacyName', label: 'Legacy Name', sortable: false }
+    ]
+  },
   structure: {
     //Used for structure listing in ObjectDashboard. Currently also used for FormWizard PagedEntityTable
     "default": [
@@ -107,6 +123,62 @@ const locationConfig: ObjectConfig = {
     worldName: { name: 'WorldName', label: 'World Name', type: 'text', required: true, defaultValue: 'world' }
   },
   showViewButton: false
+};
+
+const minecraftBlockRefConfig: ObjectConfig = {
+  type: 'minecraftblockref',
+  label: 'Minecraft Block Ref',
+  icon: <BrickWallIcon className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    namespaceKey: {
+      name: 'namespaceKey',
+      label: 'Namespace Key',
+      type: 'text',
+      required: true
+    },
+    blockStateString: {
+      name: 'blockStateString',
+      label: 'Block State String',
+      type: 'text',
+      required: false
+    },
+    logicalType: {
+      name: 'logicalType',
+      label: 'Logical Type',
+      type: 'text',
+      required: false
+    }
+  },
+  showViewButton: true
+};
+
+const minecraftMaterialRefConfig: ObjectConfig = {
+  type: 'minecraftmaterialref',
+  label: 'Minecraft Material Ref',
+  icon: <TagIcon className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    namespaceKey: {
+      name: 'namespaceKey',
+      label: 'Namespace Key',
+      type: 'text',
+      required: true
+    },
+    category: {
+      name: 'category',
+      label: 'Category',
+      type: 'text',
+      required: true
+    },
+    legacyName: {
+      name: 'legacyName',
+      label: 'Legacy Name',
+      type: 'text',
+      required: false
+    }
+  },
+  showViewButton: true
 };
 
 const dominionConfig: ObjectConfig = {
@@ -316,6 +388,8 @@ export const objectConfigs: Record<string, ObjectConfig> = {
   street: streetConfig,
   category: CategoryConfig,
   itemType: ItemTypeConfig,
+  minecraftblockref: minecraftBlockRefConfig,
+  minecraftmaterialref: minecraftMaterialRefConfig,
   item: {
     type: 'item',
     label: 'Item',
