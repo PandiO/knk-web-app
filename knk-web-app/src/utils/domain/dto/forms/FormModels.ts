@@ -52,6 +52,7 @@ export interface FormFieldDto {
     isReadOnly: boolean;
     order: number;
     dependencyConditionJson?: string;
+    settingsJson?: string;
     objectType?: string;
     subConfigurationId?: string;
     incrementValue?: number;

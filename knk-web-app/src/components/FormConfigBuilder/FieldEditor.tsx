@@ -287,6 +287,22 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                         />
                     </div>
 
+                    {field.fieldType === FieldType.HybridMinecraftMaterialRefPicker && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Settings JSON</label>
+                            <textarea
+                                value={field.settingsJson || ''}
+                                onChange={e => setField({ ...field, settingsJson: e.target.value })}
+                                rows={2}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                placeholder='{"categoryFilter":"ICON","multiSelect":false}'
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Configure categoryFilter or multiSelect for the hybrid material picker.
+                            </p>
+                        </div>
+                    )}
+
                     <div className="flex items-center space-x-6">
                         <div className="flex items-center">
                             <input

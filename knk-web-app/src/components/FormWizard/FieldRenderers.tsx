@@ -4,6 +4,7 @@ import { FieldType } from '../../utils/enums';
 import { Calendar, Plus, Minus, Search, X } from 'lucide-react';
 import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
+import { HybridMaterialPicker } from '../minecraft/HybridMaterialPicker';
 
 interface FieldRendererProps {
     field: FormFieldDto;
@@ -39,8 +40,37 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
             return <ObjectField field={field} value={value} onChange={onChange} error={error} onCreateNew={onCreateNew} />;
         case FieldType.List:
             return <ListField field={field} value={value} onChange={onChange} error={error} />;
+        case FieldType.HybridMinecraftMaterialRefPicker: {
+            const settings = parseHybridMaterialSettings(field.settingsJson);
+            return (
+                <HybridMaterialPicker
+                    label={field.label}
+                    description={field.description}
+                    value={value}
+                    onChange={onChange}
+                    required={field.isRequired}
+                    error={error}
+                    categoryFilter={settings.categoryFilter}
+                    multiSelect={settings.multiSelect}
+                />
+            );
+        }
         default:
             return <div className="text-sm text-gray-500">Unsupported field type: {field.fieldType}</div>;
+    }
+};
+
+const parseHybridMaterialSettings = (settingsJson?: string): { categoryFilter?: string; multiSelect: boolean } => {
+    if (!settingsJson) return { multiSelect: false };
+    try {
+        const parsed = JSON.parse(settingsJson);
+        return {
+            categoryFilter: parsed.categoryFilter,
+            multiSelect: !!parsed.multiSelect
+        };
+    } catch (err) {
+        console.warn('Failed to parse hybrid material settingsJson', err);
+        return { multiSelect: false };
     }
 };
 

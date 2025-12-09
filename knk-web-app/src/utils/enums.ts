@@ -105,7 +105,8 @@ export enum FieldType {
     Decimal = 'Decimal',
     Enum = 'Enum',
     Object = 'Object',
-    List = 'List'
+    List = 'List',
+    HybridMinecraftMaterialRefPicker = 'HybridMinecraftMaterialRefPicker'
 }
 
 export enum ValidationType {
