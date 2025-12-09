@@ -28,7 +28,7 @@ interface FormWizardProps {
 
 export const FormWizard: React.FC<FormWizardProps> = ({
     entityName,
-    entityId, // added
+    entityId: initialEntityId, // Rename to make clear this is the initial prop
     userId,
     onComplete,
     existingProgressId,
@@ -46,6 +46,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // CRITICAL: Track entityId in state so it persists when loading from progress
+    const [entityId, setEntityId] = useState<string | undefined>(initialEntityId);
 
     type SaveFeedbackState = {
         open: boolean;
@@ -123,7 +125,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
     useEffect(() => {
         loadConfiguration();
-    }, [entityName, existingProgressId, entityId]); // added entityId dependency
+    }, [entityName, existingProgressId, initialEntityId]); // Use initialEntityId in deps, not state
 
     const loadConfiguration = async () => {
         try {
@@ -132,6 +134,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             if (existingProgressId) {
                 const progress = await formSubmissionClient.getById(existingProgressId);
                 setProgressId(progress.id);
+                
+                // CRITICAL: Restore entityId from progress if it exists (edit mode)
+                if (progress.entityId) {
+                    setEntityId(progress.entityId);
+                }
 
                 const fetchedCfg = await formConfigClient.getById(progress.formConfigurationId);
                 setConfig(fetchedCfg);
@@ -359,7 +366,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 formConfigurationId: config!.id!,
                 userId,
                 entityTypeName: entityName,
-                entityId: entityId,
+                entityId: entityId, // CRITICAL: preserve entityId for edit mode
                 currentStepIndex,
                 currentStepDataJson: JSON.stringify(normalizeStepData(config!.steps[currentStepIndex], currentStepData)),
                 allStepsDataJson: JSON.stringify(mergedAllSteps),
@@ -478,8 +485,15 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 entityMetadata: entityMetadata?.fields || []
             });
 
+            // CRITICAL: Include entity ID in payload for edit mode
+            // This ensures the parent component calls UPDATE instead of CREATE
+            if (entityId) {
+                normalizedPayload.id = entityId;
+            }
+
             console.log('Raw form data (flattened):', flattenedDto);
             console.log('Normalized payload for API (with IDs extracted):', normalizedPayload);
+            console.log('Edit mode:', !!entityId, 'Entity ID:', entityId);
 
             onComplete?.(normalizedPayload, getProgressData()!);
         }

@@ -1,5 +1,11 @@
 import { Controllers, FormConfigurationOperation, HttpMethod } from "../utils/enums";
-import { FormConfigurationDto } from "../utils/domain/dto/forms/FormModels";
+import { 
+    FormConfigurationDto, 
+    FormStepDto, 
+    FormFieldDto,
+    AddReusableStepRequestDto,
+    AddReusableFieldRequestDto
+} from "../utils/domain/dto/forms/FormModels";
 import { ObjectManager } from "./objectManager";
 import { logging } from "../utils";
 
@@ -62,6 +68,43 @@ export class FormConfigClient extends ObjectManager {
 
     delete(id: string): Promise<void> {
         return this.invokeServiceCall(null, `${FormConfigurationOperation.Delete}${id}`, Controllers.FormConfigurations, HttpMethod.Delete);
+    }
+
+    // Template-related operations
+    getReusableSteps(): Promise<FormStepDto[]> {
+        return this.invokeServiceCall(
+            null, 
+            'reusable-steps', 
+            Controllers.FormConfigurations, 
+            HttpMethod.Get
+        );
+    }
+
+    getReusableFields(): Promise<FormFieldDto[]> {
+        return this.invokeServiceCall(
+            null, 
+            'reusable-fields', 
+            Controllers.FormConfigurations, 
+            HttpMethod.Get
+        );
+    }
+
+    addReusableStepToConfiguration(configId: string, payload: AddReusableStepRequestDto): Promise<FormStepDto> {
+        return this.invokeServiceCall(
+            payload, 
+            `${configId}/steps/add-from-template`, 
+            Controllers.FormConfigurations, 
+            HttpMethod.Post
+        );
+    }
+
+    addReusableFieldToStep(stepId: string, payload: AddReusableFieldRequestDto): Promise<FormFieldDto> {
+        return this.invokeServiceCall(
+            payload, 
+            `steps/${stepId}/fields/add-from-template`, 
+            Controllers.FormConfigurations, 
+            HttpMethod.Post
+        );
     }
 }
 

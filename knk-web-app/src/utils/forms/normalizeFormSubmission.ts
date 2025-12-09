@@ -25,7 +25,6 @@ export interface NormalizeFormSubmissionArgs {
  */
 function toForeignKeyFieldName(navigationPropertyName: string): string {
     // Handle both camelCase and PascalCase
-    const firstChar = navigationPropertyName.charAt(0);
     const suffix = 'Id';
     
     // If already ends with Id, return as-is
@@ -35,20 +34,6 @@ function toForeignKeyFieldName(navigationPropertyName: string): string {
     
     // Preserve original casing for first character
     return navigationPropertyName + suffix;
-}
-
-/**
- * Maps a foreign key field name back to its navigation property name.
- * Convention: "parentCategoryId" -> "parentCategory"
- * 
- * @param foreignKeyName - The foreign key field name (e.g., "parentCategoryId")
- * @returns The navigation property name (e.g., "parentCategory")
- */
-function toNavigationPropertyName(foreignKeyName: string): string {
-    if (foreignKeyName.endsWith('Id')) {
-        return foreignKeyName.slice(0, -2);
-    }
-    return foreignKeyName;
 }
 
 /**
@@ -111,6 +96,23 @@ function extractId(value: any): any {
     return value;
 }
 
+/** Extract id / namespaceKey for hybrid material/block picker values */
+function extractHybridIdentifiers(value: any): { id?: any; namespaceKey?: string } {
+    if (value === null || value === undefined) return {};
+
+    if (typeof value === 'number' || typeof value === 'string') {
+        return { id: value };
+    }
+
+    if (typeof value === 'object') {
+        const id = (value as any).id ?? (value as any).Id;
+        const namespaceKey = (value as any).namespaceKey ?? (value as any).NamespaceKey;
+        return { id, namespaceKey };
+    }
+
+    return {};
+}
+
 /**
  * Normalizes form submission data by converting nested objects to foreign key IDs.
  * 
@@ -119,6 +121,7 @@ function extractId(value: any): any {
  * - Collection relationships: { items: [{...}, {...}] } -> { itemIds: ["1", "2"] }
  * - Direct ID fields: { parentCategoryId: "123" } -> { parentCategoryId: "123" } (unchanged)
  * - Scalar fields: { name: "Test" } -> { name: "Test" } (unchanged)
+ * - Hybrid material/block picker: populates Id (or Ids) plus NamespaceKey fallback when id missing
  * 
  * @param args - The normalization arguments
  * @returns The normalized payload ready for API submission
@@ -144,6 +147,12 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
             return;
         }
         
+        // Special handling for hybrid Minecraft material/block picker
+        if (field.fieldType === FieldType.HybridMinecraftMaterialRefPicker) {
+            handleHybridMaterialField(field, fieldName, rawValue, normalized);
+            return;
+        }
+
         const isRelationship = isRelationshipField(field, entityMetadata);
         
         if (!isRelationship) {
@@ -189,13 +198,12 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
 /**
  * Handles normalization of a single object relationship field.
  * 
- * @param field - The form field configuration
  * @param fieldName - The field name in rawFormValue
  * @param rawValue - The raw value from the form
  * @param normalized - The normalized payload being built
  */
 function handleSingleObjectRelationship(
-    field: FormFieldDto,
+    _field: FormFieldDto,
     fieldName: string,
     rawValue: any,
     normalized: Record<string, any>
@@ -225,13 +233,12 @@ function handleSingleObjectRelationship(
 /**
  * Handles normalization of a collection relationship field.
  * 
- * @param field - The form field configuration
  * @param fieldName - The field name in rawFormValue
  * @param rawValue - The raw value from the form (array)
  * @param normalized - The normalized payload being built
  */
 function handleCollectionRelationship(
-    field: FormFieldDto,
+    _field: FormFieldDto,
     fieldName: string,
     rawValue: any,
     normalized: Record<string, any>
@@ -264,6 +271,79 @@ function handleCollectionRelationship(
     normalized[targetFieldName] = ids;
     
     // DO NOT include the navigation property array itself
+}
+
+/**
+ * Handles normalization for HybridMinecraftMaterialRefPicker fields.
+ * Supports single or multi-select, and falls back to namespaceKey when id is missing.
+ * 
+ * For single selection: Outputs both `{fieldName}Id` and `{fieldName}NamespaceKey`
+ * For multi selection: Outputs both `{fieldName}Ids` and `{fieldName}NamespaceKeys`
+ * 
+ * This allows the backend to create new MinecraftMaterialRef/MinecraftBlockRef entities
+ * when only namespaceKey is provided (unpersisted catalog items).
+ */
+function handleHybridMaterialField(
+    _field: FormFieldDto,
+    fieldName: string,
+    rawValue: any,
+    normalized: Record<string, any>
+): void {
+    const isArray = Array.isArray(rawValue);
+
+    if (isArray) {
+        // Multi-select case
+        const items = rawValue as any[];
+        const ids: any[] = [];
+        const namespaceKeys: string[] = [];
+
+        items.forEach(item => {
+            const { id, namespaceKey } = extractHybridIdentifiers(item);
+            if (id !== null && id !== undefined) ids.push(id);
+            if (namespaceKey) namespaceKeys.push(namespaceKey);
+        });
+
+        // Determine target field names for IDs array
+        const targetIdsField = fieldName.endsWith('Ids')
+            ? fieldName
+            : fieldName.endsWith('s')
+                ? fieldName.slice(0, -1) + 'Ids'
+                : fieldName + 'Ids';
+
+        // Determine target field name for NamespaceKeys array
+        const targetNamespaceField = targetIdsField.endsWith('Ids')
+            ? targetIdsField.slice(0, -3) + 'NamespaceKeys'
+            : targetIdsField + 'NamespaceKeys';
+
+        if (ids.length > 0) {
+            normalized[targetIdsField] = ids;
+        }
+        if (namespaceKeys.length > 0) {
+            normalized[targetNamespaceField] = namespaceKeys;
+        }
+        return;
+    }
+
+    // Single-select case
+    const { id, namespaceKey } = extractHybridIdentifiers(rawValue);
+
+    // Determine target field name for ID
+    const targetIdField = fieldName.endsWith('Id')
+        ? fieldName
+        : toForeignKeyFieldName(fieldName);
+
+    // Determine target field name for NamespaceKey
+    const targetNamespaceField = targetIdField.endsWith('Id')
+        ? targetIdField.slice(0, -2) + 'NamespaceKey'
+        : targetIdField + 'NamespaceKey';
+
+    if (id !== null && id !== undefined) {
+        normalized[targetIdField] = id;
+    }
+
+    if (namespaceKey) {
+        normalized[targetNamespaceField] = namespaceKey;
+    }
 }
 
 /**

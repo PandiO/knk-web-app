@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Save, Plus, GripVertical, Trash2, AlertCircle, Loader2, Copy } from 'lucide-react';
-import { FormConfigurationDto, FormStepDto, FormFieldDto } from '../../utils/domain/dto/forms/FormModels';
+import { FormConfigurationDto, FormStepDto, FormFieldDto, ReuseLinkMode } from '../../utils/domain/dto/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { formStepClient } from '../../apiClients/formStepClient';
 import { formFieldClient } from '../../apiClients/formFieldClient';
@@ -13,6 +13,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableStepItem } from './SortableStepItem';
 import { FeedbackModal } from '../FeedbackModal';
+import { ReusableStepSelector } from './ReusableStepSelector';
 
 export const FormConfigBuilder: React.FC = () => {
     const { id } = useParams<{ id?: string }>();
@@ -35,9 +36,10 @@ export const FormConfigBuilder: React.FC = () => {
     const [loading, setLoading] = useState(isEditMode);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [showReusableSteps, setShowReusableSteps] = useState(false);
+    const [showStepSelector, setShowStepSelector] = useState(false);
     const [metadata, setMetadata] = useState<EntityMetadataDto[]>([]);
     const [selectedEntityMeta, setSelectedEntityMeta] = useState<EntityMetadataDto | null>(null);
+    const [addingTemplate, setAddingTemplate] = useState(false);
 
     // added: state to track default conflict notification
     const [defaultConflictMsg, setDefaultConflictMsg] = useState<string | null>(null);
@@ -139,12 +141,12 @@ export const FormConfigBuilder: React.FC = () => {
 
             // Always load reusable templates (needed for both create and edit)
             const [stepsData, fieldsData] = await Promise.all([
-                formStepClient.getAll(),
-                formFieldClient.getAll()
+                formConfigClient.getReusableSteps(),
+                formConfigClient.getReusableFields()
             ]);
 
-            setReusableSteps(stepsData.filter(s => s.isReusable));
-            setReusableFields(fieldsData.filter(f => f.isReusable));
+            setReusableSteps(stepsData);
+            setReusableFields(fieldsData);
 
             // Only load existing config if editing (not creating new)
             if (isEditMode && configId) {
@@ -167,6 +169,9 @@ export const FormConfigBuilder: React.FC = () => {
         id: undefined, // Remove ID so backend creates new one
         formConfigurationId: undefined,
         sourceStepId: step.id,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        stepLevelIssues: undefined,
         fields: step.fields.map(f => cloneField(f)),
         conditions: step.conditions.map(c => ({ ...c, id: undefined, formStepId: undefined }))
     });
@@ -176,6 +181,9 @@ export const FormConfigBuilder: React.FC = () => {
         id: undefined,
         formStepId: undefined,
         sourceFieldId: field.id,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        compatibilityIssues: undefined,
         validations: field.validations.map(v => ({ ...v, id: undefined, formFieldId: undefined }))
     });
 
@@ -188,6 +196,8 @@ export const FormConfigBuilder: React.FC = () => {
             order: config.steps.length,
             fieldOrderJson: '[]',
             isReusable: false,
+            isLinkedToSource: false,
+            hasCompatibilityIssues: false,
             fields: [],
             conditions: []
         };
@@ -199,17 +209,52 @@ export const FormConfigBuilder: React.FC = () => {
         setSelectedStepIndex(config.steps.length);
     };
 
-    const handleAddReusableStep = (reusableStep: FormStepDto) => {
-        const clonedStep = cloneStep(reusableStep);
-        clonedStep.id = generateTempId();
-        clonedStep.order = config.steps.length;
+    const handleAddReusableStep = async (templateStep: FormStepDto, mode: ReuseLinkMode) => {
+        if (!config.id) {
+            // If configuration hasn't been saved yet, we can't use the API endpoint
+            // Fall back to local cloning
+            const clonedStep = cloneStep(templateStep);
+            clonedStep.id = generateTempId();
+            clonedStep.order = config.steps.length;
+            clonedStep.isLinkedToSource = mode === 'link';
 
-        setConfig(prev => ({
-            ...prev,
-            steps: [...prev.steps, clonedStep]
-        }));
-        setShowReusableSteps(false);
-        setSelectedStepIndex(config.steps.length);
+            setConfig(prev => ({
+                ...prev,
+                steps: [...prev.steps, clonedStep]
+            }));
+            setShowStepSelector(false);
+            setSelectedStepIndex(config.steps.length);
+            return;
+        }
+
+        // Use backend API for saved configurations
+        try {
+            setAddingTemplate(true);
+            setError(null);
+
+            const addedStep = await formConfigClient.addReusableStepToConfiguration(
+                config.id,
+                {
+                    sourceStepId: parseInt(templateStep.id!),
+                    linkMode: mode
+                }
+            );
+
+            // Add the returned step to configuration
+            setConfig(prev => ({
+                ...prev,
+                steps: [...prev.steps, addedStep]
+            }));
+            setShowStepSelector(false);
+            setSelectedStepIndex(config.steps.length);
+        } catch (err: any) {
+            console.error('Failed to add reusable step:', err);
+            const errorMsg = err?.response?.data?.message || err?.message || 'Failed to add step from template';
+            setError(errorMsg);
+            logging.errorHandler.next('ErrorMessage.FormConfiguration.AddStepFailed');
+        } finally {
+            setAddingTemplate(false);
+        }
     };
 
     const handleDeleteStep = (index: number) => {
@@ -344,14 +389,34 @@ export const FormConfigBuilder: React.FC = () => {
                 handleSaveContinue();
             }, 3000);
 
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to save configuration:', err);
-            setError('Failed to save configuration');
+            
+            // Extract detailed error message from backend response
+            let errorMessage = 'Failed to save configuration';
+            let errorTitle = 'Save failed';
+            
+            if (err?.response?.status === 400) {
+                // Backend validation error
+                const backendMessage = err.response?.data?.message || err.response?.data?.title;
+                if (backendMessage) {
+                    errorMessage = backendMessage;
+                    errorTitle = 'Validation Error';
+                } else {
+                    errorMessage = 'The form configuration has validation errors. Please check for compatibility issues with the selected entity type.';
+                }
+            } else if (err?.response?.status === 404) {
+                errorMessage = 'Configuration or template not found. Please try again.';
+            } else if (err?.message) {
+                errorMessage = err.message;
+            }
+            
+            setError(errorMessage);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.SaveFailed');
             setSaveFeedback({
                 open: true,
-                title: 'Save failed',
-                message: 'Failed to save configuration. Please fix errors and try again.',
+                title: errorTitle,
+                message: errorMessage,
                 status: 'error'
             });
         } finally {
@@ -509,31 +574,15 @@ export const FormConfigBuilder: React.FC = () => {
                                     <Plus className="h-4 w-4" />
                                 </button>
                                 <button
-                                    onClick={() => setShowReusableSteps(!showReusableSteps)}
+                                    onClick={() => setShowStepSelector(true)}
                                     className="btn-secondary text-xs"
                                     title="Add from template"
+                                    disabled={addingTemplate}
                                 >
                                     <Copy className="h-4 w-4" />
                                 </button>
                             </div>
                         </div>
-
-                        {showReusableSteps && (
-                            <div className="mb-4 p-4 bg-gray-50 rounded-md">
-                                <h3 className="text-sm font-medium text-gray-700 mb-2">Reusable Steps</h3>
-                                <div className="space-y-2">
-                                    {reusableSteps.map(step => (
-                                        <button
-                                            key={step.id}
-                                            onClick={() => handleAddReusableStep(step)}
-                                            className="w-full text-left px-3 py-2 text-sm bg-white border border-gray-200 rounded hover:bg-gray-50"
-                                        >
-                                            {step.title}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
 
                         {config.steps.length === 0 ? (
                             <div className="text-center py-8 text-gray-500 text-sm">
@@ -610,6 +659,15 @@ export const FormConfigBuilder: React.FC = () => {
                 onClose={closeSaveModal}
                 onContinue={handleSaveContinue}
             />
+
+            {showStepSelector && (
+                <ReusableStepSelector
+                    reusableSteps={reusableSteps}
+                    onSelect={handleAddReusableStep}
+                    onCancel={() => setShowStepSelector(false)}
+                    currentEntityType={config.entityTypeName}
+                />
+            )}
         </div>
     );
 };

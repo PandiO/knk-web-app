@@ -58,6 +58,9 @@ export interface FormFieldDto {
     incrementValue?: number;
     isReusable: boolean;
     sourceFieldId?: string;
+    isLinkedToSource: boolean;
+    hasCompatibilityIssues: boolean;
+    compatibilityIssues?: string[];
     validations: FieldValidationDto[];
     // added: min/max selection for List/collection types
     minSelection?: number;
@@ -76,6 +79,9 @@ export interface FormStepDto {
     fieldOrderJson?: string;
     isReusable: boolean;
     sourceStepId?: string;
+    isLinkedToSource: boolean;
+    hasCompatibilityIssues: boolean;
+    stepLevelIssues?: string[];
     fields: FormFieldDto[];
     conditions: StepConditionDto[];
 }
@@ -148,17 +154,46 @@ export interface FormSubmissionProgressSummaryDto {
     updatedAt?: string;
 }
 
-export interface CategoryDto {
-    id?: string;
-    name: string;
-    itemtypeId?: number;
-    parentCategoryId?: string;
-}
-
 export interface StepData {
     [fieldName: string]: any;
 }
 
 export interface AllStepsData {
     [stepIndex: number]: StepData;
+}
+
+// Template reuse types
+export type ReuseLinkMode = 'copy' | 'link';
+
+export interface AddReusableStepRequestDto {
+    sourceStepId: number;
+    linkMode: ReuseLinkMode;
+}
+
+export interface AddReusableFieldRequestDto {
+    sourceFieldId: number;
+    linkMode: ReuseLinkMode;
+}
+
+// Template validation result DTOs (for future use when backend exposes detailed validation endpoints)
+export interface TemplateFieldValidationResultDto {
+    formFieldId: number;
+    fieldName: string;
+    isCompatible: boolean;
+    issues: string[];
+}
+
+export interface TemplateStepValidationResultDto {
+    formStepId: number;
+    stepName: string;
+    isCompatible: boolean;
+    fieldResults: TemplateFieldValidationResultDto[];
+}
+
+export interface FormConfigurationValidationResultDto {
+    formConfigurationId: number;
+    entityTypeName: string;
+    isValid: boolean;
+    summary?: string;
+    stepResults: TemplateStepValidationResultDto[];
 }

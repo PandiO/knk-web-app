@@ -7,7 +7,6 @@ import {
     MinecraftMaterialRefUpdateDto,
     MinecraftMaterialRefListDto
 } from '../utils/domain/dto/minecraftMaterialRef/MinecraftMaterialRefDto';
-import { MinecraftHybridMaterialOptionDto } from '../utils/domain/dto/minecraftMaterialRef/MinecraftHybridMaterialOptionDto';
 
 export class MinecraftMaterialRefClient extends ObjectManager {
     private static instance: MinecraftMaterialRefClient;
@@ -42,10 +41,6 @@ export class MinecraftMaterialRefClient extends ObjectManager {
 
     searchPaged(queryParams: PagedQueryDto): Promise<PagedResultDto<MinecraftMaterialRefListDto>> {
         return this.invokeServiceCall(queryParams, MinecraftMaterialRefOperation.SearchPaged, Controllers.MinecraftMaterialRefs, HttpMethod.Post);
-    }
-
-    getHybridOptions(params?: { search?: string; category?: string; take?: number }): Promise<MinecraftHybridMaterialOptionDto[]> {
-        return this.invokeServiceCall(params ?? null, 'hybrid', Controllers.MinecraftMaterialRefs, HttpMethod.Get);
     }
 }
 

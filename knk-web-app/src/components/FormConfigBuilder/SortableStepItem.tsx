@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2 } from 'lucide-react';
+import { GripVertical, Trash2, AlertTriangle, Link as LinkIcon, Copy as CopyIcon } from 'lucide-react';
 import { FormStepDto } from '../../utils/domain/dto/forms/FormModels';
 
 interface Props {
@@ -31,7 +31,9 @@ export const SortableStepItem: React.FC<Props> = ({ step, index, isSelected, onS
             ref={setNodeRef}
             style={style}
             className={`flex items-center p-3 border rounded-md cursor-pointer ${
-                isSelected
+                step.hasCompatibilityIssues
+                    ? 'border-red-300 bg-red-50'
+                    : isSelected
                     ? 'border-primary bg-indigo-50'
                     : 'border-gray-200 bg-white hover:bg-gray-50'
             }`}
@@ -41,8 +43,25 @@ export const SortableStepItem: React.FC<Props> = ({ step, index, isSelected, onS
                 <GripVertical className="h-5 w-5 text-gray-400" />
             </div>
             <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-gray-900 truncate">
-                    {index + 1}. {step.title || step.stepName}
+                <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium text-gray-900 truncate">
+                        {index + 1}. {step.title || step.stepName}
+                    </div>
+                    {step.hasCompatibilityIssues && (
+                        <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" title="Has compatibility issues" />
+                    )}
+                    {step.isReusable && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 flex-shrink-0">
+                            Template
+                        </span>
+                    )}
+                    {step.sourceStepId && (
+                        step.isLinkedToSource ? (
+                            <LinkIcon className="h-3 w-3 text-blue-600 flex-shrink-0" title="Linked to template" />
+                        ) : (
+                            <CopyIcon className="h-3 w-3 text-gray-600 flex-shrink-0" title="Copied from template" />
+                        )
+                    )}
                 </div>
                 <div className="text-xs text-gray-500">
                     {step.fields.length} field{step.fields.length !== 1 ? 's' : ''}

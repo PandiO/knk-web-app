@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, Loader2, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, Loader2, ChevronLeft, ChevronRight, Check, CheckCircle, PlusCircle } from 'lucide-react';
 import { PagedQueryDto, PagedResultDto } from '../../utils/domain/dto/common/PagedQuery';
 import { getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { logging } from '../../utils';
 import { ColumnDefinition } from '../../types/common';
+import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
+import { minecraftBlockRefClient } from '../../apiClients/minecraftBlockRefClient';
 
 /**
  * Configuration for row selection behavior in the table.
@@ -164,6 +166,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
     const [error, setError] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(query.searchTerm || '');
     const [internalSelection, setInternalSelection] = useState<T[]>(selectedItems);
+    const [creatingKey, setCreatingKey] = useState<string | null>(null);
+    const [isHybridMode, setIsHybridMode] = useState(false);
 
     // Debounced search effect
     useEffect(() => {
@@ -175,6 +179,13 @@ export function PagedEntityTable<T extends Record<string, any>>({
 
         return () => clearTimeout(timer);
     }, [searchInput]);
+
+    // Detect hybrid mode on mount
+    useEffect(() => {
+        const normalized = entityTypeName.toLowerCase();
+        const isHybrid = normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref';
+        setIsHybridMode(isHybrid);
+    }, [entityTypeName]);
 
     // Fetch data when query changes
     useEffect(() => {
@@ -195,9 +206,30 @@ export function PagedEntityTable<T extends Record<string, any>>({
         try {
             setLoading(true);
             setError(null);
-            const searchFn = getSearchFunctionForEntity(entityTypeName);
-            const result = await searchFn(query);
-            setData(result);
+
+            const normalized = entityTypeName.toLowerCase();
+            
+            // Check if this is a hybrid mode entity
+            if (normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref') {
+                // Use searchPaged with SearchHybrid filter
+                const hybridQuery: PagedQueryDto = {
+                    ...query,
+                    filters: {
+                        ...query.filters,
+                        SearchHybrid: 'true'
+                    }
+                };
+                
+                const searchFn = getSearchFunctionForEntity(entityTypeName);
+                const result = await searchFn(hybridQuery);
+                
+                setData(result);
+            } else {
+                // Normal paged search
+                const searchFn = getSearchFunctionForEntity(entityTypeName);
+                const result = await searchFn(query);
+                setData(result);
+            }
         } catch (err) {
             console.error('Failed to fetch data:', err);
             setError('Failed to load data');
@@ -277,7 +309,11 @@ export function PagedEntityTable<T extends Record<string, any>>({
     };
 
     const handlePageChange = (newPage: number) => {
-        if (newPage >= 1 && newPage <= data.totalPages) {
+        const maxPage = data.totalCount > 0
+            ? Math.ceil(data.totalCount / query.pageSize)
+            : 1;
+
+        if (newPage >= 1 && newPage <= maxPage) {
             setQuery(prev => ({ ...prev, page: newPage }));
         }
     };
@@ -287,13 +323,19 @@ export function PagedEntityTable<T extends Record<string, any>>({
         return internalSelection.some(item => item.id === row.id);
     };
 
-    // added: handle row selection
-    const handleRowSelection = (row: T, event?: React.MouseEvent) => {
+    // added: handle row selection with hybrid mode support
+    const handleRowSelection = async (row: T, event?: React.MouseEvent) => {
         if (selectionConfig.mode === 'none') return;
 
         // Prevent triggering onRowClick when clicking checkbox
         if (event) {
             event.stopPropagation();
+        }
+
+        // Check if this is a hybrid mode unpersisted item
+        if (isHybridMode && (row as any).isPersisted === false) {
+            await handleCreateAndSelect(row);
+            return;
         }
 
         let newSelection: T[];
@@ -347,8 +389,71 @@ export function PagedEntityTable<T extends Record<string, any>>({
     const allVisibleSelected = data.items.length > 0 && 
         data.items.every(row => isRowSelected(row));
 
+    // added: handle create and select for hybrid mode
+    const handleCreateAndSelect = async (row: T) => {
+        if (creatingKey) return;
+        const option = row as any;
+        setCreatingKey(option.namespaceKey || option.blockStateString);
+        
+        try {
+            const normalized = entityTypeName.toLowerCase();
+            let created: any;
+            
+            if (normalized === 'minecraftmaterialref') {
+                created = await minecraftMaterialRefClient.create({
+                    namespaceKey: option.namespaceKey,
+                    category: option.category,
+                    legacyName: option.legacyName
+                });
+            } else if (normalized === 'minecraftblockref') {
+                created = await minecraftBlockRefClient.create({
+                    namespaceKey: option.namespaceKey,
+                    blockStateString: option.blockStateString,
+                    logicalType: option.logicalType
+                });
+            }
+
+            if (created?.id) {
+                // Update the data items
+                setData(prev => ({
+                    ...prev,
+                    items: prev.items.map(item => 
+                        ((item as any).namespaceKey === option.namespaceKey)
+                            ? { ...item, id: created.id, isPersisted: true } as T
+                            : item
+                    )
+                }));
+
+                // Select the newly created item
+                const updatedRow = { ...row, id: created.id, isPersisted: true } as T;
+                let newSelection: T[];
+                
+                if (selectionConfig.mode === 'single') {
+                    newSelection = [updatedRow];
+                } else {
+                    if (selectionConfig.max && internalSelection.length >= selectionConfig.max) {
+                        return;
+                    }
+                    newSelection = [...internalSelection, updatedRow];
+                }
+                
+                setInternalSelection(newSelection);
+                onSelectionChange?.(newSelection);
+            }
+        } catch (err: any) {
+            setError(err?.message || 'Failed to create item');
+        } finally {
+            setCreatingKey(null);
+        }
+    };
+
     // added: determine if pagination should be shown
     const shouldShowPagination = !loading && data.items.length > 0 && data.totalCount > query.pageSize;
+    const totalPagesDerived = data.totalCount > 0
+        ? Math.ceil(data.totalCount / query.pageSize)
+        : 1;
+    const isOnFirstPage = query.page <= 1;
+    const isOnLastPage = query.page * query.pageSize >= data.totalCount || query.page >= totalPagesDerived;
 
     return (
         <div className="w-full space-y-4">
@@ -467,10 +572,28 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                                 <td key={column.key} className={`px-6 py-4 whitespace-nowrap text-sm ${
                                                     selected ? 'text-gray-900 font-medium' : 'text-gray-500'
                                                 }`}>
-                                                    {/* changed: add check icon to first column if selected */}
-                                                    {colIndex === 0 && selected && selectionConfig.mode !== 'none' ? (
+                                                    {/* changed: add check icon to first column if selected, or badge if hybrid mode */}
+                                                    {colIndex === 0 ? (
                                                         <div className="flex items-center space-x-2">
-                                                            <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                                            {selected && selectionConfig.mode !== 'none' && (
+                                                                <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                                            )}
+                                                            {isHybridMode && (
+                                                                <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                                                    (row as any).isPersisted
+                                                                        ? 'text-green-700 bg-green-100'
+                                                                        : 'text-amber-700 bg-amber-100'
+                                                                }`}>
+                                                                    {(row as any).isPersisted ? (
+                                                                        <><CheckCircle className="h-3 w-3 mr-1" />Existing</>
+                                                                    ) : (
+                                                                        <><PlusCircle className="h-3 w-3 mr-1" />New</>
+                                                                    )}
+                                                                </span>
+                                                            )}
+                                                            {creatingKey && (row as any).namespaceKey === creatingKey && (
+                                                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                                            )}
                                                             <span>{renderCellValue(row, column)}</span>
                                                         </div>
                                                     ) : (
@@ -504,14 +627,14 @@ export function PagedEntityTable<T extends Record<string, any>>({
                     <div className="flex-1 flex justify-between sm:hidden">
                         <button
                             onClick={() => handlePageChange(query.page - 1)}
-                            disabled={query.page === 1}
+                            disabled={isOnFirstPage}
                             className="btn-secondary disabled:opacity-50"
                         >
                             Previous
                         </button>
                         <button
                             onClick={() => handlePageChange(query.page + 1)}
-                            disabled={query.page >= data.totalPages}
+                            disabled={isOnLastPage}
                             className="btn-secondary disabled:opacity-50"
                         >
                             Next
@@ -528,18 +651,18 @@ export function PagedEntityTable<T extends Record<string, any>>({
                         <div className="flex space-x-2">
                             <button
                                 onClick={() => handlePageChange(query.page - 1)}
-                                disabled={query.page === 1}
+                                disabled={isOnFirstPage}
                                 className="btn-secondary disabled:opacity-50 flex items-center"
                             >
                                 <ChevronLeft className="h-4 w-4 mr-1" />
                                 Previous
                             </button>
                             <span className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700">
-                                Page {query.page} of {data.totalPages}
+                                Page {query.page} of {totalPagesDerived}
                             </span>
                             <button
                                 onClick={() => handlePageChange(query.page + 1)}
-                                disabled={query.page >= data.totalPages}
+                                disabled={isOnLastPage}
                                 className="btn-secondary disabled:opacity-50 flex items-center"
                             >
                                 Next

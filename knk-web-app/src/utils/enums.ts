@@ -67,7 +67,6 @@ export enum Controllers {
     FormSubmissionProgress = 'FormSubmissionProgress',
     Metadata = 'Metadata', // added
     Categories = 'Categories',
-    Locations = 'locations',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs'
 }

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { FormFieldDto, StepData } from '../../utils/domain/dto/forms/FormModels';
+import React from 'react';
+import { FormFieldDto } from '../../utils/domain/dto/forms/FormModels';
 import { FieldType } from '../../utils/enums';
-import { Calendar, Plus, Minus, Search, X } from 'lucide-react';
+import { Calendar, Plus, Minus, X } from 'lucide-react';
 import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 import { HybridMaterialPicker } from '../minecraft/HybridMaterialPicker';
@@ -250,7 +250,6 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
 };
 
 const ObjectField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onCreateNew }) => {
-    const [searchTerm, setSearchTerm] = useState('');
     const canCreate = field.canCreate !== false; // default true if not specified
 
     const selectionConfig: SelectionConfig = {
