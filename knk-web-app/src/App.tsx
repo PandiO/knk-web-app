@@ -15,6 +15,7 @@ import { ErrorView } from './components/ErrorView';
 import { FormWizardPage } from './pages/FormWizardPage';
 import { FormConfigBuilder } from './components/FormConfigBuilder/FormConfigBuilder';
 import { FormConfigListPage } from './pages/FormConfigListPage';
+import { DisplayWizardPage } from './pages/DisplayWizardPage';
 import React from 'react';
 
 function App() {
@@ -108,6 +109,8 @@ function App() {
               <Route path="/admin/form-configurations" element={<FormConfigListPage />} />
               <Route path="/admin/form-configurations/new" element={<FormConfigBuilder />} />
               <Route path="/admin/form-configurations/edit/:id" element={<FormConfigBuilder />} />
+              {/* DisplayWizard routes */}
+              <Route path="/display/:entityName/:id" element={<DisplayWizardPage />} />
             </Routes>
           </div>
         </div>

@@ -52,7 +52,8 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     }, []);
 
     const handleView = (entityTypeName: string, item: any) => {
-        navigate(`/view/${entityTypeName}/${item.id}`, { state: { object: item } });
+        // Navigate to DisplayWizard for read-only view
+        navigate(`/display/${entityTypeName}/${item.id}`);
     };
 
     // changed: navigate to FormWizardPage with entity type and ID for editing
