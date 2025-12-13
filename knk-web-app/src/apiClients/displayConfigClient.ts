@@ -6,8 +6,10 @@ import {
   DisplayConfigurationDto,
   DisplaySectionDto,
   DisplayFieldDto,
-  ReuseLinkMode
-} from '../types/displayConfiguration';
+  ReuseLinkMode,
+  AddReusableSectionRequestDto,
+  AddReusableFieldRequestDto
+} from '../utils/domain/dto/displayConfig/DisplayModels';
 
 const API_BASE_URL = appConfig.api.baseUrl;
 
@@ -244,6 +246,52 @@ export const displayConfigClient = {
       body: JSON.stringify({ linkMode })
     });
     if (!response.ok) throw new Error('Failed to clone field');
+    return response.json();
+  },
+
+  // ===== TEMPLATE OPERATIONS (for builder) =====
+
+  /**
+   * Add reusable section to configuration
+   */
+  async addReusableSectionToConfiguration(
+    configId: string,
+    payload: AddReusableSectionRequestDto
+  ): Promise<DisplaySectionDto> {
+    const response = await fetch(
+      `${API_BASE_URL}/displayconfigurations/${configId}/sections/add-from-template`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Failed to add reusable section');
+    }
+    return response.json();
+  },
+
+  /**
+   * Add reusable field to section
+   */
+  async addReusableFieldToSection(
+    sectionId: string,
+    payload: AddReusableFieldRequestDto
+  ): Promise<DisplayFieldDto> {
+    const response = await fetch(
+      `${API_BASE_URL}/displaysections/${sectionId}/fields/add-from-template`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Failed to add reusable field');
+    }
     return response.json();
   }
 };

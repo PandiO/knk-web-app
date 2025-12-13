@@ -129,6 +129,17 @@ export function Navigation({ objectTypes }: Props) {
                 <Layout className="h-4 w-4 mr-2" />
                 Form Builder
               </Link>
+              <Link
+                to="/admin/display-configurations"
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  location.pathname.startsWith('/admin/display-configurations')
+                    ? 'border-b-2 border-primary text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
+                }`}
+              >
+                <Layout className="h-4 w-4 mr-2" />
+                Display Builder
+              </Link>
             </div>
           </div>
           <div className="flex items-center">

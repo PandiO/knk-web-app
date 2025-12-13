@@ -2,9 +2,11 @@ import { Loader2 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CategoryClient } from '../apiClients/categoryClient';
+import { displayConfigClient } from '../apiClients/displayConfigClient';
 import { formConfigClient } from '../apiClients/formConfigClient';
 import { formSubmissionClient } from '../apiClients/formSubmissionClient';
 import { FeedbackModal } from '../components/FeedbackModal';
+import { DisplayConfigurationTable } from '../components/FormWizard/DisplayConfigurationTable';
 import { FormConfigurationTable } from '../components/FormWizard/FormConfigurationTable';
 import { FormWizard } from '../components/FormWizard/FormWizard';
 import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
@@ -13,6 +15,7 @@ import { objectConfigs } from '../config/objectConfigs';
 import { logging } from '../utils';
 import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../utils/domain/dto/forms/FormModels';
 import { FieldMetadataDto } from '../utils/domain/dto/metadata/MetadataModels';
+import { DisplayConfigurationDto } from '../utils/domain/dto/displayConfig/DisplayModels';
 import { DistrictClient } from '../apiClients/districtClient';
 import { LocationClient } from '../apiClients/locationClient';
 import { StreetClient } from '../apiClients/streetClient';
@@ -63,6 +66,8 @@ export const FormWizardPage: React.FC<Props> = ({
     const [defaultConfig, setDefaultConfig] = useState<FormConfigurationDto | null>(null);
     const [savedProgress, setSavedProgress] = useState<FormSubmissionProgressSummaryDto[]>([]);
     const [loadingConfigs, setLoadingConfigs] = useState(false);
+    const [displayConfigs, setDisplayConfigs] = useState<DisplayConfigurationDto[]>([]);
+    const [loadingDisplayConfigs, setLoadingDisplayConfigs] = useState(false);
     
     // State to track if FormWizard should be shown
     const [showWizard, setShowWizard] = useState(false);
@@ -191,6 +196,14 @@ export const FormWizardPage: React.FC<Props> = ({
         }
     }, [autoOpenForm, defaultConfig, showWizard, loadingConfigs]);
 
+    useEffect(() => {
+        if (!selectedTypeName) {
+            setDisplayConfigs([]);
+            return;
+        }
+        loadDisplayConfigurations(selectedTypeName);
+    }, [selectedTypeName]);
+
     // Use Case 1: Load default config for editing an existing entity
     const loadDefaultConfigForEdit = async (entityTypeName: string) => {
         try {
@@ -248,6 +261,30 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.FormConfiguration.LoadFailed');
         } finally {
             setLoadingConfigs(false);
+        }
+    };
+
+    const loadDisplayConfigurations = async (entityTypeName: string) => {
+        if (!entityTypeName) {
+            setDisplayConfigs([]);
+            return;
+        }
+        try {
+            setLoadingDisplayConfigs(true);
+            const configs = await displayConfigClient.getAll(true);
+            const filtered = configs
+                .filter(cfg => (cfg.entityTypeName || '').toLowerCase() === entityTypeName.toLowerCase())
+                .sort((a, b) => {
+                    if (a.isDefault && !b.isDefault) return -1;
+                    if (!a.isDefault && b.isDefault) return 1;
+                    return 0;
+                });
+            setDisplayConfigs(filtered);
+        } catch (error) {
+            console.error('Failed to fetch display configurations:', error);
+            logging.errorHandler.next('ErrorMessage.DisplayConfiguration.LoadFailed');
+        } finally {
+            setLoadingDisplayConfigs(false);
         }
     };
 
@@ -363,6 +400,81 @@ export const FormWizardPage: React.FC<Props> = ({
         }
     };
 
+    const handleDisplaySetDefault = async (config: DisplayConfigurationDto) => {
+        const idNumber = config.id ? parseInt(config.id, 10) : NaN;
+        if (Number.isNaN(idNumber)) {
+            logging.errorHandler.next('ErrorMessage.DisplayConfiguration.SaveFailed');
+            return;
+        }
+
+        const existingDefault = displayConfigs.find(c => c.id !== config.id && c.isDefault);
+        if (existingDefault) {
+            if (!confirm(`There is already a default display configuration for "${selectedTypeName}". Change default to "${config.name}"?`)) {
+                return;
+            }
+            await handleDisplayRemoveDefault(existingDefault);
+        }
+
+        try {
+            await displayConfigClient.update(idNumber, { ...config, isDefault: true });
+            await loadDisplayConfigurations(selectedTypeName);
+        } catch (error) {
+            console.error('Failed to set default display configuration:', error);
+            logging.errorHandler.next('ErrorMessage.DisplayConfiguration.SaveFailed');
+        }
+    };
+
+    const handleDisplayRemoveDefault = async (config: DisplayConfigurationDto) => {
+        const idNumber = config.id ? parseInt(config.id, 10) : NaN;
+        if (Number.isNaN(idNumber)) {
+            logging.errorHandler.next('ErrorMessage.DisplayConfiguration.SaveFailed');
+            return;
+        }
+        try {
+            await displayConfigClient.update(idNumber, { ...config, isDefault: false });
+            await loadDisplayConfigurations(selectedTypeName);
+        } catch (error) {
+            console.error('Failed to remove default display configuration:', error);
+            logging.errorHandler.next('ErrorMessage.DisplayConfiguration.SaveFailed');
+        }
+    };
+
+    const handleDisplayEdit = (config: DisplayConfigurationDto) => {
+        if (!config.id) {
+            logging.errorHandler.next('ErrorMessage.DisplayConfiguration.LoadFailed');
+            return;
+        }
+        navigate(`/admin/display-configurations/edit/${config.id}`);
+    };
+
+    const handleDisplayDelete = async (config: DisplayConfigurationDto) => {
+        const idNumber = config.id ? parseInt(config.id, 10) : NaN;
+        if (Number.isNaN(idNumber)) {
+            logging.errorHandler.next('ErrorMessage.DisplayConfiguration.DeleteFailed');
+            return;
+        }
+        try {
+            await displayConfigClient.delete(idNumber);
+            setDisplayConfigs(prev => prev.filter(c => c.id !== config.id));
+            showFeedback({
+                title: 'Display configuration deleted',
+                message: 'The display configuration has been removed.',
+                status: 'success',
+                onContinue: undefined,
+                autoCloseMs: 3000,
+            });
+        } catch (error) {
+            console.error('Failed to delete display configuration:', error);
+            logging.errorHandler.next('ErrorMessage.DisplayConfiguration.DeleteFailed');
+            showFeedback({
+                title: 'Delete failed',
+                message: 'Unable to delete the display configuration. Please try again.',
+                status: 'error',
+                onContinue: undefined,
+            });
+        }
+    };
+
     // Utility: Get API client for entity type
     const getApiClient = (entityTypeName: string): ApiClient | null => {
         const normalizedTypeName = entityTypeName.toLowerCase();
@@ -461,6 +573,21 @@ export const FormWizardPage: React.FC<Props> = ({
                     />
                 </div>
                 <div className='dashboard-content'>
+                    {/* Quick access to builders */}
+                    <div className="flex justify-end mb-4 gap-2">
+                        <button
+                            onClick={() => navigate('/admin/display-configurations')}
+                            className="btn-secondary text-sm"
+                        >
+                            Open Display Builder
+                        </button>
+                        <button
+                            onClick={() => navigate('/admin/form-configurations')}
+                            className="btn-secondary text-sm"
+                        >
+                            Open Form Builder
+                        </button>
+                    </div>
                     {/* Notification bar */}
                     {(showNoConfigs || showNoDefault || showTooManyDefaults) && (
                         <div className="mb-4">
@@ -509,6 +636,20 @@ export const FormWizardPage: React.FC<Props> = ({
                                                 onEdit={handleEditConfiguration}
                                                 onDelete={handleFormConfigDelete}
                                             />
+
+                                            {loadingDisplayConfigs ? (
+                                                <div className="flex items-center justify-center py-8">
+                                                    <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                                                </div>
+                                            ) : (
+                                                <DisplayConfigurationTable
+                                                    configurations={displayConfigs}
+                                                    onEdit={handleDisplayEdit}
+                                                    onSetDefault={handleDisplaySetDefault}
+                                                    onRemoveDefault={handleDisplayRemoveDefault}
+                                                    onDelete={handleDisplayDelete}
+                                                />
+                                            )}
                                             
                                             <SavedProgressList
                                                 progressList={savedProgress}

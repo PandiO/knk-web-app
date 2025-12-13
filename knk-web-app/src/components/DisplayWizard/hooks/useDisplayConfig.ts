@@ -1,7 +1,7 @@
 // Hook to fetch and cache display configuration
 import { useState, useEffect } from 'react';
 import { displayConfigClient } from '../../../apiClients/displayConfigClient';
-import { DisplayConfigurationDto } from '../../../types/displayConfiguration';
+import { DisplayConfigurationDto } from '../../../utils/domain/dto/displayConfig/DisplayModels';
 
 export function useDisplayConfig(
   entityTypeName: string,

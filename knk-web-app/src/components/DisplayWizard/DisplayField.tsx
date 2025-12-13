@@ -1,6 +1,6 @@
 // DisplayField Component - Renders individual field with template text support
 import React from 'react';
-import { DisplayFieldProps } from '../../types/displayConfiguration';
+import { DisplayFieldProps } from '../../utils/domain/dto/displayConfig/DisplayModels';
 import { useTemplateParser } from './hooks/useTemplateParser';
 
 export const DisplayField: React.FC<DisplayFieldProps> = ({ field, data }) => {

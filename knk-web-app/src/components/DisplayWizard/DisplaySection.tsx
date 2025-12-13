@@ -3,7 +3,7 @@ import React from 'react';
 import { DisplayField } from './DisplayField';
 import { CollectionSection } from './CollectionSection';
 import { ActionButtons } from './ActionButtons';
-import { DisplaySectionProps, ActionButtonsConfigDto } from '../../types/displayConfiguration';
+import { DisplaySectionProps, ActionButtonsConfigDto } from '../../utils/domain/dto/displayConfig/DisplayModels';
 
 export const DisplaySection: React.FC<DisplaySectionProps> = ({
   section,

@@ -3,7 +3,7 @@ import React from 'react';
 import { useDisplayConfig } from './hooks/useDisplayConfig';
 import { useEntityData } from './hooks/useEntityData';
 import { DisplaySection } from './DisplaySection';
-import { DisplayWizardProps } from '../../types/displayConfiguration';
+import { DisplayWizardProps } from '../../utils/domain/dto/displayConfig/DisplayModels';
 import './DisplayWizard.css';
 
 export const DisplayWizard: React.FC<DisplayWizardProps> = ({

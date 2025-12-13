@@ -5,7 +5,7 @@ export const appConfig = {
   
   // API configuration
   api: {
-    baseUrl: 'http://localhost:5111/api',
+    baseUrl: 'http://localhost:5294/api',
     timeout: 15000, // 15 seconds
   }
 } as const;

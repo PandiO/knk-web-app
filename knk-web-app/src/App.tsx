@@ -16,6 +16,8 @@ import { FormWizardPage } from './pages/FormWizardPage';
 import { FormConfigBuilder } from './components/FormConfigBuilder/FormConfigBuilder';
 import { FormConfigListPage } from './pages/FormConfigListPage';
 import { DisplayWizardPage } from './pages/DisplayWizardPage';
+import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayConfigBuilder';
+import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import React from 'react';
 
 function App() {
@@ -109,6 +111,10 @@ function App() {
               <Route path="/admin/form-configurations" element={<FormConfigListPage />} />
               <Route path="/admin/form-configurations/new" element={<FormConfigBuilder />} />
               <Route path="/admin/form-configurations/edit/:id" element={<FormConfigBuilder />} />
+              {/* DisplayConfiguration routes */}
+              <Route path="/admin/display-configurations" element={<DisplayConfigListPage />} />
+              <Route path="/admin/display-configurations/new" element={<DisplayConfigBuilder />} />
+              <Route path="/admin/display-configurations/edit/:id" element={<DisplayConfigBuilder />} />
               {/* DisplayWizard routes */}
               <Route path="/display/:entityName/:id" element={<DisplayWizardPage />} />
             </Routes>
