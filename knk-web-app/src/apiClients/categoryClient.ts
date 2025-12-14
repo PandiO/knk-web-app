@@ -22,6 +22,10 @@ export class CategoryClient extends ObjectManager {
         return this.invokeServiceCall(null, `${CategoryOperation.GetById}${id}`, Controllers.Categories, HttpMethod.Get);
     }
 
+    getChildren(id: string): Promise<CategoryDto[]> {
+        return this.invokeServiceCall(null, `${id}/children`, Controllers.Categories, HttpMethod.Get);
+    }
+
     public create(data: CategoryDto): Promise<CategoryDto> {
         return this.invokeServiceCall(data, CategoryOperation.Create, Controllers.Categories, HttpMethod.Post);
     }

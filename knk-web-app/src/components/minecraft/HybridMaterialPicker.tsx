@@ -5,8 +5,8 @@ import { columnDefinitionsRegistry } from '../../config/objectConfigs';
 interface HybridMaterialPickerProps {
     label: string;
     description?: string;
-    value: number | number[] | null;
-    onChange: (value: number | number[] | null) => void;
+    value: any | any[] | null;
+    onChange: (value: any | any[] | null) => void;
     required?: boolean;
     error?: string;
     categoryFilter?: string;
@@ -29,15 +29,29 @@ export const HybridMaterialPicker: React.FC<HybridMaterialPickerProps> = ({
 
     const selectedItems = useMemo(() => {
         if (!value) return [];
-        const ids = Array.isArray(value) ? value : [value];
-        return ids.map(id => ({ id }));
+        
+        // Handle both array and single values
+        const items = Array.isArray(value) ? value : [value];
+        
+        // Map to objects, handling both full objects and plain IDs
+        return items.map(item => {
+            if (typeof item === 'object' && item !== null) {
+                // Already an object with properties
+                return item;
+            } else {
+                // Just an ID - create minimal object
+                return { id: item };
+            }
+        });
     }, [value]);
 
     const handleSelectionChange = (selected: any[]) => {
         if (multiSelect) {
-            onChange(selected.map(item => item.id));
+            // Return full objects array
+            onChange(selected);
         } else {
-            onChange(selected.length > 0 ? selected[0].id : null);
+            // Return single full object or null
+            onChange(selected.length > 0 ? selected[0] : null);
         }
     };
 

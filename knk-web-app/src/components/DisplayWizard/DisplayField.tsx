@@ -4,12 +4,13 @@ import { Edit2, Check, X } from 'lucide-react';
 import { DisplayFieldProps } from '../../types/dtos/displayConfig/DisplayModels';
 import { useTemplateParser } from './hooks/useTemplateParser';
 
-export const DisplayField: React.FC<DisplayFieldProps> = ({ 
+export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: string }> = ({ 
   field, 
   data,
   entityId,
   entityTypeName,
-  onValueChange 
+  onValueChange,
+  parentEntityType
 }) => {
   const { parseTemplate } = useTemplateParser();
   const [isEditing, setIsEditing] = useState(false);
@@ -149,9 +150,7 @@ export const DisplayField: React.FC<DisplayFieldProps> = ({
         </div>
       ) : (
         <div className="flex items-center justify-between">
-          <div className="text-base text-gray-900 bg-gray-50 px-3 py-2 rounded flex-1">
-            {formattedValue}
-          </div>
+          {renderDisplayValue(sourceData, field, displayValue, parentEntityType)}
           {canEdit && (
             <button
               onClick={handleEditStart}
@@ -170,6 +169,60 @@ export const DisplayField: React.FC<DisplayFieldProps> = ({
     </div>
   );
 };
+
+// Helper: Render display value with special handling for MinecraftMaterialRef icons
+function renderDisplayValue(sourceData: unknown, field: DisplayFieldProps['field'], displayValue: unknown, parentEntityType?: string): React.ReactElement {
+  // Check if this is a MinecraftMaterialRef/BlockRef with an iconUrl
+  const isMinecraftEntity = field.relatedEntityTypeName === 'MinecraftMaterialRef' || 
+                            field.relatedEntityTypeName === 'MinecraftBlockRef' ||
+                            parentEntityType === 'MinecraftMaterialRef' ||
+                            parentEntityType === 'MinecraftBlockRef';
+  
+  // Skip icon rendering if:
+  // 1. Parent is a Minecraft entity AND
+  // 2. This field is displaying a direct property of that same parent entity (not a related entity)
+  // (The parent section header already displays the icon for the entity)
+  const isDirectPropertyOfParent = (parentEntityType === 'MinecraftMaterialRef' || parentEntityType === 'MinecraftBlockRef') &&
+                                   !field.relatedEntityPropertyName;
+  
+  if (isMinecraftEntity && typeof sourceData === 'object' && sourceData !== null && !isDirectPropertyOfParent) {
+    const data = sourceData as Record<string, unknown>;
+    const iconUrl = data.iconUrl || data.IconUrl;
+    const namespaceKey = data.namespaceKey || data.NamespaceKey;
+    
+    if (iconUrl) {
+      return (
+        <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded flex-1">
+          <img 
+            src={String(iconUrl)} 
+            alt={String(namespaceKey || 'Material')}
+            className="h-8 w-8 object-contain"
+            onError={(e) => {
+              // Fallback if image fails to load
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+          <div>
+            <div className="text-base text-gray-900 font-medium">
+              {namespaceKey || displayValue || '-'}
+            </div>
+            {displayValue && displayValue !== namespaceKey && (
+              <div className="text-xs text-gray-600">{displayValue}</div>
+            )}
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Default rendering for other field types
+  const formattedValue = formatValue(displayValue, field.fieldType);
+  return (
+    <div className="text-base text-gray-900 bg-gray-50 px-3 py-2 rounded flex-1">
+      {formattedValue}
+    </div>
+  );
+}
 
 // Helper: Get nested property value (e.g., "street.name")
 // Handles both camelCase and PascalCase property names

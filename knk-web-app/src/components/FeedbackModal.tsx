@@ -9,9 +9,11 @@ interface FeedbackModalProps {
     message: string;
     status?: FeedbackStatus;
     onClose: () => void;
-    onContinue?: () => void;
+    onContinue?: () => void | Promise<void>;
     continueLabel?: string;
     autoCloseMs?: number;
+    onSecondary?: () => void;
+    secondaryLabel?: string;
 }
 
 // Simple feedback modal with outside-click close and optional auto-close timer
@@ -23,7 +25,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     onClose,
     onContinue,
     continueLabel = 'Continue',
-    autoCloseMs
+    autoCloseMs,
+    onSecondary,
+    secondaryLabel
 }) => {
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
 
@@ -85,11 +89,15 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         info: 'text-blue-800'
     };
 
-    const handleContinue = () => {
-        if (onContinue) {
-            onContinue();
+    const handleContinue = async () => {
+        try {
+            if (onContinue) {
+                await onContinue();
+            }
+            onClose();
+        } catch {
+            // Keep modal open to show error feedback set by parent
         }
-        onClose();
     };
 
     return (
@@ -125,6 +133,17 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                     </button>
                 </div>
                 <div className="px-5 pb-4 flex justify-end space-x-3">
+                    {onSecondary && secondaryLabel && (
+                        <button
+                            onClick={() => {
+                                onSecondary();
+                                onClose();
+                            }}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                        >
+                            {secondaryLabel}
+                        </button>
+                    )}
                     <button
                         onClick={onClose}
                         className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"

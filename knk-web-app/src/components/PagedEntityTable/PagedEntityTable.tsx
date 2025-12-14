@@ -129,6 +129,12 @@ export interface PagedEntityTableProps<T> {
      * Default: true
      */
     showSelectionBanner?: boolean;
+
+    /**
+     * Changing this value forces the table to refetch data.
+     * Useful for parent components to trigger a refresh after mutations.
+     */
+    refreshKey?: string | number;
 }
 
 export function PagedEntityTable<T extends Record<string, any>>({
@@ -142,7 +148,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
     selectedItems = [],
     onSelectionChange,
     showSearchBar = true,
-    showSelectionBanner = true
+    showSelectionBanner = true,
+    refreshKey
 }: PagedEntityTableProps<T>) {
     const [query, setQuery] = useState<PagedQueryDto>({
         page: 1,
@@ -190,7 +197,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
     // Fetch data when query changes
     useEffect(() => {
         fetchData();
-    }, [query, entityTypeName]);
+    }, [query, entityTypeName, refreshKey]);
 
     // Sync internal selection with prop changes (only if actually different)
     useEffect(() => {
@@ -403,13 +410,15 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 created = await minecraftMaterialRefClient.create({
                     namespaceKey: option.namespaceKey,
                     category: option.category,
-                    legacyName: option.legacyName
+                    legacyName: option.legacyName,
+                    iconUrl: option.iconUrl
                 });
             } else if (normalized === 'minecraftblockref') {
                 created = await minecraftBlockRefClient.create({
                     namespaceKey: option.namespaceKey,
                     blockStateString: option.blockStateString,
-                    logicalType: option.logicalType
+                    logicalType: option.logicalType,
+                    iconUrl: option.iconUrl
                 });
             }
 

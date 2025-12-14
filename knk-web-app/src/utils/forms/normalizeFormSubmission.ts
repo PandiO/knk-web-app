@@ -182,12 +182,23 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
             const value = rawFormValue[key];
             
             // Check if this looks like a foreign key field (ends with 'Id')
-            if (key.endsWith('Id') && typeof value === 'object' && value !== null) {
-                // Extract the ID from the object
-                normalized[key] = extractId(value);
+            if (key.endsWith('Id')) {
+                if (typeof value === 'object' && value !== null) {
+                    // Extract the ID from the object
+                    normalized[key] = extractId(value);
+                } else {
+                    // Already a scalar ID value - keep it
+                    normalized[key] = value;
+                }
             } else {
-                // Copy as-is for non-relationship fields
-                normalized[key] = value;
+                // For navigation properties (not ending in 'Id'):
+                // Skip scalar values (numbers/strings) as they should be in the *Id field instead
+                // Only include null/undefined or non-scalar values
+                const isScalar = typeof value === 'number' || typeof value === 'string';
+                if (!isScalar) {
+                    normalized[key] = value;
+                }
+                // If it's a scalar, skip it (assume it's a mistaken ID value that should be in the *Id field)
             }
         }
     });

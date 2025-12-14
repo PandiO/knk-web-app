@@ -20,6 +20,16 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
   minecraftblockref: {
     default: [
       ...defaultColumnDefinitions.default,
+      { 
+        key: 'iconUrl', 
+        label: 'Icon', 
+        sortable: false,
+        render: (row: any) => row.iconUrl ? (
+          <img src={row.iconUrl} alt={row.namespaceKey} className="h-8 w-8 object-contain" />
+        ) : (
+          <span className="text-gray-400 text-xs">No icon</span>
+        )
+      },
       { key: 'namespaceKey', label: 'Namespace Key', sortable: true },
       { key: 'logicalType', label: 'Logical Type', sortable: false },
       { key: 'blockStateString', label: 'Block State', sortable: false }
@@ -28,6 +38,16 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
   minecraftmaterialref: {
     default: [
       ...defaultColumnDefinitions.default,
+      { 
+        key: 'iconUrl', 
+        label: 'Icon', 
+        sortable: false,
+        render: (row: any) => row.iconUrl ? (
+          <img src={row.iconUrl} alt={row.namespaceKey} className="h-8 w-8 object-contain" />
+        ) : (
+          <span className="text-gray-400 text-xs">No icon</span>
+        )
+      },
       { key: 'namespaceKey', label: 'Namespace Key', sortable: true },
       { key: 'category', label: 'Category', sortable: true },
       { key: 'legacyName', label: 'Legacy Name', sortable: false }
@@ -123,6 +143,12 @@ const minecraftBlockRefConfig: ObjectConfig = {
       label: 'Logical Type',
       type: 'text',
       required: false
+    },
+    iconUrl: {
+      name: 'iconUrl',
+      label: 'Icon URL',
+      type: 'text',
+      required: false
     }
   },
   showViewButton: true
@@ -149,6 +175,12 @@ const minecraftMaterialRefConfig: ObjectConfig = {
     legacyName: {
       name: 'legacyName',
       label: 'Legacy Name',
+      type: 'text',
+      required: false
+    },
+    iconUrl: {
+      name: 'iconUrl',
+      label: 'Icon URL',
       type: 'text',
       required: false
     }

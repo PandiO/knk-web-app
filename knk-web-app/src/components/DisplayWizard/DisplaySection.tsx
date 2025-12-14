@@ -57,6 +57,29 @@ function toCamelCase(str: string): string {
   return str.charAt(0).toLowerCase() + str.slice(1);
 }
 
+// Helper: Render Minecraft material/block icon
+function renderMinecraftIcon(data: Record<string, unknown>): React.ReactElement | null {
+  const iconUrl = data.iconUrl || data.IconUrl;
+  
+  if (!iconUrl) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center justify-center h-24 w-24 bg-gray-100 rounded-lg border border-gray-200 overflow-hidden">
+      <img 
+        src={String(iconUrl)} 
+        alt="Material Icon"
+        className="h-full w-full object-contain p-2"
+        onError={(e) => {
+          // Fallback if image fails to load
+          (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"%3E%3Crect x="3" y="3" width="18" height="18" rx="2" ry="2"/%3E%3C/svg%3E';
+        }}
+      />
+    </div>
+  );
+}
+
   // Parse action buttons config
   const actionButtons: ActionButtonsConfigDto = section.actionButtonsConfigJson
     ? JSON.parse(section.actionButtonsConfigJson)
@@ -77,10 +100,22 @@ function toCamelCase(str: string): string {
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="mb-4 pb-3 border-b border-gray-100">
-        <h3 className="text-xl font-semibold text-gray-800">{section.sectionName}</h3>
-        {section.description && (
-          <p className="text-sm text-gray-600 mt-1">{section.description}</p>
-        )}
+        <div className="flex items-center gap-4">
+          {/* Render icon for MinecraftMaterialRef/BlockRef sections */}
+          {((section.relatedEntityTypeName === 'MinecraftMaterialRef' || 
+            section.relatedEntityTypeName === 'MinecraftBlockRef') && 
+            sectionData && typeof sectionData === 'object') ? (
+            <div className="flex-shrink-0">
+              {renderMinecraftIcon(sectionData as Record<string, unknown>)}
+            </div>
+          ) : null}
+          <div className="flex-1">
+            <h3 className="text-xl font-semibold text-gray-800">{section.sectionName}</h3>
+            {section.description && (
+              <p className="text-sm text-gray-600 mt-1">{section.description}</p>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="mt-4">
@@ -103,6 +138,7 @@ function toCamelCase(str: string): string {
                   entityId={entityId}
                   entityTypeName={entityTypeName}
                   onValueChange={onValueChange}
+                  parentEntityType={section.relatedEntityTypeName}
                 />
               ))}
             </div>

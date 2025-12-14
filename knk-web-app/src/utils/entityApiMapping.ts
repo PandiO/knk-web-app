@@ -90,3 +90,30 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
 }
+
+export function getDeleteFunctionForEntity(entityTypeName: string): (id: string | number) => Promise<any> {
+    const normalized = entityTypeName.toLowerCase();
+
+    switch (normalized) {
+        case 'category':
+            return (id) => CategoryClient.getInstance().delete(id as string);
+        case 'street':
+            return (id) => StreetClient.getInstance().delete(Number(id));
+        case 'town':
+            return (id) => TownClient.getInstance().delete(Number(id));
+        case 'district':
+            return (id) => DistrictClient.getInstance().delete(Number(id));
+        case 'structure':
+            return (id) => StructureClient.getInstance().delete(Number(id));
+        case 'location':
+            return (id) => LocationClient.getInstance().delete(Number(id));
+        case 'minecraftblockref':
+            return (id) => MinecraftBlockRefClient.getInstance().delete(Number(id));
+        case 'minecraftmaterialref':
+            return (id) => MinecraftMaterialRefClient.getInstance().delete(Number(id));
+        case 'user':
+            return () => Promise.reject(new Error('User delete not implemented'));
+        default:
+            throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
+    }
+}
