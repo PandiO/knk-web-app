@@ -130,6 +130,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const loadConfiguration = async () => {
         try {
             setLoading(true);
+            // CRITICAL: Use initialEntityId prop directly, not the state variable
+            // The state update hasn't propagated yet when this effect runs
+            const currentEntityId = initialEntityId;
             
             if (existingProgressId) {
                 const progress = await formSubmissionClient.getById(existingProgressId);
@@ -173,8 +176,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 setConfig(fetchedConfig);
                 
                 // changed: if entityId provided, load existing entity data
-                if (entityId) {
-                    await loadExistingEntityData(entityName, entityId, fetchedConfig);
+                if (currentEntityId) {
+                    setEntityId(currentEntityId); // Update state for use in other places
+                    await loadExistingEntityData(entityName, currentEntityId, fetchedConfig);
                 } else {
                     // Initialize all fields for step 0 to default/null
                     const initialData: StepData = normalizeStepData(fetchedConfig.steps[0], {});
@@ -543,9 +547,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     }
 
     return (
-        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg">
-            {/* Progress Bar */}
-            <div className="px-8 pt-8">
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+            {/* Header Section: Progress Bar, Title, and Navigation */}
+            <div className="px-6 md:px-8 pt-6 md:pt-8 pb-4 md:pb-6 bg-gradient-to-b from-gray-50 to-white border-b border-gray-100">
                 {/* added: error banner */}
                 {error && (
                     <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4 flex items-start">
@@ -556,11 +560,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     </div>
                 )}
 
-                <div className="flex items-center justify-between mb-4">
+                {/* Progress Indicator */}
+                <div className="flex items-center justify-center mx-auto mb-6 w-full max-w-3xl px-2 md:px-4 gap-3 md:gap-4">
                     {config.steps.map((step, index) => (
-                        <div key={step.id} className="flex items-center flex-1">
+                        <div key={step.id} className="flex items-center gap-2 md:gap-3 flex-shrink-0">
                             <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
                                     index < currentStepIndex
                                         ? 'bg-green-500 text-white'
                                         : index === currentStepIndex
@@ -568,11 +573,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                         : 'bg-gray-200 text-gray-600'
                                 }`}
                             >
-                                {index < currentStepIndex ? <Check className="h-5 w-5" /> : index + 1}
+                                {index < currentStepIndex ? <Check className="h-4 w-4 md:h-5 md:w-5" /> : index + 1}
                             </div>
                             {index < config.steps.length - 1 && (
                                 <div
-                                    className={`flex-1 h-1 mx-2 ${
+                                    className={`h-1 w-10 md:w-16 rounded-full transition-colors flex-shrink-0 ${
                                         index < currentStepIndex ? 'bg-green-500' : 'bg-gray-200'
                                     }`}
                                 />
@@ -580,19 +585,54 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         </div>
                     ))}
                 </div>
-                <div className="text-center">
+
+                {/* Title and Description */}
+                <div className="text-center mb-6">
                     {/* changed: show edit mode in title */}
-                    <h2 className="text-2xl font-bold text-gray-900">
+                    <h2 className="text-xl md:text-2xl font-bold text-gray-900">
                         {entityId ? `Edit ${entityName}` : currentStep.title}
                     </h2>
                     {currentStep.description && (
                         <p className="mt-2 text-sm text-gray-600">{currentStep.description}</p>
                     )}
                 </div>
+
+                {/* Navigation Buttons Toolbar */}
+                <div className="flex flex-col md:flex-row gap-3 md:gap-2 justify-between items-center">
+                    <button
+                        onClick={handlePrevious}
+                        disabled={currentStepIndex === 0}
+                        className="w-full md:w-auto btn-secondary disabled:opacity-50 flex items-center justify-center"
+                    >
+                        <ChevronLeft className="h-5 w-5 mr-2" />
+                        Previous
+                    </button>
+
+                    <button
+                        onClick={handleSaveDraft}
+                        className="w-full md:w-auto btn-tertiary flex items-center justify-center"
+                    >
+                        <Save className="h-5 w-5 mr-2" />
+                        Save Draft
+                    </button>
+
+                    <button
+                        onClick={handleNext}
+                        className="w-full md:w-auto btn-primary flex items-center justify-center disabled:opacity-50"
+                        disabled={saving}
+                    >
+                        {saving ? (
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        ) : (
+                            <ChevronRight className="h-5 w-5 mr-2" />
+                        )}
+                        {saving ? 'Submitting...' : currentStepIndex === config.steps.length - 1 ? 'Submit' : 'Next'}
+                    </button>
+                </div>
             </div>
 
             {/* Form Fields */}
-            <div className="px-8 py-6 space-y-6">
+            <div className="px-6 md:px-8 py-6 md:py-8 space-y-6">
                 {orderedFields.map(field => {
                     const shouldShow = !field.dependencyConditionJson ||
                         ConditionEvaluator.evaluateConditions(
@@ -617,39 +657,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 })}
             </div>
 
-            {/* Navigation Buttons */}
-            <div className="px-8 py-6 bg-gray-50 rounded-b-lg flex justify-between">
-                <button
-                    onClick={handlePrevious}
-                    disabled={currentStepIndex === 0}
-                    className="btn-secondary disabled:opacity-50"
-                >
-                    <ChevronLeft className="h-5 w-5 mr-2" />
-                    Previous
-                </button>
-                <button
-                    onClick={handleSaveDraft}
-                    className="btn-tertiary"
-                >
-                    <Save className="h-5 w-5 mr-2" />
-                    Save Draft
-                </button>
-                <button
-                    onClick={handleNext}
-                    className="btn-primary"
-                    disabled={saving}
-                >
-                    {saving ? (
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    ) : (
-                        <>
-                            <ChevronRight className="h-5 w-5 mr-2" />
-                            {currentStepIndex === config.steps.length - 1 ? 'Submit' : 'Next'}
-                        </>
-                    )}
-                </button>
-            </div>
-
+            {/* Feedback and Child Form Modals */}
             <FeedbackModal
                 open={saveFeedback.open}
                 title={saveFeedback.title}

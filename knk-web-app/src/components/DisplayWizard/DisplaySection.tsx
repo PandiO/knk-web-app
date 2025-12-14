@@ -77,12 +77,14 @@ function toCamelCase(str: string): string {
 
   // Handle edit button: navigate to form wizard with entityId for editing
   const handleEditEntity = (editEntityId: string | number) => {
-    navigate(`/form/${section.relatedEntityTypeName}/${editEntityId}`);
+    navigate(`/forms/${section.relatedEntityTypeName}/edit/${editEntityId}`);
   };
 
   // Handle create new button: navigate to form wizard to create new entity
+  // Pass parent context so the child entity can establish relationship after creation
   const handleCreateNewEntity = () => {
-    navigate(`/form/${section.relatedEntityTypeName}`);
+    const queryString = `?autoOpen=true&parentEntityTypeName=${entityTypeName}&parentEntityId=${entityId}&relationshipFieldName=${section.relatedEntityPropertyName || ''}`;
+    navigate(`/forms/${section.relatedEntityTypeName}${queryString}`);
   };
 
   return (

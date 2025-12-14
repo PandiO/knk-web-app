@@ -46,12 +46,17 @@ export const FormWizardPage: React.FC<Props> = ({
 }: Props) => {
     const navigate = useNavigate();
     const { entityName, entityId: urlEntityId } = useParams<{ entityName: string; entityId?: string }>();
-    // added: read query parameter for auto-open
+    // added: read query parameter for auto-open and parent context for child entity creation
     const [searchParams] = useSearchParams();
     
     // Prioritize URL params over props
     const entityId = urlEntityId || propsEntityId;
     const selectedTypeName = entityName || typeName || '';
+    
+    // added: read parent context for child entity creation workflow
+    const parentEntityTypeName = searchParams.get('parentEntityTypeName');
+    const parentEntityId = searchParams.get('parentEntityId');
+    const relationshipFieldName = searchParams.get('relationshipFieldName');
     
     // changed: check both prop and query parameter for auto-open
     const shouldAutoOpen = autoOpenDefaultForm || searchParams.get('autoOpen') === 'true';
@@ -541,22 +546,54 @@ export const FormWizardPage: React.FC<Props> = ({
                 const entityIdToUse = entityId || progress.entityId;
                 const entityData = { ...data, id: entityIdToUse ?? undefined };
 
+                let createdEntityId: any;
                 if (entityIdToUse) {
                     await client.update(entityData);
+                    createdEntityId = entityIdToUse;
                 } else {
-                    await client.create(entityData);
+                    const createdEntity = await client.create(entityData);
+                    createdEntityId = createdEntity?.id;
+                }
+
+                // added: if this was a child entity creation for a parent relationship, update parent
+                if (parentEntityTypeName && parentEntityId && relationshipFieldName && !entityIdToUse) {
+                    try {
+                        const parentClient = getApiClient(parentEntityTypeName);
+                        if (parentClient) {
+                            // Load parent, update relationship field, and save
+                            const parent = await parentClient.getById(parentEntityId);
+                            parent[relationshipFieldName] = createdEntityId;
+                            await parentClient.update(parent);
+                            console.log(`Updated parent ${parentEntityTypeName}(${parentEntityId}).${relationshipFieldName} = ${createdEntityId}`);
+                        }
+                    } catch (parentErr) {
+                        console.error('Failed to update parent entity relationship:', parentErr);
+                        logging.errorHandler.next('ErrorMessage.Entity.ParentUpdateFailed');
+                    }
                 }
 
                 setShowWizard(false);
                 setWizardConfig(null);
                 setWizardProgressId(undefined);
-                showFeedback({
-                    title: 'Form completed',
-                    message: 'Your form has been submitted successfully.',
-                    status: 'success',
-                    onContinue: () => navigate('/dashboard', { state: { entityTypeName: progress.entityTypeName } }),
-                    autoCloseMs: 3000,
-                });
+
+                // added: if parent context exists, redirect back to parent display page
+                if (parentEntityTypeName && parentEntityId) {
+                    showFeedback({
+                        title: 'Form completed',
+                        message: 'Your form has been submitted successfully.',
+                        status: 'success',
+                        onContinue: () => navigate(`/display/${parentEntityTypeName}/${parentEntityId}`),
+                        autoCloseMs: 3000,
+                    });
+                } else {
+                    showFeedback({
+                        title: 'Form completed',
+                        message: 'Your form has been submitted successfully.',
+                        status: 'success',
+                        onContinue: () => navigate('/dashboard', { state: { entityTypeName: progress.entityTypeName } }),
+                        autoCloseMs: 3000,
+                    });
+                }
             }
         } catch (err) {
             logging.errorHandler.next('ErrorMessage.Entity.SaveFailed');
