@@ -1,10 +1,12 @@
 // DisplayWizard Component - Main container for displaying entity data
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDisplayConfig } from './hooks/useDisplayConfig';
 import { useEntityData } from './hooks/useEntityData';
 import { DisplaySection } from './DisplaySection';
-import { DisplayWizardProps } from '../../types/dtos/displayConfig/DisplayModels';
+import { DisplayAction, DisplayWizardProps } from '../../types/dtos/displayConfig/DisplayModels';
 import { getUpdateFunctionForEntity } from '../../utils/entityApiMapping';
+import { FeedbackModal } from '../FeedbackModal';
 import './DisplayWizard.css';
 
 export const DisplayWizard: React.FC<DisplayWizardProps> = ({
@@ -13,6 +15,7 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
   configurationId,
   onActionClick
 }) => {
+  const navigate = useNavigate();
   const { config, loading: configLoading, error: configError } = useDisplayConfig(
     entityTypeName,
     configurationId
@@ -24,6 +27,14 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
   );
 
   const [isSaving, setIsSaving] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalStatus, setModalStatus] = useState<'success' | 'error' | 'info'>('info');
+  const [modalContinueLabel, setModalContinueLabel] = useState('Continue');
+  const [modalOnContinue, setModalOnContinue] = useState<(() => void | Promise<void>) | undefined>(undefined);
+  const [modalOnSecondary, setModalOnSecondary] = useState<(() => void) | undefined>(undefined);
+  const [modalSecondaryLabel, setModalSecondaryLabel] = useState<string | undefined>(undefined);
 
   if (configLoading || dataLoading) {
     console.log('DisplayWizard: loading', { configLoading, dataLoading });
@@ -90,6 +101,82 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
 
   console.log('DisplayWizard: rendering', { config, entityData, orderedSections });
 
+  const handleDisplayAction = (action: DisplayAction) => {
+    if (action.type !== 'remove') {
+      onActionClick?.(action);
+      return;
+    }
+
+    const targetType = action.entityType || entityTypeName;
+    const targetId = action.entityId;
+
+    if (!targetType || targetId === undefined || targetId === null) {
+      setModalTitle('Delete Failed');
+      setModalMessage('Missing entity information for removal.');
+      setModalStatus('error');
+      setModalContinueLabel('Close');
+      setModalOnContinue(undefined);
+      setModalOnSecondary(undefined);
+      setModalSecondaryLabel(undefined);
+      setModalOpen(true);
+      return;
+    }
+
+    const displayName = `ID ${targetId}`;
+
+    setModalTitle('Confirm Deletion');
+    setModalMessage(`Are you sure you want to delete ${targetType} ${displayName}? This action cannot be undone.`);
+    setModalStatus('info');
+    setModalContinueLabel('Delete');
+    setModalOnSecondary(undefined);
+    setModalSecondaryLabel(undefined);
+
+    setModalOnContinue(() => async () => {
+      try {
+        const { getDeleteFunctionForEntity } = await import('../../utils/entityApiMapping');
+        const deleteFn = getDeleteFunctionForEntity(targetType);
+        await deleteFn(targetId);
+
+        setModalTitle('Deleted');
+        setModalMessage(`${targetType} ${displayName} was deleted successfully.`);
+        setModalStatus('success');
+        setModalContinueLabel('Close');
+        setModalOnContinue(undefined);
+        setModalOnSecondary(undefined);
+        setModalSecondaryLabel(undefined);
+        await refetchEntityData?.();
+      } catch (err: any) {
+        const serverMessage = err?.response?.data?.message || err?.message;
+        setModalTitle('Delete Failed');
+        setModalMessage(serverMessage || 'An error occurred while deleting.');
+        setModalStatus('error');
+
+        const isCategory = targetType.toLowerCase() === 'category';
+        if (isCategory) {
+          setModalContinueLabel('View Children');
+          setModalOnContinue(() => () => {
+            setModalOpen(false);
+            navigate(`/display/category/${targetId}`);
+          });
+          setModalSecondaryLabel('Reassign Parent');
+          setModalOnSecondary(() => () => {
+            setModalOpen(false);
+            navigate(`/forms/category/edit/${targetId}`);
+          });
+        } else {
+          setModalContinueLabel('Close');
+          setModalOnContinue(undefined);
+          setModalOnSecondary(undefined);
+          setModalSecondaryLabel(undefined);
+        }
+
+        throw err;
+      }
+    });
+
+    setModalOpen(true);
+  };
+
   return (
     <div className="display-wizard">
       <div className="mb-6 pb-4 border-b border-gray-200">
@@ -99,6 +186,18 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
         )}
       </div>
 
+      <FeedbackModal
+        open={modalOpen}
+        title={modalTitle}
+        message={modalMessage}
+        status={modalStatus}
+        continueLabel={modalContinueLabel}
+        onContinue={modalOnContinue}
+        onSecondary={modalOnSecondary}
+        secondaryLabel={modalSecondaryLabel}
+        onClose={() => setModalOpen(false)}
+      />
+
       <div className="space-y-6">
         {orderedSections.map(section => section && (
           <DisplaySection
@@ -107,7 +206,7 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
             entityData={entityData}
             entityId={entityId}
             entityTypeName={entityTypeName}
-            onActionClick={onActionClick}
+            onActionClick={handleDisplayAction}
             onValueChange={handleValueChange}
           />
         ))}
