@@ -1,6 +1,6 @@
 import React from 'react';
 import { PlayCircle, Trash2, Clock } from 'lucide-react';
-import { FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../../utils/domain/dto/forms/FormModels';
+import { FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../../types/dtos/forms/FormModels';
 
 type ProgressItem = FormSubmissionProgressDto | FormSubmissionProgressSummaryDto;
 
@@ -102,3 +102,4 @@ export const SavedProgressList: React.FC<Props> = ({
         </div>
     );
 };
+

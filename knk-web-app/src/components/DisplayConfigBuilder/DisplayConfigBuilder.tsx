@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Save, Plus, AlertCircle, Loader2, Copy, Trash2 } from 'lucide-react';
-import { DisplayConfigurationDto, DisplaySectionDto, DisplayFieldDto, ReuseLinkMode } from '../../utils/domain/dto/displayConfig/DisplayModels';
+import { DisplayConfigurationDto, DisplaySectionDto, DisplayFieldDto, ReuseLinkMode } from '../../types/dtos/displayConfig/DisplayModels';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { metadataClient } from '../../apiClients/metadataClient';
-import { EntityMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
+import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { logging } from '../../utils';
 import { SectionEditor } from './SectionEditor';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -789,3 +789,4 @@ export const DisplayConfigBuilder: React.FC = () => {
         </div>
     );
 };
+

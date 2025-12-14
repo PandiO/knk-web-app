@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Search, Copy as CopyIcon, Link as LinkIcon } from 'lucide-react';
-import { FormStepDto, ReuseLinkMode } from '../../utils/domain/dto/forms/FormModels';
+import { FormStepDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
 
 interface Props {
     reusableSteps: FormStepDto[];
@@ -169,3 +169,4 @@ export const ReusableStepSelector: React.FC<Props> = ({
         </div>
     );
 };
+

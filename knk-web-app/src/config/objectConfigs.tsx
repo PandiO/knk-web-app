@@ -1,30 +1,5 @@
-import React from 'react';
-import { Building2, MapPin, Home, Package, User, TagIcon, BrickWallIcon } from 'lucide-react';
+import { Building2, MapPin, Home, TagIcon, BrickWallIcon } from 'lucide-react';
 import type { ColumnDefinition, FormField, ObjectConfig } from '../types/common';
-import type { Location } from '../types/Location';
-
-const defaultLocationValue: Location = {
-  x: 0,
-  y: 0,
-  z: 0,
-  yaw: 0,
-  pitch: 0,
-};
-
-export const placeholderConfigs = {
-  text: {
-    type: 'text',
-    placeholder: 'Enter a value'
-  },
-  mail: {
-    type: 'mail',
-    placeholder: 'Enter an email address'
-  },
-  number: {
-    type: 'number',
-    placeholder: 'Enter a number'
-  },
-}
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
   default: [
@@ -381,7 +356,6 @@ const CategoryConfig: ObjectConfig = {
 
 export const objectConfigs: Record<string, ObjectConfig> = {
   location: locationConfig,
-  dominion: dominionConfig,
   town: townConfig,
   district: districtConfig,
   structure: structureConfig,
@@ -390,131 +364,4 @@ export const objectConfigs: Record<string, ObjectConfig> = {
   itemType: ItemTypeConfig,
   minecraftblockref: minecraftBlockRefConfig,
   minecraftmaterialref: minecraftMaterialRefConfig,
-  item: {
-    type: 'item',
-    label: 'Item',
-    icon: <Package className="h-5 w-5" />,
-    fields: {
-      Name: {
-        name: 'Name',
-        label: 'Name',
-        type: 'text',
-        required: true,
-        validation: (value) => {
-          if (!/^[a-z0-9-]+$/.test(value)) {
-            return 'Name must contain only lowercase letters, numbers, and hyphens';
-          }
-        }
-      },
-      DisplayName: {
-        name: 'DisplayName',
-        label: 'Display Name',
-        type: 'text',
-        required: true
-      },
-      CategoryId: {
-        name: 'CategoryId',
-        label: 'Category',
-        type: 'select',
-        required: true,
-        options: [
-          { label: 'Electronics', value: '1' },
-          { label: 'Furniture', value: '2' },
-          { label: 'Books', value: '3' }
-        ]
-      },
-      BaseItemName: {
-        name: 'BaseItemName',
-        label: 'Base Item Name',
-        type: 'text',
-        required: true
-      },
-      BasePrice: {
-        name: 'BasePrice',
-        label: 'Base Price',
-        type: 'number',
-        required: true,
-        validation: (value) => {
-          if (value < 0) return 'Price cannot be negative';
-        }
-      },
-      Price: {
-        name: 'Price',
-        label: 'Sale Price',
-        type: 'number',
-        required: true,
-        validation: (value) => {
-          if (value < 0) return 'Price cannot be negative';
-        }
-      }
-    },
-    formatters: {
-      CategoryName: (value) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          {value}
-        </span>
-      ),
-      BasePrice: (value) => `$${value.toFixed(2)}`,
-      Price: (value) => `$${value.toFixed(2)}`
-    }
-  },
-  user: {
-    type: 'user',
-    label: 'User',
-    icon: <User className="h-5 w-5" />,
-    fields: {
-      name: {
-        name: 'name',
-        label: 'Full Name',
-        type: 'text',
-        required: true
-      },
-      email: {
-        name: 'email',
-        label: 'Email Address',
-        type: 'text',
-        required: true,
-        validation: (value) => {
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-            return 'Please enter a valid email address';
-          }
-        }
-      },
-      role: {
-        name: 'role',
-        label: 'Role',
-        type: 'select',
-        required: true,
-        options: [
-          { label: 'User', value: 'user' },
-          { label: 'Admin', value: 'admin' },
-          { label: 'Manager', value: 'manager' }
-        ]
-      },
-      isActive: {
-        name: 'isActive',
-        label: 'Status',
-        type: 'select',
-        required: true,
-        defaultValue: true,
-        options: [
-          { label: 'Active', value: 'true' },
-          { label: 'Inactive', value: 'false' }
-        ]
-      }
-    },
-    formatters: {
-      isActive: (value) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}>
-          {value ? 'Active' : 'Inactive'}
-        </span>
-      ),
-      role: (value) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-          {value}
-        </span>
-      )
-    }
-  }
 };

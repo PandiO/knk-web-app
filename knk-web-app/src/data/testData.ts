@@ -1,12 +1,12 @@
-import { LocationViewDTO } from '../utils/domain/dto/location/LocationViewDTO';
-import { StreetViewDTO } from '../utils/domain/dto/street/StreetViewDTO';
-import { DistrictViewDTO } from '../utils/domain/dto/district/DistrictViewDTO';
-import { TownViewDTO } from '../utils/domain/dto/town/TownViewDTO';
-import { StructureViewDTO, StructureStreetViewDTO } from '../utils/domain/dto/structure/StructureViewDTO';
-import { StorageViewConciseDTO } from '../utils/domain/dto/item/StorageViewConciseDTO';
-import { ItemDTO } from '../utils/domain/dto/item/ItemDTO';
-import { StorageItemDTO } from '../utils/domain/dto/item/StorageItemDTO';
-import { UIObjectConfigDto, UIFieldGroupDto, UIFieldDto, UIFieldValidationDto, ValidationType, UIFieldType } from "../utils/domain/dto/uiObjectConfig/UIFieldConfigurations";
+import { LocationViewDTO } from '../types/dtos/location/LocationViewDTO';
+import { StreetViewDTO } from '../types/dtos/street/StreetViewDTO';
+import { DistrictViewDTO } from '../types/dtos/district/DistrictViewDTO';
+import { TownViewDTO } from '../types/dtos/town/TownViewDTO';
+import { StructureViewDTO, StructureStreetViewDTO } from '../types/dtos/structure/StructureViewDTO';
+import { StorageViewConciseDTO } from '../types/dtos/item/StorageViewConciseDTO';
+import { ItemDTO } from '../types/dtos/item/ItemDTO';
+import { StorageItemDTO } from '../types/dtos/item/StorageItemDTO';
+import { UIObjectConfigDto, UIFieldGroupDto, UIFieldDto, UIFieldValidationDto, ValidationType, UIFieldType } from "../types/uiObjectConfig/UIFieldConfigurations";
 
 // Create LocationViewDTO instances
 const locations: LocationViewDTO[] = [
@@ -507,3 +507,5 @@ export const uiConfigApiTestData = [
     Fields: [],
   },
 ];
+
+

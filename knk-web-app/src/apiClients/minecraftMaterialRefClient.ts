@@ -1,12 +1,12 @@
 import { logging, Controllers, HttpMethod, MinecraftMaterialRefOperation } from '../utils';
-import { PagedQueryDto, PagedResultDto } from '../utils/domain/dto/common/PagedQuery';
+import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
 import { ObjectManager } from './objectManager';
 import {
     MinecraftMaterialRefDto,
     MinecraftMaterialRefCreateDto,
     MinecraftMaterialRefUpdateDto,
     MinecraftMaterialRefListDto
-} from '../utils/domain/dto/minecraftMaterialRef/MinecraftMaterialRefDto';
+} from '../types/dtos/minecraftMaterialRef/MinecraftMaterialRefDto';
 
 export class MinecraftMaterialRefClient extends ObjectManager {
     private static instance: MinecraftMaterialRefClient;
@@ -45,3 +45,6 @@ export class MinecraftMaterialRefClient extends ObjectManager {
 }
 
 export const minecraftMaterialRefClient = MinecraftMaterialRefClient.getInstance();
+
+
+

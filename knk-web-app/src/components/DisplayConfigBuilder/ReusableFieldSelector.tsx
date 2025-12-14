@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Search, Copy as CopyIcon, Link as LinkIcon } from 'lucide-react';
-import { DisplayFieldDto, ReuseLinkMode } from '../../utils/domain/dto/displayConfig/DisplayModels';
+import { DisplayFieldDto, ReuseLinkMode } from '../../types/dtos/displayConfig/DisplayModels';
 
 interface Props {
     reusableFields: DisplayFieldDto[];
@@ -192,3 +192,4 @@ export const ReusableFieldSelector: React.FC<Props> = ({
         </div>
     );
 };
+

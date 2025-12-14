@@ -1,7 +1,7 @@
 import { ObjectManager } from './objectManager';
 import { logging } from '../utils';
 import { Controllers, MetadataOperation, HttpMethod } from '../utils/enums';
-import { EntityMetadataDto } from '../utils/domain/dto/metadata/MetadataModels';
+import { EntityMetadataDto } from '../types/dtos/metadata/MetadataModels';
 
 class MetadataClient extends ObjectManager {
   private static instance: MetadataClient;

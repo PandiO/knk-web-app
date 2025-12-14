@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Save, Check, AlertCircle } from 'lucide-react';
-import { FormConfigurationDto, FormStepDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../utils/domain/dto/forms/FormModels';
+import { FormConfigurationDto, FormStepDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { formSubmissionClient } from '../../apiClients/formSubmissionClient';
 import { ConditionEvaluator } from '../../utils/conditionEvaluator';
@@ -11,7 +11,7 @@ import { getFetchByIdFunctionForEntity } from '../../utils/entityApiMapping';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
 import { normalizeFormSubmission } from '../../utils/forms/normalizeFormSubmission';
 import { metadataClient } from '../../apiClients/metadataClient';
-import { EntityMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
+import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { FeedbackModal } from '../FeedbackModal';
 import { ChildFormModal } from './ChildFormModal';
 
@@ -681,3 +681,4 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         </div>
     );
 };
+

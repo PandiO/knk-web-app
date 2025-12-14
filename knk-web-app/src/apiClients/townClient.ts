@@ -1,6 +1,6 @@
 import { logging, Controllers, HttpMethod, DominionOperation } from "../utils";
-import { PagedQueryDto, PagedResultDto } from "../utils/domain/dto/common/PagedQuery";
-import { TownDto, TownCreateDto, TownUpdateDto } from "../utils/domain/dto/town/TownDto";
+import { PagedQueryDto, PagedResultDto } from "../types/dtos/common/PagedQuery";
+import { TownDto, TownCreateDto, TownUpdateDto } from "../types/dtos/town/TownDto";
 import { ObjectManager } from "./objectManager";
 
 export class TownClient extends ObjectManager {
@@ -40,3 +40,5 @@ export class TownClient extends ObjectManager {
 }
 
 export const townClient = TownClient.getInstance();
+
+

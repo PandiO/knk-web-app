@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Star, Pencil, StarOff, MoreVertical, Trash2 } from 'lucide-react';
-import { FormConfigurationDto } from '../../utils/domain/dto/forms/FormModels';
+import { FormConfigurationDto } from '../../types/dtos/forms/FormModels';
 
 interface Props {
     configurations: FormConfigurationDto[];
@@ -227,3 +227,4 @@ export const FormConfigurationTable: React.FC<Props> = ({
         </div>
     );
 };
+

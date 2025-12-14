@@ -1,6 +1,6 @@
 import { logging, Controllers, HttpMethod, CategoryOperation } from "../utils";
-import { PagedQueryDto } from "../utils/domain/dto/common/PagedQuery";
-import { CategoryDto } from "../utils/domain/dto/category/CategoryDtos";
+import { PagedQueryDto } from "../types/dtos/common/PagedQuery";
+import { CategoryDto } from "../types/dtos/category/CategoryDtos";
 import { ObjectManager } from "./objectManager";
 
 export class CategoryClient extends ObjectManager {

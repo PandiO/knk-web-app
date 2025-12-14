@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Eye, MoreVertical, Pencil, Rocket, Star, StarOff, Trash2 } from 'lucide-react';
-import { DisplayConfigurationDto } from '../../utils/domain/dto/displayConfig/DisplayModels';
+import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
 
 interface Props {
     configurations: DisplayConfigurationDto[];
@@ -253,3 +253,4 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
         </div>
     );
 };
+

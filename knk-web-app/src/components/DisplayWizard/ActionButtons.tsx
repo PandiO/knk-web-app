@@ -1,7 +1,7 @@
 // ActionButtons Component - Renders dynamic action buttons based on configuration
 import React from 'react';
 import { Eye, Edit, Plus, Link, Unlink, Trash2, PlusCircle } from 'lucide-react';
-import { ActionButtonsConfigDto, DisplayAction } from '../../utils/domain/dto/displayConfig/DisplayModels';
+import { ActionButtonsConfigDto, DisplayAction } from '../../types/dtos/displayConfig/DisplayModels';
 
 interface ActionButtonsProps {
   config: ActionButtonsConfigDto;
@@ -120,3 +120,4 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
     </div>
   );
 };
+

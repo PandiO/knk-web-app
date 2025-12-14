@@ -1,14 +1,17 @@
 // CollectionSection Component - Renders collection data with template
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DisplayField } from './DisplayField';
 import { ActionButtons } from './ActionButtons';
-import { CollectionSectionProps, ActionButtonsConfigDto } from '../../utils/domain/dto/displayConfig/DisplayModels';
+import { CollectionSectionProps, ActionButtonsConfigDto } from '../../types/dtos/displayConfig/DisplayModels';
 
 export const CollectionSection: React.FC<CollectionSectionProps> = ({
   section,
   collectionData,
   onActionClick
 }) => {
+  const navigate = useNavigate();
+  
   if (!Array.isArray(collectionData) || collectionData.length === 0) {
     return <div className="text-center py-8 text-gray-500 italic">No items</div>;
   }
@@ -34,6 +37,11 @@ export const CollectionSection: React.FC<CollectionSectionProps> = ({
         .map(guid => itemTemplate.fields.find(f => f.fieldGuid === guid))
         .filter(Boolean)
     : itemTemplate.fields;
+
+  // Handle edit button: navigate to form wizard with entityId for editing
+  const handleEditEntity = (editEntityId: string | number) => {
+    navigate(`/forms/${section.relatedEntityTypeName}/edit/${editEntityId}`);
+  };
 
   return (
     <div className="space-y-4">
@@ -67,6 +75,7 @@ export const CollectionSection: React.FC<CollectionSectionProps> = ({
               entityData={item as Record<string, unknown>}
               onActionClick={onActionClick}
               isItemLevel={true}
+              onEdit={section.relatedEntityTypeName ? handleEditEntity : undefined}
             />
           </div>
         ))}
@@ -74,3 +83,4 @@ export const CollectionSection: React.FC<CollectionSectionProps> = ({
     </div>
   );
 };
+

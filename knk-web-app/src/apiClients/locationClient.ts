@@ -1,6 +1,6 @@
 import { logging, Controllers, HttpMethod } from "../utils";
-import { PagedQueryDto } from "../utils/domain/dto/common/PagedQuery";
-import { LocationDto } from "../utils/domain/dto/locations/LocationModels";
+import { PagedQueryDto } from "../types/dtos/common/PagedQuery";
+import { LocationDto } from "../types/dtos/locations/LocationModels";
 import { ObjectManager } from "./objectManager";
 
 export enum LocationOperation {
@@ -50,3 +50,6 @@ export class LocationClient extends ObjectManager {
 }
 
 export const locationClient = LocationClient.getInstance();
+
+
+

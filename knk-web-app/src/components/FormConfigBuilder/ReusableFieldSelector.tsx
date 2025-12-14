@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Search, Copy as CopyIcon, Link as LinkIcon } from 'lucide-react';
-import { FormFieldDto, ReuseLinkMode } from '../../utils/domain/dto/forms/FormModels';
+import { FormFieldDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
 
 interface Props {
@@ -206,3 +206,4 @@ export const ReusableFieldSelector: React.FC<Props> = ({
         </div>
     );
 };
+

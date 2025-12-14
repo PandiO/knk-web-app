@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useDisplayConfig } from './hooks/useDisplayConfig';
 import { useEntityData } from './hooks/useEntityData';
 import { DisplaySection } from './DisplaySection';
-import { DisplayWizardProps } from '../../utils/domain/dto/displayConfig/DisplayModels';
+import { DisplayWizardProps } from '../../types/dtos/displayConfig/DisplayModels';
 import { getUpdateFunctionForEntity } from '../../utils/entityApiMapping';
 import './DisplayWizard.css';
 
@@ -117,3 +117,4 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
 };
 
 export default DisplayWizard;
+

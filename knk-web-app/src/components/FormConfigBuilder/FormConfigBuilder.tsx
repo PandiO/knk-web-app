@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Save, Plus, GripVertical, Trash2, AlertCircle, Loader2, Copy } from 'lucide-react';
-import { FormConfigurationDto, FormStepDto, FormFieldDto, ReuseLinkMode } from '../../utils/domain/dto/forms/FormModels';
+import { FormConfigurationDto, FormStepDto, FormFieldDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { formStepClient } from '../../apiClients/formStepClient';
 import { formFieldClient } from '../../apiClients/formFieldClient';
 import { metadataClient } from '../../apiClients/metadataClient';
-import { EntityMetadataDto, FieldMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
+import { EntityMetadataDto, FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { logging } from '../../utils';
 import { StepEditor } from './StepEditor';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -671,3 +671,4 @@ export const FormConfigBuilder: React.FC = () => {
         </div>
     );
 };
+

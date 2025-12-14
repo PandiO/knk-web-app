@@ -1,5 +1,5 @@
 import { Controllers, FormFieldOperation, HttpMethod } from "../utils/enums";
-import { FormFieldDto } from "../utils/domain/dto/forms/FormModels";
+import { FormFieldDto } from "../types/dtos/forms/FormModels";
 import { ObjectManager } from "./objectManager";
 import { logging } from "../utils";
 
@@ -36,3 +36,4 @@ export class FormFieldClient extends ObjectManager {
 }
 
 export const formFieldClient = FormFieldClient.getInstance();
+

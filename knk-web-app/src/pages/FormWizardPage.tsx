@@ -13,14 +13,14 @@ import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
 import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
 import { objectConfigs } from '../config/objectConfigs';
 import { logging } from '../utils';
-import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../utils/domain/dto/forms/FormModels';
-import { FieldMetadataDto } from '../utils/domain/dto/metadata/MetadataModels';
-import { DisplayConfigurationDto } from '../utils/domain/dto/displayConfig/DisplayModels';
+import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../types/dtos/forms/FormModels';
+import { DisplayConfigurationDto } from '../types/dtos/displayConfig/DisplayModels';
 import { DistrictClient } from '../apiClients/districtClient';
 import { LocationClient } from '../apiClients/locationClient';
 import { StreetClient } from '../apiClients/streetClient';
 import { StructureClient } from '../apiClients/structureClient';
 import { TownClient } from '../apiClients/townClient';
+import { FieldMetadataDto } from '../types/dtos/metadata/MetadataModels';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { 
@@ -751,3 +751,4 @@ export const FormWizardPage: React.FC<Props> = ({
         </>
     );
 };
+

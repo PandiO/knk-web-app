@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Pencil, Trash2 } from 'lucide-react';
 import ObjectTypeExplorer from '../ObjectTypeExplorer';
 import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 // @ts-ignore: side-effect import for CSS without type declarations
 import './ObjectDashboard.css';
-import { StructuresManager } from '../../apiClients/structures';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -46,11 +45,6 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     //     }
     // };
   
-    useEffect(() => {
-        const activeType = 'structure';
-        // fetchObjects({ type: activeType });
-    }, []);
-
     const handleView = (entityTypeName: string, item: any) => {
         // Navigate to DisplayWizard for read-only view
         navigate(`/display/${entityTypeName}/${item.id}`);
@@ -62,7 +56,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         navigate(`/forms/${entityTypeName}/edit/${item.id}`);
     };
 
-    const handleDelete = (entityTypeName: string, item: any) => {
+    const handleDelete = (item: any) => {
         console.log('Delete item:', item);
         // TODO: Implement delete confirmation and API call
     };
@@ -114,7 +108,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        handleDelete(selectedType, row);
+                                        handleDelete(row);
                                     }}
                                     className="p-2 text-gray-400 hover:text-red-600"
                                     title="Delete"

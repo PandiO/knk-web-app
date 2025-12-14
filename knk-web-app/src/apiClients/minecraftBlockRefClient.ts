@@ -1,12 +1,12 @@
 import { logging, Controllers, HttpMethod, MinecraftBlockRefOperation } from '../utils';
-import { PagedQueryDto, PagedResultDto } from '../utils/domain/dto/common/PagedQuery';
+import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
 import { ObjectManager } from './objectManager';
 import {
     MinecraftBlockRefDto,
     MinecraftBlockRefCreateDto,
     MinecraftBlockRefUpdateDto,
     MinecraftBlockRefListDto
-} from '../utils/domain/dto/minecraftBlockRef/MinecraftBlockRefDto';
+} from '../types/dtos/minecraftBlockRef/MinecraftBlockRefDto';
 
 export class MinecraftBlockRefClient extends ObjectManager {
     private static instance: MinecraftBlockRefClient;
@@ -45,3 +45,6 @@ export class MinecraftBlockRefClient extends ObjectManager {
 }
 
 export const minecraftBlockRefClient = MinecraftBlockRefClient.getInstance();
+
+
+

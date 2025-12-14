@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { DisplayFieldDto } from '../../utils/domain/dto/displayConfig/DisplayModels';
-import { FieldMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
+import { DisplayFieldDto } from '../../types/dtos/displayConfig/DisplayModels';
+import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { FieldType } from '../../utils/enums';
 import { mapFieldType } from '../../utils/fieldTypeMapper';
 import { metadataClient } from '../../apiClients/metadataClient';
@@ -358,3 +358,4 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
         </div>
     );
 };
+

@@ -1,5 +1,5 @@
 import { Controllers, FormSubmissionProgressOperation, HttpMethod } from "../utils/enums";
-import { FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from "../utils/domain/dto/forms/FormModels";
+import { FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from "../types/dtos/forms/FormModels";
 import { ObjectManager } from "./objectManager";
 import { logging } from "../utils";
 
@@ -40,3 +40,4 @@ export class FormSubmissionClient extends ObjectManager {
 }
 
 export const formSubmissionClient = FormSubmissionClient.getInstance();
+

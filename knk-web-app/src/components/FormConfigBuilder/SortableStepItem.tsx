@@ -2,7 +2,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, AlertTriangle, Link as LinkIcon, Copy as CopyIcon } from 'lucide-react';
-import { FormStepDto } from '../../utils/domain/dto/forms/FormModels';
+import { FormStepDto } from '../../types/dtos/forms/FormModels';
 
 interface Props {
     step: FormStepDto;
@@ -79,3 +79,4 @@ export const SortableStepItem: React.FC<Props> = ({ step, index, isSelected, onS
         </div>
     );
 };
+

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Plus, Copy, GripVertical, Trash2, Pencil, AlertTriangle, Link as LinkIcon, Copy as CopyIcon } from 'lucide-react';
-import { FormStepDto, FormFieldDto, ReuseLinkMode } from '../../utils/domain/dto/forms/FormModels';
+import { FormStepDto, FormFieldDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { FieldEditor } from './FieldEditor';
-import { FieldMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
+import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { ReusableFieldSelector } from './ReusableFieldSelector';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { logging } from '../../utils';
@@ -394,3 +394,4 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({ field, onEdit, on
         </div>
     );
 };
+

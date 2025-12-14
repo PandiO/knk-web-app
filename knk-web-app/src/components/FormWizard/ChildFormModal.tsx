@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FormConfigurationDto } from '../../utils/domain/dto/forms/FormModels';
+import { FormConfigurationDto } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { FormWizard } from './FormWizard';
 import { FeedbackModal } from '../FeedbackModal';
@@ -132,3 +132,4 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
         </>
     );
 };
+

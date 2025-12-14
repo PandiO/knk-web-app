@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, Loader2, ChevronLeft, ChevronRight, Check, CheckCircle, PlusCircle } from 'lucide-react';
-import { PagedQueryDto, PagedResultDto } from '../../utils/domain/dto/common/PagedQuery';
+import { PagedQueryDto, PagedResultDto } from '../../types/dtos/common/PagedQuery';
 import { getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { logging } from '../../utils';
 import { ColumnDefinition } from '../../types/common';
@@ -675,3 +675,4 @@ export function PagedEntityTable<T extends Record<string, any>>({
         </div>
     );
 }
+

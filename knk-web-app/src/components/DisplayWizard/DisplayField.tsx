@@ -1,7 +1,7 @@
 // DisplayField Component - Renders individual field with template text support and optional hot edit
 import React, { useState } from 'react';
 import { Edit2, Check, X } from 'lucide-react';
-import { DisplayFieldProps } from '../../utils/domain/dto/displayConfig/DisplayModels';
+import { DisplayFieldProps } from '../../types/dtos/displayConfig/DisplayModels';
 import { useTemplateParser } from './hooks/useTemplateParser';
 
 export const DisplayField: React.FC<DisplayFieldProps> = ({ 
@@ -223,3 +223,4 @@ function formatValue(value: unknown, fieldType?: string): string {
       return String(value);
   }
 }
+

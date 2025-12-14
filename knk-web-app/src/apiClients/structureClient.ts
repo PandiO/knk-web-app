@@ -1,6 +1,6 @@
 import { logging, Controllers, HttpMethod, StructuresOperation } from "../utils";
-import { PagedQueryDto, PagedResultDto } from "../utils/domain/dto/common/PagedQuery";
-import { StructureDto, StructureCreateDto, StructureUpdateDto } from "../utils/domain/dto/structure/StructureDto";
+import { PagedQueryDto, PagedResultDto } from "../types/dtos/common/PagedQuery";
+import { StructureDto, StructureCreateDto, StructureUpdateDto } from "../types/dtos/structure/StructureDto";
 import { ObjectManager } from "./objectManager";
 
 export class StructureClient extends ObjectManager {
@@ -40,3 +40,5 @@ export class StructureClient extends ObjectManager {
 }
 
 export const structureClient = StructureClient.getInstance();
+
+

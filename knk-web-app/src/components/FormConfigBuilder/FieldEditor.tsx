@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { FormFieldDto } from '../../utils/domain/dto/forms/FormModels';
+import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
-import { FieldMetadataDto, EntityMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
+import { FieldMetadataDto, EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { metadataClient } from '../../apiClients/metadataClient';
 import { mapFieldType } from '../../utils/fieldTypeMapper';
 
@@ -363,3 +363,4 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
         </div>
     );
 };
+

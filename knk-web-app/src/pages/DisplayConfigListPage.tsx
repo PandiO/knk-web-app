@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Loader2, Eye } from 'lucide-react';
 import { logging } from '../utils';
 import { metadataClient } from '../apiClients/metadataClient';
-import { EntityMetadataDto } from '../utils/domain/dto/metadata/MetadataModels';
+import { EntityMetadataDto } from '../types/dtos/metadata/MetadataModels';
 
 export const DisplayConfigListPage: React.FC = () => {
     const navigate = useNavigate();
@@ -121,3 +121,4 @@ export const DisplayConfigListPage: React.FC = () => {
         </div>
     );
 };
+

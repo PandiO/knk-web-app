@@ -1,17 +1,10 @@
 // DisplaySection Component - Renders a section with fields or collection
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DisplayField } from './DisplayField';
 import { CollectionSection } from './CollectionSection';
 import { ActionButtons } from './ActionButtons';
-import { DisplaySectionProps, ActionButtonsConfigDto } from '../../utils/domain/dto/displayConfig/DisplayModels';
-
-interface EditFormModalState {
-  open: boolean;
-  entityTypeName: string;
-  entityId?: string | number;
-  isCreateMode: boolean;
-}
+import { DisplaySectionProps, ActionButtonsConfigDto } from '../../types/dtos/displayConfig/DisplayModels';
 
 export const DisplaySection: React.FC<DisplaySectionProps> = ({
   section,
@@ -22,12 +15,6 @@ export const DisplaySection: React.FC<DisplaySectionProps> = ({
   onValueChange
 }) => {
   const navigate = useNavigate();
-  const [editFormModal, setEditFormModal] = useState<EditFormModalState>({
-    open: false,
-    entityTypeName: '',
-    entityId: undefined,
-    isCreateMode: false
-  });
 
   // Parse fieldOrderJson
   const fieldOrder: string[] = section.fieldOrderJson 
@@ -136,3 +123,4 @@ function toCamelCase(str: string): string {
     </div>
   );
 };
+

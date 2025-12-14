@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Search, Copy as CopyIcon, Link as LinkIcon } from 'lucide-react';
-import { DisplaySectionDto, ReuseLinkMode } from '../../utils/domain/dto/displayConfig/DisplayModels';
+import { DisplaySectionDto, ReuseLinkMode } from '../../types/dtos/displayConfig/DisplayModels';
 
 interface Props {
     reusableSections: DisplaySectionDto[];
@@ -174,3 +174,4 @@ export const ReusableSectionSelector: React.FC<Props> = ({
         </div>
     );
 };
+

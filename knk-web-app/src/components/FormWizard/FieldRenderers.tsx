@@ -1,5 +1,5 @@
 import React from 'react';
-import { FormFieldDto } from '../../utils/domain/dto/forms/FormModels';
+import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
 import { Calendar, Plus, Minus, X } from 'lucide-react';
 import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
@@ -487,3 +487,4 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
         </div>
     );
 };
+

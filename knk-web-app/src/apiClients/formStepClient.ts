@@ -1,5 +1,5 @@
 import { Controllers, FormStepOperation, HttpMethod } from "../utils/enums";
-import { FormStepDto } from "../utils/domain/dto/forms/FormModels";
+import { FormStepDto } from "../types/dtos/forms/FormModels";
 import { ObjectManager } from "./objectManager";
 import { logging } from "../utils";
 
@@ -36,3 +36,4 @@ export class FormStepClient extends ObjectManager {
 }
 
 export const formStepClient = FormStepClient.getInstance();
+

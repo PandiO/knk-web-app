@@ -1,6 +1,6 @@
 import { logging, Controllers, HttpMethod, StreetsOperation } from "../utils";
-import { PagedQueryDto, PagedResultDto } from "../utils/domain/dto/common/PagedQuery";
-import { StreetDto, StreetCreateDto, StreetUpdateDto } from "../utils/domain/dto/street/StreetDto";
+import { PagedQueryDto, PagedResultDto } from "../types/dtos/common/PagedQuery";
+import { StreetDto, StreetCreateDto, StreetUpdateDto } from "../types/dtos/street/StreetDto";
 import { ObjectManager } from "./objectManager";
 
 export class StreetClient extends ObjectManager {
@@ -40,3 +40,5 @@ export class StreetClient extends ObjectManager {
 }
 
 export const streetClient = StreetClient.getInstance();
+
+

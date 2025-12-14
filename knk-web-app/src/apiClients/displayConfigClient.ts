@@ -9,7 +9,7 @@ import {
   ReuseLinkMode,
   AddReusableSectionRequestDto,
   AddReusableFieldRequestDto
-} from '../utils/domain/dto/displayConfig/DisplayModels';
+} from '../types/dtos/displayConfig/DisplayModels';
 
 const API_BASE_URL = appConfig.api.baseUrl;
 
@@ -295,3 +295,4 @@ export const displayConfigClient = {
     return response.json();
   }
 };
+

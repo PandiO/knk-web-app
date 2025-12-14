@@ -1,4 +1,4 @@
-import { uiConfigApiTestData } from "../../../../data/testData";
+import { uiConfigApiTestData } from "../../data/testData";
 import { mapApiToUIObjectConfigDto } from "./mappers";
 import { UIObjectConfigDto } from "./UIFieldConfigurations";
 

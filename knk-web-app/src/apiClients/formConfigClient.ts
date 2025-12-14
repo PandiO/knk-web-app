@@ -5,7 +5,7 @@ import {
     FormFieldDto,
     AddReusableStepRequestDto,
     AddReusableFieldRequestDto
-} from "../utils/domain/dto/forms/FormModels";
+} from "../types/dtos/forms/FormModels";
 import { ObjectManager } from "./objectManager";
 import { logging } from "../utils";
 
@@ -109,3 +109,4 @@ export class FormConfigClient extends ObjectManager {
 }
 
 export const formConfigClient = FormConfigClient.getInstance();
+

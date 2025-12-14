@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Copy, GripVertical, Trash2, Pencil, AlertTriangle, Link as LinkIcon, Copy as CopyIcon } from 'lucide-react';
-import { DisplaySectionDto, DisplayFieldDto, ReuseLinkMode } from '../../utils/domain/dto/displayConfig/DisplayModels';
+import { DisplaySectionDto, DisplayFieldDto, ReuseLinkMode } from '../../types/dtos/displayConfig/DisplayModels';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -10,7 +10,7 @@ import { ReusableFieldSelector } from './ReusableFieldSelector';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { metadataClient } from '../../apiClients/metadataClient';
 import { logging } from '../../utils';
-import { FieldMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
+import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 
 interface Props {
     section: DisplaySectionDto;
@@ -639,3 +639,4 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({ field, onEdit, on
         </div>
     );
 };
+

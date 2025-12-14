@@ -2,7 +2,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, AlertTriangle, Link as LinkIcon, Copy as CopyIcon } from 'lucide-react';
-import { DisplaySectionDto } from '../../utils/domain/dto/displayConfig/DisplayModels';
+import { DisplaySectionDto } from '../../types/dtos/displayConfig/DisplayModels';
 
 interface Props {
     section: DisplaySectionDto;
@@ -87,3 +87,4 @@ export const SortableSectionItem: React.FC<Props> = ({ section, index, isSelecte
         </div>
     );
 };
+

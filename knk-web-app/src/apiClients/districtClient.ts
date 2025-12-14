@@ -1,6 +1,6 @@
 import { logging, Controllers, HttpMethod, DistrictsOperation } from "../utils";
-import { PagedQueryDto, PagedResultDto } from "../utils/domain/dto/common/PagedQuery";
-import { DistrictDto, DistrictCreateDto, DistrictUpdateDto } from "../utils/domain/dto/district/DistrictDto";
+import { PagedQueryDto, PagedResultDto } from "../types/dtos/common/PagedQuery";
+import { DistrictDto, DistrictCreateDto, DistrictUpdateDto } from "../types/dtos/district/DistrictDto";
 import { ObjectManager } from "./objectManager";
 
 export class DistrictClient extends ObjectManager {
@@ -40,3 +40,5 @@ export class DistrictClient extends ObjectManager {
 }
 
 export const districtClient = DistrictClient.getInstance();
+
+
