@@ -4,6 +4,7 @@ import { FormFieldDto } from '../../utils/domain/dto/forms/FormModels';
 import { FieldType } from '../../utils/enums';
 import { FieldMetadataDto, EntityMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
 import { metadataClient } from '../../apiClients/metadataClient';
+import { mapFieldType } from '../../utils/fieldTypeMapper';
 
 interface Props {
     field: FormFieldDto;
@@ -33,24 +34,6 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
 
     const isCollectionType = (type: FieldType): boolean => {
         return type === FieldType.List;
-    };
-
-    const mapFieldType = (backendType: string): FieldType => {
-        const typeMap: Record<string, FieldType> = {
-            'string': FieldType.String,
-            'int': FieldType.Integer,
-            'int32': FieldType.Integer,
-            'int64': FieldType.Integer,
-            'bool': FieldType.Boolean,
-            'boolean': FieldType.Boolean,
-            'datetime': FieldType.DateTime,
-            'decimal': FieldType.Decimal,
-            'double': FieldType.Decimal,
-            'float': FieldType.Decimal,
-            'list': FieldType.List,
-        };
-        const normalized = backendType.toLowerCase();
-        return typeMap[normalized] || FieldType.Object;
     };
 
     const handleFieldNameChange = (selectedFieldName: string) => {

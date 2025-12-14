@@ -42,6 +42,8 @@ export interface DisplayFieldDto {
   id?: string;
   fieldGuid?: string;
   displaySectionId?: string;
+  relatedEntityPropertyName?: string; // e.g., "ParentCategory", "IconMaterialRef"
+  relatedEntityTypeName?: string; // e.g., "Category", "MinecraftMaterialRef"
   fieldName?: string;
   label: string;
   description?: string;
@@ -52,6 +54,7 @@ export interface DisplayFieldDto {
   isLinkedToSource: boolean;
   hasCompatibilityIssues?: boolean;
   compatibilityIssues?: string[];
+  isEditableInDisplay?: boolean; // Enable hot edit feature for this field
   createdAt?: string;
   updatedAt?: string;
 }
@@ -114,12 +117,18 @@ export interface DisplayConfigBuilderProps {
 export interface DisplaySectionProps {
   section: DisplaySectionDto;
   entityData: Record<string, unknown>;
+  entityId?: string | number;
+  entityTypeName?: string;
   onActionClick?: (action: DisplayAction) => void;
+  onValueChange?: (fieldName: string, newValue: unknown) => Promise<void>;
 }
 
 export interface DisplayFieldProps {
   field: DisplayFieldDto;
   data: unknown;
+  entityId?: string | number;
+  entityTypeName?: string;
+  onValueChange?: (fieldName: string, newValue: unknown) => Promise<void>;
 }
 
 export interface CollectionSectionProps {

@@ -10,6 +10,8 @@ interface ActionButtonsProps {
   entityData?: Record<string, unknown>;
   onActionClick?: (action: DisplayAction) => void;
   isItemLevel?: boolean; // For collection items
+  onEdit?: (entityId: number | string) => void; // Callback for edit action
+  onCreateNew?: () => void; // Callback for create action
 }
 
 export const ActionButtons: React.FC<ActionButtonsProps> = ({
@@ -18,12 +20,14 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   entityType,
   entityData,
   onActionClick,
-  isItemLevel = false
+  isItemLevel = false,
+  onEdit,
+  onCreateNew
 }) => {
-  if (!onActionClick || !entityType) return null;
+  if (!entityType) return null;
 
   const handleClick = (type: DisplayAction['type']) => {
-    onActionClick({
+    onActionClick?.({
       type,
       entityType,
       entityId: entityData?.id as number | undefined
@@ -46,7 +50,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
       {config.showEditButton && entityData && (
         <button 
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 rounded hover:bg-green-200 transition-colors"
-          onClick={() => handleClick('edit')}
+          onClick={() => onEdit ? onEdit(entityData.id as number | string) : handleClick('edit')}
         >
           <Edit size={16} />
           Edit
@@ -107,7 +111,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
       {config.showCreateButton && (
         <button 
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-purple-700 bg-purple-100 rounded hover:bg-purple-200 transition-colors"
-          onClick={() => handleClick('create')}
+          onClick={() => onCreateNew ? onCreateNew() : handleClick('create')}
         >
           <PlusCircle size={16} />
           Create New

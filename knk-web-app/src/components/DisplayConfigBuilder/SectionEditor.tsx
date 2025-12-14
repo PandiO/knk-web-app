@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Copy, GripVertical, Trash2, Pencil, AlertTriangle, Link as LinkIcon, Copy as CopyIcon } from 'lucide-react';
 import { DisplaySectionDto, DisplayFieldDto, ReuseLinkMode } from '../../utils/domain/dto/displayConfig/DisplayModels';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -8,20 +8,36 @@ import { CSS } from '@dnd-kit/utilities';
 import { FieldEditor } from './FieldEditor';
 import { ReusableFieldSelector } from './ReusableFieldSelector';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
+import { metadataClient } from '../../apiClients/metadataClient';
 import { logging } from '../../utils';
+import { FieldMetadataDto } from '../../utils/domain/dto/metadata/MetadataModels';
 
 interface Props {
     section: DisplaySectionDto;
     reusableFields: DisplayFieldDto[];
     onUpdate: (section: DisplaySectionDto) => void;
-    entityFields?: string[];
+    onAddChildSection?: (parentId: string | number) => void;
+    metadataFields?: FieldMetadataDto[]; // All fields of the main entity
 }
 
-export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpdate, entityFields = [] }) => {
+// Helper: get related entity options from metadataFields
+function getRelatedEntityOptions(metadataFields: FieldMetadataDto[]): { propertyName: string; entityTypeName: string; displayLabel: string }[] {
+    return metadataFields
+        .filter(f => f.isRelatedEntity && f.relatedEntityType)
+        .map(f => ({
+            propertyName: f.fieldName,
+            entityTypeName: f.relatedEntityType!,
+            displayLabel: `${f.fieldName} (${f.relatedEntityType})`
+        }));
+}
+
+export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpdate, onAddChildSection, metadataFields = [] }) => {
     const [editingField, setEditingField] = useState<{ field: DisplayFieldDto; index: number } | null>(null);
     const [showFieldSelector, setShowFieldSelector] = useState(false);
     const [addingTemplate, setAddingTemplate] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [relatedEntityFields, setRelatedEntityFields] = useState<FieldMetadataDto[]>([]);
+    const [loadingRelatedMetadata, setLoadingRelatedMetadata] = useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -145,6 +161,50 @@ export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpda
             return {};
         }
     };
+    // Related entity options for this section
+    const relatedEntityOptions = getRelatedEntityOptions(metadataFields);
+
+    // Load related entity metadata when section.relatedEntityPropertyName changes
+    useEffect(() => {
+        async function loadRelatedEntityMetadata() {
+            if (section.relatedEntityPropertyName && section.relatedEntityTypeName) {
+                setLoadingRelatedMetadata(true);
+                try {
+                    // Assume metadataClient is globally available or imported
+                    const metadata = await metadataClient.getEntityMetadata(section.relatedEntityTypeName);
+                    setRelatedEntityFields(metadata.fields);
+                } catch (err) {
+                    setRelatedEntityFields([]);
+                } finally {
+                    setLoadingRelatedMetadata(false);
+                }
+            } else {
+                setRelatedEntityFields([]);
+            }
+        }
+        loadRelatedEntityMetadata();
+    }, [section.relatedEntityPropertyName, section.relatedEntityTypeName]);
+
+    // Handler for changing the dedicated related entity for this section
+    const handleRelatedEntityChange = (value: string) => {
+        if (!value) {
+            // Clear related entity selection
+            onUpdate({
+                ...section,
+                relatedEntityPropertyName: undefined,
+                relatedEntityTypeName: undefined
+            });
+        } else {
+            const option = relatedEntityOptions.find(o => o.propertyName === value);
+            if (option) {
+                onUpdate({
+                    ...section,
+                    relatedEntityPropertyName: option.propertyName,
+                    relatedEntityTypeName: option.entityTypeName
+                });
+            }
+        }
+    };
 
     const actionButtons = parseActionButtons(section.actionButtonsConfigJson);
 
@@ -158,6 +218,29 @@ export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpda
 
     return (
         <div className="bg-white shadow-sm rounded-lg">
+            {/* Dedicated to Related Entity selector */}
+            {relatedEntityOptions.length > 0 && (
+                <div className="px-6 pt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Dedicated to Related Entity
+                    </label>
+                    <select
+                        value={section.relatedEntityPropertyName || ''}
+                        onChange={e => handleRelatedEntityChange(e.target.value)}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                    >
+                        <option value="">None (use main entity)</option>
+                        {relatedEntityOptions.map(option => (
+                            <option key={option.propertyName} value={option.propertyName}>
+                                {option.displayLabel}
+                            </option>
+                        ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                        Select a related entity to dedicate this section to. All fields in this section will be from the related entity.
+                    </p>
+                </div>
+            )}
             <div className="px-6 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-medium text-gray-900">Edit Section</h2>
             </div>
@@ -232,31 +315,81 @@ export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpda
                 </div>
 
                 {section.isCollection && (
-                    <div className="grid grid-cols-2 gap-4 pl-6 border-l-2 border-blue-200">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Related Entity Property
-                            </label>
-                            <input
-                                type="text"
-                                value={section.relatedEntityPropertyName || ''}
-                                onChange={e => onUpdate({ ...section, relatedEntityPropertyName: e.target.value })}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                placeholder="e.g., streets, buildings"
-                            />
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">Collection Configuration</h4>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Related Entity Property
+                                </label>
+                                {relatedEntityOptions.length > 0 ? (
+                                    <select
+                                        value={section.relatedEntityPropertyName || ''}
+                                        onChange={e => {
+                                            const value = e.target.value;
+                                            if (!value) {
+                                                onUpdate({ ...section, relatedEntityPropertyName: undefined, relatedEntityTypeName: undefined });
+                                            } else {
+                                                const option = relatedEntityOptions.find(o => o.propertyName === value);
+                                                if (option) {
+                                                    onUpdate({
+                                                        ...section,
+                                                        relatedEntityPropertyName: option.propertyName,
+                                                        relatedEntityTypeName: option.entityTypeName
+                                                    });
+                                                }
+                                            }
+                                        }}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                    >
+                                        <option value="">Select a navigation property...</option>
+                                        {relatedEntityOptions.map(option => (
+                                            <option key={`collection-prop-${option.propertyName}`} value={option.propertyName}>
+                                                {option.propertyName}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        value={section.relatedEntityPropertyName || ''}
+                                        onChange={e => onUpdate({ ...section, relatedEntityPropertyName: e.target.value })}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                        placeholder="e.g., streets, buildings"
+                                    />
+                                )}
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Navigation property for the collection
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Related Entity Type
+                                </label>
+                                <input
+                                    type="text"
+                                    value={section.relatedEntityTypeName || ''}
+                                    readOnly
+                                    className="block w-full rounded-md border-gray-300 shadow-sm bg-gray-100 text-gray-600 sm:text-sm"
+                                    placeholder="Auto-filled from selected property"
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Auto-populated when you select a Related Entity Property
+                                </p>
+                            </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Related Entity Type
-                            </label>
-                            <input
-                                type="text"
-                                value={section.relatedEntityTypeName || ''}
-                                onChange={e => onUpdate({ ...section, relatedEntityTypeName: e.target.value })}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                placeholder="e.g., Street, Building"
-                            />
+                        <div className="flex justify-end pt-2">
+                            <button
+                                type="button"
+                                className="btn-secondary text-sm"
+                                onClick={() => onAddChildSection && onAddChildSection(section.sectionGuid || section.id!)}
+                            >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Add item template section
+                            </button>
                         </div>
                     </div>
                 )}
@@ -409,7 +542,8 @@ export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpda
                     field={editingField.field}
                     onSave={handleSaveField}
                     onCancel={() => setEditingField(null)}
-                    entityFields={entityFields}
+                    metadataFields={section.relatedEntityPropertyName ? relatedEntityFields : metadataFields}
+                    sectionDedicatedToEntity={section.relatedEntityPropertyName ? { propertyName: section.relatedEntityPropertyName, entityTypeName: section.relatedEntityTypeName! } : undefined}
                 />
             )}
 

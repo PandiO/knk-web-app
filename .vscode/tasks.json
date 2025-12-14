@@ -3,6 +3,15 @@
 	"tasks": [
 		{
 			"type": "npm",
+			"script": "start",
+			"path": "knk-web-app",
+			"problemMatcher": [],
+			"label": "npm: start",
+			"detail": "react-scripts start",
+			"isBackground": true
+		},
+		{
+			"type": "npm",
 			"script": "build",
 			"path": "knk-web-app",
 			"group": "build",

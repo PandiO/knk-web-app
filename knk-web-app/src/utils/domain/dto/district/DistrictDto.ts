@@ -1,7 +1,8 @@
-import { DomainBaseDto } from '../town/TownDto';
+import { DomainBaseDto, TownDto } from '../town/TownDto';
 
 export interface DistrictDto extends DomainBaseDto {
     townId: number;
+    // town: TownDto
     streetIds?: number[];
 }
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Save, Plus, AlertCircle, Loader2, Copy } from 'lucide-react';
+import { Save, Plus, AlertCircle, Loader2, Copy, Trash2 } from 'lucide-react';
 import { DisplayConfigurationDto, DisplaySectionDto, DisplayFieldDto, ReuseLinkMode } from '../../utils/domain/dto/displayConfig/DisplayModels';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { metadataClient } from '../../apiClients/metadataClient';
@@ -29,7 +29,7 @@ export const DisplayConfigBuilder: React.FC = () => {
 
     const [reusableSections, setReusableSections] = useState<DisplaySectionDto[]>([]);
     const [reusableFields, setReusableFields] = useState<DisplayFieldDto[]>([]);
-    const [selectedSectionIndex, setSelectedSectionIndex] = useState<number | null>(null);
+    const [selectedSectionKey, setSelectedSectionKey] = useState<string | number | null>(null);
     const [loading, setLoading] = useState(isEditMode);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -129,6 +129,14 @@ export const DisplayConfigBuilder: React.FC = () => {
         }
     }, [config.entityTypeName, metadata]);
 
+    useEffect(() => {
+        if (!config.entityTypeName) return;
+        const defaultName = `${config.entityTypeName} Display`;
+        if (!config.name || config.name.trim() === '') {
+            setConfig(prev => ({ ...prev, name: defaultName }));
+        }
+    }, [config.entityTypeName, config.name]);
+
     const loadData = async () => {
         try {
             setLoading(true);
@@ -201,7 +209,7 @@ export const DisplayConfigBuilder: React.FC = () => {
             ...prev,
             sections: [...prev.sections, newSection]
         }));
-        setSelectedSectionIndex(config.sections.length);
+        setSelectedSectionKey(newSection.sectionGuid || newSection.id!);
     };
 
     const handleAddReusableSection = async (templateSection: DisplaySectionDto, mode: ReuseLinkMode) => {
@@ -216,7 +224,7 @@ export const DisplayConfigBuilder: React.FC = () => {
                 sections: [...prev.sections, clonedSection]
             }));
             setShowSectionSelector(false);
-            setSelectedSectionIndex(config.sections.length);
+            setSelectedSectionKey(clonedSection.sectionGuid || clonedSection.id!);
             return;
         }
 
@@ -239,7 +247,7 @@ export const DisplayConfigBuilder: React.FC = () => {
                 sections: [...prev.sections, addedSection]
             }));
             setShowSectionSelector(false);
-            setSelectedSectionIndex(config.sections.length);
+            setSelectedSectionKey(addedSection.sectionGuid || addedSection.id!);
         } catch (err: any) {
             console.error('Failed to add reusable section:', err);
             const errorMsg = err?.message || 'Failed to add section from template';
@@ -250,15 +258,27 @@ export const DisplayConfigBuilder: React.FC = () => {
         }
     };
 
-    const handleDeleteSection = (index: number) => {
+    const sectionMatchesKey = (s: DisplaySectionDto, key: string | number) => {
+        const k = key.toString();
+        return (s.sectionGuid && s.sectionGuid.toString() === k) || (s.id !== undefined && s.id?.toString() === k);
+    };
+
+    const removeSectionByKey = (sections: DisplaySectionDto[], key: string | number): DisplaySectionDto[] => {
+        return sections
+            .filter(s => !sectionMatchesKey(s, key))
+            .map(s => ({
+                ...s,
+                subSections: removeSectionByKey(s.subSections || [], key)
+            }));
+    };
+
+    const handleDeleteSection = (key: string | number) => {
         setConfig(prev => ({
             ...prev,
-            sections: prev.sections.filter((_, i) => i !== index)
+            sections: removeSectionByKey(prev.sections, key)
         }));
-        if (selectedSectionIndex === index) {
-            setSelectedSectionIndex(null);
-        } else if (selectedSectionIndex && selectedSectionIndex > index) {
-            setSelectedSectionIndex(selectedSectionIndex - 1);
+        if (selectedSectionKey === key) {
+            setSelectedSectionKey(null);
         }
     };
 
@@ -267,8 +287,8 @@ export const DisplayConfigBuilder: React.FC = () => {
 
         if (over && active.id !== over.id) {
             setConfig(prev => {
-                const oldIndex = prev.sections.findIndex(s => (s.sectionGuid || s.id) === active.id);
-                const newIndex = prev.sections.findIndex(s => (s.sectionGuid || s.id) === over.id);
+                const oldIndex = prev.sections.findIndex(s => sectionMatchesKey(s, active.id));
+                const newIndex = prev.sections.findIndex(s => sectionMatchesKey(s, over.id));
 
                 const reorderedSections = arrayMove(prev.sections, oldIndex, newIndex);
 
@@ -277,13 +297,60 @@ export const DisplayConfigBuilder: React.FC = () => {
         }
     };
 
+    const replaceSection = (sections: DisplaySectionDto[], updated: DisplaySectionDto): DisplaySectionDto[] => {
+        return sections.map(s => {
+            if (sectionMatchesKey(s, updated.sectionGuid || updated.id!)) {
+                return updated;
+            }
+            return { ...s, subSections: replaceSection(s.subSections || [], updated) };
+        });
+    };
+
     const handleUpdateSection = (updatedSection: DisplaySectionDto) => {
         setConfig(prev => ({
             ...prev,
-            sections: prev.sections.map((s, i) =>
-                i === selectedSectionIndex ? updatedSection : s
-            )
+            sections: replaceSection(prev.sections, updatedSection)
         }));
+    };
+
+    const findSection = (sections: DisplaySectionDto[], key: string | number): DisplaySectionDto | null => {
+        for (const s of sections) {
+            if (sectionMatchesKey(s, key)) return s;
+            const child = findSection(s.subSections || [], key);
+            if (child) return child;
+        }
+        return null;
+    };
+
+    const handleAddChildSection = (parentKey: string | number) => {
+        const newSection: DisplaySectionDto = {
+            id: generateTempId(),
+            sectionGuid: crypto.randomUUID?.() || `guid-${Date.now()}`,
+            sectionName: 'Item Template',
+            description: '',
+            isReusable: false,
+            isLinkedToSource: false,
+            hasCompatibilityIssues: false,
+            isCollection: false,
+            fields: [],
+            subSections: [],
+            parentSectionId: parentKey as any // stored for backend when saved
+        } as DisplaySectionDto;
+
+        const addChild = (sections: DisplaySectionDto[]): DisplaySectionDto[] =>
+            sections.map(s => {
+                if (sectionMatchesKey(s, parentKey)) {
+                    const subSections = [...(s.subSections || []), newSection];
+                    return { ...s, subSections };
+                }
+                return { ...s, subSections: addChild(s.subSections || []) };
+            });
+
+        setConfig(prev => ({
+            ...prev,
+            sections: addChild(prev.sections)
+        }));
+        setSelectedSectionKey(newSection.sectionGuid || newSection.id!);
     };
 
     const validateConfig = (): boolean => {
@@ -436,7 +503,35 @@ export const DisplayConfigBuilder: React.FC = () => {
         );
     }
 
-    const entityFieldNames = selectedEntityMeta?.fields.map(f => f.fieldName) || [];
+    const metadataFields = selectedEntityMeta?.fields || [];
+
+    const renderSectionList = (sections: DisplaySectionDto[], level = 0) => {
+        return sections.map(section => {
+            const key = section.sectionGuid || section.id!;
+            const isSelected = selectedSectionKey === key;
+            return (
+                <div key={key} style={{ marginLeft: level * 16 }} className="flex items-center justify-between p-2 border rounded-md bg-white">
+                    <button
+                        className={`text-left flex-1 ${isSelected ? 'font-semibold text-primary' : 'text-gray-900'}`}
+                        onClick={() => setSelectedSectionKey(key)}
+                    >
+                        {section.sectionName}
+                        {section.isCollection && <span className="ml-2 text-xs text-blue-600">(collection)</span>}
+                    </button>
+                    <button
+                        onClick={() => handleDeleteSection(key)}
+                        className="p-1 text-gray-400 hover:text-red-600"
+                        title="Delete section"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                    {section.subSections && section.subSections.length > 0 && (
+                        <div className="w-full mt-2">{renderSectionList(section.subSections, level + 1)}</div>
+                    )}
+                </div>
+            );
+        });
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -575,41 +670,66 @@ export const DisplayConfigBuilder: React.FC = () => {
                                 No sections yet. Click + to add one.
                             </div>
                         ) : (
-                            <DndContext
-                                sensors={sensors}
-                                collisionDetection={closestCenter}
-                                onDragEnd={handleSectionDragEnd}
-                            >
-                                <SortableContext
-                                    items={config.sections.map(s => s.sectionGuid || s.id!)}
-                                    strategy={verticalListSortingStrategy}
+                            <div className="space-y-2">
+                                {/* Keep drag-and-drop for top-level only */}
+                                <DndContext
+                                    sensors={sensors}
+                                    collisionDetection={closestCenter}
+                                    onDragEnd={handleSectionDragEnd}
                                 >
-                                    <div className="space-y-2">
-                                        {config.sections.map((section, index) => (
-                                            <SortableSectionItem
-                                                key={section.sectionGuid || section.id}
-                                                section={section}
-                                                index={index}
-                                                isSelected={selectedSectionIndex === index}
-                                                onSelect={() => setSelectedSectionIndex(index)}
-                                                onDelete={() => handleDeleteSection(index)}
-                                            />
-                                        ))}
-                                    </div>
-                                </SortableContext>
-                            </DndContext>
+                                    <SortableContext
+                                        items={config.sections.map(s => s.sectionGuid || s.id!)}
+                                        strategy={verticalListSortingStrategy}
+                                    >
+                                        {config.sections.map((section, index) => {
+                                            const key = section.sectionGuid || section.id!;
+                                            const isSelected = selectedSectionKey === key;
+                                            return (
+                                                <div key={key} className="space-y-2">
+                                                    <SortableSectionItem
+                                                        section={section}
+                                                        index={index}
+                                                        isSelected={isSelected}
+                                                        onSelect={() => setSelectedSectionKey(key)}
+                                                        onDelete={() => handleDeleteSection(key)}
+                                                    />
+                                                    {/* Render child sections (non-draggable) */}
+                                                    {section.subSections && section.subSections.length > 0 && (
+                                                        <div className="space-y-2 pl-4 border-l border-gray-200">
+                                                            {renderSectionList(section.subSections, 1)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </SortableContext>
+                                </DndContext>
+                            </div>
                         )}
                     </div>
 
                     {/* Section Editor */}
                     <div className="col-span-8">
-                        {selectedSectionIndex !== null && config.sections[selectedSectionIndex] ? (
-                            <SectionEditor
-                                section={config.sections[selectedSectionIndex]}
-                                reusableFields={reusableFields}
-                                onUpdate={handleUpdateSection}
-                                entityFields={entityFieldNames}
-                            />
+                        {selectedSectionKey ? (
+                            (() => {
+                                const selected = findSection(config.sections, selectedSectionKey);
+                                if (!selected) {
+                                    return (
+                                        <div className="bg-white shadow-sm rounded-lg p-12 text-center">
+                                            <p className="text-gray-500">Select a section from the left to edit it.</p>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <SectionEditor
+                                        section={selected}
+                                        reusableFields={reusableFields}
+                                        onUpdate={handleUpdateSection}
+                                        onAddChildSection={handleAddChildSection}
+                                        metadataFields={metadataFields}
+                                    />
+                                );
+                            })()
                         ) : (
                             <div className="bg-white shadow-sm rounded-lg p-12 text-center">
                                 <p className="text-gray-500">

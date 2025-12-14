@@ -447,6 +447,35 @@ export const FormWizardPage: React.FC<Props> = ({
         navigate(`/admin/display-configurations/edit/${config.id}`);
     };
 
+    const handleDisplayPublish = async (config: DisplayConfigurationDto) => {
+        const idNumber = config.id ? parseInt(config.id, 10) : NaN;
+        if (Number.isNaN(idNumber)) {
+            logging.errorHandler.next('ErrorMessage.DisplayConfiguration.PublishFailed');
+            return;
+        }
+        try {
+            const published = await displayConfigClient.publish(idNumber);
+            setDisplayConfigs(prev => prev.map(c => c.id === config.id ? published : c));
+            showFeedback({
+                title: 'Display configuration published',
+                message: `"${config.name}" is now live and available for use.`,
+                status: 'success',
+                onContinue: undefined,
+                autoCloseMs: 3000,
+            });
+        } catch (error) {
+            console.error('Failed to publish display configuration:', error);
+            logging.errorHandler.next('ErrorMessage.DisplayConfiguration.PublishFailed');
+            showFeedback({
+                title: 'Publish failed',
+                message: 'Unable to publish the display configuration. Please try again.',
+                status: 'error',
+                onContinue: undefined,
+                autoCloseMs: 5000,
+            });
+        }
+    };
+
     const handleDisplayDelete = async (config: DisplayConfigurationDto) => {
         const idNumber = config.id ? parseInt(config.id, 10) : NaN;
         if (Number.isNaN(idNumber)) {
@@ -647,6 +676,7 @@ export const FormWizardPage: React.FC<Props> = ({
                                                     onEdit={handleDisplayEdit}
                                                     onSetDefault={handleDisplaySetDefault}
                                                     onRemoveDefault={handleDisplayRemoveDefault}
+                                                    onPublish={handleDisplayPublish}
                                                     onDelete={handleDisplayDelete}
                                                 />
                                             )}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Eye, MoreVertical, Pencil, Star, StarOff, Trash2 } from 'lucide-react';
+import { Eye, MoreVertical, Pencil, Rocket, Star, StarOff, Trash2 } from 'lucide-react';
 import { DisplayConfigurationDto } from '../../utils/domain/dto/displayConfig/DisplayModels';
 
 interface Props {
@@ -7,6 +7,7 @@ interface Props {
     onEdit: (config: DisplayConfigurationDto) => void;
     onSetDefault: (config: DisplayConfigurationDto) => void;
     onRemoveDefault: (config: DisplayConfigurationDto) => void;
+    onPublish?: (config: DisplayConfigurationDto) => void;
     onDelete?: (config: DisplayConfigurationDto) => void;
 }
 
@@ -15,6 +16,7 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
     onEdit,
     onSetDefault,
     onRemoveDefault,
+    onPublish,
     onDelete
 }) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -213,6 +215,19 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                                 <Eye className="h-4 w-4 text-gray-400" />
                                                                 <span>Open in Builder</span>
                                                             </button>
+                                                            {config.isDraft && onPublish && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        onPublish(config);
+                                                                        setActiveMenu(null);
+                                                                    }}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center space-x-2"
+                                                                    role="menuitem"
+                                                                >
+                                                                    <Rocket className="h-4 w-4" />
+                                                                    <span>Publish</span>
+                                                                </button>
+                                                            )}
                                                             {onDelete && (
                                                                 <button
                                                                     onClick={() => handleDeleteClick(config)}

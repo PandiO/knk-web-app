@@ -63,3 +63,30 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             throw new Error(`No fetchById function registered for entity type: ${entityTypeName}`);
     }
 }
+
+export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any) => Promise<any> {
+    const normalized = entityTypeName.toLowerCase();
+    
+    switch (normalized) {
+        case 'category':
+            return (entity) => CategoryClient.getInstance().update(entity);
+        case 'street':
+            return (entity) => StreetClient.getInstance().update(entity);
+        case 'town':
+            return (entity) => TownClient.getInstance().update(entity);
+        case 'district':
+            return (entity) => DistrictClient.getInstance().update(entity);
+        case 'structure':
+            return (entity) => StructureClient.getInstance().update(entity);
+        case 'location':
+            return (entity) => LocationClient.getInstance().update(entity);
+        case 'minecraftblockref':
+            return (entity) => MinecraftBlockRefClient.getInstance().update(entity);
+        case 'minecraftmaterialref':
+            return (entity) => MinecraftMaterialRefClient.getInstance().update(entity);
+        case 'user':
+            return () => Promise.reject(new Error('User update not implemented'));
+        default:
+            throw new Error(`No update function registered for entity type: ${entityTypeName}`);
+    }
+}

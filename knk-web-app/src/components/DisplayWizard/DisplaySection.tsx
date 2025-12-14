@@ -1,15 +1,34 @@
 // DisplaySection Component - Renders a section with fields or collection
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DisplayField } from './DisplayField';
 import { CollectionSection } from './CollectionSection';
 import { ActionButtons } from './ActionButtons';
 import { DisplaySectionProps, ActionButtonsConfigDto } from '../../utils/domain/dto/displayConfig/DisplayModels';
 
+interface EditFormModalState {
+  open: boolean;
+  entityTypeName: string;
+  entityId?: string | number;
+  isCreateMode: boolean;
+}
+
 export const DisplaySection: React.FC<DisplaySectionProps> = ({
   section,
   entityData,
-  onActionClick
+  entityId,
+  entityTypeName,
+  onActionClick,
+  onValueChange
 }) => {
+  const navigate = useNavigate();
+  const [editFormModal, setEditFormModal] = useState<EditFormModalState>({
+    open: false,
+    entityTypeName: '',
+    entityId: undefined,
+    isCreateMode: false
+  });
+
   // Parse fieldOrderJson
   const fieldOrder: string[] = section.fieldOrderJson 
     ? JSON.parse(section.fieldOrderJson) 
@@ -24,13 +43,47 @@ export const DisplaySection: React.FC<DisplaySectionProps> = ({
   // Determine data source
   let sectionData: unknown = entityData;
   if (section.relatedEntityPropertyName) {
-    sectionData = (entityData as Record<string, unknown>)[section.relatedEntityPropertyName];
+    const record = entityData as Record<string, unknown>;
+    // Handle both camelCase and PascalCase property names
+    const propName = section.relatedEntityPropertyName;
+    sectionData = record[propName] ?? 
+                  record[toPascalCase(propName)] ?? 
+                  record[toCamelCase(propName)];
   }
+
+  console.log('DisplaySection: rendering', {
+    section,
+    sectionData,
+    entityData,
+    orderedFields
+  });
+
+// Helper: Convert to PascalCase (first letter uppercase)
+function toPascalCase(str: string): string {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// Helper: Convert to camelCase (first letter lowercase)
+function toCamelCase(str: string): string {
+  if (!str) return str;
+  return str.charAt(0).toLowerCase() + str.slice(1);
+}
 
   // Parse action buttons config
   const actionButtons: ActionButtonsConfigDto = section.actionButtonsConfigJson
     ? JSON.parse(section.actionButtonsConfigJson)
     : {};
+
+  // Handle edit button: navigate to form wizard with entityId for editing
+  const handleEditEntity = (editEntityId: string | number) => {
+    navigate(`/form/${section.relatedEntityTypeName}/${editEntityId}`);
+  };
+
+  // Handle create new button: navigate to form wizard to create new entity
+  const handleCreateNewEntity = () => {
+    navigate(`/form/${section.relatedEntityTypeName}`);
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -57,7 +110,10 @@ export const DisplaySection: React.FC<DisplaySectionProps> = ({
                 <DisplayField
                   key={field.fieldGuid}
                   field={field}
-                  data={sectionData}
+                  data={field.relatedEntityPropertyName ? entityData : sectionData}
+                  entityId={entityId}
+                  entityTypeName={entityTypeName}
+                  onValueChange={onValueChange}
                 />
               ))}
             </div>
@@ -69,6 +125,8 @@ export const DisplaySection: React.FC<DisplaySectionProps> = ({
               entityType={section.relatedEntityTypeName}
               entityData={sectionData as Record<string, unknown>}
               onActionClick={onActionClick}
+              onEdit={section.relatedEntityTypeName ? handleEditEntity : undefined}
+              onCreateNew={section.relatedEntityTypeName ? handleCreateNewEntity : undefined}
             />
           </>
         )}
