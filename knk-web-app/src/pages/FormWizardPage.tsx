@@ -11,7 +11,6 @@ import { FormConfigurationTable } from '../components/FormWizard/FormConfigurati
 import { FormWizard } from '../components/FormWizard/FormWizard';
 import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
 import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
-import { objectConfigs } from '../config/objectConfigs';
 import { logging } from '../utils';
 import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../types/dtos/forms/FormModels';
 import { DisplayConfigurationDto } from '../types/dtos/displayConfig/DisplayModels';
@@ -21,6 +20,8 @@ import { StreetClient } from '../apiClients/streetClient';
 import { StructureClient } from '../apiClients/structureClient';
 import { TownClient } from '../apiClients/townClient';
 import { FieldMetadataDto } from '../types/dtos/metadata/MetadataModels';
+import { useEntityMetadata } from '../hooks/useEntityMetadata';
+import { renderIcon } from '../utils/iconRegistry';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { 
@@ -126,7 +127,7 @@ export const FormWizardPage: React.FC<Props> = ({
                 setEntityNamesLower(normalized);
             } catch (error) {
                 console.error('Failed to fetch entity names:', error);
-                setEntityNamesLower(Object.keys(objectConfigs).map(k => k.toLowerCase()));
+                setEntityNamesLower([]);
             } finally {
                 setInitialLoading(false);
             }
@@ -134,26 +135,27 @@ export const FormWizardPage: React.FC<Props> = ({
         fetchAvailableEntityNames();
     }, []);
 
-    // Sidebar items filtered by available entity names
+    // Load merged metadata for sidebar items
+    const { allMergedMetadata } = useEntityMetadata();
+
+    // Sidebar items built from merged metadata (base + admin config)
     const sidebarItems = useMemo(() => {
-        return Object.entries(objectConfigs)
-            .filter(([key, config]) => {
-                const keyLower = key.toLowerCase();
-                const typeLower = (config.type || '').toLowerCase();
-                const labelLower = (config.label || '').toLowerCase();
+        return allMergedMetadata
+            .filter(meta => {
+                const nameLower = (meta.entityName || '').toLowerCase();
+                const displayLower = (meta.displayName || '').toLowerCase();
                 return (
-                    entityNamesLower.includes(keyLower) ||
-                    entityNamesLower.includes(typeLower) ||
-                    entityNamesLower.includes(labelLower)
+                    entityNamesLower.includes(nameLower) ||
+                    entityNamesLower.includes(displayLower)
                 );
             })
-            .map(([type, config]) => ({
-                id: type,
-                label: config.label,
-                icon: config.icon,
-                createRoute: `/forms/${type}`,
+            .map(meta => ({
+                id: meta.entityName,
+                label: meta.displayName,
+                icon: renderIcon(meta.iconKey),
+                createRoute: `/forms/${meta.entityName}`,
             }));
-    }, [entityNamesLower]);
+    }, [entityNamesLower, allMergedMetadata]);
 
     // added: Update selectedObjectType whenever selectedTypeName changes
     useEffect(() => {

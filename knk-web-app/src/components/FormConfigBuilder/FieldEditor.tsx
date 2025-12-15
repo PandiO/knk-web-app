@@ -131,6 +131,11 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                                     Select from entity fields or leave empty to add custom field
                                 </p>
                             )}
+                            
+                            {/* added: Show metadata hints for selected field */}
+                            {field.fieldName && metadataFields.length > 0 && (
+                                <FieldMetadataHint fieldName={field.fieldName} metadataFields={metadataFields} />
+                            )}
                         </div>
 
                         <div>
@@ -359,6 +364,46 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                         Save Field
                     </button>
                 </div>
+            </div>
+        </div>
+    );
+};
+
+interface FieldMetadataHintProps {
+    fieldName: string;
+    metadataFields: FieldMetadataDto[];
+}
+
+const FieldMetadataHint: React.FC<FieldMetadataHintProps> = ({ fieldName, metadataFields }) => {
+    const metadata = metadataFields.find(mf => mf.fieldName === fieldName);
+
+    if (!metadata) return null;
+
+    return (
+        <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+            <div className="font-semibold mb-1">Field Information</div>
+            <div className="space-y-1">
+                <div>
+                    <span className="font-medium">Nullable:</span>{' '}
+                    {metadata.isNullable ? (
+                        <span className="text-blue-600">Yes (optional)</span>
+                    ) : (
+                        <span className="text-orange-600">No (required)</span>
+                    )}
+                </div>
+                {metadata.hasDefaultValue && (
+                    <div>
+                        <span className="font-medium">Default Value:</span>{' '}
+                        <code className="bg-blue-100 px-1 py-0.5 rounded">
+                            {metadata.defaultValue === null || metadata.defaultValue === '' ? '(empty)' : String(metadata.defaultValue)}
+                        </code>
+                    </div>
+                )}
+                {!metadata.hasDefaultValue && (
+                    <div className="text-gray-600">
+                        <span className="font-medium">Default Value:</span> None
+                    </div>
+                )}
             </div>
         </div>
     );

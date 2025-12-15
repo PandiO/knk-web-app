@@ -20,6 +20,12 @@ export enum StructuresOperation {
     GetOverview = 'GetStructuresOverview'
 }
 
+export enum GateStructuresOperation {
+    GetAll = '',
+    GetById = 'GetGateStructure',
+    GetByName = 'GetGateStructureByName'
+}
+
 export enum DistrictsOperation {
     GetAll = '',
     GetById = 'GetDistrict',
@@ -55,6 +61,7 @@ export enum UIObjectConfigurationOperation {
 export enum Controllers {
     Items = 'Items',
     Structures = 'Structures',
+    GateStructures = 'GateStructures',
     Districts = 'Districts',
     Locations = 'Locations',
     Streets = 'Streets',
@@ -66,6 +73,7 @@ export enum Controllers {
     FormFields = 'FormFields',
     FormSubmissionProgress = 'FormSubmissionProgress',
     Metadata = 'Metadata', // added
+    EntityTypeConfiguration = 'EntityTypeConfiguration',
     Categories = 'Categories',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs'
