@@ -75,6 +75,7 @@ export enum Controllers {
     Metadata = 'Metadata', // added
     EntityTypeConfiguration = 'EntityTypeConfiguration',
     Categories = 'Categories',
+    ItemBlueprints = 'ItemBlueprints',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs'
 }
@@ -186,6 +187,15 @@ export enum MetadataOperation {
 }
 
 export enum CategoryOperation {
+    GetAll = '',
+    GetById = '',
+    Create = '',
+    Update = '',
+    Delete = '',
+    SearchPaged = 'search'
+}
+
+export enum ItemBlueprintOperation {
     GetAll = '',
     GetById = '',
     Create = '',
