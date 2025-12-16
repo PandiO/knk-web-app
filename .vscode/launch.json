@@ -7,10 +7,35 @@
         {
             "type": "chrome",
             "request": "launch",
-            "name": "Launch Chrome against localhost",
+            "name": "Launch Frontend (Chrome)",
             "url": "http://localhost:3000",
             "webRoot": "${workspaceFolder}/src",
             "preLaunchTask": "npm: start"
+        },
+        {
+            "name": "Launch Backend API",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build-backend",
+            "program": "${workspaceFolder:Backend API}/bin/Debug/net8.0/knkwebapi_v2.dll",
+            "args": [],
+            "cwd": "${workspaceFolder:Backend API}",
+            "stopAtEntry": false,
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+                "uriFormat": "%s/swagger"
+            },
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development"
+            }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Launch Full Stack",
+            "configurations": ["Launch Backend API", "Launch Frontend (Chrome)"],
+            "stopAll": true
         }
     ]
 }
