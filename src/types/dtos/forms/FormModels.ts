@@ -82,6 +82,11 @@ export interface FormStepDto {
     isLinkedToSource: boolean;
     hasCompatibilityIssues: boolean;
     stepLevelIssues?: string[];
+    isManyToManyRelationship: boolean;
+    relatedEntityPropertyName?: string;
+    joinEntityType?: string;
+    parentStepId?: string;
+    childFormSteps: FormStepDto[];
     fields: FormFieldDto[];
     conditions: StepConditionDto[];
 }

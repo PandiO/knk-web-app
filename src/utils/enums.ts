@@ -77,7 +77,8 @@ export enum Controllers {
     Categories = 'Categories',
     ItemBlueprints = 'ItemBlueprints',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
-    MinecraftMaterialRefs = 'MinecraftMaterialRefs'
+    MinecraftMaterialRefs = 'MinecraftMaterialRefs',
+    MinecraftEnchantmentRefs = 'MinecraftEnchantmentRefs'
 }
 
 export enum FormPlaceHolder {
@@ -214,6 +215,15 @@ export enum MinecraftBlockRefOperation {
 }
 
 export enum MinecraftMaterialRefOperation {
+    GetAll = '',
+    GetById = '',
+    Create = '',
+    Update = '',
+    Delete = '',
+    SearchPaged = 'search'
+}
+
+export enum MinecraftEnchantmentRefOperation {
     GetAll = '',
     GetById = '',
     Create = '',

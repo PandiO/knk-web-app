@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Copy, GripVertical, Trash2, Pencil, AlertTriangle, Link as LinkIcon, Copy as CopyIcon } from 'lucide-react';
 import { FormStepDto, FormFieldDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
@@ -10,6 +10,7 @@ import { FieldEditor } from './FieldEditor';
 import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { ReusableFieldSelector } from './ReusableFieldSelector';
 import { formConfigClient } from '../../apiClients/formConfigClient';
+import { metadataClient } from '../../apiClients/metadataClient';
 import { logging } from '../../utils';
 
 interface Props {
@@ -24,6 +25,43 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, onUpdate, me
     const [showFieldSelector, setShowFieldSelector] = useState(false);
     const [addingTemplate, setAddingTemplate] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [availableEntityTypes, setAvailableEntityTypes] = useState<string[]>([]);
+
+    // Load available entity types for join entity dropdown
+    useEffect(() => {
+        const loadEntityTypes = async () => {
+            try {
+                const metadata = await metadataClient.getAllEntityMetadata();
+                const entityNames = metadata.map(m => m.entityName).sort();
+                setAvailableEntityTypes(entityNames);
+            } catch (err) {
+                console.error('Failed to load entity types:', err);
+            }
+        };
+        loadEntityTypes();
+    }, []);
+
+    // Filter related entity navigation properties from metadata for dropdown
+    // Heuristic: treat collection-like types as many-to-many candidates to avoid one-to-one/one-to-many scalar refs (e.g., IconMaterialRef).
+    const navigationProperties = useMemo(() => {
+        const isCollectionType = (fieldType?: string) => {
+            if (!fieldType) return false;
+            const normalized = fieldType.toLowerCase();
+            return (
+                normalized.includes('list') ||
+                normalized.includes('icollection') ||
+                normalized.includes('ienumerable') ||
+                normalized.includes('collection') ||
+                normalized.includes('hashset') ||
+                normalized.endsWith('[]')
+            );
+        };
+
+        return (metadataFields || [])
+            .filter(f => f.isRelatedEntity && isCollectionType(f.fieldType))
+            .map(f => f.fieldName)
+            .sort();
+    }, [metadataFields]);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -98,9 +136,13 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, onUpdate, me
                 fields: [...step.fields, addedField]
             });
             setShowFieldSelector(false);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to add reusable field:', err);
-            const errorMsg = err?.response?.data?.message || err?.message || 'Failed to add field from template';
+            let errorMsg = 'Failed to add field from template';
+            if (err && typeof err === 'object') {
+                const maybeErr = err as { message?: string; response?: { data?: { message?: string } } };
+                errorMsg = maybeErr.response?.data?.message ?? maybeErr.message ?? errorMsg;
+            }
             setError(errorMsg);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.AddFieldFailed');
         } finally {
@@ -218,6 +260,114 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, onUpdate, me
                     <label htmlFor="stepIsReusable" className="ml-2 block text-sm text-gray-900">
                         Mark this step as a reusable template
                     </label>
+                </div>
+
+                {/* Many-to-Many Relationship Configuration */}
+                <div className="border-t border-gray-200 pt-4 space-y-4">
+                    <div className="flex items-center">
+                        <input
+                            type="checkbox"
+                            id="stepIsManyToMany"
+                            checked={step.isManyToManyRelationship}
+                            onChange={e => onUpdate({ 
+                                ...step, 
+                                isManyToManyRelationship: e.target.checked,
+                                // Clear M2M fields if unchecked
+                                relatedEntityPropertyName: e.target.checked ? step.relatedEntityPropertyName : undefined,
+                                joinEntityType: e.target.checked ? step.joinEntityType : undefined,
+                                childFormSteps: e.target.checked ? (step.childFormSteps ?? []) : []
+                            })}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="stepIsManyToMany" className="ml-2 block text-sm font-medium text-gray-900">
+                            This step manages a many-to-many relationship
+                        </label>
+                    </div>
+
+                    {step.isManyToManyRelationship && (
+                        <div className="ml-6 space-y-4 bg-blue-50 border border-blue-200 rounded-md p-4">
+                            <div className="text-sm text-blue-800 mb-3">
+                                <p className="font-medium mb-1">Many-to-Many Relationship Configuration</p>
+                                <p className="text-xs">
+                                    This step will display a PagedEntityTable for selecting related entities and cards for editing relationship instances with join entity fields.
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Related Entity Property Name <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={step.relatedEntityPropertyName || ''}
+                                    onChange={e => onUpdate({ ...step, relatedEntityPropertyName: e.target.value })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                >
+                                    <option value="">-- Select navigation property --</option>
+                                    {navigationProperties.map(prop => (
+                                        <option key={prop} value={prop}>
+                                            {prop}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    The navigation property on the parent entity that holds the related entity collection
+                                </p>
+                                {navigationProperties.length === 0 && (
+                                    <p className="mt-1 text-xs text-yellow-600">
+                                        ⚠️ No related entity navigation properties found. Make sure you've selected an entity type for this form configuration.
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Join Entity Type <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={step.joinEntityType || ''}
+                                    onChange={e => onUpdate({ ...step, joinEntityType: e.target.value })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                >
+                                    <option value="">-- Select join entity type --</option>
+                                    {availableEntityTypes.map(entityType => (
+                                        <option key={entityType} value={entityType}>
+                                            {entityType}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    The entity type that holds the many-to-many relationship with extra fields (e.g., Level, Priority)
+                                </p>
+                            </div>
+
+                            <div className="bg-white border border-blue-300 rounded-md p-3">
+                                <h4 className="text-sm font-medium text-gray-900 mb-2">Join Entity Fields Template (Child Steps)</h4>
+                                <p className="text-xs text-gray-600 mb-3">
+                                    Child steps define the fields shown in cards when editing each relationship instance.
+                                    Create reusable steps with the fields you want (e.g., "Level", "ApplyByDefault") and they will be automatically included here.
+                                </p>
+                                <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mb-3">
+                                    <p className="text-xs text-yellow-800">
+                                        <strong>Note:</strong> Child step management is currently done through the main FormConfigBuilder.
+                                        Create steps marked as reusable templates with the join entity fields you need.
+                                    </p>
+                                </div>
+                                {(step.childFormSteps ?? []).length > 0 ? (
+                                    <div className="space-y-1">
+                                        {(step.childFormSteps ?? []).map((childStep, idx) => (
+                                            <div key={childStep.id || idx} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded">
+                                                {childStep.stepName} ({(childStep.fields?.length ?? 0)} fields)
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-gray-500 italic">
+                                        No child steps configured. The relationship editor will only show entity selection without extra fields.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {step.sourceStepId && (
@@ -352,7 +502,7 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({ field, onEdit, on
                     {field.hasCompatibilityIssues && (
                         <AlertTriangle 
                             className="h-4 w-4 text-red-600 flex-shrink-0 cursor-help" 
-                            title={field.compatibilityIssues?.join('; ') || 'Has compatibility issues'} 
+                            aria-label={field.compatibilityIssues?.join('; ') || 'Has compatibility issues'} 
                         />
                     )}
                     {field.isReusable && (
@@ -362,9 +512,9 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({ field, onEdit, on
                     )}
                     {field.sourceFieldId && (
                         field.isLinkedToSource ? (
-                            <LinkIcon className="h-3 w-3 text-blue-600 flex-shrink-0" title="Linked to template" />
+                            <LinkIcon className="h-3 w-3 text-blue-600 flex-shrink-0" aria-label="Linked to template" />
                         ) : (
-                            <CopyIcon className="h-3 w-3 text-gray-600 flex-shrink-0" title="Copied from template" />
+                            <CopyIcon className="h-3 w-3 text-gray-600 flex-shrink-0" aria-label="Copied from template" />
                         )
                     )}
                 </div>

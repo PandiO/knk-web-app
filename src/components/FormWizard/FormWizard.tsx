@@ -14,6 +14,7 @@ import { metadataClient } from '../../apiClients/metadataClient';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { FeedbackModal } from '../FeedbackModal';
 import { ChildFormModal } from './ChildFormModal';
+import { ManyToManyRelationshipEditor } from './ManyToManyRelationshipEditor';
 
 interface FormWizardProps {
     entityName: string;
@@ -633,28 +634,43 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
             {/* Form Fields */}
             <div className="px-6 md:px-8 py-6 md:py-8 space-y-6">
-                {orderedFields.map(field => {
-                    const shouldShow = !field.dependencyConditionJson ||
-                        ConditionEvaluator.evaluateConditions(
-                            field.dependencyConditionJson,
-                            currentStepData,
-                            allStepsData
+                {currentStep.isManyToManyRelationship ? (
+                    /* Many-to-Many Relationship Step */
+                    <ManyToManyRelationshipEditor
+                        step={currentStep}
+                        value={currentStepData[currentStep.relatedEntityPropertyName || 'relationships'] || []}
+                        onChange={(value) => handleFieldChange(currentStep.relatedEntityPropertyName || 'relationships', value)}
+                        entityName={entityName}
+                        allStepsData={allStepsData}
+                        currentStepIndex={currentStepIndex}
+                    />
+                ) : (
+                    /* Standard Field-Based Step */
+                    orderedFields.map(field => {
+                        const shouldShow = !field.dependencyConditionJson ||
+                            ConditionEvaluator.evaluateConditions(
+                                field.dependencyConditionJson,
+                                currentStepData,
+                                allStepsData
+                            );
+
+                        if (!shouldShow) return null;
+
+                        return (
+                            <FieldRenderer
+                                key={field.id}
+                                field={field}
+                                value={currentStepData[field.fieldName]}
+                                onChange={value => handleFieldChange(field.fieldName, value)}
+                                error={errors[field.fieldName]}
+                                onBlur={() => validateField(field)}
+                                onCreateNew={() => handleOpenChildForm(field)}
+                                allStepsData={allStepsData}
+                                currentStepIndex={currentStepIndex}
+                            />
                         );
-
-                    if (!shouldShow) return null;
-
-                    return (
-                        <FieldRenderer
-                            key={field.id}
-                            field={field}
-                            value={currentStepData[field.fieldName]}
-                            onChange={value => handleFieldChange(field.fieldName, value)}
-                            error={errors[field.fieldName]}
-                            onBlur={() => validateField(field)}
-                            onCreateNew={() => handleOpenChildForm(field)}
-                        />
-                    );
-                })}
+                    })
+                )}
             </div>
 
             {/* Feedback and Child Form Modals */}
