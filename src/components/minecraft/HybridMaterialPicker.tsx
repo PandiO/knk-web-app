@@ -70,7 +70,7 @@ export const HybridMaterialPicker: React.FC<HybridMaterialPickerProps> = ({
                 columns={columnDefinitionsRegistry.minecraftmaterialref?.default || []}
                 initialQuery={{
                     page: 1,
-                    pageSize: 50,
+                    pageSize: 10,
                     filters: categoryFilter ? { category: categoryFilter } : {}
                 }}
                 selectionConfig={selectionConfig}

@@ -6,6 +6,8 @@ import { logging } from '../../utils';
 import { ColumnDefinition } from '../../types/common';
 import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
 import { minecraftBlockRefClient } from '../../apiClients/minecraftBlockRefClient';
+import { minecraftEnchantmentRefClient } from '../../apiClients/minecraftEnchantmentRefClient';
+import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 
 /**
  * Configuration for row selection behavior in the table.
@@ -175,6 +177,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
     const [internalSelection, setInternalSelection] = useState<T[]>(selectedItems);
     const [creatingKey, setCreatingKey] = useState<string | null>(null);
     const [isHybridMode, setIsHybridMode] = useState(false);
+    const [isAutoCreateMode, setIsAutoCreateMode] = useState(false);
 
     // Debounced search effect
     useEffect(() => {
@@ -190,8 +193,11 @@ export function PagedEntityTable<T extends Record<string, any>>({
     // Detect hybrid mode on mount
     useEffect(() => {
         const normalized = entityTypeName.toLowerCase();
-        const isHybrid = normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref';
+        const isHybrid = normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref' || normalized === 'minecraftenchantmentref';
         setIsHybridMode(isHybrid);
+        // Only material and block refs should auto-create on selection; enchantments are pre-persisted
+        const shouldAutoCreate = normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref' || normalized === 'minecraftenchantmentref';
+        setIsAutoCreateMode(shouldAutoCreate);
     }, [entityTypeName]);
 
     // Fetch data when query changes
@@ -217,7 +223,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
             const normalized = entityTypeName.toLowerCase();
             
             // Check if this is a hybrid mode entity
-            if (normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref') {
+            if (normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref' || normalized === 'minecraftenchantmentref') {
                 // Use searchPaged with SearchHybrid filter
                 const hybridQuery: PagedQueryDto = {
                     ...query,
@@ -327,6 +333,16 @@ export function PagedEntityTable<T extends Record<string, any>>({
 
     // added: check if row is selected
     const isRowSelected = (row: T): boolean => {
+        const normalized = entityTypeName.toLowerCase();
+        
+        // For enchantment refs, compare by namespaceKey since that's the unique identifier
+        if (normalized === 'minecraftenchantmentref') {
+            return internalSelection.some(item => 
+                (item as any).namespaceKey === (row as any).namespaceKey
+            );
+        }
+        
+        // For other entities, compare by ID
         return internalSelection.some(item => item.id === row.id);
     };
 
@@ -339,8 +355,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
             event.stopPropagation();
         }
 
-        // Check if this is a hybrid mode unpersisted item
-        if (isHybridMode && (row as any).isPersisted === false) {
+        // Check if this is an auto-create mode unpersisted item (materials/blocks only)
+        if (isAutoCreateMode && (row as any).isPersisted === false) {
             await handleCreateAndSelect(row);
             return;
         }
@@ -352,8 +368,15 @@ export function PagedEntityTable<T extends Record<string, any>>({
         } else {
             // Multiple selection mode
             if (isRowSelected(row)) {
-                // Deselect
-                newSelection = internalSelection.filter(item => item.id !== row.id);
+                // Deselect using appropriate comparison key
+                const normalized = entityTypeName.toLowerCase();
+                if (normalized === 'minecraftenchantmentref') {
+                    newSelection = internalSelection.filter(item => 
+                        (item as any).namespaceKey !== (row as any).namespaceKey
+                    );
+                } else {
+                    newSelection = internalSelection.filter(item => item.id !== row.id);
+                }
                 
                 // Check min constraint
                 if (selectionConfig.min && newSelection.length < selectionConfig.min) {
@@ -419,6 +442,22 @@ export function PagedEntityTable<T extends Record<string, any>>({
                     blockStateString: option.blockStateString,
                     logicalType: option.logicalType,
                     iconUrl: option.iconUrl
+                });
+            } else if (normalized === 'minecraftenchantmentref') {
+                created = await minecraftEnchantmentRefClient.create({
+                    namespaceKey: option.namespaceKey,
+                    legacyName: option.legacyName,
+                    category: option.category,
+                    maxLevel: option.maxLevel,
+                    displayName: option.displayName,
+                    iconUrl: option.iconUrl
+                });
+                await enchantmentDefinitionClient.create({
+                    key: option.namespaceKey,
+                    displayName: option.displayName,
+                    maxLevel: option.maxLevel,
+                    isCustom: false,
+                    minecraftEnchantmentRefId: created.id
                 });
             }
 

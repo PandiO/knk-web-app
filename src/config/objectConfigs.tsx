@@ -53,6 +53,26 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'legacyName', label: 'Legacy Name', sortable: false }
     ]
   },
+  minecraftenchantmentref: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { 
+        key: 'iconUrl', 
+        label: 'Icon', 
+        sortable: false,
+        render: (row: any) => row.iconUrl ? (
+          <img src={row.iconUrl} alt={row.namespaceKey} className="h-8 w-8 object-contain" />
+        ) : (
+          <span className="text-gray-400 text-xs">No icon</span>
+        )
+      },
+      { key: 'displayName', label: 'Display Name', sortable: true },
+      { key: 'namespaceKey', label: 'Namespace Key', sortable: true },
+      { key: 'category', label: 'Category', sortable: true },
+      { key: 'maxLevel', label: 'Max Level', sortable: false },
+      { key: 'legacyName', label: 'Legacy Name', sortable: false }
+    ]
+  },
   structure: {
     //Used for structure listing in ObjectDashboard. Currently also used for FormWizard PagedEntityTable
     "default": [

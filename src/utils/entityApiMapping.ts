@@ -5,8 +5,11 @@ import { TownClient } from '../apiClients/townClient';
 import { DistrictClient } from '../apiClients/districtClient';
 import { MinecraftBlockRefClient } from '../apiClients/minecraftBlockRefClient';
 import { MinecraftMaterialRefClient } from '../apiClients/minecraftMaterialRefClient';
+import { ItemBlueprintClient } from '../apiClients/itemBlueprintClient';
+import { EnchantmentDefinitionClient } from '../apiClients/enchantmentDefinitionClient';
 import { PagedQueryDto, PagedResultDto } from './domain/dto/common/PagedQuery';
 import { LocationClient } from '../apiClients/locationClient';
+import { MinecraftEnchantmentRefClient } from '../apiClients/minecraftEnchantmentRefClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -28,10 +31,16 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return () => Promise.reject(new Error('User search not implemented'));
         case 'location':
             return (query) => LocationClient.getInstance().searchPaged(query);
+        case 'itemblueprint':
+            return (query) => ItemBlueprintClient.getInstance().searchPaged(query);
+        case 'enchantmentdefinition':
+            return (query) => EnchantmentDefinitionClient.getInstance().searchPaged(query);
         case 'minecraftblockref':
             return (query) => MinecraftBlockRefClient.getInstance().searchPaged(query);
         case 'minecraftmaterialref':
             return (query) => MinecraftMaterialRefClient.getInstance().searchPaged(query);
+        case 'minecraftenchantmentref':
+            return (query) => MinecraftEnchantmentRefClient.getInstance().searchPaged(query);
         default:
             throw new Error(`No search function registered for entity type: ${entityTypeName}`);
     }
@@ -53,6 +62,10 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => StructureClient.getInstance().getById(Number(id));
         case 'location':
             return (id) => LocationClient.getInstance().getById(Number(id));
+        case 'itemblueprint':
+            return (id) => ItemBlueprintClient.getInstance().getById(id);
+        case 'enchantmentdefinition':
+            return (id) => EnchantmentDefinitionClient.getInstance().getById(id);
         case 'minecraftblockref':
             return (id) => MinecraftBlockRefClient.getInstance().getById(Number(id));
         case 'minecraftmaterialref':
@@ -80,10 +93,16 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => StructureClient.getInstance().update(entity);
         case 'location':
             return (entity) => LocationClient.getInstance().update(entity);
+        case 'itemblueprint':
+            return (entity) => ItemBlueprintClient.getInstance().update(entity);
+        case 'enchantmentdefinition':
+            return (entity) => EnchantmentDefinitionClient.getInstance().update(entity);
         case 'minecraftblockref':
             return (entity) => MinecraftBlockRefClient.getInstance().update(entity);
         case 'minecraftmaterialref':
             return (entity) => MinecraftMaterialRefClient.getInstance().update(entity);
+        case 'minecraftenchantmentref':
+            return (entity) => MinecraftEnchantmentRefClient.getInstance().update(entity);
         case 'user':
             return () => Promise.reject(new Error('User update not implemented'));
         default:
@@ -107,6 +126,10 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => StructureClient.getInstance().delete(Number(id));
         case 'location':
             return (id) => LocationClient.getInstance().delete(Number(id));
+        case 'itemblueprint':
+            return (id) => ItemBlueprintClient.getInstance().delete(id as string);
+        case 'enchantmentdefinition':
+            return (id) => EnchantmentDefinitionClient.getInstance().delete(id as string);
         case 'minecraftblockref':
             return (id) => MinecraftBlockRefClient.getInstance().delete(Number(id));
         case 'minecraftmaterialref':
@@ -115,5 +138,38 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return () => Promise.reject(new Error('User delete not implemented'));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
+    }
+}
+
+export function getCreateFunctionForEntity(entityTypeName: string): (entity: any) => Promise<any> {
+    const normalized = entityTypeName.toLowerCase();
+
+    switch (normalized) {
+        case 'category':
+            return (entity) => CategoryClient.getInstance().create(entity);
+        case 'street':
+            return (entity) => StreetClient.getInstance().create(entity);
+        case 'town':
+            return (entity) => TownClient.getInstance().create(entity);
+        case 'district':
+            return (entity) => DistrictClient.getInstance().create(entity);
+        case 'structure':
+            return (entity) => StructureClient.getInstance().create(entity);
+        case 'location':
+            return (entity) => LocationClient.getInstance().create(entity);
+        case 'itemblueprint':
+            return (entity) => ItemBlueprintClient.getInstance().create(entity);
+        case 'enchantmentdefinition':
+            return (entity) => EnchantmentDefinitionClient.getInstance().create(entity);
+        case 'minecraftblockref':
+            return (entity) => MinecraftBlockRefClient.getInstance().create(entity);
+        case 'minecraftmaterialref':
+            return (entity) => MinecraftMaterialRefClient.getInstance().create(entity);
+        case 'minecraftenchantmentref':
+            return (entity) => MinecraftEnchantmentRefClient.getInstance().create(entity);
+        case 'user':
+            return () => Promise.reject(new Error('User create not implemented'));
+        default:
+            throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }
 }

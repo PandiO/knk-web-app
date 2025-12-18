@@ -7,6 +7,7 @@ export interface MinecraftEnchantmentRefDto {
     maxLevel?: number | null;
     displayName?: string | null;
     isCustom?: boolean;
+    isPersisted?: boolean;
 }
 
 export interface MinecraftEnchantmentRefListDto {
@@ -17,6 +18,7 @@ export interface MinecraftEnchantmentRefListDto {
     iconUrl?: string | null;
     maxLevel?: number | null;
     displayName?: string | null;
+    isPersisted?: boolean;
 }
 
 export interface MinecraftEnchantmentRefCreateDto {

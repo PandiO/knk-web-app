@@ -76,6 +76,7 @@ export enum Controllers {
     EntityTypeConfiguration = 'EntityTypeConfiguration',
     Categories = 'Categories',
     ItemBlueprints = 'ItemBlueprints',
+    EnchantmentDefinitions = 'EnchantmentDefinitions',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs',
     MinecraftEnchantmentRefs = 'MinecraftEnchantmentRefs'
@@ -115,7 +116,8 @@ export enum FieldType {
     Enum = 'Enum',
     Object = 'Object',
     List = 'List',
-    HybridMinecraftMaterialRefPicker = 'HybridMinecraftMaterialRefPicker'
+    HybridMinecraftMaterialRefPicker = 'HybridMinecraftMaterialRefPicker',
+    HybridMinecraftEnchantmentRefPicker = 'HybridMinecraftEnchantmentRefPicker'
 }
 
 export enum ValidationType {
@@ -224,6 +226,15 @@ export enum MinecraftMaterialRefOperation {
 }
 
 export enum MinecraftEnchantmentRefOperation {
+    GetAll = '',
+    GetById = '',
+    Create = '',
+    Update = '',
+    Delete = '',
+    SearchPaged = 'search'
+}
+
+export enum EnchantmentDefinitionOperation {
     GetAll = '',
     GetById = '',
     Create = '',

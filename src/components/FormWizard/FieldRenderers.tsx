@@ -5,6 +5,7 @@ import { Calendar, Plus, Minus, X } from 'lucide-react';
 import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 import { HybridMaterialPicker } from '../minecraft/HybridMaterialPicker';
+import { HybridEnchantmentPicker } from '../minecraft/HybridEnchantmentPicker';
 
 interface FieldRendererProps {
     field: FormFieldDto;
@@ -13,6 +14,9 @@ interface FieldRendererProps {
     error?: string;
     onBlur?: () => void;
     onCreateNew?: () => void;
+    allStepsData?: { [stepIndex: number]: any }; // optional: for dependency evaluation
+    currentStepIndex?: number; // optional: for context
+    errors?: { [fieldName: string]: string }; // optional: error map
 }
 
 export const FieldRenderer: React.FC<FieldRendererProps> = ({
@@ -22,6 +26,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     error,
     onBlur,
     onCreateNew
+    // Note: allStepsData, currentStepIndex, errors are available in props but currently unused
 }) => {
     switch (field.fieldType) {
         case FieldType.String:
@@ -55,6 +60,21 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                 />
             );
         }
+        case FieldType.HybridMinecraftEnchantmentRefPicker: {
+            const settings = parseHybridEnchantmentSettings(field.settingsJson);
+                return (
+                    <HybridEnchantmentPicker
+                        label={field.label}
+                        description={field.description}
+                        value={value}
+                        onChange={onChange}
+                        required={field.isRequired}
+                        error={error}
+                        categoryFilter={settings.categoryFilter}
+                        placeholder={field.placeholder}
+                    />
+                );
+        }
         default:
             return <div className="text-sm text-gray-500">Unsupported field type: {field.fieldType}</div>;
     }
@@ -71,6 +91,19 @@ const parseHybridMaterialSettings = (settingsJson?: string): { categoryFilter?: 
     } catch (err) {
         console.warn('Failed to parse hybrid material settingsJson', err);
         return { multiSelect: false };
+    }
+};
+
+const parseHybridEnchantmentSettings = (settingsJson?: string): { categoryFilter?: string } => {
+    if (!settingsJson) return {};
+    try {
+        const parsed = JSON.parse(settingsJson);
+        return {
+            categoryFilter: parsed.categoryFilter
+        };
+    } catch (err) {
+        console.warn('Failed to parse hybrid enchantment settingsJson', err);
+        return {};
     }
 };
 

@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2 } from 'lucide-react';
-import { FormStepDto, FormFieldDto, StepData } from '../../types/dtos/forms/FormModels';
+import { Trash2 } from 'lucide-react';
+import { FormStepDto } from '../../types/dtos/forms/FormModels';
 import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 import { FieldRenderer } from './FieldRenderers';
 import { metadataClient } from '../../apiClients/metadataClient';
-import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 
 interface Props {
     step: FormStepDto;
-    value: any[]; // Array of join entity instances
-    onChange: (value: any[]) => void;
+    value: Record<string, unknown>[]; // Array of join entity instances
+    onChange: (value: Record<string, unknown>[]) => void;
     entityName: string; // Parent entity being edited
-    allStepsData: { [stepIndex: number]: StepData };
-    currentStepIndex: number;
 }
 
 /**
@@ -30,19 +27,12 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     step,
     value = [],
     onChange,
-    entityName,
-    allStepsData,
-    currentStepIndex
+    entityName
 }) => {
-    const [metadata, setMetadata] = useState<EntityMetadataDto | null>(null);
     const [loading, setLoading] = useState(true);
     const [relatedEntityType, setRelatedEntityType] = useState<string>('');
 
-    useEffect(() => {
-        loadMetadata();
-    }, [step.joinEntityType]);
-
-    const loadMetadata = async () => {
+    const loadMetadata = React.useCallback(async () => {
         if (!step.joinEntityType) {
             setLoading(false);
             return;
@@ -51,13 +41,12 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         try {
             setLoading(true);
             // Get metadata for the join entity to understand its fields
-            const joinMetadata = await metadataClient.getByEntityName(step.joinEntityType);
-            setMetadata(joinMetadata);
+            const joinMetadata = await metadataClient.getEntityMetadata(step.joinEntityType);
 
             // Determine the related entity type from join entity metadata
             // Look for navigation properties that aren't the parent entity
             const relatedProp = joinMetadata.fields.find(
-                f => f.isNavigationProperty && f.relatedEntityType !== entityName
+                f => f.isRelatedEntity && f.relatedEntityType !== entityName
             );
             if (relatedProp) {
                 setRelatedEntityType(relatedProp.relatedEntityType!);
@@ -67,9 +56,13 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         } finally {
             setLoading(false);
         }
-    };
+    }, [step.joinEntityType, entityName]);
 
-    const handleAddRelationship = (selectedEntities: any[]) => {
+    useEffect(() => {
+        loadMetadata();
+    }, [loadMetadata]);
+
+    const handleAddRelationship = (selectedEntities: Record<string, unknown>[]) => {
         // Create new join entity instances for each selected related entity
         const newRelationships = selectedEntities
             .filter(entity => !value.some(v => v.relatedEntityId === entity.id))
@@ -88,7 +81,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         onChange(value.filter((_, i) => i !== index));
     };
 
-    const handleUpdateRelationship = (index: number, fieldName: string, fieldValue: any) => {
+    const handleUpdateRelationship = (index: number, fieldName: string, fieldValue: unknown) => {
         const updated = [...value];
         updated[index] = {
             ...updated[index],
@@ -97,8 +90,8 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         onChange(updated);
     };
 
-    const getDefaultJoinEntityFields = (): any => {
-        const defaults: any = {};
+    const getDefaultJoinEntityFields = (): Record<string, unknown> => {
+        const defaults: Record<string, unknown> = {};
         
         // Use child steps to determine default values for join entity fields
         step.childFormSteps.forEach(childStep => {
@@ -112,7 +105,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         return defaults;
     };
 
-    const renderJoinEntityFields = (relationship: any, index: number) => {
+    const renderJoinEntityFields = (relationship: Record<string, unknown>, index: number) => {
         if (!step.childFormSteps || step.childFormSteps.length === 0) {
             return <p className="text-xs text-gray-500 italic">No editable fields configured</p>;
         }
@@ -131,9 +124,6 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                                     field={field}
                                     value={relationship[field.fieldName]}
                                     onChange={(newValue) => handleUpdateRelationship(index, field.fieldName, newValue)}
-                                    allStepsData={allStepsData}
-                                    currentStepIndex={currentStepIndex}
-                                    errors={{}}
                                 />
                                 {field.description && (
                                     <p className="mt-1 text-xs text-gray-500">{field.description}</p>
@@ -186,13 +176,13 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                                 <div className="flex items-start justify-between mb-3">
                                     <div className="flex-1">
                                         <h4 className="text-sm font-medium text-gray-900">
-                                            {relationship.relatedEntity?.name || 
-                                             relationship.relatedEntity?.displayName || 
+                                            {(relationship.relatedEntity as { name?: string; displayName?: string })?.name || 
+                                             (relationship.relatedEntity as { name?: string; displayName?: string })?.displayName || 
                                              `Relationship #${index + 1}`}
                                         </h4>
-                                        {relationship.relatedEntity?.description && (
+                                        {(relationship.relatedEntity as { description?: string })?.description && (
                                             <p className="text-xs text-gray-500 mt-1">
-                                                {relationship.relatedEntity.description}
+                                                {(relationship.relatedEntity as { description?: string }).description}
                                             </p>
                                         )}
                                     </div>
@@ -218,11 +208,12 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                     Add Relationships
                 </h3>
                 <PagedEntityTable
-                    entityType={relatedEntityType}
-                    selectionMode="multiple"
+                    entityTypeName={relatedEntityType}
+                    columns={[]} // Will use default columns from registry
+                    selectionConfig={{ mode: 'multiple' }}
+                    selectedItems={value.map(v => ({ id: v.relatedEntityId }))}
                     onSelectionChange={handleAddRelationship}
-                    selectedIds={value.map(v => v.relatedEntityId)}
-                    showActions={false}
+                    rowActions={[]}
                 />
             </div>
         </div>

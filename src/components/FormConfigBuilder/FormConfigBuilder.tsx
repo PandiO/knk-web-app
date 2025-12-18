@@ -621,6 +621,7 @@ export const FormConfigBuilder: React.FC = () => {
                             <StepEditor
                                 step={config.steps[selectedStepIndex]}
                                 reusableFields={reusableFields}
+                                reusableSteps={reusableSteps}
                                 onUpdate={handleUpdateStep}
                                 metadataFields={selectedEntityMeta?.fields ?? []}
                             />

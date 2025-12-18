@@ -1,7 +1,6 @@
 import { Loader2 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { CategoryClient } from '../apiClients/categoryClient';
 import { displayConfigClient } from '../apiClients/displayConfigClient';
 import { formConfigClient } from '../apiClients/formConfigClient';
 import { formSubmissionClient } from '../apiClients/formSubmissionClient';
@@ -14,14 +13,10 @@ import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
 import { logging } from '../utils';
 import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../types/dtos/forms/FormModels';
 import { DisplayConfigurationDto } from '../types/dtos/displayConfig/DisplayModels';
-import { DistrictClient } from '../apiClients/districtClient';
-import { LocationClient } from '../apiClients/locationClient';
-import { StreetClient } from '../apiClients/streetClient';
-import { StructureClient } from '../apiClients/structureClient';
-import { TownClient } from '../apiClients/townClient';
 import { FieldMetadataDto } from '../types/dtos/metadata/MetadataModels';
 import { useEntityMetadata } from '../hooks/useEntityMetadata';
 import { renderIcon } from '../utils/iconRegistry';
+import { getCreateFunctionForEntity, getFetchByIdFunctionForEntity, getUpdateFunctionForEntity } from '../utils/entityApiMapping';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { 
@@ -30,12 +25,6 @@ type Props = {
     entityId?: string;
     // added: explicit prop to control auto-opening of default form
     autoOpenDefaultForm?: boolean;
-};
-type ApiClient = {
-    getInstance: () => ApiClient;
-    create: (data: any) => Promise<any>;
-    update: (data: any) => Promise<any>;
-    getById: (id: string) => Promise<any>;
 };
 
 // changed: destructure new prop with default value
@@ -511,37 +500,25 @@ export const FormWizardPage: React.FC<Props> = ({
         }
     };
 
-    // Utility: Get API client for entity type
-    const getApiClient = (entityTypeName: string): ApiClient | null => {
-        const normalizedTypeName = entityTypeName.toLowerCase();
-        
-        const clientMap: Record<string, ApiClient> = {
-            category: CategoryClient.getInstance() as unknown as ApiClient,
-            location: LocationClient.getInstance() as unknown as ApiClient,
-            street: StreetClient.getInstance() as unknown as ApiClient,
-            town: TownClient.getInstance() as unknown as ApiClient,
-            district: DistrictClient.getInstance() as unknown as ApiClient,
-            structure: StructureClient.getInstance() as unknown as ApiClient,
-            // user: UserClient.getInstance() as unknown as ApiClient, // User client not implemented
-            // Add other clients here as needed
-        };
-        
-        const client = clientMap[normalizedTypeName];
-        if (!client) {
-            console.error(`No API client found for entity type: ${entityTypeName}`);
-            logging.errorHandler.next(`ErrorMessage.${entityTypeName}.ClientNotFound`);
-            return null;
-        }
-        return client;
-    };
-
     // Handler: Complete wizard
     const handleComplete = async (data: any, progress?: FormSubmissionProgressDto) => {
         try {
             if (progress && progress.entityTypeName) {
-                const client = getApiClient(progress.entityTypeName);
-                if (!client) {
+                let createFn: (entity: any) => Promise<any>;
+                let updateFn: (entity: any) => Promise<any>;
+
+                try {
+                    createFn = getCreateFunctionForEntity(progress.entityTypeName);
+                    updateFn = getUpdateFunctionForEntity(progress.entityTypeName);
+                } catch (mappingErr) {
+                    console.error('No API client registered for entity type:', progress.entityTypeName, mappingErr);
                     logging.errorHandler.next(`ErrorMessage.${progress.entityTypeName}.ClientNotFound`);
+                    showFeedback({
+                        title: 'Submit failed',
+                        message: `No API client configured for ${progress.entityTypeName}. Please contact an administrator.`,
+                        status: 'error',
+                        onContinue: undefined
+                    });
                     return;
                 }
 
@@ -550,27 +527,32 @@ export const FormWizardPage: React.FC<Props> = ({
 
                 let createdEntityId: any;
                 if (entityIdToUse) {
-                    await client.update(entityData);
+                    await updateFn(entityData);
                     createdEntityId = entityIdToUse;
                 } else {
-                    const createdEntity = await client.create(entityData);
+                    const createdEntity = await createFn(entityData);
                     createdEntityId = createdEntity?.id;
                 }
 
                 // added: if this was a child entity creation for a parent relationship, update parent
                 if (parentEntityTypeName && parentEntityId && relationshipFieldName && !entityIdToUse) {
                     try {
-                        const parentClient = getApiClient(parentEntityTypeName);
-                        if (parentClient) {
-                            // Load parent, update relationship field, and save
-                            const parent = await parentClient.getById(parentEntityId);
-                            parent[relationshipFieldName] = createdEntityId;
-                            await parentClient.update(parent);
-                            console.log(`Updated parent ${parentEntityTypeName}(${parentEntityId}).${relationshipFieldName} = ${createdEntityId}`);
-                        }
+                        const fetchParent = getFetchByIdFunctionForEntity(parentEntityTypeName);
+                        const updateParent = getUpdateFunctionForEntity(parentEntityTypeName);
+
+                        const parent = await fetchParent(parentEntityId);
+                        parent[relationshipFieldName] = createdEntityId;
+                        await updateParent(parent);
+                        console.log(`Updated parent ${parentEntityTypeName}(${parentEntityId}).${relationshipFieldName} = ${createdEntityId}`);
                     } catch (parentErr) {
                         console.error('Failed to update parent entity relationship:', parentErr);
                         logging.errorHandler.next('ErrorMessage.Entity.ParentUpdateFailed');
+                        showFeedback({
+                            title: 'Parent update failed',
+                            message: 'The entity was created, but the parent relationship could not be updated.',
+                            status: 'error',
+                            onContinue: undefined
+                        });
                     }
                 }
 

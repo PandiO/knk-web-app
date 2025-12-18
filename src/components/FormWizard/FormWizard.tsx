@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Save, Check, AlertCircle } from 'lucide-react';
-import { FormConfigurationDto, FormStepDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
+import { FormConfigurationDto, FormStepDto, FormFieldDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { formSubmissionClient } from '../../apiClients/formSubmissionClient';
 import { ConditionEvaluator } from '../../utils/conditionEvaluator';
@@ -20,7 +20,7 @@ interface FormWizardProps {
     entityName: string;
     entityId?: string; // added: optional entity ID for edit mode
     userId: string;
-    onComplete?: (data: any, progress?: FormSubmissionProgressDto) => void;
+    onComplete?: (data: Record<string, unknown>, progress?: FormSubmissionProgressDto) => void;
     existingProgressId?: string;
     parentProgressId?: string; // added: for nested child forms
     fieldName?: string; // added: field name this child form is for
@@ -33,9 +33,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     userId,
     onComplete,
     existingProgressId,
-    parentProgressId, // added
-    fieldName: _childFieldName, // added: unused in current implementation
-    currentStepIndex: _parentStepIndex // added: unused in current implementation
+    parentProgressId // added
+    // Note: fieldName and currentStepIndex props removed as unused
 }) => {
     const [config, setConfig] = useState<FormConfigurationDto | null>(null);
     const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto | null>(null);
@@ -99,7 +98,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             .sort((a, b) => a.order - b.order)
             .forEach(field => {
                 const hasValue = data && Object.prototype.hasOwnProperty.call(data, field.fieldName);
-                const value = hasValue ? (data as any)[field.fieldName] : (field.defaultValue ?? null);
+                const value = hasValue ? (data as StepData)[field.fieldName] : (field.defaultValue ?? null);
                 result[field.fieldName] = value;
             });
         return result;
@@ -113,8 +112,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         return normalized;
     };
 
-    const flattenAllStepsData = (cfg: FormConfigurationDto, stepsData: AllStepsData): Record<string, any> => {
-        const flat: Record<string, any> = {};
+    const flattenAllStepsData = (cfg: FormConfigurationDto, stepsData: AllStepsData): Record<string, unknown> => {
+        const flat: Record<string, unknown> = {};
         cfg.steps.forEach((step, idx) => {
             step.fields.forEach(field => {
                 const val = stepsData?.[idx]?.[field.fieldName];
@@ -124,11 +123,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         return flat;
     };
 
-    useEffect(() => {
-        loadConfiguration();
-    }, [entityName, existingProgressId, initialEntityId]); // Use initialEntityId in deps, not state
-
-    const loadConfiguration = async () => {
+    const loadConfiguration = React.useCallback(async () => {
         try {
             setLoading(true);
             // CRITICAL: Use initialEntityId prop directly, not the state variable
@@ -199,12 +194,17 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         } finally {
             setLoading(false);
         }
-    };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [entityName, existingProgressId, initialEntityId]);
+
+    useEffect(() => {
+        loadConfiguration();
+    }, [loadConfiguration]);
 
     // changed: simplified using utility function
     const loadExistingEntityData = async (entityTypeName: string, id: string, cfg: FormConfigurationDto) => {
         try {
-            const entityData: any = await getFetchByIdFunctionForEntity(entityTypeName)(id);
+            const entityData: Record<string, unknown> = await getFetchByIdFunctionForEntity(entityTypeName)(id);
             
             const populatedStepsData: AllStepsData = {};
             cfg.steps.forEach((step, stepIndex) => {
@@ -231,7 +231,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const currentStep = config?.steps[currentStepIndex];
     const orderedFields = currentStep?.fields.sort((a, b) => a.order - b.order) || [];
 
-    const handleFieldChange = (fieldName: string, value: any) => {
+    const handleFieldChange = (fieldName: string, value: unknown) => {
         setCurrentStepData(prev => ({ ...prev, [fieldName]: value }));
         // Clear error when user types
         if (errors[fieldName]) {
@@ -245,7 +245,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     };
 
     // added: open child form modal for creating new object
-    const handleOpenChildForm = (field: any) => {
+    const handleOpenChildForm = (field: FormFieldDto) => {
         setChildFormModal({
             open: true,
             entityTypeName: field.objectType || '',
@@ -259,7 +259,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     };
 
     // added: handle child form completion and data insertion
-    const handleChildFormComplete = async (childData: any) => {
+    const handleChildFormComplete = async (childData: Record<string, unknown>) => {
         const fieldName = childFormModal.fieldName;
 
         try {
@@ -314,7 +314,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         }
     };
 
-    const validateField = (field: any): string | null => {
+    const validateField = (field: FormFieldDto): string | null => {
         const value = currentStepData[field.fieldName];
 
         if (field.isRequired && (value === null || value === undefined || value === '')) {
@@ -415,10 +415,16 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
             // changed: return true on success so caller knows save succeeded
             return true;
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to save progress:', error);
             // changed: set user-friendly error message from API or fallback
-            const errorMessage = error?.response?.data?.message || 'Failed to save your progress. Please try again.';
+            const errorMessage = 
+                (error && typeof error === 'object' && 'response' in error && 
+                 error.response && typeof error.response === 'object' && 'data' in error.response &&
+                 error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data &&
+                 typeof error.response.data.message === 'string')
+                    ? error.response.data.message
+                    : 'Failed to save your progress. Please try again.';
             setError(errorMessage);
             logging.errorHandler.next('ErrorMessage.FormSubmission.SaveFailed');
             if (status === FormSubmissionStatus.Paused) {
@@ -641,8 +647,6 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         value={currentStepData[currentStep.relatedEntityPropertyName || 'relationships'] || []}
                         onChange={(value) => handleFieldChange(currentStep.relatedEntityPropertyName || 'relationships', value)}
                         entityName={entityName}
-                        allStepsData={allStepsData}
-                        currentStepIndex={currentStepIndex}
                     />
                 ) : (
                     /* Standard Field-Based Step */
@@ -665,8 +669,6 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                 error={errors[field.fieldName]}
                                 onBlur={() => validateField(field)}
                                 onCreateNew={() => handleOpenChildForm(field)}
-                                allStepsData={allStepsData}
-                                currentStepIndex={currentStepIndex}
                             />
                         );
                     })

@@ -9,6 +9,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { FieldEditor } from './FieldEditor';
 import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { ReusableFieldSelector } from './ReusableFieldSelector';
+import { ReusableStepSelector } from './ReusableStepSelector';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { metadataClient } from '../../apiClients/metadataClient';
 import { logging } from '../../utils';
@@ -16,16 +17,22 @@ import { logging } from '../../utils';
 interface Props {
     step: FormStepDto;
     reusableFields: FormFieldDto[];
+    reusableSteps: FormStepDto[];
     onUpdate: (step: FormStepDto) => void;
     metadataFields?: FieldMetadataDto[]; // added
 }
 
-export const StepEditor: React.FC<Props> = ({ step, reusableFields, onUpdate, metadataFields = [] }) => {
+export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableSteps, onUpdate, metadataFields = [] }) => {
     const [editingField, setEditingField] = useState<{ field: FormFieldDto; index: number } | null>(null);
     const [showFieldSelector, setShowFieldSelector] = useState(false);
     const [addingTemplate, setAddingTemplate] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [availableEntityTypes, setAvailableEntityTypes] = useState<string[]>([]);
+    const [showChildStepSelector, setShowChildStepSelector] = useState(false);
+    const [childFieldEdit, setChildFieldEdit] = useState<{ childIndex: number; field: FormFieldDto; index: number } | null>(null);
+    const [childFieldSelectorIndex, setChildFieldSelectorIndex] = useState<number | null>(null);
+    const [joinEntityFields, setJoinEntityFields] = useState<FieldMetadataDto[]>([]);
+    const [loadingJoinEntityFields, setLoadingJoinEntityFields] = useState(false);
 
     // Load available entity types for join entity dropdown
     useEffect(() => {
@@ -62,6 +69,28 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, onUpdate, me
             .map(f => f.fieldName)
             .sort();
     }, [metadataFields]);
+
+    // Load join entity metadata for child step field guidance
+    useEffect(() => {
+        const loadJoinEntityMeta = async () => {
+            if (!step.joinEntityType) {
+                setJoinEntityFields([]);
+                return;
+            }
+            setLoadingJoinEntityFields(true);
+            try {
+                const metadata = await metadataClient.getEntityMetadata(step.joinEntityType);
+                setJoinEntityFields(metadata.fields || []);
+            } catch (err) {
+                console.error('Failed to load join entity metadata:', err);
+                setJoinEntityFields([]);
+            } finally {
+                setLoadingJoinEntityFields(false);
+            }
+        };
+
+        loadJoinEntityMeta();
+    }, [step.joinEntityType]);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -100,6 +129,142 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, onUpdate, me
         };
 
         setEditingField({ field: newField, index: -1 });
+    };
+
+    const updateChildStepAt = (childIndex: number, updater: (child: FormStepDto) => FormStepDto) => {
+        const updatedChildSteps = (step.childFormSteps || []).map((child, idx) => (idx === childIndex ? updater(child) : child));
+        onUpdate({ ...step, childFormSteps: updatedChildSteps });
+    };
+
+    const handleAddNewChildStep = () => {
+        const newChild: FormStepDto = {
+            id: generateTempId(),
+            stepName: `Child Step ${(step.childFormSteps?.length || 0) + 1}`,
+            title: `Child Step ${(step.childFormSteps?.length || 0) + 1}`,
+            description: '',
+            order: step.childFormSteps?.length || 0,
+            fieldOrderJson: '[]',
+            isReusable: false,
+            isLinkedToSource: false,
+            hasCompatibilityIssues: false,
+            isManyToManyRelationship: false,
+            childFormSteps: [],
+            fields: [],
+            conditions: [],
+            parentStepId: step.id
+        };
+
+        onUpdate({ ...step, childFormSteps: [...(step.childFormSteps || []), newChild] });
+    };
+
+    const cloneChildStep = (template: FormStepDto, mode: ReuseLinkMode): FormStepDto => ({
+        ...template,
+        id: generateTempId(),
+        formConfigurationId: undefined,
+        parentStepId: step.id,
+        sourceStepId: template.id,
+        isLinkedToSource: mode === 'link',
+        hasCompatibilityIssues: false,
+        stepLevelIssues: undefined,
+        isManyToManyRelationship: false,
+        childFormSteps: [],
+        fields: template.fields.map(f => ({
+            ...f,
+            id: generateTempId(),
+            formStepId: undefined,
+            sourceFieldId: f.id,
+            isLinkedToSource: mode === 'link',
+            hasCompatibilityIssues: false,
+            compatibilityIssues: undefined,
+            order: f.order,
+            validations: f.validations.map(v => ({ ...v, id: undefined, formFieldId: undefined }))
+        })),
+        conditions: template.conditions.map(c => ({ ...c, id: undefined, formStepId: undefined }))
+    });
+
+    const handleAddChildStepFromTemplate = (template: FormStepDto, mode: ReuseLinkMode) => {
+        const cloned = cloneChildStep(template, mode);
+        onUpdate({ ...step, childFormSteps: [...(step.childFormSteps || []), cloned] });
+        setShowChildStepSelector(false);
+    };
+
+    const handleDeleteChildStep = (childIndex: number) => {
+        const remaining = (step.childFormSteps || []).filter((_, idx) => idx !== childIndex).map((child, idx) => ({ ...child, order: idx }));
+        onUpdate({ ...step, childFormSteps: remaining });
+    };
+
+    const handleUpdateChildMeta = (childIndex: number, patch: Partial<FormStepDto>) => {
+        updateChildStepAt(childIndex, child => ({ ...child, ...patch }));
+    };
+
+    const handleAddChildField = (childIndex: number) => {
+        const child = (step.childFormSteps || [])[childIndex];
+        const newField: FormFieldDto = {
+            id: generateTempId(),
+            fieldName: '',
+            label: '',
+            fieldType: FieldType.String,
+            isRequired: false,
+            isReadOnly: false,
+            order: child.fields.length,
+            isReusable: false,
+            isLinkedToSource: false,
+            hasCompatibilityIssues: false,
+            validations: []
+        };
+
+        const updatedChild = { ...child, fields: [...child.fields, newField] };
+        updateChildStepAt(childIndex, () => updatedChild);
+        setChildFieldEdit({ childIndex, field: newField, index: child.fields.length });
+    };
+
+    const cloneChildField = (field: FormFieldDto, order: number, mode: ReuseLinkMode): FormFieldDto => ({
+        ...field,
+        id: generateTempId(),
+        formStepId: undefined,
+        sourceFieldId: field.id,
+        isLinkedToSource: mode === 'link',
+        hasCompatibilityIssues: false,
+        compatibilityIssues: undefined,
+        order,
+        validations: field.validations.map(v => ({ ...v, id: undefined, formFieldId: undefined }))
+    });
+
+    const handleAddChildReusableField = (childIndex: number, templateField: FormFieldDto, mode: ReuseLinkMode) => {
+        const child = (step.childFormSteps || [])[childIndex];
+        const cloned = cloneChildField(templateField, child.fields.length, mode);
+        updateChildStepAt(childIndex, c => ({ ...c, fields: [...c.fields, cloned] }));
+    };
+
+    const handleSaveChildField = (childIndex: number, field: FormFieldDto) => {
+        updateChildStepAt(childIndex, child => {
+            const idx = child.fields.findIndex(f => f.id === field.id);
+            const fields = idx === -1
+                ? [...child.fields, { ...field, order: child.fields.length }]
+                : child.fields.map((f, i) => (i === idx ? field : f));
+            return { ...child, fields };
+        });
+        setChildFieldEdit(null);
+    };
+
+    const handleDeleteChildField = (childIndex: number, fieldIndex: number) => {
+        updateChildStepAt(childIndex, child => ({
+            ...child,
+            fields: child.fields.filter((_, i) => i !== fieldIndex).map((f, i) => ({ ...f, order: i }))
+        }));
+    };
+
+    const handleChildFieldDragEnd = (childIndex: number, event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        const child = (step.childFormSteps || [])[childIndex];
+        const oldIndex = child.fields.findIndex(f => f.id === active.id);
+        const newIndex = child.fields.findIndex(f => f.id === over.id);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const reordered = arrayMove(child.fields, oldIndex, newIndex).map((f, i) => ({ ...f, order: i }));
+        updateChildStepAt(childIndex, c => ({ ...c, fields: reordered }));
     };
 
     const handleAddReusableField = async (templateField: FormFieldDto, mode: ReuseLinkMode) => {
@@ -338,31 +503,142 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, onUpdate, me
                                 <p className="mt-1 text-xs text-gray-500">
                                     The entity type that holds the many-to-many relationship with extra fields (e.g., Level, Priority)
                                 </p>
+                                {loadingJoinEntityFields && (
+                                    <p className="mt-1 text-xs text-blue-700">Loading join entity metadata…</p>
+                                )}
                             </div>
 
-                            <div className="bg-white border border-blue-300 rounded-md p-3">
-                                <h4 className="text-sm font-medium text-gray-900 mb-2">Join Entity Fields Template (Child Steps)</h4>
-                                <p className="text-xs text-gray-600 mb-3">
-                                    Child steps define the fields shown in cards when editing each relationship instance.
-                                    Create reusable steps with the fields you want (e.g., "Level", "ApplyByDefault") and they will be automatically included here.
-                                </p>
-                                <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mb-3">
+                            <div className="bg-white border border-blue-300 rounded-md p-3 space-y-3">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <h4 className="text-sm font-medium text-gray-900">Join Entity Fields Template (Child Steps)</h4>
+                                        <p className="text-xs text-gray-600">
+                                            Add child steps that act like item templates (similar to Display Config collections). Their fields render on the join entity cards.
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            className="btn-secondary text-xs"
+                                            onClick={handleAddNewChildStep}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" />
+                                            Add child step
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn-secondary text-xs"
+                                            onClick={() => setShowChildStepSelector(true)}
+                                            disabled={reusableSteps.length === 0}
+                                        >
+                                            <Copy className="h-4 w-4 mr-1" />
+                                            From template
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
                                     <p className="text-xs text-yellow-800">
-                                        <strong>Note:</strong> Child step management is currently done through the main FormConfigBuilder.
-                                        Create steps marked as reusable templates with the join entity fields you need.
+                                        These child steps mirror the Display Config collection flow. Configure fields here to shape the join entity cards.
                                     </p>
                                 </div>
+
                                 {(step.childFormSteps ?? []).length > 0 ? (
-                                    <div className="space-y-1">
-                                        {(step.childFormSteps ?? []).map((childStep, idx) => (
-                                            <div key={childStep.id || idx} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded">
-                                                {childStep.stepName} ({(childStep.fields?.length ?? 0)} fields)
+                                    <div className="space-y-3">
+                                        {(step.childFormSteps ?? []).map((childStep, childIdx) => (
+                                            <div key={childStep.id || childIdx} className="bg-gray-50 border border-gray-200 rounded-md p-3 space-y-3">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex-1">
+                                                        <div className="text-sm font-medium text-gray-900">{childStep.stepName || `Child Step ${childIdx + 1}`}</div>
+                                                        <div className="text-xs text-gray-500">{childStep.title || 'Join entity card template'}</div>
+                                                        <div className="text-xs text-gray-500 mt-1">{childStep.fields.length} field{childStep.fields.length === 1 ? '' : 's'}</div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            className="btn-secondary text-xs"
+                                                            onClick={() => handleAddChildField(childIdx)}
+                                                        >
+                                                            <Plus className="h-4 w-4 mr-1" />
+                                                            Add field
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="btn-secondary text-xs"
+                                                            onClick={() => setChildFieldSelectorIndex(childIdx)}
+                                                            disabled={addingTemplate}
+                                                        >
+                                                            <Copy className="h-4 w-4 mr-1" />
+                                                            From template
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="p-1 text-gray-400 hover:text-red-600"
+                                                            onClick={() => handleDeleteChildStep(childIdx)}
+                                                            title="Remove child step"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-700 mb-1">Step Name</label>
+                                                        <input
+                                                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                                            value={childStep.stepName}
+                                                            onChange={e => handleUpdateChildMeta(childIdx, { stepName: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
+                                                        <input
+                                                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                                            value={childStep.title}
+                                                            onChange={e => handleUpdateChildMeta(childIdx, { title: e.target.value })}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="border-t border-dashed border-gray-200 pt-3">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <h5 className="text-sm font-medium text-gray-900">Child Fields</h5>
+                                                        <span className="text-xs text-gray-500">Drag to reorder</span>
+                                                    </div>
+                                                    {childStep.fields.length === 0 ? (
+                                                        <div className="text-center py-4 text-gray-500 text-xs border border-dashed border-gray-300 rounded-md">
+                                                            No fields yet. Add a field to define the join entity card.
+                                                        </div>
+                                                    ) : (
+                                                        <DndContext
+                                                            sensors={sensors}
+                                                            collisionDetection={closestCenter}
+                                                            onDragEnd={event => handleChildFieldDragEnd(childIdx, event)}
+                                                        >
+                                                            <SortableContext
+                                                                items={childStep.fields.map(f => f.id!)}
+                                                                strategy={verticalListSortingStrategy}
+                                                            >
+                                                                <div className="space-y-2">
+                                                                    {childStep.fields.map((field, index) => (
+                                                                        <SortableFieldItem
+                                                                            key={field.id}
+                                                                            field={field}
+                                                                            onEdit={() => setChildFieldEdit({ childIndex: childIdx, field, index })}
+                                                                            onDelete={() => handleDeleteChildField(childIdx, index)}
+                                                                        />
+                                                                    ))}
+                                                                </div>
+                                                            </SortableContext>
+                                                        </DndContext>
+                                                    )}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
                                     <p className="text-xs text-gray-500 italic">
-                                        No child steps configured. The relationship editor will only show entity selection without extra fields.
+                                        No child steps configured yet. Add one to capture join entity fields (e.g., Level, Priority).
                                     </p>
                                 )}
                             </div>
@@ -452,11 +728,39 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, onUpdate, me
                 />
             )}
 
+            {childFieldEdit && (
+                <FieldEditor
+                    field={childFieldEdit.field}
+                    onSave={field => handleSaveChildField(childFieldEdit.childIndex, field)}
+                    onCancel={() => setChildFieldEdit(null)}
+                    metadataFields={joinEntityFields.length > 0 ? joinEntityFields : metadataFields}
+                />
+            )}
+
             {showFieldSelector && (
                 <ReusableFieldSelector
                     reusableFields={reusableFields}
                     onSelect={handleAddReusableField}
                     onCancel={() => setShowFieldSelector(false)}
+                />
+            )}
+
+            {childFieldSelectorIndex !== null && (
+                <ReusableFieldSelector
+                    reusableFields={reusableFields}
+                    onSelect={(templateField, mode) => {
+                        handleAddChildReusableField(childFieldSelectorIndex, templateField, mode);
+                        setChildFieldSelectorIndex(null);
+                    }}
+                    onCancel={() => setChildFieldSelectorIndex(null)}
+                />
+            )}
+
+            {showChildStepSelector && (
+                <ReusableStepSelector
+                    reusableSteps={reusableSteps}
+                    onSelect={(template, mode) => handleAddChildStepFromTemplate(template, mode)}
+                    onCancel={() => setShowChildStepSelector(false)}
                 />
             )}
         </div>

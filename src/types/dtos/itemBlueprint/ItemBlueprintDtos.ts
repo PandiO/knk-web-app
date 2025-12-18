@@ -1,4 +1,5 @@
 import { MinecraftMaterialRefDto } from "../minecraftMaterialRef/MinecraftMaterialRefDto";
+import { EnchantmentDefinitionNavDto } from "../enchantmentDefinition/EnchantmentDefinitionDtos";
 
 export interface ItemBlueprintDto {
     id?: number;
@@ -9,6 +10,9 @@ export interface ItemBlueprintDto {
     iconNamespaceKey?: string;
     defaultDisplayName: string;
     defaultDisplayDescription: string;
+    defaultQuantity?: number;
+    maxStackSize?: number;
+    defaultEnchantments?: ItemBlueprintDefaultEnchantmentDto[];
 }
 
 export interface ItemBlueprintListDto {
@@ -17,6 +21,20 @@ export interface ItemBlueprintListDto {
     description: string;
     defaultDisplayName: string;
     iconMaterialRefId?: number;
-    iconMaterialRefName?: string;
     iconNamespaceKey?: string;
+    defaultEnchantmentsCount?: number;
+}
+
+export interface ItemBlueprintDefaultEnchantmentDto {
+    itemBlueprintId?: number;
+    enchantmentDefinitionId?: number;
+    enchantmentDefinition?: EnchantmentDefinitionNavDto;
+    level: number;
+}
+
+export interface ItemBlueprintNavDto {
+    id?: number;
+    name: string;
+    iconMaterialRefId?: number;
+    defaultDisplayName: string;
 }
