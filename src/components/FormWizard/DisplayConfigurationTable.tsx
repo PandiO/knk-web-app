@@ -35,7 +35,7 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
     }, []);
 
     const handleDeleteClick = (config: DisplayConfigurationDto) => {
-        if (confirm(`Are you sure you want to delete "${config.name}"?`)) {
+        if (window.confirm(`Are you sure you want to delete "${config.name}"?`)) {
             onDelete?.(config);
             setActiveMenu(null);
         }

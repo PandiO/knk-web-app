@@ -9,6 +9,7 @@ import { DisplayConfigurationTable } from '../components/FormWizard/DisplayConfi
 import { FormConfigurationTable } from '../components/FormWizard/FormConfigurationTable';
 import { FormWizard } from '../components/FormWizard/FormWizard';
 import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
+import { workflowClient } from '../apiClients/workflowClient';
 import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
 import { logging } from '../utils';
 import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../types/dtos/forms/FormModels';
@@ -68,6 +69,7 @@ export const FormWizardPage: React.FC<Props> = ({
     const [showWizard, setShowWizard] = useState(false);
     const [wizardConfig, setWizardConfig] = useState<FormConfigurationDto | null>(null);
     const [wizardProgressId, setWizardProgressId] = useState<string | undefined>(undefined);
+    const [workflowSessionId, setWorkflowSessionId] = useState<number | undefined>(undefined);
     const [entityMetadata, setEntityMetadata] = useState<FieldMetadataDto[]>([]);
     const [autoOpenForm, setAutoOpenForm] = useState(false); // removed: old auto-open flag logic
 
@@ -184,13 +186,28 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // added: Auto-open default form when configurations are loaded (Use Case 4)
     useEffect(() => {
-        if (autoOpenForm && defaultConfig && !showWizard && !loadingConfigs) {
-            // Automatically open the default form configuration
-            setWizardConfig(defaultConfig);
-            setWizardProgressId(undefined);
-            setShowWizard(true);
-        }
-    }, [autoOpenForm, defaultConfig, showWizard, loadingConfigs]);
+        const tryOpen = async () => {
+            if (autoOpenForm && defaultConfig && !showWizard && !loadingConfigs) {
+                setWizardConfig(defaultConfig);
+                setWizardProgressId(undefined);
+                try {
+                    const cfgIdNum = defaultConfig.id ? parseInt(String(defaultConfig.id), 10) : undefined;
+                    const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
+                    const session = await workflowClient.createSession({
+                        userId: parseInt(userId, 10) || 0,
+                        formConfigurationId: cfgIdNum,
+                        entityTypeName: selectedTypeName,
+                        entityId: entityIdNum
+                    });
+                    setWorkflowSessionId(session.id);
+                } catch {
+                    setWorkflowSessionId(undefined);
+                }
+                setShowWizard(true);
+            }
+        };
+        void tryOpen();
+    }, [autoOpenForm, defaultConfig, showWizard, loadingConfigs, entityId, selectedTypeName, userId]);
 
     useEffect(() => {
         if (!selectedTypeName) {
@@ -285,9 +302,22 @@ export const FormWizardPage: React.FC<Props> = ({
     };
 
     // Handler: Open wizard with specific configuration
-    const handleOpenConfiguration = (config: FormConfigurationDto, progressId?: string) => {
+    const handleOpenConfiguration = async (config: FormConfigurationDto, progressId?: string) => {
         setWizardConfig(config);
         setWizardProgressId(progressId);
+        try {
+            const cfgIdNum = config.id ? parseInt(String(config.id), 10) : undefined;
+            const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
+            const session = await workflowClient.createSession({
+                userId: parseInt(userId, 10) || 0,
+                formConfigurationId: cfgIdNum,
+                entityTypeName: selectedTypeName,
+                entityId: entityIdNum
+            });
+            setWorkflowSessionId(session.id);
+        } catch {
+            setWorkflowSessionId(undefined);
+        }
         setShowWizard(true);
     };
 
@@ -296,7 +326,7 @@ export const FormWizardPage: React.FC<Props> = ({
         const existingDefault = formConfigs.find(c => c.id !== config.id && c.isDefault);
         
         if (existingDefault) {
-            if (!confirm(`There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
+            if (!window.confirm(`There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
                 return;
             }
             await handleRemoveDefault(existingDefault);
@@ -346,7 +376,7 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Handler: Delete progress
     const handleDeleteProgress = async (progress: FormSubmissionProgressSummaryDto) => {
-        if (!confirm('Are you sure you want to delete this saved progress?')) return;
+        if (!window.confirm('Are you sure you want to delete this saved progress?')) return;
 
         try {
             await formSubmissionClient.delete(progress.id!);
@@ -372,7 +402,7 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Handler: Delete configuration
     const handleFormConfigDelete = async (config: FormConfigurationDto) => {
-        if (!confirm('Are you sure you want to delete this form configuration?')) return;
+        if (!window.confirm('Are you sure you want to delete this form configuration?')) return;
 
         try {
             await formConfigClient.delete(config.id!);
@@ -405,7 +435,7 @@ export const FormWizardPage: React.FC<Props> = ({
 
         const existingDefault = displayConfigs.find(c => c.id !== config.id && c.isDefault);
         if (existingDefault) {
-            if (!confirm(`There is already a default display configuration for "${selectedTypeName}". Change default to "${config.name}"?`)) {
+            if (!window.confirm(`There is already a default display configuration for "${selectedTypeName}". Change default to "${config.name}"?`)) {
                 return;
             }
             await handleDisplayRemoveDefault(existingDefault);
@@ -664,6 +694,13 @@ export const FormWizardPage: React.FC<Props> = ({
                             userId={userId}
                             onComplete={(data, progress) => handleComplete(data, progress)}
                             existingProgressId={wizardProgressId}
+                            workflowSessionId={workflowSessionId}
+                            onStepAdvanced={({ from, stepKey }) => {
+                                if (workflowSessionId != null) {
+                                    workflowClient.completeStep(workflowSessionId, stepKey, from).catch(() => {});
+                                }
+                            }}
+                            worldTaskHint={"Missing in-game confirmation. You can continue later."}
                             // entityMetadata={entityMetadata} // optional: can be added to FormWizard props
                         />
                     ) : (

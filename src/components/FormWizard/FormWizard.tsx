@@ -15,6 +15,8 @@ import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { FeedbackModal } from '../FeedbackModal';
 import { ChildFormModal } from './ChildFormModal';
 import { ManyToManyRelationshipEditor } from './ManyToManyRelationshipEditor';
+import { workflowClient } from '../../apiClients/workflowClient';
+import { StepProgressReadDto } from '../../types/dtos/workflow/WorkflowDtos';
 
 interface FormWizardProps {
     entityName: string;
@@ -25,6 +27,10 @@ interface FormWizardProps {
     parentProgressId?: string; // added: for nested child forms
     fieldName?: string; // added: field name this child form is for
     currentStepIndex?: number; // added: step index where child form is being created
+    // workflow integration (optional)
+    workflowSessionId?: number;
+    onStepAdvanced?: (args: { from: number; to: number; stepKey: string }) => void;
+    worldTaskHint?: string;
 }
 
 export const FormWizard: React.FC<FormWizardProps> = ({
@@ -33,7 +39,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     userId,
     onComplete,
     existingProgressId,
-    parentProgressId // added
+    parentProgressId, // added
+    workflowSessionId,
+    onStepAdvanced,
+    worldTaskHint
     // Note: fieldName and currentStepIndex props removed as unused
 }) => {
     const [config, setConfig] = useState<FormConfigurationDto | null>(null);
@@ -46,6 +55,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
     // CRITICAL: Track entityId in state so it persists when loading from progress
     const [entityId, setEntityId] = useState<string | undefined>(initialEntityId);
 
@@ -201,6 +211,23 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         loadConfiguration();
     }, [loadConfiguration]);
 
+    // Load workflow step progress if workflow session is active
+    useEffect(() => {
+        const fetchProgress = async () => {
+            if (!workflowSessionId) return;
+            try {
+                const steps: StepProgressReadDto[] = await workflowClient.getProgress(workflowSessionId);
+                const set = new Set<number>();
+                steps.filter(s => (s.status || '').toLowerCase() === 'completed')
+                     .forEach(s => set.add(s.stepIndex));
+                setCompletedSteps(set);
+            } catch {
+                // ignore errors; non-blocking
+            }
+        };
+        void fetchProgress();
+    }, [workflowSessionId]);
+
     // changed: simplified using utility function
     const loadExistingEntityData = async (entityTypeName: string, id: string, cfg: FormConfigurationDto) => {
         try {
@@ -230,6 +257,25 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
     const currentStep = config?.steps[currentStepIndex];
     const orderedFields = currentStep?.fields.sort((a, b) => a.order - b.order) || [];
+
+    const computeStepKey = (step: FormStepDto, index: number): string => {
+        const key = step.stepName?.trim();
+        return key && key.length > 0 ? key : `step-${index + 1}`;
+    };
+
+    const parseWorldTaskSettings = (settingsJson?: string): { enabled?: boolean; taskType?: string } => {
+        if (!settingsJson) return {};
+        try {
+            const parsed = JSON.parse(settingsJson);
+            if (parsed && typeof parsed === 'object' && parsed.worldTask) {
+                return {
+                    enabled: !!parsed.worldTask.enabled,
+                    taskType: parsed.worldTask.taskType
+                };
+            }
+        } catch {}
+        return {};
+    };
 
     const handleFieldChange = (fieldName: string, value: unknown) => {
         setCurrentStepData(prev => ({ ...prev, [fieldName]: value }));
@@ -475,6 +521,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             // Advance and initialize next step data to defaults/nulls
             setCurrentStepIndex(prev => {
                 const nextIndex = prev + 1;
+                // notify workflow about step advancement (complete current step)
+                try {
+                    const stepKey = computeStepKey(currentStep!, prev);
+                    onStepAdvanced?.({ from: prev, to: nextIndex, stepKey });
+                    setCompletedSteps(prevSet => new Set<number>([...Array.from(prevSet), prev]));
+                } catch {}
                 setCurrentStepData(normalizeStepData(config!.steps[nextIndex], updatedAllData[nextIndex] || {}));
                 setErrors({});
                 return nextIndex;
@@ -505,6 +557,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             console.log('Raw form data (flattened):', flattenedDto);
             console.log('Normalized payload for API (with IDs extracted):', normalizedPayload);
             console.log('Edit mode:', !!entityId, 'Entity ID:', entityId);
+
+            // notify workflow for final step as well
+            try {
+                const stepKey = computeStepKey(currentStep!, currentStepIndex);
+                onStepAdvanced?.({ from: currentStepIndex, to: currentStepIndex, stepKey });
+                setCompletedSteps(prevSet => new Set<number>([...Array.from(prevSet), currentStepIndex]));
+            } catch {}
 
             onComplete?.(normalizedPayload, getProgressData()!);
         }
@@ -573,19 +632,19 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         <div key={step.id} className="flex items-center gap-2 md:gap-3 flex-shrink-0">
                             <div
                                 className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                                    index < currentStepIndex
+                                    (index < currentStepIndex || completedSteps.has(index))
                                         ? 'bg-green-500 text-white'
                                         : index === currentStepIndex
                                         ? 'bg-primary text-white'
                                         : 'bg-gray-200 text-gray-600'
                                 }`}
                             >
-                                {index < currentStepIndex ? <Check className="h-4 w-4 md:h-5 md:w-5" /> : index + 1}
+                                {(index < currentStepIndex || completedSteps.has(index)) ? <Check className="h-4 w-4 md:h-5 md:w-5" /> : index + 1}
                             </div>
                             {index < config.steps.length - 1 && (
                                 <div
                                     className={`h-1 w-10 md:w-16 rounded-full transition-colors flex-shrink-0 ${
-                                        index < currentStepIndex ? 'bg-green-500' : 'bg-gray-200'
+                                        (index < currentStepIndex || completedSteps.has(index)) ? 'bg-green-500' : 'bg-gray-200'
                                     }`}
                                 />
                             )}
@@ -660,7 +719,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
                         if (!shouldShow) return null;
 
-                        return (
+                        const element = (
                             <FieldRenderer
                                 key={field.id}
                                 field={field}
@@ -670,6 +729,31 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                 onBlur={() => validateField(field)}
                                 onCreateNew={() => handleOpenChildForm(field)}
                             />
+                        );
+
+                        // Optionally render WorldTask CTA when enabled in settings and workflow active
+                        const { enabled, taskType } = parseWorldTaskSettings(field.settingsJson);
+                        const stepKey = computeStepKey(currentStep!, currentStepIndex);
+                        return (
+                            <div key={field.id}>
+                                {element}
+                                {enabled && workflowSessionId != null && (
+                                    // Lazy import to avoid circular deps
+                                    // eslint-disable-next-line @typescript-eslint/no-var-requires
+                                    React.createElement(require('../Workflow/WorldTaskCta').WorldTaskCta, {
+                                        workflowSessionId,
+                                        userId: parseInt(userId || '0', 10) || 0,
+                                        stepKey,
+                                        fieldName: field.fieldName,
+                                        value: currentStepData[field.fieldName],
+                                        taskType,
+                                        hint: worldTaskHint,
+                                        onCompleted: () => {
+                                            // On completion, we can clear any hint or trigger re-render
+                                        }
+                                    })
+                                )}
+                            </div>
                         );
                     })
                 )}

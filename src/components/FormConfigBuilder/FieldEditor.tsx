@@ -19,6 +19,21 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
         initialField.elementType || FieldType.String
     );
     const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto[]>([]);
+    const [worldTaskEnabled, setWorldTaskEnabled] = useState<boolean>(false);
+    const [worldTaskType, setWorldTaskType] = useState<string>('');
+        const [customTaskType, setCustomTaskType] = useState<string>('');
+
+        // Predefined task types
+        const PREDEFINED_TASK_TYPES = [
+            'LocationSelection',
+            'RegionClaim',
+            'VerifyLocation',
+            'VerifyStructure',
+            'VerifyPlacement',
+            'VerifyResource',
+            'VerifyBoundary',
+            'Custom'
+        ];
 
     useEffect(() => {
         const loadMetadata = async () => {
@@ -31,6 +46,42 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
         };
         loadMetadata();
     }, []);
+
+    // Parse existing settingsJson and initialize world-task state
+    useEffect(() => {
+        try {
+            const current = field.settingsJson ? JSON.parse(field.settingsJson) : {};
+            const wt = current?.worldTask || {};
+            setWorldTaskEnabled(!!wt.enabled);
+                const taskType = typeof wt.taskType === 'string' ? wt.taskType : '';
+                setWorldTaskType(taskType);
+                // If task type is not in predefined list, set it as custom
+                if (taskType && !PREDEFINED_TASK_TYPES.includes(taskType)) {
+                    setWorldTaskType('Custom');
+                    setCustomTaskType(taskType);
+                }
+        } catch {
+            setWorldTaskEnabled(false);
+            setWorldTaskType('');
+                setCustomTaskType('');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialField.id]);
+
+    const mergeSettings = (partial: any) => {
+        let base: any = {};
+        try {
+            base = field.settingsJson ? JSON.parse(field.settingsJson) : {};
+        } catch {
+            base = {};
+        }
+        const merged = { ...base, ...partial };
+        // Special merge for nested worldTask object
+        if (partial.worldTask) {
+            merged.worldTask = { ...(base.worldTask || {}), ...(partial.worldTask || {}) };
+        }
+        setField(prev => ({ ...prev, settingsJson: JSON.stringify(merged) }));
+    };
 
     const isCollectionType = (type: FieldType): boolean => {
         return type === FieldType.List;
@@ -72,8 +123,23 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
             return;
         }
 
+        // Ensure worldTask settings are persisted/merged into settingsJson synchronously
+        let baseSettings: any = {};
+        try {
+            baseSettings = field.settingsJson ? JSON.parse(field.settingsJson) : {};
+        } catch {
+            baseSettings = {};
+        }
+        const mergedWorldTask = {
+            ...(baseSettings.worldTask || {}),
+            enabled: worldTaskEnabled,
+            ...(worldTaskType ? { taskType: worldTaskType } : {})
+        };
+        const mergedSettings = { ...baseSettings, worldTask: mergedWorldTask };
+
         const fieldToSave: FormFieldDto = {
             ...field,
+            settingsJson: JSON.stringify(mergedSettings),
             elementType: isCollectionType(field.fieldType) ? collectionElementType : undefined
         };
         onSave(fieldToSave);
@@ -290,6 +356,72 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                             </p>
                         </div>
                     )}
+
+                    {/* In-Game Action (World Task) configuration */}
+                    <div className="mt-4 p-3 rounded-md border border-gray-200">
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium text-gray-700">Requires in-game action</label>
+                            <input
+                                type="checkbox"
+                                checked={worldTaskEnabled}
+                                onChange={e => {
+                                    const enabled = e.target.checked;
+                                    setWorldTaskEnabled(enabled);
+                                    mergeSettings({ worldTask: { enabled } });
+                                    if (enabled && !worldTaskType) {
+                                            // Set default task type
+                                            setWorldTaskType('VerifyLocation');
+                                            mergeSettings({ worldTask: { enabled: true, taskType: 'VerifyLocation' } });
+                                    }
+                                }}
+                                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                            />
+                        </div>
+                        <div className="mt-3">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Task Type</label>
+                                <select
+                                value={worldTaskType}
+                                    onChange={e => {
+                                        const selectedType = e.target.value;
+                                        setWorldTaskType(selectedType);
+                                        if (selectedType === 'Custom') {
+                                            // Don't set taskType yet, wait for custom input
+                                            if (customTaskType) {
+                                                mergeSettings({ worldTask: { taskType: customTaskType } });
+                                            }
+                                        } else {
+                                            mergeSettings({ worldTask: { taskType: selectedType || undefined } });
+                                            setCustomTaskType(''); // Clear custom input when selecting predefined
+                                        }
+                                }}
+                                disabled={!worldTaskEnabled}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm disabled:bg-gray-100 disabled:text-gray-500"
+                                >
+                                    <option value="">Select a task type...</option>
+                                    {PREDEFINED_TASK_TYPES.map(type => (
+                                        <option key={type} value={type}>
+                                            {type}
+                                        </option>
+                                    ))}
+                                </select>
+                                {worldTaskType === 'Custom' && (
+                                    <input
+                                        type="text"
+                                        value={customTaskType}
+                                        onChange={e => {
+                                            setCustomTaskType(e.target.value);
+                                            mergeSettings({ worldTask: { taskType: e.target.value || undefined } });
+                                        }}
+                                        disabled={!worldTaskEnabled}
+                                        placeholder="Enter custom task type..."
+                                        className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm disabled:bg-gray-100"
+                                    />
+                                )}
+                            <p className="mt-1 text-xs text-gray-500">
+                                When enabled, the form shows a "Send to Minecraft" action and tracks this task.
+                            </p>
+                        </div>
+                    </div>
 
                     <div className="flex items-center space-x-6">
                         <div className="flex items-center">

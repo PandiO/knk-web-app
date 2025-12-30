@@ -356,7 +356,7 @@ export const FormConfigBuilder: React.FC = () => {
                     const existingDefaults: FormConfigurationDto = await formConfigClient.getByEntityTypeName(config.entityTypeName, true) as FormConfigurationDto;
                     if (existingDefaults && existingDefaults.id && existingDefaults.id !== config.id) {
                         //Show same confirm dialog as the handleSetDefault const in the FormWizardPage.tsx and unset if confirmed
-                        if (confirm(`There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
+                        if (window.confirm(`There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
                             await handleRemoveDefault(existingDefaults);
                         } else {
                             return;

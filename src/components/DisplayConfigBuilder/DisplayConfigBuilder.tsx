@@ -410,7 +410,7 @@ export const DisplayConfigBuilder: React.FC = () => {
                 try {
                     const existingDefault = await displayConfigClient.getDefaultByEntityType(config.entityTypeName, true);
                     if (existingDefault && existingDefault.id && existingDefault.id !== config.id) {
-                        if (confirm(`There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.name}"?`)) {
+                        if (window.confirm(`There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.name}"?`)) {
                             await handleRemoveDefault(existingDefault);
                         } else {
                             setSaving(false);

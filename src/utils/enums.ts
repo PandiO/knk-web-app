@@ -79,8 +79,11 @@ export enum Controllers {
     EnchantmentDefinitions = 'EnchantmentDefinitions',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs',
-    MinecraftEnchantmentRefs = 'MinecraftEnchantmentRefs'
+    MinecraftEnchantmentRefs = 'MinecraftEnchantmentRefs',
+    Workflows = 'Workflows',
+    WorldTasks = 'WorldTasks'
 }
+
 
 export enum FormPlaceHolder {
     Name = 'TestName',
