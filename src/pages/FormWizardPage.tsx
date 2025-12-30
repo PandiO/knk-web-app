@@ -187,7 +187,16 @@ export const FormWizardPage: React.FC<Props> = ({
     // added: Auto-open default form when configurations are loaded (Use Case 4)
     useEffect(() => {
         const tryOpen = async () => {
-            if (autoOpenForm && defaultConfig && !showWizard && !loadingConfigs) {
+            console.log('Auto-open effect triggered:', { autoOpenForm, defaultConfig: defaultConfig?.id, wizardConfig: wizardConfig?.id, showWizard, loadingConfigs });
+            // Only auto-open if:
+            // 1. Auto-open flag is set
+            // 2. Default config exists
+            // 3. Wizard is not already shown
+            // 4. Not currently loading
+            // 5. No manual config selection has been made (wizardConfig is null)
+            if (autoOpenForm && defaultConfig && !showWizard && !loadingConfigs && !wizardConfig) {
+                // Clear the flag immediately to prevent re-triggering
+                setAutoOpenForm(false);
                 setWizardConfig(defaultConfig);
                 setWizardProgressId(undefined);
                 try {
@@ -207,7 +216,7 @@ export const FormWizardPage: React.FC<Props> = ({
             }
         };
         void tryOpen();
-    }, [autoOpenForm, defaultConfig, showWizard, loadingConfigs, entityId, selectedTypeName, userId]);
+    }, [autoOpenForm, defaultConfig, loadingConfigs, wizardConfig, entityId, selectedTypeName, userId]);
 
     useEffect(() => {
         if (!selectedTypeName) {
@@ -252,6 +261,7 @@ export const FormWizardPage: React.FC<Props> = ({
         try {
             setLoadingConfigs(true);
             setShowWizard(false);
+            setWizardConfig(null); // Clear any previously selected config
 
             // Fetch all configurations
             const configs = await formConfigClient.getByEntityTypeName(entityTypeName, false) as FormConfigurationDto[];
@@ -303,6 +313,8 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Handler: Open wizard with specific configuration
     const handleOpenConfiguration = async (config: FormConfigurationDto, progressId?: string) => {
+        console.log('Opening wizard with configuration:', config, 'and progressId:', progressId);
+        setAutoOpenForm(false); // Clear auto-open flag to prevent default config from overriding
         setWizardConfig(config);
         setWizardProgressId(progressId);
         try {
@@ -315,7 +327,8 @@ export const FormWizardPage: React.FC<Props> = ({
                 entityId: entityIdNum
             });
             setWorkflowSessionId(session.id);
-        } catch {
+        } catch (error) {
+            console.error('Failed to create workflow session', error);
             setWorkflowSessionId(undefined);
         }
         setShowWizard(true);
@@ -356,6 +369,7 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Handler: Edit configuration
     const handleEditConfiguration = (config: FormConfigurationDto) => {
+        console.log('Navigating to edit configuration:', config);
         navigate(`/admin/form-configurations/edit/${config.id}`);
     };
 
@@ -691,6 +705,7 @@ export const FormWizardPage: React.FC<Props> = ({
                         <FormWizard
                             entityName={selectedTypeName}
                             entityId={entityId}
+                            formConfigurationId={wizardConfig.id}
                             userId={userId}
                             onComplete={(data, progress) => handleComplete(data, progress)}
                             existingProgressId={wizardProgressId}

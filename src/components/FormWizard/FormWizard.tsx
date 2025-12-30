@@ -21,6 +21,7 @@ import { StepProgressReadDto } from '../../types/dtos/workflow/WorkflowDtos';
 interface FormWizardProps {
     entityName: string;
     entityId?: string; // added: optional entity ID for edit mode
+    formConfigurationId?: string; // added: optional specific form configuration to use
     userId: string;
     onComplete?: (data: Record<string, unknown>, progress?: FormSubmissionProgressDto) => void;
     existingProgressId?: string;
@@ -36,6 +37,7 @@ interface FormWizardProps {
 export const FormWizard: React.FC<FormWizardProps> = ({
     entityName,
     entityId: initialEntityId, // Rename to make clear this is the initial prop
+    formConfigurationId, // added
     userId,
     onComplete,
     existingProgressId,
@@ -170,15 +172,22 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 if (!entityName) {
                     throw new Error('Entity name is required to load form configuration');
                 }
-                const fetchedConfig = await formConfigClient.getByEntityTypeName(entityName, true).then((config: FormConfigurationDto | FormConfigurationDto[] | undefined) => {
-                    if (!config) {
-                        throw new Error(`No default form configuration found for entity: ${entityName}`);
-                    }
-                    if (Array.isArray(config)) {
-                        throw new Error(`Expected single form configuration but received array for entity: ${entityName}`);
-                    }
-                    return config;
-                });
+                let fetchedConfig: FormConfigurationDto;
+                
+                // Use specific config if provided, otherwise fetch default
+                if (formConfigurationId) {
+                    fetchedConfig = await formConfigClient.getById(formConfigurationId);
+                } else {
+                    fetchedConfig = await formConfigClient.getByEntityTypeName(entityName, true).then((config: FormConfigurationDto | FormConfigurationDto[] | undefined) => {
+                        if (!config) {
+                            throw new Error(`No default form configuration found for entity: ${entityName}`);
+                        }
+                        if (Array.isArray(config)) {
+                            throw new Error(`Expected single form configuration but received array for entity: ${entityName}`);
+                        }
+                        return config;
+                    });
+                }
                 setConfig(fetchedConfig);
                 
                 // changed: if entityId provided, load existing entity data
@@ -205,7 +214,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             setLoading(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entityName, existingProgressId, initialEntityId]);
+    }, [entityName, existingProgressId, initialEntityId, formConfigurationId]);
 
     useEffect(() => {
         loadConfiguration();
