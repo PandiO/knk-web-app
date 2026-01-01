@@ -124,6 +124,7 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
         }
 
         // Ensure worldTask settings are persisted/merged into settingsJson synchronously
+        const taskTypeToPersist = worldTaskType === 'Custom' ? customTaskType : worldTaskType;
         let baseSettings: any = {};
         try {
             baseSettings = field.settingsJson ? JSON.parse(field.settingsJson) : {};
@@ -133,7 +134,7 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
         const mergedWorldTask = {
             ...(baseSettings.worldTask || {}),
             enabled: worldTaskEnabled,
-            ...(worldTaskType ? { taskType: worldTaskType } : {})
+            ...(taskTypeToPersist ? { taskType: taskTypeToPersist } : {})
         };
         const mergedSettings = { ...baseSettings, worldTask: mergedWorldTask };
 
