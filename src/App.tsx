@@ -14,7 +14,6 @@ import { FormConfigListPage } from './pages/FormConfigListPage';
 import { DisplayWizardPage } from './pages/DisplayWizardPage';
 import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayConfigBuilder';
 import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
-import { TownCreateWizardPage } from './pages/TownCreateWizardPage';
 import React from 'react';
 
 function App() {
@@ -104,8 +103,6 @@ function App() {
               <Route path="/admin/form-configurations" element={<FormConfigListPage />} />
               <Route path="/admin/form-configurations/new" element={<FormConfigBuilder />} />
               <Route path="/admin/form-configurations/edit/:id" element={<FormConfigBuilder />} />
-              {/* Town Create Wizard - Hybrid Workflow */}
-              <Route path="/towns/create" element={<TownCreateWizardPage />} />
               {/* DisplayConfiguration routes */}
               <Route path="/admin/display-configurations" element={<DisplayConfigListPage />} />
               <Route path="/admin/display-configurations/new" element={<DisplayConfigBuilder />} />

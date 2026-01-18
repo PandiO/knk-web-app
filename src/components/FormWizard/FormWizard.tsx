@@ -43,9 +43,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     existingProgressId,
     parentProgressId, // added
     workflowSessionId,
-    onStepAdvanced,
-    worldTaskHint
-    // Note: fieldName and currentStepIndex props removed as unused
+    onStepAdvanced
+    // Note: fieldName, currentStepIndex, and worldTaskHint props removed as unused
 }) => {
     const [config, setConfig] = useState<FormConfigurationDto | null>(null);
     const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto | null>(null);
@@ -728,7 +727,38 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
                         if (!shouldShow) return null;
 
-                        const element = (
+                        // Check if this field has world task enabled
+                        const { enabled: worldTaskEnabled, taskType } = parseWorldTaskSettings(field.settingsJson);
+                        const stepKey = computeStepKey(currentStep!, currentStepIndex);
+
+                        // If world task is enabled and we have a workflow session, use WorldBoundFieldRenderer
+                        if (worldTaskEnabled && workflowSessionId != null && taskType) {
+                            // eslint-disable-next-line @typescript-eslint/no-var-requires
+                            const WorldBoundFieldRenderer = require('../Workflow/WorldBoundFieldRenderer').WorldBoundFieldRenderer;
+                            return (
+                                <WorldBoundFieldRenderer
+                                    key={field.id}
+                                    field={field}
+                                    value={currentStepData[field.fieldName]}
+                                    onChange={(value: any) => handleFieldChange(field.fieldName, value)}
+                                    taskType={taskType}
+                                    workflowSessionId={workflowSessionId}
+                                    stepNumber={currentStepIndex}
+                                    stepKey={stepKey}
+                                    allowExisting={false}
+                                    allowCreate={true}
+                                    onTaskCompleted={(task: any, extractedValue: any) => {
+                                        console.log('WorldTask completed:', task, 'Extracted value:', extractedValue);
+                                        // Field value already updated via onChange callback
+                                        // Optionally notify workflow about step advancement
+                                        onStepAdvanced?.({ from: currentStepIndex, to: currentStepIndex, stepKey });
+                                    }}
+                                />
+                            );
+                        }
+
+                        // Otherwise use standard field renderer
+                        return (
                             <FieldRenderer
                                 key={field.id}
                                 field={field}
@@ -738,31 +768,6 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                 onBlur={() => validateField(field)}
                                 onCreateNew={() => handleOpenChildForm(field)}
                             />
-                        );
-
-                        // Optionally render WorldTask CTA when enabled in settings and workflow active
-                        const { enabled, taskType } = parseWorldTaskSettings(field.settingsJson);
-                        const stepKey = computeStepKey(currentStep!, currentStepIndex);
-                        return (
-                            <div key={field.id}>
-                                {element}
-                                {enabled && workflowSessionId != null && (
-                                    // Lazy import to avoid circular deps
-                                    // eslint-disable-next-line @typescript-eslint/no-var-requires
-                                    React.createElement(require('../Workflow/WorldTaskCta').WorldTaskCta, {
-                                        workflowSessionId,
-                                        userId: parseInt(userId || '0', 10) || 0,
-                                        stepKey,
-                                        fieldName: field.fieldName,
-                                        value: currentStepData[field.fieldName],
-                                        taskType,
-                                        hint: worldTaskHint,
-                                        onCompleted: () => {
-                                            // On completion, we can clear any hint or trigger re-render
-                                        }
-                                    })
-                                )}
-                            </div>
                         );
                     })
                 )}

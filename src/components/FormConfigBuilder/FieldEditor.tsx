@@ -25,6 +25,7 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
 
         // Predefined task types
         const PREDEFINED_TASK_TYPES = [
+            'ReagionCreate',
             'LocationSelection',
             'RegionClaim',
             'VerifyLocation',
