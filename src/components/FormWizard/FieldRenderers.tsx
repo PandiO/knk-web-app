@@ -1,11 +1,12 @@
 import React from 'react';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
-import { Calendar, Plus, Minus, X } from 'lucide-react';
+import { Calendar, Plus, Minus, X, CheckCircle2, AlertTriangle, Loader2, Info } from 'lucide-react';
 import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 import { HybridMaterialPicker } from '../minecraft/HybridMaterialPicker';
 import { HybridEnchantmentPicker } from '../minecraft/HybridEnchantmentPicker';
+import { ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 
 interface FieldRendererProps {
     field: FormFieldDto;
@@ -17,6 +18,8 @@ interface FieldRendererProps {
     allStepsData?: { [stepIndex: number]: any }; // optional: for dependency evaluation
     currentStepIndex?: number; // optional: for context
     errors?: { [fieldName: string]: string }; // optional: error map
+    validationResult?: ValidationResultDto;
+    validationPending?: boolean;
 }
 
 export const FieldRenderer: React.FC<FieldRendererProps> = ({
@@ -25,29 +28,52 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     onChange,
     error,
     onBlur,
-    onCreateNew
+    onCreateNew,
+    validationResult,
+    validationPending
     // Note: allStepsData, currentStepIndex, errors are available in props but currently unused
 }) => {
+    const withFeedback = (content: React.ReactNode) => (
+        <div className="space-y-1">
+            {content}
+            <ValidationFeedback validationResult={validationResult} pending={validationPending} />
+        </div>
+    );
+
     switch (field.fieldType) {
         case FieldType.String:
-            return <StringField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />;
+            return withFeedback(
+                <StringField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />
+            );
         case FieldType.Integer:
-            return <IntegerField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />;
+            return withFeedback(
+                <IntegerField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />
+            );
         case FieldType.Decimal:
-            return <DecimalField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />;
+            return withFeedback(
+                <DecimalField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />
+            );
         case FieldType.Boolean:
-            return <BooleanField field={field} value={value} onChange={onChange} error={error} />;
+            return withFeedback(<BooleanField field={field} value={value} onChange={onChange} error={error} />);
         case FieldType.DateTime:
-            return <DateTimeField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />;
+            return withFeedback(
+                <DateTimeField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />
+            );
         case FieldType.Enum:
-            return <EnumField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />;
+            return withFeedback(
+                <EnumField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />
+            );
         case FieldType.Object:
-            return <ObjectField field={field} value={value} onChange={onChange} error={error} onCreateNew={onCreateNew} />;
+            return withFeedback(
+                <ObjectField field={field} value={value} onChange={onChange} error={error} onCreateNew={onCreateNew} />
+            );
         case FieldType.List:
-            return <ListField field={field} value={value} onChange={onChange} error={error} />;
+            return withFeedback(
+                <ListField field={field} value={value} onChange={onChange} error={error} />
+            );
         case FieldType.HybridMinecraftMaterialRefPicker: {
             const settings = parseHybridMaterialSettings(field.settingsJson);
-            return (
+            return withFeedback(
                 <HybridMaterialPicker
                     label={field.label}
                     description={field.description}
@@ -62,18 +88,18 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
         }
         case FieldType.HybridMinecraftEnchantmentRefPicker: {
             const settings = parseHybridEnchantmentSettings(field.settingsJson);
-                return (
-                    <HybridEnchantmentPicker
-                        label={field.label}
-                        description={field.description}
-                        value={value}
-                        onChange={onChange}
-                        required={field.isRequired}
-                        error={error}
-                        categoryFilter={settings.categoryFilter}
-                        placeholder={field.placeholder}
-                    />
-                );
+            return withFeedback(
+                <HybridEnchantmentPicker
+                    label={field.label}
+                    description={field.description}
+                    value={value}
+                    onChange={onChange}
+                    required={field.isRequired}
+                    error={error}
+                    categoryFilter={settings.categoryFilter}
+                    placeholder={field.placeholder}
+                />
+            );
         }
         default:
             return <div className="text-sm text-gray-500">Unsupported field type: {field.fieldType}</div>;
@@ -105,6 +131,46 @@ const parseHybridEnchantmentSettings = (settingsJson?: string): { categoryFilter
         console.warn('Failed to parse hybrid enchantment settingsJson', err);
         return {};
     }
+};
+
+const interpolatePlaceholders = (message?: string, placeholders?: { [key: string]: string }) => {
+    if (!message) return '';
+    if (!placeholders) return message;
+    return Object.entries(placeholders).reduce((acc, [key, val]) => acc.replace(`{${key}}`, val), message);
+};
+
+const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pending?: boolean }> = ({ validationResult, pending }) => {
+    if (pending) {
+        return (
+            <div className="flex items-center text-xs text-gray-500">
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Validating…
+            </div>
+        );
+    }
+
+    if (!validationResult) return null;
+
+    const message = interpolatePlaceholders(validationResult.message, validationResult.placeholders);
+
+    if (validationResult.isValid) {
+        if (!message) return null;
+        return (
+            <div className="flex items-center text-xs text-green-700">
+                <CheckCircle2 className="h-4 w-4 mr-1" /> {message}
+            </div>
+        );
+    }
+
+    const isBlocking = validationResult.isBlocking;
+    const color = isBlocking ? 'text-red-700' : 'text-yellow-700';
+    const Icon = isBlocking ? AlertTriangle : Info;
+
+    return (
+        <div className={`flex items-start text-xs ${color}`}>
+            <Icon className="h-4 w-4 mr-1 mt-0.5" />
+            <span>{message || 'Validation failed.'}</span>
+        </div>
+    );
 };
 
 const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onBlur }) => (

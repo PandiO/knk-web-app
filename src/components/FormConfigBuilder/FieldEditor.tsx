@@ -1,19 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, X } from 'lucide-react';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
 import { FieldMetadataDto, EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { metadataClient } from '../../apiClients/metadataClient';
 import { mapFieldType } from '../../utils/fieldTypeMapper';
+import { ValidationRuleBuilder } from './ValidationRuleBuilder';
+import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
+import { CreateFieldValidationRuleDto, FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { FeedbackModal } from '../FeedbackModal';
 
 interface Props {
     field: FormFieldDto;
     onSave: (field: FormFieldDto) => void;
     onCancel: () => void;
     metadataFields?: FieldMetadataDto[];
+    allFields?: FormFieldDto[];
+    onRulesChanged?: () => void;
 }
 
-export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCancel, metadataFields = [] }) => {
+export const FieldEditor: React.FC<Props> = ({
+    field: initialField,
+    onSave,
+    onCancel,
+    metadataFields = [],
+    allFields = [],
+    onRulesChanged
+}) => {
     const [field, setField] = useState<FormFieldDto>(initialField);
     const [collectionElementType, setCollectionElementType] = useState<FieldType>(
         initialField.elementType || FieldType.String
@@ -35,6 +48,13 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
             'VerifyBoundary',
             'Custom'
         ];
+
+    const [validationRules, setValidationRules] = useState<FieldValidationRuleDto[]>([]);
+    const [rulesLoading, setRulesLoading] = useState<boolean>(false);
+    const [showRuleBuilder, setShowRuleBuilder] = useState<boolean>(false);
+    const [rulesError, setRulesError] = useState<string | null>(null);
+    type RuleFeedbackState = { open: boolean; title: string; message: string; status: 'success' | 'error' | 'info' };
+    const [ruleFeedback, setRuleFeedback] = useState<RuleFeedbackState>({ open: false, title: '', message: '', status: 'info' });
 
     useEffect(() => {
         const loadMetadata = async () => {
@@ -68,6 +88,30 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialField.id]);
+
+    const canManageRules = field.id && !field.id.toString().startsWith('temp');
+
+    const loadValidationRules = async () => {
+        if (!canManageRules) {
+            setValidationRules([]);
+            return;
+        }
+        try {
+            setRulesLoading(true);
+            setRulesError(null);
+            const rules = await fieldValidationRuleClient.getByFormFieldId(parseInt(field.id!, 10));
+            setValidationRules(rules);
+        } catch (err: any) {
+            console.error('Failed to load validation rules:', err);
+            setRulesError('Unable to load validation rules. Please try again.');
+        } finally {
+            setRulesLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        void loadValidationRules();
+    }, [field.id]);
 
     const mergeSettings = (partial: any) => {
         let base: any = {};
@@ -145,6 +189,143 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
             elementType: isCollectionType(field.fieldType) ? collectionElementType : undefined
         };
         onSave(fieldToSave);
+    };
+
+    const handleAddRule = async (rule: CreateFieldValidationRuleDto) => {
+        try {
+            setRulesError(null);
+            await fieldValidationRuleClient.create(rule);
+            await loadValidationRules();
+            setShowRuleBuilder(false);
+            setRuleFeedback({
+                open: true,
+                title: 'Validation rule added',
+                message: 'Rule saved successfully.',
+                status: 'success'
+            });
+            onRulesChanged?.();
+        } catch (err: any) {
+            console.error('Failed to create validation rule:', err);
+            const msg = err?.response?.data?.message || err?.message || 'Failed to create validation rule';
+            setRulesError(msg);
+            setRuleFeedback({ open: true, title: 'Add rule failed', message: msg, status: 'error' });
+        }
+    };
+
+    const handleDeleteRule = async (ruleId: number) => {
+        if (!window.confirm('Delete this validation rule?')) return;
+        try {
+            await fieldValidationRuleClient.delete(ruleId);
+            await loadValidationRules();
+            setRuleFeedback({ open: true, title: 'Validation rule removed', message: 'Rule deleted successfully.', status: 'success' });
+            onRulesChanged?.();
+        } catch (err: any) {
+            console.error('Failed to delete validation rule:', err);
+            const msg = err?.response?.data?.message || err?.message || 'Failed to delete validation rule';
+            setRulesError(msg);
+            setRuleFeedback({ open: true, title: 'Delete failed', message: msg, status: 'error' });
+        }
+    };
+
+    const resolveFieldLabel = (fieldId?: number) => {
+        if (!fieldId) return 'Unknown field';
+        const match = allFields.find(f => f.id && parseInt(f.id, 10) === fieldId);
+        return match?.label || match?.fieldName || `Field ${fieldId}`;
+    };
+
+    const renderValidationRules = () => {
+        if (!canManageRules) {
+            return (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-sm text-yellow-800">
+                    Save this field first to configure cross-field validation rules.
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                        <h4 className="font-medium text-gray-900">Cross-Field Validation Rules</h4>
+                        {rulesLoading && <span className="text-xs text-gray-500">Loading…</span>}
+                        {!rulesLoading && validationRules.length > 0 && (
+                            <span className="text-xs text-gray-500">{validationRules.length} configured</span>
+                        )}
+                    </div>
+                    <button
+                        className="btn-secondary text-sm"
+                        onClick={() => setShowRuleBuilder(true)}
+                        disabled={!canManageRules}
+                    >
+                        + Add Rule
+                    </button>
+                </div>
+
+                {rulesError && (
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700 flex items-start">
+                        <ShieldAlert className="h-4 w-4 mr-2 flex-shrink-0" />
+                        <span>{rulesError}</span>
+                    </div>
+                )}
+
+                {validationRules.length === 0 && !rulesLoading ? (
+                    <p className="text-sm text-gray-500 italic">No validation rules configured.</p>
+                ) : (
+                    <div className="space-y-2">
+                        {validationRules.map(rule => (
+                            <div
+                                key={rule.id}
+                                className="border border-gray-200 rounded-md p-3 bg-gray-50 flex items-start justify-between"
+                            >
+                                <div className="flex-1 space-y-1">
+                                    <div className="flex items-center space-x-2">
+                                        <span className="text-sm font-semibold text-gray-900">{rule.validationType}</span>
+                                        {rule.isBlocking ? (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-800">
+                                                Blocking
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800">
+                                                Warning only
+                                            </span>
+                                        )}
+                                    </div>
+                                    {rule.dependsOnFieldId && (
+                                        <p className="text-xs text-gray-600">
+                                            Depends on: {resolveFieldLabel(rule.dependsOnFieldId)}
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-gray-700">{rule.errorMessage}</p>
+                                    {rule.successMessage && (
+                                        <p className="text-xs text-green-700 flex items-center">
+                                            <ShieldCheck className="h-3 w-3 mr-1" />
+                                            {rule.successMessage}
+                                        </p>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={() => handleDeleteRule(rule.id)}
+                                    className="text-red-600 hover:text-red-800 text-sm ml-3"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {showRuleBuilder && (
+                    <div className="mt-3">
+                        <ValidationRuleBuilder
+                            field={field}
+                            availableFields={allFields}
+                            onSave={handleAddRule}
+                            onCancel={() => setShowRuleBuilder(false)}
+                        />
+                    </div>
+                )}
+            </div>
+        );
     };
 
     const handleFieldTypeChange = (newType: FieldType) => {
@@ -488,6 +669,10 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                             />
                         </div>
                     )}
+
+                    <div className="border-t border-gray-200 pt-4 space-y-3">
+                        {renderValidationRules()}
+                    </div>
                 </div>
 
                 <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
@@ -501,6 +686,14 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
             </div>
         </div>
     );
+
+            <FeedbackModal
+                open={ruleFeedback.open}
+                title={ruleFeedback.title}
+                message={ruleFeedback.message}
+                status={ruleFeedback.status}
+                onClose={() => setRuleFeedback(prev => ({ ...prev, open: false }))}
+            />
 };
 
 interface FieldMetadataHintProps {

@@ -20,9 +20,19 @@ interface Props {
     reusableSteps: FormStepDto[];
     onUpdate: (step: FormStepDto) => void;
     metadataFields?: FieldMetadataDto[]; // added
+    allConfigurationFields?: FormFieldDto[];
+    onRulesChanged?: () => void;
 }
 
-export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableSteps, onUpdate, metadataFields = [] }) => {
+export const StepEditor: React.FC<Props> = ({
+    step,
+    reusableFields,
+    reusableSteps,
+    onUpdate,
+    metadataFields = [],
+    allConfigurationFields,
+    onRulesChanged
+}) => {
     const [editingField, setEditingField] = useState<{ field: FormFieldDto; index: number } | null>(null);
     const [showFieldSelector, setShowFieldSelector] = useState(false);
     const [addingTemplate, setAddingTemplate] = useState(false);
@@ -725,6 +735,8 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableStep
                     onSave={handleSaveField}
                     onCancel={() => setEditingField(null)}
                     metadataFields={metadataFields} // added
+                    allFields={allConfigurationFields || step.fields}
+                    onRulesChanged={onRulesChanged}
                 />
             )}
 
@@ -734,6 +746,8 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableStep
                     onSave={field => handleSaveChildField(childFieldEdit.childIndex, field)}
                     onCancel={() => setChildFieldEdit(null)}
                     metadataFields={joinEntityFields.length > 0 ? joinEntityFields : metadataFields}
+                    allFields={allConfigurationFields || step.fields}
+                    onRulesChanged={onRulesChanged}
                 />
             )}
 

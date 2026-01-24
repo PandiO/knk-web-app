@@ -17,6 +17,8 @@ import { ChildFormModal } from './ChildFormModal';
 import { ManyToManyRelationshipEditor } from './ManyToManyRelationshipEditor';
 import { workflowClient } from '../../apiClients/workflowClient';
 import { StepProgressReadDto } from '../../types/dtos/workflow/WorkflowDtos';
+import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
+import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 
 interface FormWizardProps {
     entityName: string;
@@ -59,6 +61,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
     // CRITICAL: Track entityId in state so it persists when loading from progress
     const [entityId, setEntityId] = useState<string | undefined>(initialEntityId);
+    const [validationRules, setValidationRules] = useState<Record<number, FieldValidationRuleDto[]>>({});
+    const [validationResults, setValidationResults] = useState<Record<number, ValidationResultDto>>({});
+    const [validationLoading, setValidationLoading] = useState<Record<number, boolean>>({});
+    const validationTimersRef = useRef<Record<number, number>>({});
 
     type SaveFeedbackState = {
         open: boolean;
@@ -134,6 +140,153 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         return flat;
     };
 
+    const loadValidationRulesForConfig = async (configurationId?: string) => {
+        if (!configurationId) return;
+        try {
+            const rules = await fieldValidationRuleClient.getByFormConfigurationId(Number(configurationId));
+            const map: Record<number, FieldValidationRuleDto[]> = {};
+            rules.forEach(rule => {
+                if (!map[rule.formFieldId]) {
+                    map[rule.formFieldId] = [];
+                }
+                map[rule.formFieldId].push(rule);
+            });
+            setValidationRules(map);
+        } catch (err) {
+            console.error('Failed to load validation rules:', err);
+        }
+    };
+
+    const interpolatePlaceholders = (message?: string, placeholders?: { [key: string]: string }) => {
+        if (!message) return '';
+        if (!placeholders) return message;
+        return Object.entries(placeholders).reduce((acc, [key, val]) => acc.replace(`{${key}}`, val), message);
+    };
+
+    const buildFormContextData = (cfg: FormConfigurationDto, stepsData: AllStepsData): Record<string, unknown> => {
+        return flattenAllStepsData(cfg, stepsData);
+    };
+
+    const findFieldById = (fieldId: number): { field: FormFieldDto; stepIndex: number } | null => {
+        if (!config) return null;
+        for (let i = 0; i < config.steps.length; i++) {
+            const found = config.steps[i].fields.find(f => f.id && Number(f.id) === fieldId);
+            if (found) {
+                return { field: found, stepIndex: i };
+            }
+        }
+        return null;
+    };
+
+    const triggerFieldValidation = (
+        field: FormFieldDto,
+        fieldValue: unknown,
+        stepsData: AllStepsData,
+        debounce = true
+    ) => {
+        const fieldId = field.id ? Number(field.id) : NaN;
+        if (!fieldId || Number.isNaN(fieldId)) return;
+        const rules = validationRules[fieldId] || [];
+        if (rules.length === 0 || !config) return;
+
+        const normalizedSteps = normalizeAllStepsData(config, stepsData);
+        const contextData = buildFormContextData(config, normalizedSteps);
+
+        const runValidation = async () => {
+            setValidationLoading(prev => ({ ...prev, [fieldId]: true }));
+            try {
+                const result = await fieldValidationRuleClient.validateField({
+                    fieldId,
+                    fieldValue,
+                    formContextData: contextData
+                });
+                setValidationResults(prev => ({ ...prev, [fieldId]: result }));
+                if (result.isValid) {
+                    setErrors(prev => {
+                        const copy = { ...prev };
+                        delete copy[field.fieldName];
+                        return copy;
+                    });
+                } else if (result.isBlocking) {
+                    const message = interpolatePlaceholders(result.message, result.placeholders) || `${field.label} failed validation`;
+                    setErrors(prev => ({ ...prev, [field.fieldName]: message }));
+                }
+            } catch (err) {
+                console.error('Validation execution failed:', err);
+                const fallback: ValidationResultDto = { isValid: false, isBlocking: true, message: 'Validation failed to execute.' };
+                setValidationResults(prev => ({ ...prev, [fieldId]: fallback }));
+                setErrors(prev => ({ ...prev, [field.fieldName]: fallback.message || `${field.label} failed validation` }));
+            } finally {
+                setValidationLoading(prev => ({ ...prev, [fieldId]: false }));
+            }
+        };
+
+        if (debounce) {
+            const existing = validationTimersRef.current[fieldId];
+            if (existing) {
+                window.clearTimeout(existing);
+            }
+            validationTimersRef.current[fieldId] = window.setTimeout(runValidation, 300);
+        } else {
+            void runValidation();
+        }
+    };
+
+    const revalidateDependents = (changedFieldId: number, stepsData: AllStepsData) => {
+        const dependentFieldIds = Object.entries(validationRules)
+            .filter(([_, rules]) => rules.some(r => r.dependsOnFieldId === changedFieldId))
+            .map(([fieldId]) => Number(fieldId));
+
+        dependentFieldIds.forEach(targetId => {
+            const target = findFieldById(targetId);
+            if (!target) return;
+            const targetValue = stepsData[target.stepIndex]?.[target.field.fieldName];
+            triggerFieldValidation(target.field, targetValue, stepsData, true);
+        });
+    };
+
+    const runValidationsForStep = async (step: FormStepDto, stepsData: AllStepsData, stepIndex: number) => {
+        if (!config) return [] as Array<{ fieldId: number; result: ValidationResultDto }>;
+        const targets = step.fields
+            .map(f => ({ field: f, fieldId: f.id ? Number(f.id) : NaN }))
+            .filter(item => !Number.isNaN(item.fieldId) && (validationRules[item.fieldId]?.length || 0) > 0);
+
+        if (targets.length === 0) return [] as Array<{ fieldId: number; result: ValidationResultDto }>;
+
+        const normalizedSteps = normalizeAllStepsData(config, stepsData);
+        const contextData = buildFormContextData(config, normalizedSteps);
+
+        return Promise.all(
+            targets.map(async ({ field, fieldId }) => {
+                setValidationLoading(prev => ({ ...prev, [fieldId]: true }));
+                try {
+                    const value = normalizedSteps[stepIndex]?.[field.fieldName];
+                    const result = await fieldValidationRuleClient.validateField({ fieldId, fieldValue: value, formContextData: contextData });
+                    setValidationResults(prev => ({ ...prev, [fieldId]: result }));
+                    if (result.isValid) {
+                        setErrors(prev => {
+                            const copy = { ...prev };
+                            delete copy[field.fieldName];
+                            return copy;
+                        });
+                    } else if (result.isBlocking) {
+                        const message = interpolatePlaceholders(result.message, result.placeholders) || `${field.label} failed validation`;
+                        setErrors(prev => ({ ...prev, [field.fieldName]: message }));
+                    }
+                    return { fieldId, result };
+                } catch (err) {
+                    console.error('Validation execution failed:', err);
+                    const fallback: ValidationResultDto = { isValid: false, isBlocking: true, message: 'Validation failed to execute.' };
+                    setValidationResults(prev => ({ ...prev, [fieldId]: fallback }));
+                    setErrors(prev => ({ ...prev, [field.fieldName]: fallback.message || `${field.label} failed validation` }));
+                    return { fieldId, result: fallback };
+                } finally {
+                    setValidationLoading(prev => ({ ...prev, [fieldId]: false }));
+                }
+            })
+        );
+    };
+
     const loadConfiguration = React.useCallback(async () => {
         try {
             setLoading(true);
@@ -152,8 +305,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
                 const fetchedCfg = await formConfigClient.getById(progress.formConfigurationId);
                 setConfig(fetchedCfg);
-
-                setCurrentStepIndex(progress.currentStepIndex);
+                void loadValidationRulesForConfig(fetchedCfg.id);
 
                 const parsedCurrent = JSON.parse(progress.currentStepDataJson || '{}');
                 const parsedAll = JSON.parse(progress.allStepsDataJson || '{}');
@@ -188,6 +340,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     });
                 }
                 setConfig(fetchedConfig);
+                void loadValidationRulesForConfig(fetchedConfig.id);
                 
                 // changed: if entityId provided, load existing entity data
                 if (currentEntityId) {
@@ -286,8 +439,15 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     };
 
     const handleFieldChange = (fieldName: string, value: unknown) => {
-        setCurrentStepData(prev => ({ ...prev, [fieldName]: value }));
-        // Clear error when user types
+        if (!currentStep) return;
+
+        const mergedCurrent = { ...currentStepData, [fieldName]: value };
+        const normalizedCurrent = normalizeStepData(currentStep, mergedCurrent);
+        const updatedAllData: AllStepsData = { ...allStepsData, [currentStepIndex]: normalizedCurrent };
+
+        setCurrentStepData(mergedCurrent);
+        setAllStepsData(updatedAllData);
+
         if (errors[fieldName]) {
             setErrors(prev => {
                 const newErrors = { ...prev };
@@ -295,7 +455,14 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 return newErrors;
             });
         }
-        console.log(`Field ${fieldName} changed to`, value);
+
+        const field = currentStep.fields.find(f => f.fieldName === fieldName);
+        if (field) {
+            triggerFieldValidation(field, value, updatedAllData, true);
+            if (field.id) {
+                revalidateDependents(Number(field.id), updatedAllData);
+            }
+        }
     };
 
     // added: open child form modal for creating new object
@@ -407,6 +574,17 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             if (error) {
                 newErrors[field.fieldName] = error;
                 isValid = false;
+                return;
+            }
+
+            const fieldId = field.id ? Number(field.id) : undefined;
+            if (fieldId) {
+                const validationResult = validationResults[fieldId];
+                if (validationResult && !validationResult.isValid && validationResult.isBlocking) {
+                    newErrors[field.fieldName] =
+                        interpolatePlaceholders(validationResult.message, validationResult.placeholders) || `${field.label} failed validation`;
+                    isValid = false;
+                }
             }
         });
 
@@ -520,6 +698,14 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         // Ensure current step includes all fields
         const normalizedCurrent = normalizeStepData(currentStep!, currentStepData);
         const updatedAllData = { ...allStepsData, [currentStepIndex]: normalizedCurrent };
+
+        const validationResultsForStep = await runValidationsForStep(currentStep!, updatedAllData, currentStepIndex);
+        const hasBlockingValidation = validationResultsForStep.some(r => !r.result.isValid && r.result.isBlocking);
+        if (hasBlockingValidation) {
+            setError('Please resolve validation errors before continuing.');
+            return;
+        }
+
         setAllStepsData(updatedAllData);
 
         if (currentStepIndex < config!.steps.length - 1) {
@@ -767,6 +953,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                 error={errors[field.fieldName]}
                                 onBlur={() => validateField(field)}
                                 onCreateNew={() => handleOpenChildForm(field)}
+                                validationResult={field.id ? validationResults[Number(field.id)] : undefined}
+                                validationPending={field.id ? validationLoading[Number(field.id)] : false}
                             />
                         );
                     })
