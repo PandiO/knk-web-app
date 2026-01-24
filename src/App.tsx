@@ -16,7 +16,7 @@ import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayC
 import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import { TownCreateWizardPage } from './pages/TownCreateWizardPage';
 import React from 'react';
-import { RegisterPage, RegisterSuccessPage } from './pages/auth';
+import { RegisterPage, RegisterSuccessPage, LoginPage } from './pages/auth';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
@@ -96,6 +96,7 @@ function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/auth/register" element={<RegisterPage />} />
               <Route path="/auth/register/success" element={<RegisterSuccessPage />} />
+              <Route path="/auth/login" element={<LoginPage />} />
               <Route path="/dashboard" element={
                 <>
                   <ObjectDashboard objectTypes={objectTypes} />

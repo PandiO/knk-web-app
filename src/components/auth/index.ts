@@ -4,3 +4,4 @@ export * from './FormStep3';
 export * from './FormStepper';
 export * from './PasswordStrengthMeter';
 export * from './RegisterForm';
+export * from './LoginForm';
