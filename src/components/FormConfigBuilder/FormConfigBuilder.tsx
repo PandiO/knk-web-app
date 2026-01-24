@@ -355,10 +355,10 @@ export const FormConfigBuilder: React.FC = () => {
             // Prepare data with ordering arrays
             const configToSave: FormConfigurationDto = {
                 ...config,
-                stepOrderJson: JSON.stringify(config.steps.map(s => s.id)),
+                stepOrderJson: JSON.stringify(config.steps.map(s => s.stepGuid)),
                 steps: config.steps.map(step => ({
                     ...step,
-                    fieldOrderJson: JSON.stringify(step.fields.map(f => f.id))
+                    fieldOrderJson: JSON.stringify(step.fields.map(f => f.fieldGuid))
                 }))
             };
 
