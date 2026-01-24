@@ -1,4 +1,4 @@
-import { logging, Controllers, HttpMethod, DominionOperation } from "../utils";
+import { logging, Controllers, HttpMethod } from "../utils";
 import { ObjectManager } from "./objectManager";
 import {
   LoginRequestDto,
@@ -53,6 +53,15 @@ export class AuthClient extends ObjectManager {
 
   updateUser(data: UserUpdateDto): Promise<UserDto> {
     return this.invokeServiceCall(data, "update", Controllers.Auth, HttpMethod.Put);
+  }
+
+  // Availability checks (email/username)
+  checkEmailAvailable(email: string): Promise<{ available: boolean }> {
+    return this.invokeServiceCall({ email }, "check-duplicate", Controllers.Users, HttpMethod.Get);
+  }
+
+  checkUsernameAvailable(username: string): Promise<{ available: boolean }> {
+    return this.invokeServiceCall({ username }, "check-duplicate", Controllers.Users, HttpMethod.Get);
   }
 }
 

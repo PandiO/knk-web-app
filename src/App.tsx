@@ -16,6 +16,8 @@ import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayC
 import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import { TownCreateWizardPage } from './pages/TownCreateWizardPage';
 import React from 'react';
+import { RegisterPage, RegisterSuccessPage } from './pages/auth';
+import { useAuth } from './hooks/useAuth';
 
 function App() {
 
@@ -82,14 +84,18 @@ function App() {
     }
   }, []);
 
+  const { isLoggedIn } = useAuth();
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-100">
-        <Navigation objectTypes={objectTypes} />
+        {isLoggedIn && <Navigation objectTypes={objectTypes} />}
         <div className="pt-16 p-8">
           <div className="max-w-7xl mx-auto space-y-12">
             <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/auth/register" element={<RegisterPage />} />
+              <Route path="/auth/register/success" element={<RegisterSuccessPage />} />
               <Route path="/dashboard" element={
                 <>
                   <ObjectDashboard objectTypes={objectTypes} />
