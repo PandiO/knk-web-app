@@ -109,6 +109,88 @@ export const StepEditor: React.FC<Props> = ({
         })
     );
 
+    // Reorder fields based on fieldOrderJson for correct display
+    const orderedFields = useMemo(() => {
+        if (!step.fieldOrderJson) {
+            return step.fields;
+        }
+
+        try {
+            const orderArray = JSON.parse(step.fieldOrderJson);
+            if (!Array.isArray(orderArray) || orderArray.length === 0) {
+                return step.fields;
+            }
+
+            // Create a map of fieldGuid -> field
+            const fieldMap = new Map<string, FormFieldDto>();
+            step.fields.forEach(f => {
+                if (f.fieldGuid) {
+                    fieldMap.set(f.fieldGuid, f);
+                }
+            });
+
+            // Reorder fields based on the GUID order in fieldOrderJson
+            const reordered: FormFieldDto[] = [];
+            orderArray.forEach((guid: string) => {
+                const field = fieldMap.get(guid);
+                if (field) {
+                    reordered.push(field);
+                }
+            });
+
+            // Add any fields that weren't in the order array (shouldn't happen, but be safe)
+            step.fields.forEach(f => {
+                if (!reordered.includes(f)) {
+                    reordered.push(f);
+                }
+            });
+
+            return reordered;
+        } catch {
+            // If parsing fails, return fields as-is
+            return step.fields;
+        }
+    }, [step.fields, step.fieldOrderJson]);
+
+    // Helper function to get ordered fields for a child step
+    const getOrderedChildFields = (childStep: FormStepDto): FormFieldDto[] => {
+        if (!childStep.fieldOrderJson) {
+            return childStep.fields;
+        }
+
+        try {
+            const orderArray = JSON.parse(childStep.fieldOrderJson);
+            if (!Array.isArray(orderArray) || orderArray.length === 0) {
+                return childStep.fields;
+            }
+
+            const fieldMap = new Map<string, FormFieldDto>();
+            childStep.fields.forEach(f => {
+                if (f.fieldGuid) {
+                    fieldMap.set(f.fieldGuid, f);
+                }
+            });
+
+            const reordered: FormFieldDto[] = [];
+            orderArray.forEach((guid: string) => {
+                const field = fieldMap.get(guid);
+                if (field) {
+                    reordered.push(field);
+                }
+            });
+
+            childStep.fields.forEach(f => {
+                if (!reordered.includes(f)) {
+                    reordered.push(f);
+                }
+            });
+
+            return reordered;
+        } catch {
+            return childStep.fields;
+        }
+    };
+
     const generateTempId = () => `temp-field-${Date.now()}-${Math.random()}`;
 
     const cloneField = (field: FormFieldDto): FormFieldDto => ({
@@ -626,18 +708,21 @@ export const StepEditor: React.FC<Props> = ({
                                                             onDragEnd={event => handleChildFieldDragEnd(childIdx, event)}
                                                         >
                                                             <SortableContext
-                                                                items={childStep.fields.map(f => f.id!)}
+                                                                items={getOrderedChildFields(childStep).map(f => f.id!)}
                                                                 strategy={verticalListSortingStrategy}
                                                             >
                                                                 <div className="space-y-2">
-                                                                    {childStep.fields.map((field, index) => (
-                                                                        <SortableFieldItem
-                                                                            key={field.id}
-                                                                            field={field}
-                                                                            onEdit={() => setChildFieldEdit({ childIndex: childIdx, field, index })}
-                                                                            onDelete={() => handleDeleteChildField(childIdx, index)}
-                                                                        />
-                                                                    ))}
+                                                                    {getOrderedChildFields(childStep).map((field, displayIndex) => {
+                                                                        const actualIndex = childStep.fields.findIndex(f => f.id === field.id);
+                                                                        return (
+                                                                            <SortableFieldItem
+                                                                                key={field.id}
+                                                                                field={field}
+                                                                                onEdit={() => setChildFieldEdit({ childIndex: childIdx, field, index: actualIndex })}
+                                                                                onDelete={() => handleDeleteChildField(childIdx, actualIndex)}
+                                                                            />
+                                                                        );
+                                                                    })}
                                                                 </div>
                                                             </SortableContext>
                                                         </DndContext>
@@ -698,7 +783,7 @@ export const StepEditor: React.FC<Props> = ({
                         </div>
                     </div>
 
-                    {step.fields.length === 0 ? (
+                    {orderedFields.length === 0 ? (
                         <div className="text-center py-8 text-gray-500 text-sm border border-dashed border-gray-300 rounded-md">
                             No fields yet. Click "Add Field" to create one.
                         </div>
@@ -709,16 +794,23 @@ export const StepEditor: React.FC<Props> = ({
                             onDragEnd={handleFieldDragEnd}
                         >
                             <SortableContext
-                                items={step.fields.map(f => f.id!)}
+                                items={orderedFields.map(f => f.id!)}
                                 strategy={verticalListSortingStrategy}
                             >
                                 <div className="space-y-2">
-                                    {step.fields.map((field, index) => (
+                                    {orderedFields.map((field, index) => (
                                         <SortableFieldItem
                                             key={field.id}
                                             field={field}
-                                            onEdit={() => setEditingField({ field, index })}
-                                            onDelete={() => handleDeleteField(index)}
+                                            onEdit={() => {
+                                                // Find the actual index in step.fields for editing
+                                                const actualIndex = step.fields.findIndex(f => f.id === field.id);
+                                                setEditingField({ field, index: actualIndex });
+                                            }}
+                                            onDelete={() => {
+                                                const actualIndex = step.fields.findIndex(f => f.id === field.id);
+                                                handleDeleteField(actualIndex);
+                                            }}
                                         />
                                     ))}
                                 </div>
