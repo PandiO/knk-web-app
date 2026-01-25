@@ -207,89 +207,101 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
+    <form className="w-full max-w-2xl mx-auto" noValidate onSubmit={(e) => {
+      e.preventDefault();
+      if (currentStep === STEPS.length - 1) {
+        handleSubmit();
+      } else {
+        handleNext();
+      }
+    }}>
       {/* Form stepper */}
       <FormStepper steps={STEPS} currentStep={currentStep} />
 
-      {/* Form content */}
-      <div className="mt-8 mb-8">
-        {currentStep === 0 && (
-          <FormStep1
-            data={{
-              email: formData.email,
-              password: formData.password,
-              confirmPassword: formData.confirmPassword,
-            }}
-            errors={{
-              email: formErrors.email,
-              password: formErrors.password,
-              confirmPassword: formErrors.confirmPassword,
-            }}
-            onChange={handleFieldChange}
-            onError={handleError}
-            onCheckEmail={handleCheckEmail}
-          />
-        )}
+      {/* Form content with proper semantic structure */}
+      <div className="mt-6 sm:mt-8 mb-6 sm:mb-8">
+        <div role="region" aria-label={`Step ${currentStep + 1} of ${STEPS.length}: ${STEPS[currentStep]}`} aria-live="polite">
+          {currentStep === 0 && (
+            <FormStep1
+              data={{
+                email: formData.email,
+                password: formData.password,
+                confirmPassword: formData.confirmPassword,
+              }}
+              errors={{
+                email: formErrors.email,
+                password: formErrors.password,
+                confirmPassword: formErrors.confirmPassword,
+              }}
+              onChange={handleFieldChange}
+              onError={handleError}
+              onCheckEmail={handleCheckEmail}
+            />
+          )}
 
-        {currentStep === 1 && (
-          <FormStep2
-            data={{
-              username: formData.username,
-            }}
-            errors={{
-              username: formErrors.username,
-            }}
-            onChange={handleFieldChange}
-            onError={handleError}
-            onCheckUsername={handleCheckUsername}
-          />
-        )}
+          {currentStep === 1 && (
+            <FormStep2
+              data={{
+                username: formData.username,
+              }}
+              errors={{
+                username: formErrors.username,
+              }}
+              onChange={handleFieldChange}
+              onError={handleError}
+              onCheckUsername={handleCheckUsername}
+            />
+          )}
 
-        {currentStep === 2 && (
-          <FormStep3
-            data={formData}
-            isSubmitting={isSubmitting}
-          />
-        )}
+          {currentStep === 2 && (
+            <FormStep3
+              data={formData}
+              isSubmitting={isSubmitting}
+            />
+          )}
+        </div>
       </div>
 
-      {/* Navigation buttons */}
-      <div className="flex gap-4 justify-between">
+      {/* Navigation buttons with keyboard support */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between">
         <button
+          type="button"
           onClick={handlePrevious}
           disabled={currentStep === 0 || isSubmitting}
-          className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all ${
+          className={`flex items-center justify-center gap-2 px-6 py-2 text-base rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
             currentStep === 0 || isSubmitting
               ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
           aria-label="Go to previous step"
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           Back
         </button>
 
         <button
-          onClick={handleNext}
+          type="submit"
           disabled={isSubmitting}
-          className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all ${
+          className={`flex items-center justify-center gap-2 px-6 py-2 text-base rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
             isSubmitting
               ? 'bg-primary-light text-primary-light cursor-not-allowed opacity-50'
               : 'bg-primary text-white hover:bg-primary-dark shadow-md hover:shadow-lg'
           }`}
           aria-label={
-            currentStep === STEPS.length - 1 ? 'Create account' : 'Go to next step'
+            currentStep === STEPS.length - 1 ? 'Create account and continue' : 'Go to next step'
           }
         >
           {isSubmitting ? (
             <>
-              <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-              Creating...
+              <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" aria-hidden="true" />
+              <span>Creating...</span>
             </>
           ) : (
             <>
-              {currentStep === STEPS.length - 1 ? 'Create Account' : 'Next'}
-              {currentStep < STEPS.length - 1 && <ChevronRight className="h-5 w-5" />}
+              <span>
+                {currentStep === STEPS.length - 1 ? 'Create Account' : 'Next'}
+              </span>
+              {currentStep < STEPS.length - 1 && <ChevronRight className="h-5 w-5" aria-hidden="true" />}
             </>
           )}
         </button>
@@ -304,6 +316,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         onClose={() => setFeedback({ ...feedback, open: false })}
         autoCloseMs={feedback.status === 'success' ? 2000 : undefined}
       />
-    </div>
+    </form>
   );
 };

@@ -10,6 +10,7 @@ interface FormStepperProps {
 /**
  * Multi-step form stepper with visual progress indicator
  * Displays numbered steps with connection lines
+ * WCAG 2.1 Level AA accessible with keyboard navigation support
  */
 export const FormStepper: React.FC<FormStepperProps> = ({
   steps,
@@ -17,17 +18,17 @@ export const FormStepper: React.FC<FormStepperProps> = ({
   onStepClick,
 }) => {
   return (
-    <div className="mb-8">
+    <div className="mb-8" role="region" aria-label="Form progress">
       {/* Desktop stepper (horizontal) */}
       <div className="hidden sm:block">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" role="progressbar" aria-valuenow={currentStep + 1} aria-valuemin={1} aria-valuemax={steps.length}>
           {steps.map((step, index) => (
             <React.Fragment key={index}>
               {/* Step circle */}
               <button
                 onClick={() => onStepClick?.(index)}
                 disabled={!onStepClick}
-                className={`flex items-center justify-center w-10 h-10 rounded-full font-semibold text-sm transition-all ${
+                className={`flex items-center justify-center w-10 h-10 rounded-full font-semibold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
                   index === currentStep
                     ? 'bg-primary text-white shadow-lg'
                     : index < currentStep
@@ -35,7 +36,7 @@ export const FormStepper: React.FC<FormStepperProps> = ({
                       : 'bg-gray-200 text-gray-600'
                 } ${onStepClick ? 'cursor-pointer hover:shadow-md' : 'cursor-default'}`}
                 aria-current={index === currentStep ? 'step' : undefined}
-                aria-label={`Step ${index + 1} of ${steps.length}: ${step}`}
+                aria-label={`Step ${index + 1} of ${steps.length}: ${step}${index === currentStep ? ' (current)' : ''}${index < currentStep ? ' (completed)' : ''}`}
               >
                 {index < currentStep ? '✓' : index + 1}
               </button>
@@ -58,9 +59,9 @@ export const FormStepper: React.FC<FormStepperProps> = ({
           {steps.map((step, index) => (
             <div
               key={index}
-              className={`text-xs font-medium text-center flex-1 ${
+              className={`text-xs sm:text-sm font-medium text-center flex-1 ${
                 index === currentStep
-                  ? 'text-primary'
+                  ? 'text-primary font-semibold'
                   : index < currentStep
                     ? 'text-green-600'
                     : 'text-gray-500'
@@ -73,15 +74,15 @@ export const FormStepper: React.FC<FormStepperProps> = ({
       </div>
 
       {/* Mobile stepper (vertical/compact) */}
-      <div className="sm:hidden">
+      <div className="sm:hidden" role="status" aria-live="polite">
         <div className="flex items-center space-x-2">
           <div className="flex-1">
             <div className="text-sm font-semibold text-gray-700">
-              Step {currentStep + 1} of {steps.length}
+              Step <span aria-label={`${currentStep + 1} of ${steps.length}`}>{currentStep + 1}</span>/{steps.length}
             </div>
-            <div className="text-lg font-bold text-primary">{steps[currentStep]}</div>
+            <div className="text-lg font-bold text-primary mt-1">{steps[currentStep]}</div>
           </div>
-          <ChevronRight className="h-5 w-5 text-gray-400" />
+          <ChevronRight className="h-5 w-5 text-gray-400" aria-hidden="true" />
         </div>
 
         {/* Progress bar */}

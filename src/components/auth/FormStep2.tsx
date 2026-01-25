@@ -74,7 +74,7 @@ export const FormStep2: React.FC<FormStep2Props> = ({
       {/* Minecraft username field */}
       <div>
         <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-          Minecraft Username *
+          Minecraft Username <span aria-label="required">*</span>
         </label>
         <div className="relative">
           <input
@@ -86,11 +86,11 @@ export const FormStep2: React.FC<FormStep2Props> = ({
             value={data.username}
             onChange={(e) => {
               onChange('username', e.target.value);
-              setUsernameAvailable(null); // Reset availability when user types
+              setUsernameAvailable(null);
             }}
             onBlur={handleUsernameBlur}
             maxLength={USERNAME_MAX_LENGTH}
-            className={`w-full px-4 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+            className={`w-full px-4 py-2 text-base pr-10 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
               errors.username
                 ? 'border-red-500 focus:ring-red-500'
                 : usernameAvailable
@@ -100,6 +100,7 @@ export const FormStep2: React.FC<FormStep2Props> = ({
             placeholder={`e.g., PlayerName or Player_123`}
             aria-invalid={!!errors.username}
             aria-describedby={errors.username ? 'username-error' : 'username-help'}
+            required
           />
 
           {/* Status indicator */}

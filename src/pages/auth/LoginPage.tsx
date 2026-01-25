@@ -21,11 +21,15 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8 border border-gray-100">
+    <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
+      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
         <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome Back</h1>
-          <p className="mt-2 text-gray-600">Log in to continue your adventure.</p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary rounded px-2 py-1">
+            Welcome Back
+          </h1>
+          <p className="mt-2 text-base sm:text-lg text-gray-600">
+            Log in to continue your adventure.
+          </p>
         </div>
 
         {error && (
@@ -35,7 +39,12 @@ export const LoginPage: React.FC = () => {
         )}
 
         <LoginForm onLoginSuccess={handleSuccess} />
+
+        {/* Accessibility help text */}
+        <p className="mt-6 text-xs text-gray-500 text-center">
+          This login form is keyboard accessible. Use Tab to navigate and Enter to submit.
+        </p>
       </div>
-    </div>
+    </main>
   );
 };
