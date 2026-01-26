@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Upload } from 'lucide-react';
 import { Slideshow } from '../components/Slideshow';
 import { ImageUploadModal } from '../components/ImageUploadModal';
@@ -94,13 +95,20 @@ export function LandingPage() {
             <p className="text-xl mb-8 max-w-2xl mx-auto">
               Share your most beautiful moments with the world. Submit your photos to be featured in our background slideshow.
             </p>
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="inline-flex items-center px-6 py-3 border border-transparent text-lg font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-            >
-              <Upload className="h-5 w-5 mr-2" />
-              Submit Your Photo
-            </button>
+            <div className="flex flex-col items-center space-y-3 sm:flex-row sm:justify-center sm:space-y-0 sm:space-x-4">
+              <Link
+                to="/auth/login"
+                className="inline-flex items-center px-6 py-3 rounded-md text-lg font-medium text-white bg-black bg-opacity-40 hover:bg-opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white transition-colors"
+              >
+                Log In
+              </Link>
+              <Link
+                to="/auth/register"
+                className="inline-flex items-center px-6 py-3 rounded-md text-lg font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+              >
+                Create Account
+              </Link>
+            </div>
           </div>
         </div>
       </div>

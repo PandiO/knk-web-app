@@ -28,7 +28,7 @@ export class AuthClient extends ObjectManager {
   }
 
   register(data: RegisterRequestDto): Promise<UserDto> {
-    return this.invokeServiceCall(data, "register", Controllers.Auth, HttpMethod.Post);
+    return this.invokeServiceCall(data, "", Controllers.Users, HttpMethod.Post);
   }
 
   logout(): Promise<void> {

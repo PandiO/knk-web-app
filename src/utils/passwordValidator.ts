@@ -97,10 +97,69 @@ export function calculatePasswordStrength(password: string): PasswordStrength {
 }
 
 /**
+ * Mirror backend PasswordService.ValidatePasswordAsync
+ * - length 8-128
+ * - blacklist
+ * - common patterns (repeats, sequential digits, keyboard patterns)
+ */
+export function validatePasswordPolicy(password: string): { isValid: boolean; message?: string } {
+  if (!password) {
+    return { isValid: false, message: 'Password is required.' };
+  }
+
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return { isValid: false, message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters long.` };
+  }
+
+  if (password.length > PASSWORD_MAX_LENGTH) {
+    return { isValid: false, message: `Password must not exceed ${PASSWORD_MAX_LENGTH} characters.` };
+  }
+
+  if (WEAK_PASSWORDS.has(password)) {
+    return { isValid: false, message: 'This password is too common. Please choose a stronger password.' };
+  }
+
+  if (isCommonPattern(password)) {
+    return { isValid: false, message: 'This password contains a common pattern. Please choose a more unique password.' };
+  }
+
+  return { isValid: true };
+}
+
+/**
  * Check if password is in weak password list
  */
 function isWeakPassword(password: string): boolean {
   return WEAK_PASSWORDS.has(password.toLowerCase());
+}
+
+function isCommonPattern(password: string): boolean {
+  const lower = password.toLowerCase();
+
+  // Repeated characters (3+)
+  if (/(.)\1{2,}/.test(lower)) {
+    return true;
+  }
+
+  // Sequential numbers (3 digits ascending/descending)
+  for (let i = 0; i < lower.length - 2; i++) {
+    const a = lower.charCodeAt(i);
+    const b = lower.charCodeAt(i + 1);
+    const c = lower.charCodeAt(i + 2);
+
+    if (Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(c)) {
+      if (b === a + 1 && c === b + 1 && /[0-9]/.test(lower[i] + lower[i + 1] + lower[i + 2])) {
+        return true;
+      }
+      if (b === a - 1 && c === b - 1 && /[0-9]/.test(lower[i] + lower[i + 1] + lower[i + 2])) {
+        return true;
+      }
+    }
+  }
+
+  // Keyboard patterns
+  const keyboardPatterns = ['qwert', 'asdfg', 'zxcvb', '12345', '54321', 'qazwsx', '1qaz2wsx'];
+  return keyboardPatterns.some((p) => lower.includes(p));
 }
 
 /**

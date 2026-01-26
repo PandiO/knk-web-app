@@ -14,6 +14,7 @@ export interface RegisterRequestDto {
   username: string;
   email: string;
   password: string;
+  passwordConfirmation: string;
   minecraftUsername?: string;
   linkCode?: string;
 }

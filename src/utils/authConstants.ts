@@ -15,24 +15,22 @@ export const LINK_CODE_EXPIRY_MINUTES = 20;
 
 // Note: backend maintains the full compromised password list; this subset is for quick client checks
 export const WEAK_PASSWORDS = new Set<string>([
-  "123456",
-  "123456789",
-  "12345678",
-  "password",
-  "qwerty",
-  "111111",
-  "123123",
-  "1234567",
-  "dragon",
-  "baseball",
-  "1234567890",
-  "abc123",
-  "password1",
-  "letmein",
-  "welcome",
-  "monkey",
-  "dragon123",
-  "qazwsx"
+  // Matches backend PasswordService.WeakPasswords
+  "123456", "password", "12345678", "qwerty", "123456789", "12345", "1234", "111111",
+  "1234567", "dragon", "123123", "baseball", "abc123", "football", "monkey", "letmein",
+  "shadow", "master", "666666", "qwertyuiop", "123321", "mustang", "1234567890",
+  "michael", "654321", "superman", "1qaz2wsx", "7777777", "121212", "000000", "qazwsx",
+  "admin", "admin123", "root", "toor", "pass", "test", "guest", "info", "adm", "mysql",
+  "user", "administrator", "oracle", "ftp", "pi", "puppet", "ansible", "ec2-user", "vagrant",
+  "password1", "password123", "welcome", "welcome123", "login", "passw0rd", "Password1",
+  "abc123456", "123qwe", "qwerty123", "iloveyou", "princess", "admin1", "1q2w3e4r",
+  "sunshine", "ashley", "bailey", "passw0rd", "shadow1", "123456a", "password1!", "trustno1",
+  "1qazxsw2", "charlie", "123abc", "password!", "qwerty1", "monkey1", "liverpool",
+  "654321a", "master123", "starwars", "passw0rd!", "football1", "batman", "access",
+  "1234qwer", "trustno1", "rangers", "jordan23", "hello", "qwertyui", "lovely",
+  "ninja", "azerty", "solo", "flower", "000000", "hottie", "loveme", "zaq1zaq1",
+  "password12", "Welcome1", "whatever", "donald", "dragon1", "michael1", "michelle",
+  "passw0rd1", "password2", "qwerty12", "freedom"
 ]);
 
 export const ERROR_MESSAGES: Record<string, string> = {

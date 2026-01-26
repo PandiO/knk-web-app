@@ -6,8 +6,9 @@ import { FormStep2 } from './FormStep2';
 import { FormStep3 } from './FormStep3';
 import { FeedbackModal } from '../FeedbackModal';
 import { authClient } from '../../apiClients/authClient';
-import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../../utils/authConstants';
-import { validateEmailFormat } from '../../utils/passwordValidator';
+import { ERROR_MESSAGES, SUCCESS_MESSAGES, PASSWORD_MIN_LENGTH } from '../../utils/authConstants';
+import { validateEmailFormat, validatePasswordPolicy, calculatePasswordStrength } from '../../utils/passwordValidator';
+import { LinkCodeResponseDto } from '../../types/dtos/auth/AuthDtos';
 
 interface FormData {
   email: string;
@@ -23,8 +24,10 @@ interface FormErrors {
   username?: string;
 }
 
+type RegisterLinkCode = LinkCodeResponseDto & { formattedCode?: string };
+
 interface RegisterFormProps {
-  onRegistrationSuccess?: (linkCode: string) => void;
+  onRegistrationSuccess?: (linkCode?: RegisterLinkCode | string) => void;
 }
 
 const STEPS = ['Account Info', 'Minecraft Info', 'Review & Confirm'];
@@ -87,8 +90,17 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
 
       if (!formData.password) {
         newErrors.password = 'Password is required';
-      } else if (formData.password.length < 8) {
-        newErrors.password = 'Password must be at least 8 characters';
+      } else {
+        const policy = validatePasswordPolicy(formData.password);
+        if (!policy.isValid) {
+          newErrors.password = policy.message;
+        } else {
+          // keep strength feedback for UX while policy is satisfied
+          const strength = calculatePasswordStrength(formData.password);
+          if (strength.score < 2) {
+            newErrors.password = strength.feedback[0] || `Password is too weak. Use at least ${PASSWORD_MIN_LENGTH} characters and avoid common patterns.`;
+          }
+        }
       }
 
       if (!formData.confirmPassword) {
@@ -140,6 +152,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
       const response = await authClient.register({
         email: formData.email,
         password: formData.password,
+        passwordConfirmation: formData.confirmPassword,
         username: formData.username || formData.email,
         minecraftUsername: formData.username
       });
@@ -153,7 +166,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
       });
 
       // Extract link code from response
-      const linkCode = (response as any).linkCode;
+      const linkCode = (response as any).linkCode as RegisterLinkCode | string | undefined;
       if (linkCode && onRegistrationSuccess) {
         // Will navigate to success page with link code
         setTimeout(() => {
@@ -164,6 +177,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
       let errorMessage = ERROR_MESSAGES.RegistrationFailed;
 
       const errorCode = error?.code || error?.response?.code;
+      const apiMessage = error?.response?.message || error?.message;
       if (errorCode === 'DuplicateEmail') {
         errorMessage = ERROR_MESSAGES.DuplicateEmail;
         setFormErrors({ email: errorMessage });
@@ -172,8 +186,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         errorMessage = ERROR_MESSAGES.DuplicateUsername;
         setFormErrors({ username: errorMessage });
         setCurrentStep(1);
-      } else if (error?.response?.message) {
-        errorMessage = error.response.message;
+      } else if (apiMessage) {
+        errorMessage = apiMessage;
       }
 
       setFeedback({

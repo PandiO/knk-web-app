@@ -7,7 +7,7 @@ import { SUCCESS_MESSAGES } from '../../utils/authConstants';
 
 interface LocationState {
     linkCode?: string;
-    expiresAt?: string;
+    expiresAt?: string | Date;
 }
 
 export const RegisterSuccessPage: React.FC = () => {
