@@ -2,13 +2,10 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LoginForm } from '../../components/auth/LoginForm';
 import { useAuth } from '../../hooks/useAuth';
-import { ErrorView } from '../../components/ErrorView';
-import { ErrorColor } from '../../utils';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isLoggedIn } = useAuth();
-  const [error, setError] = React.useState<string | null>(null);
+  const { isLoggedIn, isLoading } = useAuth();
 
   React.useEffect(() => {
     if (isLoggedIn) {
@@ -19,6 +16,18 @@ export const LoginPage: React.FC = () => {
   const handleSuccess = () => {
     navigate('/dashboard');
   };
+
+  // Show loading spinner during initial auth check
+  if (isLoading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
@@ -31,12 +40,6 @@ export const LoginPage: React.FC = () => {
             Log in to continue your adventure.
           </p>
         </div>
-
-        {error && (
-          <div className="mb-4">
-            <ErrorView content={error} color={ErrorColor.Red} />
-          </div>
-        )}
 
         <LoginForm onLoginSuccess={handleSuccess} />
 

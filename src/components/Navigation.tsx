@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, Layout } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, FileText, Layout, LogOut } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
 // added: explicit types for object types prop
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -13,6 +14,7 @@ export function Navigation({ objectTypes }: Props) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout, isLoading } = useAuth();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -44,6 +46,16 @@ export function Navigation({ objectTypes }: Props) {
       case 'Escape':
         setIsOpen(false);
         break;
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/auth/login');
+    } catch (err) {
+      // Error is already handled in useAuth hook
+      navigate('/auth/login');
     }
   };
 
@@ -120,7 +132,16 @@ export function Navigation({ objectTypes }: Props) {
               </Link>
             </div>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={handleLogout}
+              disabled={isLoading}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Logout"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </button>
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsOpen(!isOpen)}
