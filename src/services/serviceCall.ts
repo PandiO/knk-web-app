@@ -1,6 +1,7 @@
 import { InvokeServiceArgs } from "../apiClients/interfaces";
 import ConfigurationHelper from "../utils/config-helper";
 import { HttpMethod } from "../utils/enums";
+import { tokenService } from "../utils/tokenService";
 
 export class ServiceCall {
 
@@ -16,10 +17,13 @@ export class ServiceCall {
 
         let url = `${baseUrl}/${args.controller}`;
 
+        const authToken = tokenService.getAccessToken();
+
         let requestParams: any = {
             method: args.httpMethod,
             headers:  {
                 'Accept': '*/*',
+                ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
             }
         };
 
@@ -52,7 +56,8 @@ export class ServiceCall {
                 method: args.httpMethod,
                 headers: {
                     'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
                 }
             };
         

@@ -3,6 +3,7 @@ import { ObjectManager } from "./objectManager";
 import {
   LoginRequestDto,
   AuthLoginResponseDto,
+  AuthRefreshResponseDto,
   RegisterRequestDto,
   PasswordChangeDto,
   LinkCodeRequestDto,
@@ -24,7 +25,12 @@ export class AuthClient extends ObjectManager {
 
   // Auth endpoints (per roadmap Part G)
   login(data: LoginRequestDto): Promise<AuthLoginResponseDto> {
-    return this.invokeServiceCall(data, "login", Controllers.Auth, HttpMethod.Post);
+    const loginRequest = {
+      email: data.email,
+      password: data.password,
+      rememberMe: data.rememberMe ?? false,
+    };
+    return this.invokeServiceCall(loginRequest, "login", Controllers.Auth, HttpMethod.Post);
   }
 
   register(data: RegisterRequestDto): Promise<UserDto> {
@@ -35,7 +41,7 @@ export class AuthClient extends ObjectManager {
     return this.invokeServiceCall(null, "logout", Controllers.Auth, HttpMethod.Post);
   }
 
-  refresh(): Promise<void> {
+  refresh(): Promise<AuthRefreshResponseDto> {
     return this.invokeServiceCall(null, "refresh", Controllers.Auth, HttpMethod.Post);
   }
 

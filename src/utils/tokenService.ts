@@ -1,6 +1,11 @@
 import { STORAGE_KEYS } from "./authConstants";
 
 class TokenService {
+  /**
+   * Store access token in memory or persistent storage based on rememberMe flag.
+   * - rememberMe=true: stored in localStorage with expiresAt timestamp
+   * - rememberMe=false: stored in sessionStorage (session-only)
+   */
   setAccessToken(token: string, rememberMe: boolean) {
     if (rememberMe) {
       localStorage.setItem(STORAGE_KEYS.AccessToken, token);
@@ -9,6 +14,21 @@ class TokenService {
       sessionStorage.setItem(STORAGE_KEYS.AccessToken, token);
       localStorage.removeItem(STORAGE_KEYS.AccessToken);
     }
+  }
+
+  /**
+   * Check if access token exists (in either storage)
+   */
+  hasAccessToken(): boolean {
+    return this.getAccessToken() !== null;
+  }
+
+  /**
+   * Clear all auth-related storage (tokens and remember-me flag)
+   */
+  clearAll(): void {
+    this.clearAccessToken();
+    this.clearRememberMe();
   }
 
   getAccessToken(): string | null {

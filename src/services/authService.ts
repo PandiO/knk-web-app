@@ -2,14 +2,21 @@ import { authClient } from "../apiClients/authClient";
 import { STORAGE_KEYS, REMEMBER_ME_DURATION_MS } from "../utils/authConstants";
 import { tokenService } from "../utils/tokenService";
 import { UserDto, UserUpdateDto, UserCreateDto } from "../types/dtos/auth/UserDtos";
-import { LoginRequestDto, RegisterRequestDto } from "../types/dtos/auth/AuthDtos";
+import { LoginRequestDto, RegisterRequestDto, AuthRefreshResponseDto } from "../types/dtos/auth/AuthDtos";
 
 class AuthService {
   async login(req: LoginRequestDto): Promise<UserDto> {
     const res = await authClient.login(req);
-    // Server should set httpOnly cookie for tokens; we only track remember-me
-    tokenService.setRememberMe(req.rememberMe, Date.now() + REMEMBER_ME_DURATION_MS);
-    return res.user;
+   // Store access token in memory/storage based on rememberMe flag
+   tokenService.setAccessToken(res.accessToken, req.rememberMe ?? false);
+   
+   // Track remember-me duration if enabled
+   if (req.rememberMe) {
+     const expiresAt = Date.now() + REMEMBER_ME_DURATION_MS;
+     tokenService.setRememberMe(true, expiresAt);
+   }
+   
+   return res.user;
   }
 
   async register(data: RegisterRequestDto): Promise<UserDto> {
@@ -19,8 +26,8 @@ class AuthService {
 
   async logout(): Promise<void> {
     await authClient.logout();
-    tokenService.clearAccessToken();
-    tokenService.clearRememberMe();
+     // Clear all authentication data (tokens and remember-me)
+     tokenService.clearAll();
   }
 
   async getCurrentUser(): Promise<UserDto | null> {
@@ -28,14 +35,22 @@ class AuthService {
       const user = await authClient.me();
       return user ?? null;
     } catch (e) {
+       // Return null on any error (unauthorized, network, etc.)
       return null;
     }
   }
 
   async refreshSession(): Promise<boolean> {
     try {
-      await authClient.refresh();
-      return true;
+      const res: AuthRefreshResponseDto = await authClient.refresh();
+      
+      // Update access token with new one from refresh response
+      if (res && res.accessToken) {
+        const rememberMe = tokenService.isRemembered();
+        tokenService.setAccessToken(res.accessToken, rememberMe);
+        return true;
+      }
+      return false;
     } catch (e) {
       return false;
     }

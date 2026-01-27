@@ -6,8 +6,36 @@ export interface LoginRequestDto {
   rememberMe: boolean;
 }
 
+  export interface AuthLoginRequestDto {
+    email: string;
+    password: string;
+    rememberMe?: boolean;
+  }
+
 export interface AuthLoginResponseDto {
+  accessToken: string;
+  refreshToken?: string;
+  expiresIn: number;
   user: UserDto;
+}
+
+export interface AuthRefreshRequestDto {
+  refreshToken?: string;
+}
+
+export interface AuthRefreshResponseDto {
+  accessToken: string;
+  refreshToken?: string;
+  expiresIn: number;
+}
+
+export interface AuthValidateTokenRequestDto {
+  token: string;
+}
+
+export interface AuthValidateTokenResponseDto {
+  valid: boolean;
+  expiresAt?: Date;
 }
 
 export interface RegisterRequestDto {
