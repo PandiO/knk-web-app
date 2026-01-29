@@ -40,6 +40,7 @@ export const FieldEditor: React.FC<Props> = ({
         const PREDEFINED_TASK_TYPES = [
             'ReagionCreate',
             'LocationSelection',
+            'LocationCapture',
             'RegionClaim',
             'VerifyLocation',
             'VerifyStructure',
