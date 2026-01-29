@@ -351,12 +351,25 @@ export const StepEditor: React.FC<Props> = ({
         if (!over || active.id === over.id) return;
 
         const child = (step.childFormSteps || [])[childIndex];
-        const oldIndex = child.fields.findIndex(f => f.id === active.id);
-        const newIndex = child.fields.findIndex(f => f.id === over.id);
+        
+        // CRITICAL FIX: Use ordered fields (what user sees) not child.fields
+        const orderedChildFields = getOrderedChildFields(child);
+        const oldIndex = orderedChildFields.findIndex(f => f.id === active.id);
+        const newIndex = orderedChildFields.findIndex(f => f.id === over.id);
+        
         if (oldIndex === -1 || newIndex === -1) return;
 
-        const reordered = arrayMove(child.fields, oldIndex, newIndex).map((f, i) => ({ ...f, order: i }));
-        updateChildStepAt(childIndex, c => ({ ...c, fields: reordered }));
+        // Reorder the visual array
+        const reordered = arrayMove(orderedChildFields, oldIndex, newIndex).map((f, i) => ({ ...f, order: i }));
+        
+        // Update fieldOrderJson with new GUID order
+        const newFieldOrderJson = JSON.stringify(reordered.map(f => f.fieldGuid).filter(Boolean));
+        
+        updateChildStepAt(childIndex, c => ({ 
+            ...c, 
+            fields: reordered,
+            fieldOrderJson: newFieldOrderJson
+        }));
     };
 
     const handleAddReusableField = async (templateField: FormFieldDto, mode: ReuseLinkMode) => {
@@ -435,15 +448,24 @@ export const StepEditor: React.FC<Props> = ({
         const { active, over } = event;
 
         if (over && active.id !== over.id) {
-            const oldIndex = step.fields.findIndex(f => f.id === active.id);
-            const newIndex = step.fields.findIndex(f => f.id === over.id);
+            // CRITICAL FIX: Use orderedFields (what user sees) not step.fields
+            const oldIndex = orderedFields.findIndex(f => f.id === active.id);
+            const newIndex = orderedFields.findIndex(f => f.id === over.id);
 
-            const reorderedFields = arrayMove(step.fields, oldIndex, newIndex).map((f, i) => ({
-                ...f,
-                order: i
-            }));
+            if (oldIndex === -1 || newIndex === -1) return;
 
-            onUpdate({ ...step, fields: reorderedFields });
+            // Reorder the visual array
+            const reorderedFields = arrayMove(orderedFields, oldIndex, newIndex);
+
+            // Update fieldOrderJson with new GUID order
+            const newFieldOrderJson = JSON.stringify(reorderedFields.map(f => f.fieldGuid).filter(Boolean));
+
+            // Update step with new order
+            onUpdate({ 
+                ...step, 
+                fields: reorderedFields.map((f, i) => ({ ...f, order: i })),
+                fieldOrderJson: newFieldOrderJson
+            });
         }
     };
 
