@@ -9,12 +9,14 @@ import {
     ValidationResultDto,
     ValidationIssueDto
 } from "../types/dtos/forms/FieldValidationRuleDtos";
+import { FormConfigurationDto } from "../types/dtos/forms/FormConfigurationDtos";
 
 export enum FieldValidationRuleOperation {
     GetByField = "by-field/",
     GetByConfiguration = "by-configuration/",
     Validate = "validate",
-    HealthCheckConfiguration = "health-check/configuration/"
+    HealthCheckConfiguration = "health-check/configuration/",
+    HealthCheckDraft = "health-check/configuration/draft"
 }
 
 export class FieldValidationRuleClient extends ObjectManager {
@@ -58,6 +60,10 @@ export class FieldValidationRuleClient extends ObjectManager {
 
     validateConfigurationHealth(configId: number): Promise<ValidationIssueDto[]> {
         return this.invokeServiceCall(null, `${FieldValidationRuleOperation.HealthCheckConfiguration}${configId}`, Controllers.FieldValidationRules, HttpMethod.Get);
+    }
+
+    validateDraftConfiguration(config: FormConfigurationDto): Promise<ValidationIssueDto[]> {
+        return this.invokeServiceCall(config, FieldValidationRuleOperation.HealthCheckDraft, Controllers.FieldValidationRules, HttpMethod.Post);
     }
 }
 

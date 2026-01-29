@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { ValidationIssueDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { FormConfigurationDto } from '../../types/dtos/forms/FormConfigurationDtos';
 import { AlertTriangle, CheckCircle2, RefreshCw, ShieldAlert, ShieldQuestion } from 'lucide-react';
 
 interface ConfigurationHealthPanelProps {
     configurationId?: string;
+    draftConfig?: FormConfigurationDto;
     refreshToken?: number;
     onIssuesLoaded?: (count: number) => void;
 }
 
 export const ConfigurationHealthPanel: React.FC<ConfigurationHealthPanelProps> = ({
     configurationId,
+    draftConfig,
     refreshToken,
     onIssuesLoaded
 }) => {
@@ -21,6 +24,26 @@ export const ConfigurationHealthPanel: React.FC<ConfigurationHealthPanelProps> =
     const configIdNumber = configurationId ? Number(configurationId) : undefined;
 
     const loadHealthCheck = async () => {
+        // If we have a draft config, validate it directly (real-time validation)
+        if (draftConfig) {
+            try {
+                setLoading(true);
+                setError(null);
+                const result = await fieldValidationRuleClient.validateDraftConfiguration(draftConfig);
+                setIssues(result);
+                onIssuesLoaded?.(result.length);
+            } catch (err: any) {
+                console.error('Failed to validate draft configuration:', err);
+                const message = err?.response?.data?.message || err?.message || 'Unable to validate configuration.';
+                setError(message);
+                onIssuesLoaded?.(0);
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
+        // Otherwise, validate saved configuration by ID
         if (!configIdNumber || Number.isNaN(configIdNumber)) {
             return;
         }
@@ -42,9 +65,9 @@ export const ConfigurationHealthPanel: React.FC<ConfigurationHealthPanelProps> =
 
     useEffect(() => {
         void loadHealthCheck();
-    }, [configIdNumber, refreshToken]);
+    }, [configIdNumber, refreshToken, draftConfig]);
 
-    if (!configIdNumber) {
+    if (!configIdNumber && !draftConfig) {
         return (
             <div className="bg-gray-50 border border-dashed border-gray-200 rounded-md p-4 text-sm text-gray-600">
                 Save this configuration to enable health checks.

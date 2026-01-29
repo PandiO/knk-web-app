@@ -666,6 +666,7 @@ export const FormConfigBuilder: React.FC = () => {
                 <div className="mt-6">
                     <ConfigurationHealthPanel
                         configurationId={config.id}
+                        draftConfig={config}
                         refreshToken={healthRefreshToken}
                         onIssuesLoaded={setHealthIssueCount}
                     />
