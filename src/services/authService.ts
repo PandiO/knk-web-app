@@ -21,6 +21,15 @@ class AuthService {
 
   async register(data: RegisterRequestDto): Promise<UserDto> {
     const user = await authClient.register(data);
+    
+    // After successful registration, automatically log the user in
+    // This ensures they have a valid auth token and don't need to manually log in
+    await this.login({
+      email: data.email,
+      password: data.password,
+      rememberMe: true // Default to remember the user after registration
+    });
+    
     return user;
   }
 

@@ -4,6 +4,7 @@ import { CheckCircle, Server, Gamepad2, Link as LinkIcon } from 'lucide-react';
 import { LinkCodeDisplay } from '../../components/auth/LinkCodeDisplay';
 import { FeedbackModal } from '../../components/FeedbackModal';
 import { SUCCESS_MESSAGES } from '../../utils/authConstants';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface LocationState {
     linkCode?: string;
@@ -13,16 +14,18 @@ interface LocationState {
 export const RegisterSuccessPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { isLoggedIn } = useAuth();
     const state = (location.state || {}) as LocationState;
     const linkCode = state.linkCode;
     const expiresAt = state.expiresAt;
     const [showFeedback, setShowFeedback] = React.useState(false);
     const [autoRedirectCountdown, setAutoRedirectCountdown] = React.useState(5);
+    const redirectTarget = isLoggedIn ? '/dashboard' : '/auth/login';
 
-    // Auto-redirect to login after 5 seconds
+    // Auto-redirect after 5 seconds
     useEffect(() => {
         if (autoRedirectCountdown <= 0) {
-            navigate('/auth/login');
+            navigate(redirectTarget);
             return;
         }
 
@@ -31,7 +34,7 @@ export const RegisterSuccessPage: React.FC = () => {
         }, 1000);
 
         return () => clearTimeout(timer);
-    }, [autoRedirectCountdown, navigate]);
+    }, [autoRedirectCountdown, navigate, redirectTarget]);
 
     const handleCopySuccess = () => {
         setShowFeedback(true);
@@ -155,18 +158,18 @@ export const RegisterSuccessPage: React.FC = () => {
                         Back to Landing
                     </button>
                     <button
-                        onClick={() => navigate('/auth/login')}
+                        onClick={() => navigate(redirectTarget)}
                         className="px-6 py-3 text-base bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                        aria-label="Continue to login page"
+                        aria-label={isLoggedIn ? 'Continue to dashboard' : 'Continue to login page'}
                     >
-                        Continue to Login
+                        {isLoggedIn ? 'Continue to Dashboard' : 'Continue to Login'}
                     </button>
                 </div>
 
                 {/* Auto-redirect Message */}
                 <div className="text-center" role="status" aria-live="polite" aria-atomic="true">
                     <p className="text-sm text-gray-500">
-                        Redirecting to login page in <span className="font-semibold text-gray-700" aria-label={`${autoRedirectCountdown} seconds remaining`}>{autoRedirectCountdown}</span> second{autoRedirectCountdown !== 1 ? 's' : ''}...
+                        Redirecting to {isLoggedIn ? 'dashboard' : 'login page'} in <span className="font-semibold text-gray-700" aria-label={`${autoRedirectCountdown} seconds remaining`}>{autoRedirectCountdown}</span> second{autoRedirectCountdown !== 1 ? 's' : ''}...
                     </p>
                 </div>
             </div>

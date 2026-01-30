@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Mail, Key, Link as LinkIcon, Save, X, Copy } from 'lucide-react';
+import { User, Mail, Key, Link as LinkIcon, Save, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { authClient } from '../apiClients/authClient';
 import { FeedbackModal } from '../components/FeedbackModal';
@@ -17,11 +17,6 @@ export const AccountManagementPage: React.FC = () => {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [generatedLinkCode, setGeneratedLinkCode] = useState<{
-    code: string;
-    expiresAt: string;
-  } | null>(null);
-  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [feedback, setFeedback] = useState<{
     open: boolean;
     title: string;
@@ -156,48 +151,6 @@ export const AccountManagementPage: React.FC = () => {
     }
   };
 
-  const handleGenerateLinkCode = async () => {
-    setIsGeneratingCode(true);
-    try {
-      const response = await authClient.generateLinkCode();
-      setGeneratedLinkCode({
-        code: response.code,
-        expiresAt: response.expiresAt,
-      });
-      setFeedback({
-        open: true,
-        title: 'Link Code Generated',
-        message: 'Use this code in Minecraft with /account link <code> within 20 minutes.',
-        status: 'success',
-      });
-    } catch (error: any) {
-      setFeedback({
-        open: true,
-        title: 'Generation Failed',
-        message: error?.response?.message || 'Failed to generate link code. Please try again.',
-        status: 'error',
-      });
-    } finally {
-      setIsGeneratingCode(false);
-    }
-  };
-
-  const handleCopyLinkCode = () => {
-    if (generatedLinkCode) {
-      navigator.clipboard.writeText(generatedLinkCode.code);
-      setFeedback({
-        open: true,
-        title: 'Copied!',
-        message: 'Link code copied to clipboard.',
-        status: 'success',
-      });
-    }
-  };
-
-  const isLinkCodeExpired = () => {
-    if (!generatedLinkCode) return false;
-    return new Date(generatedLinkCode.expiresAt) < new Date();
-  };
 
   if (!user) {
     return (
@@ -412,61 +365,12 @@ export const AccountManagementPage: React.FC = () => {
                   <LinkIcon className="h-5 w-5 mr-2" />
                   Link Code for Minecraft
                 </h2>
-                <p className="text-sm text-gray-600 mb-4">
-                  Generate a link code to use in Minecraft with <code className="bg-gray-100 px-1 py-0.5 rounded">/account link &lt;code&gt;</code>
-                </p>
-                
-                {generatedLinkCode ? (
-                  <div className="space-y-3">
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">Your Link Code:</span>
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          isLinkCodeExpired() 
-                            ? 'bg-red-100 text-red-700' 
-                            : 'bg-green-100 text-green-700'
-                        }`}>
-                          {isLinkCodeExpired() ? 'Expired' : 'Active'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 text-lg font-mono font-bold text-gray-900 bg-white border border-gray-300 rounded px-3 py-2">
-                          {generatedLinkCode.code}
-                        </code>
-                        <button
-                          onClick={handleCopyLinkCode}
-                          className="flex items-center px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
-                          title="Copy to clipboard"
-                        >
-                          <Copy className="h-4 w-4 mr-1" />
-                          Copy
-                        </button>
-                      </div>
-                      <p className="mt-2 text-xs text-gray-500">
-                        Expires: {new Date(generatedLinkCode.expiresAt).toLocaleString()}
-                      </p>
-                    </div>
-                    {isLinkCodeExpired() && (
-                      <button
-                        onClick={handleGenerateLinkCode}
-                        disabled={isGeneratingCode}
-                        className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
-                      >
-                        <LinkIcon className="h-4 w-4 mr-2" />
-                        Generate New Code
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleGenerateLinkCode}
-                    disabled={isGeneratingCode}
-                    className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
-                  >
-                    <LinkIcon className="h-4 w-4 mr-2" />
-                    {isGeneratingCode ? 'Generating...' : 'Generate Link Code'}
-                  </button>
-                )}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-green-900 mb-2">Minecraft Account Linked</h3>
+                  <p className="text-sm text-green-800">
+                    Your web account is already linked to Minecraft (UUID: <code className="font-mono text-xs">{user.uuid}</code>). You can now access all linked features.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -477,9 +381,27 @@ export const AccountManagementPage: React.FC = () => {
                   <LinkIcon className="h-5 w-5 mr-2" />
                   Link Minecraft Account
                 </h2>
-                <p className="text-sm text-gray-600 mb-4">
-                  Enter the link code you received from the Minecraft server to link your account.
-                </p>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <h3 className="text-sm font-semibold text-green-900 mb-2">Minecraft-First Linking Approach</h3>
+                  <p className="text-sm text-green-800 mb-3">
+                    Your web account is not yet linked to a Minecraft profile. Follow these steps to connect 
+                    your Minecraft account using a link code from the game server.
+                  </p>
+                  <div className="text-sm text-green-800">
+                    <p className="font-medium mb-1">How to link your account:</p>
+                    <ol className="list-decimal list-inside space-y-1 ml-2">
+                      <li>Join the Knights & Kings Minecraft server</li>
+                      <li>Type <code className="bg-green-100 px-1 py-0.5 rounded font-mono text-xs">/account link</code> in the game chat</li>
+                      <li>You'll receive a unique link code (valid for 20 minutes)</li>
+                      <li>Copy the code and paste it in the field below</li>
+                      <li>Click "Link Account" to complete the connection</li>
+                    </ol>
+                    <p className="mt-3 text-xs text-green-700">
+                      <strong>Note:</strong> This links your Minecraft UUID to your existing web account, 
+                      allowing you to manage your in-game profile, view stats, and access web features.
+                    </p>
+                  </div>
+                </div>
                 <div className="space-y-3">
                   <div>
                     <input

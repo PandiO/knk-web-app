@@ -21,6 +21,7 @@ export class ServiceCall {
 
         let requestParams: any = {
             method: args.httpMethod,
+            credentials: 'include', // Include cookies for cross-origin requests (needed for refresh token)
             headers:  {
                 'Accept': '*/*',
                 ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
@@ -54,6 +55,7 @@ export class ServiceCall {
         } else if (args.httpMethod == HttpMethod.Delete) {} else{
             requestParams = {
                 method: args.httpMethod,
+                credentials: 'include', // Include cookies for cross-origin requests (needed for refresh token)
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
