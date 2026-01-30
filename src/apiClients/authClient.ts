@@ -61,6 +61,15 @@ export class AuthClient extends ObjectManager {
     return this.invokeServiceCall(data, "update", Controllers.Auth, HttpMethod.Put);
   }
 
+  // Link code operations
+  generateLinkCode(): Promise<LinkCodeResponseDto> {
+    return this.invokeServiceCall(null, "generate-link-code", Controllers.Users, HttpMethod.Post);
+  }
+
+  linkAccount(data: { linkCode: string; email: string; password: string }): Promise<UserDto> {
+    return this.invokeServiceCall(data, "link-account", Controllers.Users, HttpMethod.Post);
+  }
+
   // Availability checks (email/username)
   checkEmailAvailable(email: string): Promise<{ available: boolean }> {
     return this.invokeServiceCall({ email }, "check-duplicate", Controllers.Users, HttpMethod.Get);

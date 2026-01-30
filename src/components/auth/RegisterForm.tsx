@@ -9,6 +9,7 @@ import { authClient } from '../../apiClients/authClient';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES, PASSWORD_MIN_LENGTH } from '../../utils/authConstants';
 import { validateEmailFormat, validatePasswordPolicy, calculatePasswordStrength } from '../../utils/passwordValidator';
 import { LinkCodeResponseDto } from '../../types/dtos/auth/AuthDtos';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface FormData {
   email: string;
@@ -41,6 +42,7 @@ const STEPS = ['Account Info', 'Minecraft Info', 'Review & Confirm'];
 export const RegisterForm: React.FC<RegisterFormProps> = ({
   onRegistrationSuccess,
 }) => {
+  const { register } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>({
     email: '',
@@ -152,7 +154,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const response = await authClient.register({
+      // Use the register function from AuthContext to update global state
+      await register({
         email: formData.email,
         password: formData.password,
         passwordConfirmation: formData.confirmPassword,
@@ -167,6 +170,17 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         title: 'Account Created!',
         message: SUCCESS_MESSAGES.RegistrationComplete,
         status: 'success',
+      });
+
+      // For registration, we might need to get the linkCode from the response
+      // Since authService.register returns UserDto, we need to call authClient directly for the full response
+      const response = await authClient.register({
+        email: formData.email,
+        password: formData.password,
+        passwordConfirmation: formData.confirmPassword,
+        username: formData.username || formData.email,
+        minecraftUsername: formData.username,
+        linkCode: formData.linkCode?.trim() || undefined,
       });
 
       // Extract link code from response

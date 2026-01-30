@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { FeedbackModal } from '../FeedbackModal';
 import { ERROR_MESSAGES } from '../../utils/authConstants';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../contexts/AuthContext';
 import { validateEmailFormat } from '../../utils/passwordValidator';
 
 interface LoginFormProps {
@@ -22,6 +23,7 @@ interface FormErrors {
 
 export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState<FormState>({ email: '', password: '', rememberMe: true });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,9 +68,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
     try {
       await login({ email: form.email, password: form.password, rememberMe: form.rememberMe });
       setFeedback({ open: true, title: 'Login Successful', message: 'Welcome back!', status: 'success' });
-      if (onLoginSuccess) {
-        setTimeout(() => onLoginSuccess(), 500);
-      }
+      // Navigate to dashboard after a short delay to show success message
+      setTimeout(() => {
+        navigate('/dashboard');
+        if (onLoginSuccess) {
+          onLoginSuccess();
+        }
+      }, 1000);
     } catch (error: any) {
       let message = ERROR_MESSAGES.InvalidCredentials;
       const code = error?.code || error?.response?.code;

@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LandingPage } from './pages/LandingPage';
+import { AccountManagementPage } from './pages/AccountManagementPage';
 import ObjectDashboard from './components/ObjectDashboard';
 import { objectConfigs } from './config/objectConfigs';
 import { Subscription } from 'rxjs/internal/Subscription';
@@ -18,10 +19,9 @@ import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import { TownCreateWizardPage } from './pages/TownCreateWizardPage';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage } from './pages/auth';
-import { useAuth } from './hooks/useAuth';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
-function App() {
-
+function AppContent() {
   var result: any[] = [];
   const errorContent = useRef(result);
 
@@ -98,6 +98,11 @@ function App() {
               <Route path="/auth/register" element={<RegisterPage />} />
               <Route path="/auth/register/success" element={<RegisterSuccessPage />} />
               <Route path="/auth/login" element={<LoginPage />} />
+              <Route path="/account" element={
+                <ProtectedRoute>
+                  <AccountManagementPage />
+                </ProtectedRoute>
+              } />
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <ObjectDashboard objectTypes={objectTypes} />
@@ -169,6 +174,14 @@ function App() {
         </div>
       </div>
     </Router>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
