@@ -7,6 +7,7 @@ interface FormStep3Props {
     password: string;
     confirmPassword: string;
     username: string;
+    linkCode?: string;
   };
   isSubmitting?: boolean;
 }
@@ -65,6 +66,19 @@ export const FormStep3: React.FC<FormStep3Props> = ({ data, isSubmitting = false
             <CheckCircle className="h-5 w-5" />
           </div>
         </div>
+
+        {/* Link code (optional) */}
+        {data.linkCode && (
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-700">Link Code</p>
+              <p className="text-base font-semibold text-gray-900 mt-1">{data.linkCode}</p>
+            </div>
+            <div className="text-green-600 mt-2 sm:mt-1 sm:ml-3 flex-shrink-0" aria-label="verified">
+              <CheckCircle className="h-5 w-5" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Terms and conditions */}

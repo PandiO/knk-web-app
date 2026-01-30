@@ -15,6 +15,7 @@ interface FormData {
   password: string;
   confirmPassword: string;
   username: string;
+  linkCode?: string;
 }
 
 interface FormErrors {
@@ -22,6 +23,7 @@ interface FormErrors {
   password?: string;
   confirmPassword?: string;
   username?: string;
+  linkCode?: string;
 }
 
 type RegisterLinkCode = LinkCodeResponseDto & { formattedCode?: string };
@@ -45,6 +47,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     password: '',
     confirmPassword: '',
     username: '',
+    linkCode: '',
   });
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -154,7 +157,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         password: formData.password,
         passwordConfirmation: formData.confirmPassword,
         username: formData.username || formData.email,
-        minecraftUsername: formData.username
+        minecraftUsername: formData.username,
+        linkCode: formData.linkCode?.trim() || undefined,
       });
 
       // Success - show feedback and trigger callback
@@ -257,9 +261,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             <FormStep2
               data={{
                 username: formData.username,
+                linkCode: formData.linkCode || '',
               }}
               errors={{
                 username: formErrors.username,
+                linkCode: formErrors.linkCode,
               }}
               onChange={handleFieldChange}
               onError={handleError}

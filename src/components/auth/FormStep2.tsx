@@ -5,9 +5,11 @@ import { USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from '../../utils/authConsta
 interface FormStep2Props {
   data: {
     username: string;
+    linkCode?: string;
   };
   errors: {
     username?: string;
+    linkCode?: string;
   };
   onChange: (field: string, value: string) => void;
   onError: (field: string, error: string | null) => void;
@@ -127,6 +129,36 @@ export const FormStep2: React.FC<FormStep2Props> = ({
         <p id="username-help" className="mt-2 text-xs text-gray-600">
           {USERNAME_MIN_LENGTH}-{USERNAME_MAX_LENGTH} characters, alphanumeric and underscore
           allowed
+        </p>
+      </div>
+
+      {/* Optional link code */}
+      <div>
+        <label htmlFor="linkCode" className="block text-sm font-medium text-gray-700 mb-2">
+          Link Code (optional)
+        </label>
+        <input
+          id="linkCode"
+          type="text"
+          inputMode="text"
+          autoComplete="off"
+          value={data.linkCode || ''}
+          onChange={(e) => onChange('linkCode', e.target.value)}
+          onBlur={(e) => onChange('linkCode', e.target.value.trim().toUpperCase())}
+          className={`w-full px-4 py-2 text-base border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+            errors.linkCode ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
+          }`}
+          placeholder="e.g., ABC-123XY"
+          aria-invalid={!!errors.linkCode}
+          aria-describedby={errors.linkCode ? 'linkcode-error' : 'linkcode-help'}
+        />
+        {errors.linkCode && (
+          <p id="linkcode-error" className="mt-1 text-sm text-red-600" role="alert">
+            {errors.linkCode}
+          </p>
+        )}
+        <p id="linkcode-help" className="mt-2 text-xs text-gray-600">
+          If you already have a link code from the server, paste it here to connect your Minecraft account.
         </p>
       </div>
 
