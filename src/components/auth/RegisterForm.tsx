@@ -8,8 +8,11 @@ import { FeedbackModal } from '../FeedbackModal';
 import { authClient } from '../../apiClients/authClient';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES, PASSWORD_MIN_LENGTH } from '../../utils/authConstants';
 import { validateEmailFormat, validatePasswordPolicy, calculatePasswordStrength } from '../../utils/passwordValidator';
-import { LinkCodeResponseDto } from '../../types/dtos/auth/AuthDtos';
 import { useAuth } from '../../contexts/AuthContext';
+
+import { LinkCodeResponseDto } from '../../types/dtos/auth/AuthDtos';
+
+type RegisterLinkCode = LinkCodeResponseDto;
 
 interface FormData {
   email: string;
@@ -27,10 +30,8 @@ interface FormErrors {
   linkCode?: string;
 }
 
-type RegisterLinkCode = LinkCodeResponseDto & { formattedCode?: string };
-
 interface RegisterFormProps {
-  onRegistrationSuccess?: (linkCode?: RegisterLinkCode | string) => void;
+  onRegistrationSuccess?: (linkCode?: RegisterLinkCode) => void;
 }
 
 const STEPS = ['Account Info', 'Minecraft Info', 'Review & Confirm'];
@@ -49,7 +50,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     password: '',
     confirmPassword: '',
     username: '',
-    linkCode: '',
+    linkCode: undefined,
   });
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -164,6 +165,18 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         linkCode: formData.linkCode?.trim() || undefined,
       });
 
+      // Request link code from API
+      let linkCode: RegisterLinkCode | undefined;
+      try {
+        const response = await authClient.requestLinkCode({
+          email: formData.email,
+        });
+        linkCode = response as RegisterLinkCode;
+      } catch (linkCodeError: any) {
+        // Link code generation failed, but account was created - don't fail registration
+        console.warn('Failed to generate link code during registration:', linkCodeError);
+      }
+
       // Success - show feedback and trigger callback
       setFeedback({
         open: true,
@@ -172,21 +185,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         status: 'success',
       });
 
-      // For registration, we might need to get the linkCode from the response
-      // Since authService.register returns UserDto, we need to call authClient directly for the full response
-      const response = await authClient.register({
-        email: formData.email,
-        password: formData.password,
-        passwordConfirmation: formData.confirmPassword,
-        username: formData.username || formData.email,
-        minecraftUsername: formData.username,
-        linkCode: formData.linkCode?.trim() || undefined,
-      });
-
-      // Extract link code from response
-      const linkCode = (response as any).linkCode as RegisterLinkCode | string | undefined;
-      if (linkCode && onRegistrationSuccess) {
-        // Will navigate to success page with link code
+      if (onRegistrationSuccess) {
         setTimeout(() => {
           onRegistrationSuccess(linkCode);
         }, 1500);
@@ -275,7 +274,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             <FormStep2
               data={{
                 username: formData.username,
-                linkCode: formData.linkCode || '',
+                linkCode: formData.linkCode,
               }}
               errors={{
                 username: formErrors.username,

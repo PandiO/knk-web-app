@@ -132,33 +132,38 @@ export const FormStep2: React.FC<FormStep2Props> = ({
         </p>
       </div>
 
-      {/* Optional link code */}
+      {/* Optional link code field */}
       <div>
         <label htmlFor="linkCode" className="block text-sm font-medium text-gray-700 mb-2">
-          Link Code (optional)
+          Link Code <span className="text-xs text-gray-500">(optional)</span>
         </label>
         <input
           id="linkCode"
           type="text"
           inputMode="text"
           autoComplete="off"
+          data-testid="linkCode"
           value={data.linkCode || ''}
-          onChange={(e) => onChange('linkCode', e.target.value)}
-          onBlur={(e) => onChange('linkCode', e.target.value.trim().toUpperCase())}
+          onChange={(e) => {
+            onChange('linkCode', e.target.value);
+            onError('linkCode', null);
+          }}
           className={`w-full px-4 py-2 text-base border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
             errors.linkCode ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
           }`}
-          placeholder="e.g., ABC-123XY"
+          placeholder="Enter code from Minecraft (optional)"
           aria-invalid={!!errors.linkCode}
           aria-describedby={errors.linkCode ? 'linkcode-error' : 'linkcode-help'}
         />
+
         {errors.linkCode && (
           <p id="linkcode-error" className="mt-1 text-sm text-red-600" role="alert">
             {errors.linkCode}
           </p>
         )}
+
         <p id="linkcode-help" className="mt-2 text-xs text-gray-600">
-          If you already have a link code from the server, paste it here to connect your Minecraft account.
+          If you started in Minecraft, use <span className="font-mono">/account link</span> to get a code and enter it here.
         </p>
       </div>
 

@@ -53,6 +53,19 @@ export const FormStep3: React.FC<FormStep3Props> = ({ data, isSubmitting = false
           </div>
         </div>
 
+        {/* Link Code (optional) */}
+        {data.linkCode && (
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-700">Link Code</p>
+              <p className="text-base font-semibold text-gray-900 mt-1 font-mono break-all">{data.linkCode}</p>
+            </div>
+            <div className="text-green-600 mt-2 sm:mt-1 sm:ml-3 flex-shrink-0" aria-label="verified">
+              <CheckCircle className="h-5 w-5" />
+            </div>
+          </div>
+        )}
+
         {/* Password */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
           <div className="flex-1">
@@ -67,27 +80,16 @@ export const FormStep3: React.FC<FormStep3Props> = ({ data, isSubmitting = false
           </div>
         </div>
 
-        {/* Link code (optional) */}
-        {data.linkCode && (
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-700">Link Code</p>
-              <p className="text-base font-semibold text-gray-900 mt-1">{data.linkCode}</p>
-            </div>
-            <div className="text-green-600 mt-2 sm:mt-1 sm:ml-3 flex-shrink-0" aria-label="verified">
-              <CheckCircle className="h-5 w-5" />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Terms and conditions */}
       <div className="p-4 bg-amber-50 rounded-lg border border-amber-200" role="region" aria-label="Important information">
         <h4 className="text-sm font-semibold text-amber-900 mb-2">Before You Continue</h4>
         <ul className="text-sm text-amber-800 space-y-2 list-disc list-inside">
-          <li>After registration you will receive a link code to connect your Minecraft account.</li>
+          <li>If you already have a link code from Minecraft, it will be used to connect your accounts.</li>
+          <li>Otherwise, you can generate a link code from your account dashboard after registration.</li>
           <li>Your password is encrypted and stored securely.</li>
-          <li>Use <code className="bg-amber-100 px-1 py-0.5 rounded">/account link [code]</code> on the server to activate your account.</li>
+          <li>Use <code className="bg-amber-100 px-1 py-0.5 rounded">/account link &lt;code&gt;</code> on the server to link your account.</li>
         </ul>
       </div>
 

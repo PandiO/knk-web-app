@@ -114,7 +114,7 @@ export const AccountManagementPage: React.FC = () => {
   const handleLinkMinecraftAccount = async () => {
     const newErrors: Record<string, string> = {};
     
-    if (!formData.linkCode.trim()) {
+    if (!formData.linkCode || !formData.linkCode.trim()) {
       newErrors.linkCode = 'Link code is required';
     }
 
@@ -150,6 +150,9 @@ export const AccountManagementPage: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Alias for backward compatibility
+  const handleGenerateLinkCode = handleLinkMinecraftAccount;
 
 
   if (!user) {
@@ -358,55 +361,33 @@ export const AccountManagementPage: React.FC = () => {
               )}
             </div>
 
-            {/* Generate Link Code for Minecraft (Web-First Approach) */}
-            {user.uuid && (
-              <div className="border-b pb-6">
-                <h2 className="text-lg font-semibold text-gray-900 flex items-center mb-4">
-                  <LinkIcon className="h-5 w-5 mr-2" />
-                  Link Code for Minecraft
-                </h2>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-green-900 mb-2">Minecraft Account Linked</h3>
-                  <p className="text-sm text-green-800">
-                    Your web account is already linked to Minecraft (UUID: <code className="font-mono text-xs">{user.uuid}</code>). You can now access all linked features.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Minecraft Account Linking (Minecraft-First Approach) */}
+            {/* Link Minecraft Account */}
             {!user.uuid && (
               <div className="pb-6">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center mb-4">
                   <LinkIcon className="h-5 w-5 mr-2" />
                   Link Minecraft Account
                 </h2>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                  <h3 className="text-sm font-semibold text-green-900 mb-2">Minecraft-First Linking Approach</h3>
-                  <p className="text-sm text-green-800 mb-3">
-                    Your web account is not yet linked to a Minecraft profile. Follow these steps to connect 
-                    your Minecraft account using a link code from the game server.
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <h3 className="text-sm font-semibold text-blue-900 mb-2">Connect Your Minecraft Profile</h3>
+                  <p className="text-sm text-blue-800 mb-4">
+                    Your web account is not yet linked to a Minecraft profile. Follow these steps to connect:
                   </p>
-                  <div className="text-sm text-green-800">
-                    <p className="font-medium mb-1">How to link your account:</p>
-                    <ol className="list-decimal list-inside space-y-1 ml-2">
-                      <li>Join the Knights & Kings Minecraft server</li>
-                      <li>Type <code className="bg-green-100 px-1 py-0.5 rounded font-mono text-xs">/account link</code> in the game chat</li>
-                      <li>You'll receive a unique link code (valid for 20 minutes)</li>
-                      <li>Copy the code and paste it in the field below</li>
-                      <li>Click "Link Account" to complete the connection</li>
-                    </ol>
-                    <p className="mt-3 text-xs text-green-700">
-                      <strong>Note:</strong> This links your Minecraft UUID to your existing web account, 
-                      allowing you to manage your in-game profile, view stats, and access web features.
-                    </p>
-                  </div>
+                  <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800 mb-4">
+                    <li>Join the Knights & Kings Minecraft server</li>
+                    <li>Type <code className="bg-blue-100 px-1 py-0.5 rounded font-mono text-xs">/account link</code> in chat</li>
+                    <li>You'll receive a unique link code (valid for 20 minutes)</li>
+                    <li>Paste the code below and click "Link Account"</li>
+                  </ol>
                 </div>
                 <div className="space-y-3">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Link Code from Minecraft
+                    </label>
                     <input
                       type="text"
-                      value={formData.linkCode}
+                      value={formData.linkCode || ''}
                       onChange={(e) => setFormData({ ...formData, linkCode: e.target.value.toUpperCase() })}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 font-mono ${
                         errors.linkCode ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
@@ -421,11 +402,27 @@ export const AccountManagementPage: React.FC = () => {
                   <button
                     onClick={handleLinkMinecraftAccount}
                     disabled={isSubmitting}
-                    className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                   >
                     <LinkIcon className="h-4 w-4 mr-2" />
                     Link Account
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Minecraft Account Already Linked */}
+            {user.uuid && (
+              <div className="pb-6">
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center mb-4">
+                  <LinkIcon className="h-5 w-5 mr-2" />
+                  Minecraft Account
+                </h2>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-green-900 mb-2">✓ Minecraft Account Linked</h3>
+                  <p className="text-sm text-green-800">
+                    Your web account is successfully linked to Minecraft (UUID: <code className="font-mono text-xs">{user.uuid}</code>)
+                  </p>
                 </div>
               </div>
             )}

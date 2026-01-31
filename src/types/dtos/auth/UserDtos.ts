@@ -28,7 +28,6 @@ export interface UserCreateDto {
   email?: string;
   password?: string;
   minecraftUsername?: string;
-  linkCode?: string; // for linking to an existing MC-only account
   createdAt: Date; // defaulted to UTC now in UI
 }
 

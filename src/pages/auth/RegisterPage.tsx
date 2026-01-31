@@ -3,23 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { RegisterForm } from '../../components/auth/RegisterForm';
 import { ErrorView } from '../../components/ErrorView';
 import { ErrorColor } from '../../utils';
-import { LinkCodeResponseDto } from '../../types/dtos/auth/AuthDtos';
 
-type RegisterLinkCode = LinkCodeResponseDto & { formattedCode?: string };
+import { LinkCodeResponseDto } from '../../types/dtos/auth/AuthDtos';
 
 export const RegisterPage: React.FC = () => {
     const navigate = useNavigate();
     const [error, setError] = React.useState<string | null>(null);
 
-    const handleSuccess = (linkCode?: RegisterLinkCode | string) => {
-        const linkCodeValue = typeof linkCode === 'string'
-            ? linkCode
-            : linkCode?.formattedCode || linkCode?.code;
-        const expiresAt = typeof linkCode === 'string' ? undefined : linkCode?.expiresAt;
-
-        navigate('/auth/register/success', {
-            state: { linkCode: linkCodeValue, expiresAt }
-        });
+    const handleSuccess = (linkCode?: LinkCodeResponseDto) => {
+        navigate('/auth/register/success', { state: { linkCode } });
     };
 
     return (

@@ -1,26 +1,19 @@
 import React, { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle, Server, Gamepad2, Link as LinkIcon } from 'lucide-react';
-import { LinkCodeDisplay } from '../../components/auth/LinkCodeDisplay';
-import { FeedbackModal } from '../../components/FeedbackModal';
-import { SUCCESS_MESSAGES } from '../../utils/authConstants';
 import { useAuth } from '../../contexts/AuthContext';
-
-interface LocationState {
-    linkCode?: string;
-    expiresAt?: string | Date;
-}
+import { LinkCodeResponseDto } from '../../types/dtos/auth/AuthDtos';
 
 export const RegisterSuccessPage: React.FC = () => {
     const navigate = useNavigate();
-    const location = useLocation();
     const { isLoggedIn } = useAuth();
-    const state = (location.state || {}) as LocationState;
-    const linkCode = state.linkCode;
-    const expiresAt = state.expiresAt;
-    const [showFeedback, setShowFeedback] = React.useState(false);
     const [autoRedirectCountdown, setAutoRedirectCountdown] = React.useState(5);
     const redirectTarget = isLoggedIn ? '/dashboard' : '/auth/login';
+    const location = useLocation();
+    const linkCode = (location.state as { linkCode?: LinkCodeResponseDto } | null)?.linkCode;
+    const linkCodeExpiresInMinutes = linkCode?.expiresAt
+        ? Math.max(1, Math.ceil((new Date(linkCode.expiresAt).getTime() - Date.now()) / 60000))
+        : undefined;
 
     // Auto-redirect after 5 seconds
     useEffect(() => {
@@ -35,10 +28,6 @@ export const RegisterSuccessPage: React.FC = () => {
 
         return () => clearTimeout(timer);
     }, [autoRedirectCountdown, navigate, redirectTarget]);
-
-    const handleCopySuccess = () => {
-        setShowFeedback(true);
-    };
 
     return (
         <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-gray-50 to-blue-50">
@@ -59,19 +48,37 @@ export const RegisterSuccessPage: React.FC = () => {
                     </p>
                 </div>
 
-                {/* Link Code Display */}
-                <div className="mb-8 sm:mb-10">
-                    <LinkCodeDisplay
-                        code={linkCode || ''}
-                        expiresAt={expiresAt}
-                        onCopySuccess={handleCopySuccess}
-                    />
-                </div>
-
-                {/* Next Steps */}
+                {/* Link Code Guidance */}
                 <div className="bg-blue-50 rounded-xl border border-blue-200 p-6 sm:p-8 mb-8 sm:mb-10">
-                    <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-6">Next Steps to Link Your Minecraft Account</h2>
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Next: Link Your Minecraft Account</h2>
                     
+                        {linkCode && (
+                            <div className="bg-green-50 rounded-lg border border-green-200 p-4 mb-6">
+                                <p className="text-sm font-semibold text-green-900 mb-2">Your Link Code (Generated)</p>
+                                <div className="flex items-center gap-2">
+                                    <code className="flex-1 bg-white px-3 py-2 rounded border border-green-300 font-mono text-sm text-gray-900 break-all">
+                                        {linkCode.code}
+                                    </code>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(linkCode.code);
+                                        }}
+                                        className="px-3 py-2 text-xs font-semibold bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                                        aria-label="Copy link code to clipboard"
+                                    >
+                                        Copy
+                                    </button>
+                                </div>
+                                <p className="text-xs text-green-800 mt-2">
+                                    Expires in {linkCodeExpiresInMinutes ?? 20} minutes
+                                </p>
+                            </div>
+                        )}
+                    
+                    <div className="text-sm text-blue-900 space-y-2 mb-4">
+                        <p>Your web account is now created! To connect it with your Minecraft account:</p>
+                    </div>
+
                     <div className="space-y-4" role="region" aria-label="Account linking instructions">
                         {/* Step 1 */}
                         <div className="flex flex-col sm:flex-row gap-4">
@@ -81,12 +88,11 @@ export const RegisterSuccessPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-semibold text-gray-900 text-base">Launch Minecraft</h3>
+                                <h3 className="font-semibold text-gray-900 text-base">Go to Account Settings</h3>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    Open Minecraft Java Edition (version 1.20+)
+                                    Click the Account link in the navigation menu to access your account settings
                                 </p>
                             </div>
-                            <Gamepad2 className="h-6 w-6 text-blue-500 flex-shrink-0 opacity-50 hidden sm:block" aria-hidden="true" />
                         </div>
 
                         {/* Step 2 */}
@@ -97,12 +103,11 @@ export const RegisterSuccessPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-semibold text-gray-900 text-base">Join the Knights & Kings Server</h3>
+                                <h3 className="font-semibold text-gray-900 text-base">Generate Link Code</h3>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    Server address: <code className="bg-gray-100 px-2 py-1 rounded font-mono text-xs">knk.example.com</code>
+                                    Click "Generate Link Code" and copy the code that appears
                                 </p>
                             </div>
-                            <Server className="h-6 w-6 text-blue-500 flex-shrink-0 opacity-50 hidden sm:block" aria-hidden="true" />
                         </div>
 
                         {/* Step 3 */}
@@ -113,39 +118,46 @@ export const RegisterSuccessPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-semibold text-gray-900 text-base">Enter the Link Command</h3>
+                                <h3 className="font-semibold text-gray-900 text-base">Join Minecraft Server</h3>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    In chat, type: <code className="bg-gray-100 px-2 py-1 rounded font-mono text-xs break-all">/account link {linkCode || 'YOUR_CODE'}</code>
+                                    Open Minecraft and join the Knights & Kings server
                                 </p>
                             </div>
-                            <LinkIcon className="h-6 w-6 text-blue-500 flex-shrink-0 opacity-50 hidden sm:block" aria-hidden="true" />
+                            <Gamepad2 className="h-6 w-6 text-blue-500 flex-shrink-0 opacity-50 hidden sm:block" aria-hidden="true" />
                         </div>
 
                         {/* Step 4 */}
                         <div className="flex flex-col sm:flex-row gap-4">
                             <div className="flex-shrink-0">
-                                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-green-500 text-white font-bold text-sm" aria-label="Step 4 complete">
+                                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-500 text-white font-bold text-sm" aria-label="Step 4">
+                                    4
+                                </div>
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-semibold text-gray-900 text-base">Enter Link Command</h3>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    In game chat, type: <code className="bg-blue-100 px-1 py-0.5 rounded font-mono text-xs">/account link YOUR_CODE</code>
+                                </p>
+                            </div>
+                            <LinkIcon className="h-6 w-6 text-blue-500 flex-shrink-0 opacity-50 hidden sm:block" aria-hidden="true" />
+                        </div>
+
+                        {/* Step 5 */}
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="flex-shrink-0">
+                                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-green-500 text-white font-bold text-sm" aria-label="Step 5 complete">
                                     ✓
                                 </div>
                             </div>
                             <div className="flex-1">
                                 <h3 className="font-semibold text-gray-900 text-base">Accounts Linked</h3>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    Your web account and Minecraft account will be linked. You can now access exclusive features!
+                                    Your web and Minecraft accounts are now connected. Enjoy the full experience!
                                 </p>
                             </div>
                             <CheckCircle className="h-6 w-6 text-green-500 flex-shrink-0 opacity-50 hidden sm:block" aria-hidden="true" />
                         </div>
                     </div>
-                </div>
-
-                {/* Important Info */}
-                <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 sm:p-6 mb-8 sm:mb-10" role="region" aria-label="Important information">
-                    <h3 className="font-semibold text-amber-900 mb-2">⏱️ Link Code Expiry</h3>
-                    <p className="text-sm text-amber-800">
-                        This link code is valid for <strong>20 minutes</strong>. After that, you'll need to generate a new one from your dashboard.
-                        Codes can only be used once.
-                    </p>
                 </div>
 
                 {/* Action Buttons */}
@@ -173,16 +185,6 @@ export const RegisterSuccessPage: React.FC = () => {
                     </p>
                 </div>
             </div>
-
-            {/* Copy Success Feedback */}
-            <FeedbackModal
-                open={showFeedback}
-                title="Link code copied"
-                message={SUCCESS_MESSAGES.LinkCodeCopied || 'Link code has been copied to your clipboard'}
-                status="success"
-                onClose={() => setShowFeedback(false)}
-                autoCloseMs={1500}
-            />
         </main>
     );
 };

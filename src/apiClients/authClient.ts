@@ -6,7 +6,6 @@ import {
   AuthRefreshResponseDto,
   RegisterRequestDto,
   PasswordChangeDto,
-  LinkCodeRequestDto,
   LinkCodeResponseDto,
   AccountMergeDto,
 } from "../types/dtos/auth/AuthDtos";
@@ -49,10 +48,6 @@ export class AuthClient extends ObjectManager {
     return this.invokeServiceCall(null, "me", Controllers.Auth, HttpMethod.Get);
   }
 
-  requestLinkCode(data: LinkCodeRequestDto): Promise<LinkCodeResponseDto> {
-    return this.invokeServiceCall(data, "link-code", Controllers.Auth, HttpMethod.Post);
-  }
-
   mergeAccounts(data: AccountMergeDto): Promise<UserDto> {
     return this.invokeServiceCall(data, "merge", Controllers.Auth, HttpMethod.Post);
   }
@@ -61,9 +56,13 @@ export class AuthClient extends ObjectManager {
     return this.invokeServiceCall(data, "update", Controllers.Auth, HttpMethod.Put);
   }
 
-  // Link code operations
+  // Link code operations - web app generates, minecraft plugin consumes
   generateLinkCode(): Promise<LinkCodeResponseDto> {
     return this.invokeServiceCall(null, "generate-link-code", Controllers.Users, HttpMethod.Post);
+  }
+
+  requestLinkCode(data: { email: string }): Promise<LinkCodeResponseDto> {
+    return this.invokeServiceCall(data, "request-link-code", Controllers.Users, HttpMethod.Post);
   }
 
   linkAccount(data: { linkCode: string; email: string; password: string }): Promise<UserDto> {
