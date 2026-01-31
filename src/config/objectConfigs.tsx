@@ -1,4 +1,4 @@
-import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Gate } from 'lucide-react';
+import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Shield } from 'lucide-react';
 import type { ColumnDefinition, FormField, ObjectConfig } from '../types/common';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
@@ -435,7 +435,7 @@ const CategoryConfig: ObjectConfig = {
 const GateStructureConfig: ObjectConfig = {
   type: 'gatestructure',
   label: 'Gate',
-  icon: <Gate className="h-5 w-5" />,
+  icon: <Shield className="h-5 w-5" />,
   fields: {
     id: commonFields.id,
     name: commonFields.name,
