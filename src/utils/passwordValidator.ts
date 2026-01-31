@@ -230,3 +230,4 @@ export function validateUsernameFormat(username: string): boolean {
 export function validatePasswordLength(password: string): boolean {
   return password.length >= PASSWORD_MIN_LENGTH && password.length <= PASSWORD_MAX_LENGTH;
 }
+

@@ -34,17 +34,17 @@ export const WEAK_PASSWORDS = new Set<string>([
 ]);
 
 export const ERROR_MESSAGES: Record<string, string> = {
-  DuplicateEmail: "Email already registered. Try logging in or use a different email.",
-  DuplicateUsername: "Minecraft username already taken. Try a variation.",
-  InvalidPassword: "Password is too common. Choose something stronger.",
-  PasswordMismatch: "Passwords do not match.",
-  InvalidEmail: "Please enter a valid email address.",
-  InvalidUsername: "Username must be 3-16 alphanumeric characters (underscore allowed).",
-  LinkCodeExpired: "Link code expired (valid for 20 minutes).",
-  InvalidCredentials: "Email or password is incorrect.",
-  NetworkError: "Network error. Please try again.",
-  ServerError: "Server error. Please try again later.",
-  RegistrationFailed: "Registration failed. Please check your information and try again."
+  DuplicateEmail: "Email is already in use",
+  DuplicateUsername: "Username is already taken",
+  InvalidPassword: "Password is invalid",
+  PasswordMismatch: "Passwords do not match",
+  InvalidEmail: "Please enter a valid email address",
+  InvalidUsername: "Username must be 3-16 alphanumeric characters (underscore allowed)",
+  LinkCodeExpired: "Link code expired (valid for 20 minutes)",
+  InvalidCredentials: "Email or password is incorrect",
+  NetworkError: "Network error. Please try again",
+  ServerError: "Something went wrong. Please try again",
+  RegistrationFailed: "Registration failed. Please check your information and try again"
 };
 
 export const SUCCESS_MESSAGES: Record<string, string> = {

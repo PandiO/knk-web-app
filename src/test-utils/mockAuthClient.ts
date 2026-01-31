@@ -104,6 +104,21 @@ export class MockAuthClient {
     return mockUserResponse;
   }
 
+  async refresh(): Promise<{ accessToken: string; refreshToken?: string; expiresIn?: number }> {
+    return {
+      accessToken: 'mock-token-refreshed',
+      refreshToken: 'mock-refresh-refreshed',
+      expiresIn: 3600,
+    };
+  }
+
+  async updateUser(data: any): Promise<UserDto> {
+    return {
+      ...mockUserResponse,
+      ...data,
+    };
+  }
+
   private getErrorMessage(code: string | null): string {
     switch (code) {
       case 'DuplicateEmail':
@@ -111,7 +126,11 @@ export class MockAuthClient {
       case 'DuplicateUsername':
         return 'Username is already taken';
       case 'InvalidPassword':
-        return 'Password does not meet requirements';
+        return 'Password must be at least 8 characters long';
+      case 'WeakPassword':
+        return 'Password is too common or weak';
+      case 'ServerError':
+        return 'Something went wrong. Please try again';
       default:
         return 'Registration failed';
     }

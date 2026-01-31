@@ -4,7 +4,6 @@
 
 import React, { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from '../contexts/AuthContext';
 
 interface AllProvidersProps {
@@ -16,11 +15,9 @@ interface AllProvidersProps {
  */
 const AllProviders: React.FC<AllProvidersProps> = ({ children }) => {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        {children}
-      </AuthProvider>
-    </BrowserRouter>
+    <AuthProvider>
+      {children}
+    </AuthProvider>
   );
 };
 
