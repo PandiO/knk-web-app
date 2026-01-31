@@ -1,4 +1,4 @@
-import { Building2, MapPin, Home, TagIcon, BrickWallIcon } from 'lucide-react';
+import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Gate } from 'lucide-react';
 import type { ColumnDefinition, FormField, ObjectConfig } from '../types/common';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
@@ -100,6 +100,32 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
               </span>
           )
       }
+    ]
+  },
+  gatestructure: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'gateType', label: 'Gate Type', sortable: true },
+      {
+        key: 'isOpened',
+        label: 'Status',
+        sortable: true,
+        render: (row: any) => (
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            row.isOpened ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-700'
+          }`}>
+            {row.isOpened ? 'Open' : 'Closed'}
+          </span>
+        )
+      },
+      {
+        key: 'healthCurrent',
+        label: 'Health',
+        sortable: true,
+        render: (row: any) => `${row.healthCurrent ?? 0}/${row.healthMax ?? '-'}`
+      },
+      { key: 'districtName', label: 'District', sortable: false },
+      { key: 'streetName', label: 'Street', sortable: false }
     ]
   }
 };
@@ -406,6 +432,167 @@ const CategoryConfig: ObjectConfig = {
 // assign self-reference after creation to avoid "used before declaration" errors
 (CategoryConfig.fields as any).parentCategory.objectConfig = CategoryConfig;
 
+const GateStructureConfig: ObjectConfig = {
+  type: 'gatestructure',
+  label: 'Gate',
+  icon: <Gate className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    description: {
+      name: 'description',
+      label: 'Description',
+      type: 'text',
+      required: false
+    },
+    domainId: {
+      name: 'domainId',
+      label: 'Domain ID',
+      type: 'number',
+      required: true,
+      validation: (value) => {
+        if (!value || value < 1) return 'Domain ID must be a positive number';
+      }
+    },
+    districtId: {
+      name: 'districtId',
+      label: 'District ID',
+      type: 'number',
+      required: true,
+      validation: (value) => {
+        if (!value || value < 1) return 'District ID must be a positive number';
+      }
+    },
+    streetId: {
+      name: 'streetId',
+      label: 'Street ID',
+      type: 'number',
+      required: false
+    },
+    gateType: {
+      name: 'gateType',
+      label: 'Gate Type',
+      type: 'select',
+      required: true,
+      options: [
+        { label: 'Sliding', value: 'SLIDING' },
+        { label: 'Trap', value: 'TRAP' },
+        { label: 'Drawbridge', value: 'DRAWBRIDGE' },
+        { label: 'Double Doors', value: 'DOUBLE_DOORS' },
+      ]
+    },
+    motionType: {
+      name: 'motionType',
+      label: 'Motion Type',
+      type: 'select',
+      required: true,
+      options: [
+        { label: 'Vertical', value: 'VERTICAL' },
+        { label: 'Lateral', value: 'LATERAL' },
+        { label: 'Rotation', value: 'ROTATION' },
+      ]
+    },
+    faceDirection: {
+      name: 'faceDirection',
+      label: 'Face Direction',
+      type: 'select',
+      required: true,
+      options: [
+        { label: 'North', value: 'north' },
+        { label: 'North-East', value: 'north-east' },
+        { label: 'East', value: 'east' },
+        { label: 'South-East', value: 'south-east' },
+        { label: 'South', value: 'south' },
+        { label: 'South-West', value: 'south-west' },
+        { label: 'West', value: 'west' },
+        { label: 'North-West', value: 'north-west' },
+      ]
+    },
+    geometryDefinitionMode: {
+      name: 'geometryDefinitionMode',
+      label: 'Geometry Mode',
+      type: 'select',
+      required: true,
+      options: [
+        { label: 'Plane Grid', value: 'PLANE_GRID' },
+        { label: 'Flood Fill', value: 'FLOOD_FILL' },
+      ]
+    },
+    anchorPoint: {
+      name: 'anchorPoint',
+      label: 'Anchor Point (JSON)',
+      type: 'text',
+      required: false
+    },
+    geometryWidth: {
+      name: 'geometryWidth',
+      label: 'Width',
+      type: 'number',
+      required: false
+    },
+    geometryHeight: {
+      name: 'geometryHeight',
+      label: 'Height',
+      type: 'number',
+      required: false
+    },
+    geometryDepth: {
+      name: 'geometryDepth',
+      label: 'Depth',
+      type: 'number',
+      required: false
+    },
+    animationDurationTicks: {
+      name: 'animationDurationTicks',
+      label: 'Animation Duration (ticks)',
+      type: 'number',
+      required: true,
+      validation: (value) => {
+        if (!value || value < 1) return 'Duration must be at least 1 tick';
+      }
+    },
+    animationTickRate: {
+      name: 'animationTickRate',
+      label: 'Tick Rate',
+      type: 'number',
+      required: true,
+      validation: (value) => {
+        if (!value || value < 1 || value > 5) return 'Tick rate must be between 1 and 5';
+      }
+    },
+    healthMax: {
+      name: 'healthMax',
+      label: 'Max Health',
+      type: 'number',
+      required: true,
+      validation: (value) => {
+        if (!value || value <= 0) return 'Health must be greater than 0';
+      }
+    },
+    isInvincible: {
+      name: 'isInvincible',
+      label: 'Invincible',
+      type: 'boolean',
+      required: false
+    },
+    canRespawn: {
+      name: 'canRespawn',
+      label: 'Can Respawn',
+      type: 'boolean',
+      required: false
+    },
+    respawnRateSeconds: {
+      name: 'respawnRateSeconds',
+      label: 'Respawn Rate (seconds)',
+      type: 'number',
+      required: false,
+      validation: (value) => {
+        if (value && value < 1) return 'Respawn rate must be at least 1 second';
+      }
+    },
+  }
+};
+
 export const objectConfigs: Record<string, ObjectConfig> = {
   location: locationConfig,
   town: townConfig,
@@ -416,4 +603,5 @@ export const objectConfigs: Record<string, ObjectConfig> = {
   itemType: ItemTypeConfig,
   minecraftblockref: minecraftBlockRefConfig,
   minecraftmaterialref: minecraftMaterialRefConfig,
+  gatestructure: GateStructureConfig,
 };

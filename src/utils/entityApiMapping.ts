@@ -7,6 +7,7 @@ import { MinecraftBlockRefClient } from '../apiClients/minecraftBlockRefClient';
 import { MinecraftMaterialRefClient } from '../apiClients/minecraftMaterialRefClient';
 import { ItemBlueprintClient } from '../apiClients/itemBlueprintClient';
 import { EnchantmentDefinitionClient } from '../apiClients/enchantmentDefinitionClient';
+import { GateStructureClient } from '../apiClients/gateStructureClient';
 import { PagedQueryDto, PagedResultDto } from './domain/dto/common/PagedQuery';
 import { LocationClient } from '../apiClients/locationClient';
 import { MinecraftEnchantmentRefClient } from '../apiClients/minecraftEnchantmentRefClient';
@@ -27,6 +28,8 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return (query) => DistrictClient.getInstance().searchPaged(query);
         case 'structure':
             return (query) => StructureClient.getInstance().searchPaged(query);
+        case 'gatestructure':
+            return (query) => GateStructureClient.getInstance().searchPaged(query);
         case 'user':
             return () => Promise.reject(new Error('User search not implemented'));
         case 'location':
@@ -60,6 +63,8 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => DistrictClient.getInstance().getById(Number(id));
         case 'structure':
             return (id) => StructureClient.getInstance().getById(Number(id));
+        case 'gatestructure':
+            return (id) => GateStructureClient.getInstance().getById(Number(id));
         case 'location':
             return (id) => LocationClient.getInstance().getById(Number(id));
         case 'itemblueprint':
@@ -91,6 +96,8 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => DistrictClient.getInstance().update(entity);
         case 'structure':
             return (entity) => StructureClient.getInstance().update(entity);
+        case 'gatestructure':
+            return (entity) => GateStructureClient.getInstance().update(entity);
         case 'location':
             return (entity) => LocationClient.getInstance().update(entity);
         case 'itemblueprint':
@@ -124,6 +131,8 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => DistrictClient.getInstance().delete(Number(id));
         case 'structure':
             return (id) => StructureClient.getInstance().delete(Number(id));
+        case 'gatestructure':
+            return (id) => GateStructureClient.getInstance().delete(Number(id));
         case 'location':
             return (id) => LocationClient.getInstance().delete(Number(id));
         case 'itemblueprint':
@@ -155,6 +164,8 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => DistrictClient.getInstance().create(entity);
         case 'structure':
             return (entity) => StructureClient.getInstance().create(entity);
+        case 'gatestructure':
+            return (entity) => GateStructureClient.getInstance().create(entity);
         case 'location':
             return (entity) => LocationClient.getInstance().create(entity);
         case 'itemblueprint':
