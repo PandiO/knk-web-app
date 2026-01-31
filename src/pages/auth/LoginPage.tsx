@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isLoggedIn, isLoading } = useAuth();
+  const { isLoggedIn } = useAuth();
 
   React.useEffect(() => {
     if (isLoggedIn) {
@@ -16,18 +16,6 @@ export const LoginPage: React.FC = () => {
   const handleSuccess = () => {
     navigate('/dashboard');
   };
-
-  // Show loading spinner during initial auth check
-  if (isLoading) {
-    return (
-      <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </main>
-    );
-  }
 
   return (
     <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
