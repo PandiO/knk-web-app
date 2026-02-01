@@ -84,7 +84,10 @@ export enum Controllers {
     MinecraftEnchantmentRefs = 'MinecraftEnchantmentRefs',
     Workflows = 'Workflows',
     WorldTasks = 'WorldTasks',
-    FieldValidationRules = 'field-validation-rules'
+    FieldValidationRules = 'field-validation-rules',
+    DisplayConfigurations = 'DisplayConfigurations',
+    DisplaySections = 'DisplaySections',
+    DisplayFields = 'DisplayFields'
 }
 
 

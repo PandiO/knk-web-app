@@ -8,6 +8,7 @@ import {
   PasswordChangeDto,
   LinkCodeResponseDto,
   AccountMergeDto,
+  LinkMinecraftAccountDto,
 } from "../types/dtos/auth/AuthDtos";
 import { UserDto, UserCreateDto, UserUpdateDto } from "../types/dtos/auth/UserDtos";
 
@@ -67,6 +68,15 @@ export class AuthClient extends ObjectManager {
 
   linkAccount(data: { linkCode: string; email: string; password: string }): Promise<UserDto> {
     return this.invokeServiceCall(data, "link-account", Controllers.Users, HttpMethod.Post);
+  }
+
+  /**
+   * Link an existing web app account to a Minecraft account using a link code
+   * Used in the web-app-first flow where user already has email/password set
+   * Requires authentication (JWT token)
+   */
+  linkMinecraftAccount(data: LinkMinecraftAccountDto): Promise<UserDto> {
+    return this.invokeServiceCall(data, "link-minecraft-account", Controllers.Users, HttpMethod.Post);
   }
 
   // Availability checks (email/username)

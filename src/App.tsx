@@ -140,12 +140,6 @@ function AppContent() {
                   <FormConfigBuilder />
                 </ProtectedRoute>
               } />
-              {/* Town Create Wizard - Hybrid Workflow */}
-              <Route path="/towns/create" element={
-                <ProtectedRoute>
-                  <TownCreateWizardPage />
-                </ProtectedRoute>
-              } />
               {/* DisplayConfiguration routes */}
               <Route path="/admin/display-configurations" element={
                 <ProtectedRoute>

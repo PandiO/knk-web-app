@@ -125,10 +125,8 @@ export const AccountManagementPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await authClient.linkAccount({
+      await authClient.linkMinecraftAccount({
         linkCode: formData.linkCode.trim(),
-        email: user?.email || '',
-        password: '', // Password not required for minecraft-first flow if user already has one
       });
       await refresh();
       setFeedback({

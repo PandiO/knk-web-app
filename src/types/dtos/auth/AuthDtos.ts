@@ -66,6 +66,10 @@ export interface AccountMergeDto {
   secondaryUserId: number;
 }
 
+export interface LinkMinecraftAccountDto {
+  linkCode: string;
+}
+
 export interface PasswordStrengthDto {
   score: 0 | 1 | 2 | 3 | 4 | 5;
   label: string;
