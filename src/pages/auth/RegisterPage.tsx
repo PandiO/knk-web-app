@@ -3,15 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { RegisterForm } from '../../components/auth/RegisterForm';
 import { ErrorView } from '../../components/ErrorView';
 import { ErrorColor } from '../../utils';
+import { useAuth } from '../../contexts/AuthContext';
 
 import { LinkCodeResponseDto } from '../../types/dtos/auth/AuthDtos';
 
 export const RegisterPage: React.FC = () => {
     const navigate = useNavigate();
+    const { isLoggedIn } = useAuth();
     const [error, setError] = React.useState<string | null>(null);
 
     const handleSuccess = (linkCode?: LinkCodeResponseDto) => {
-        navigate('/auth/register/success', { state: { linkCode } });
+        // Wait briefly for the feedback modal to be dismissed, then navigate
+        // User is already authenticated from the register() and refresh() calls
+        setTimeout(() => {
+            navigate('/account');
+        }, 2500);
     };
 
     return (

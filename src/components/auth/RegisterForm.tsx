@@ -43,7 +43,7 @@ const STEPS = ['Account Info', 'Minecraft Info', 'Review & Confirm'];
 export const RegisterForm: React.FC<RegisterFormProps> = ({
   onRegistrationSuccess,
 }) => {
-  const { register } = useAuth();
+  const { register, refresh } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>({
     email: '',
@@ -156,6 +156,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     setIsSubmitting(true);
     try {
       // Use the register function from AuthContext to update global state
+      // This calls authService.register() which:
+      // 1. Creates the account via API
+      // 2. Automatically logs the user in with login()
+      // 3. Stores the access token
       await register({
         email: formData.email,
         password: formData.password,
@@ -165,17 +169,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         linkCode: formData.linkCode?.trim() || undefined,
       });
 
-      // Request link code from API
-      let linkCode: RegisterLinkCode | undefined;
-      try {
-        const response = await authClient.requestLinkCode({
-          email: formData.email,
-        });
-        linkCode = response as RegisterLinkCode;
-      } catch (linkCodeError: any) {
-        // Link code generation failed, but account was created - don't fail registration
-        console.warn('Failed to generate link code during registration:', linkCodeError);
-      }
+      // After registration, call refresh to fetch complete user data with all fields
+      // The user is already authenticated from the automatic login in register()
+      await refresh();
 
       // Success - show feedback and trigger callback
       setFeedback({
@@ -185,9 +181,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         status: 'success',
       });
 
+      // Trigger callback after successful registration
       if (onRegistrationSuccess) {
+        // Small delay to let feedback modal display, then navigate
         setTimeout(() => {
-          onRegistrationSuccess(linkCode);
+          onRegistrationSuccess();
         }, 1500);
       }
     } catch (error: any) {

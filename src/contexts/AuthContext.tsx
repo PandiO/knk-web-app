@@ -72,15 +72,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const refresh = useCallback(async () => {
     try {
+      // Try to refresh the session using refresh token (if available)
+      // This may fail if no refresh token exists (e.g., right after registration)
       const ok = await authService.refreshSession();
-      if (ok) {
-        const u = await authService.getCurrentUser();
+      
+      // Whether refreshSession succeeds or not, try to fetch current user
+      // This works as long as we have a valid access token
+      const u = await authService.getCurrentUser();
+      if (u) {
         setUser(u);
+        return true;
       } else {
-        // Refresh failed, auto-logout
+        // Unable to get current user, clear auth state
         setUser(null);
+        return false;
       }
-      return ok;
     } catch (err) {
       // On refresh failure (401/expired), auto-logout
       setUser(null);
