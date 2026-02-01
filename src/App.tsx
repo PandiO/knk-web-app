@@ -16,7 +16,6 @@ import { FormConfigListPage } from './pages/FormConfigListPage';
 import { DisplayWizardPage } from './pages/DisplayWizardPage';
 import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayConfigBuilder';
 import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
-import { TownCreateWizardPage } from './pages/TownCreateWizardPage';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';

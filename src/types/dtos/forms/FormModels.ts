@@ -41,6 +41,7 @@ export interface ParsedStepCondition {
 export interface FormFieldDto {
     id?: string;
     formStepId?: string;
+    fieldGuid?: string;
     fieldName: string;
     label: string;
     placeholder?: string;
@@ -72,6 +73,7 @@ export interface FormFieldDto {
 export interface FormStepDto {
     id?: string;
     formConfigurationId?: string;
+    stepGuid?: string;
     stepName: string;
     title: string;
     description?: string;

@@ -20,9 +20,19 @@ interface Props {
     reusableSteps: FormStepDto[];
     onUpdate: (step: FormStepDto) => void;
     metadataFields?: FieldMetadataDto[]; // added
+    allConfigurationFields?: FormFieldDto[];
+    onRulesChanged?: () => void;
 }
 
-export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableSteps, onUpdate, metadataFields = [] }) => {
+export const StepEditor: React.FC<Props> = ({
+    step,
+    reusableFields,
+    reusableSteps,
+    onUpdate,
+    metadataFields = [],
+    allConfigurationFields,
+    onRulesChanged
+}) => {
     const [editingField, setEditingField] = useState<{ field: FormFieldDto; index: number } | null>(null);
     const [showFieldSelector, setShowFieldSelector] = useState(false);
     const [addingTemplate, setAddingTemplate] = useState(false);
@@ -98,6 +108,88 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableStep
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
+
+    // Reorder fields based on fieldOrderJson for correct display
+    const orderedFields = useMemo(() => {
+        if (!step.fieldOrderJson) {
+            return step.fields;
+        }
+
+        try {
+            const orderArray = JSON.parse(step.fieldOrderJson);
+            if (!Array.isArray(orderArray) || orderArray.length === 0) {
+                return step.fields;
+            }
+
+            // Create a map of fieldGuid -> field
+            const fieldMap = new Map<string, FormFieldDto>();
+            step.fields.forEach(f => {
+                if (f.fieldGuid) {
+                    fieldMap.set(f.fieldGuid, f);
+                }
+            });
+
+            // Reorder fields based on the GUID order in fieldOrderJson
+            const reordered: FormFieldDto[] = [];
+            orderArray.forEach((guid: string) => {
+                const field = fieldMap.get(guid);
+                if (field) {
+                    reordered.push(field);
+                }
+            });
+
+            // Add any fields that weren't in the order array (shouldn't happen, but be safe)
+            step.fields.forEach(f => {
+                if (!reordered.includes(f)) {
+                    reordered.push(f);
+                }
+            });
+
+            return reordered;
+        } catch {
+            // If parsing fails, return fields as-is
+            return step.fields;
+        }
+    }, [step.fields, step.fieldOrderJson]);
+
+    // Helper function to get ordered fields for a child step
+    const getOrderedChildFields = (childStep: FormStepDto): FormFieldDto[] => {
+        if (!childStep.fieldOrderJson) {
+            return childStep.fields;
+        }
+
+        try {
+            const orderArray = JSON.parse(childStep.fieldOrderJson);
+            if (!Array.isArray(orderArray) || orderArray.length === 0) {
+                return childStep.fields;
+            }
+
+            const fieldMap = new Map<string, FormFieldDto>();
+            childStep.fields.forEach(f => {
+                if (f.fieldGuid) {
+                    fieldMap.set(f.fieldGuid, f);
+                }
+            });
+
+            const reordered: FormFieldDto[] = [];
+            orderArray.forEach((guid: string) => {
+                const field = fieldMap.get(guid);
+                if (field) {
+                    reordered.push(field);
+                }
+            });
+
+            childStep.fields.forEach(f => {
+                if (!reordered.includes(f)) {
+                    reordered.push(f);
+                }
+            });
+
+            return reordered;
+        } catch {
+            return childStep.fields;
+        }
+    };
 
     const generateTempId = () => `temp-field-${Date.now()}-${Math.random()}`;
 
@@ -259,12 +351,25 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableStep
         if (!over || active.id === over.id) return;
 
         const child = (step.childFormSteps || [])[childIndex];
-        const oldIndex = child.fields.findIndex(f => f.id === active.id);
-        const newIndex = child.fields.findIndex(f => f.id === over.id);
+        
+        // CRITICAL FIX: Use ordered fields (what user sees) not child.fields
+        const orderedChildFields = getOrderedChildFields(child);
+        const oldIndex = orderedChildFields.findIndex(f => f.id === active.id);
+        const newIndex = orderedChildFields.findIndex(f => f.id === over.id);
+        
         if (oldIndex === -1 || newIndex === -1) return;
 
-        const reordered = arrayMove(child.fields, oldIndex, newIndex).map((f, i) => ({ ...f, order: i }));
-        updateChildStepAt(childIndex, c => ({ ...c, fields: reordered }));
+        // Reorder the visual array
+        const reordered = arrayMove(orderedChildFields, oldIndex, newIndex).map((f, i) => ({ ...f, order: i }));
+        
+        // Update fieldOrderJson with new GUID order
+        const newFieldOrderJson = JSON.stringify(reordered.map(f => f.fieldGuid).filter(Boolean));
+        
+        updateChildStepAt(childIndex, c => ({ 
+            ...c, 
+            fields: reordered,
+            fieldOrderJson: newFieldOrderJson
+        }));
     };
 
     const handleAddReusableField = async (templateField: FormFieldDto, mode: ReuseLinkMode) => {
@@ -343,15 +448,24 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableStep
         const { active, over } = event;
 
         if (over && active.id !== over.id) {
-            const oldIndex = step.fields.findIndex(f => f.id === active.id);
-            const newIndex = step.fields.findIndex(f => f.id === over.id);
+            // CRITICAL FIX: Use orderedFields (what user sees) not step.fields
+            const oldIndex = orderedFields.findIndex(f => f.id === active.id);
+            const newIndex = orderedFields.findIndex(f => f.id === over.id);
 
-            const reorderedFields = arrayMove(step.fields, oldIndex, newIndex).map((f, i) => ({
-                ...f,
-                order: i
-            }));
+            if (oldIndex === -1 || newIndex === -1) return;
 
-            onUpdate({ ...step, fields: reorderedFields });
+            // Reorder the visual array
+            const reorderedFields = arrayMove(orderedFields, oldIndex, newIndex);
+
+            // Update fieldOrderJson with new GUID order
+            const newFieldOrderJson = JSON.stringify(reorderedFields.map(f => f.fieldGuid).filter(Boolean));
+
+            // Update step with new order
+            onUpdate({ 
+                ...step, 
+                fields: reorderedFields.map((f, i) => ({ ...f, order: i })),
+                fieldOrderJson: newFieldOrderJson
+            });
         }
     };
 
@@ -616,18 +730,21 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableStep
                                                             onDragEnd={event => handleChildFieldDragEnd(childIdx, event)}
                                                         >
                                                             <SortableContext
-                                                                items={childStep.fields.map(f => f.id!)}
+                                                                items={getOrderedChildFields(childStep).map(f => f.id!)}
                                                                 strategy={verticalListSortingStrategy}
                                                             >
                                                                 <div className="space-y-2">
-                                                                    {childStep.fields.map((field, index) => (
-                                                                        <SortableFieldItem
-                                                                            key={field.id}
-                                                                            field={field}
-                                                                            onEdit={() => setChildFieldEdit({ childIndex: childIdx, field, index })}
-                                                                            onDelete={() => handleDeleteChildField(childIdx, index)}
-                                                                        />
-                                                                    ))}
+                                                                    {getOrderedChildFields(childStep).map((field, displayIndex) => {
+                                                                        const actualIndex = childStep.fields.findIndex(f => f.id === field.id);
+                                                                        return (
+                                                                            <SortableFieldItem
+                                                                                key={field.id}
+                                                                                field={field}
+                                                                                onEdit={() => setChildFieldEdit({ childIndex: childIdx, field, index: actualIndex })}
+                                                                                onDelete={() => handleDeleteChildField(childIdx, actualIndex)}
+                                                                            />
+                                                                        );
+                                                                    })}
                                                                 </div>
                                                             </SortableContext>
                                                         </DndContext>
@@ -688,7 +805,7 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableStep
                         </div>
                     </div>
 
-                    {step.fields.length === 0 ? (
+                    {orderedFields.length === 0 ? (
                         <div className="text-center py-8 text-gray-500 text-sm border border-dashed border-gray-300 rounded-md">
                             No fields yet. Click "Add Field" to create one.
                         </div>
@@ -699,16 +816,23 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableStep
                             onDragEnd={handleFieldDragEnd}
                         >
                             <SortableContext
-                                items={step.fields.map(f => f.id!)}
+                                items={orderedFields.map(f => f.id!)}
                                 strategy={verticalListSortingStrategy}
                             >
                                 <div className="space-y-2">
-                                    {step.fields.map((field, index) => (
+                                    {orderedFields.map((field, index) => (
                                         <SortableFieldItem
                                             key={field.id}
                                             field={field}
-                                            onEdit={() => setEditingField({ field, index })}
-                                            onDelete={() => handleDeleteField(index)}
+                                            onEdit={() => {
+                                                // Find the actual index in step.fields for editing
+                                                const actualIndex = step.fields.findIndex(f => f.id === field.id);
+                                                setEditingField({ field, index: actualIndex });
+                                            }}
+                                            onDelete={() => {
+                                                const actualIndex = step.fields.findIndex(f => f.id === field.id);
+                                                handleDeleteField(actualIndex);
+                                            }}
                                         />
                                     ))}
                                 </div>
@@ -725,6 +849,8 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableStep
                     onSave={handleSaveField}
                     onCancel={() => setEditingField(null)}
                     metadataFields={metadataFields} // added
+                    allFields={allConfigurationFields || step.fields}
+                    onRulesChanged={onRulesChanged}
                 />
             )}
 
@@ -734,6 +860,8 @@ export const StepEditor: React.FC<Props> = ({ step, reusableFields, reusableStep
                     onSave={field => handleSaveChildField(childFieldEdit.childIndex, field)}
                     onCancel={() => setChildFieldEdit(null)}
                     metadataFields={joinEntityFields.length > 0 ? joinEntityFields : metadataFields}
+                    allFields={allConfigurationFields || step.fields}
+                    onRulesChanged={onRulesChanged}
                 />
             )}
 

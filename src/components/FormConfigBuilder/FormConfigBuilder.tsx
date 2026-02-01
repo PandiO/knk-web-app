@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Save, Plus, GripVertical, Trash2, AlertCircle, Loader2, Copy } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, FormFieldDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
@@ -14,6 +14,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { SortableStepItem } from './SortableStepItem';
 import { FeedbackModal } from '../FeedbackModal';
 import { ReusableStepSelector } from './ReusableStepSelector';
+import { ConfigurationHealthPanel } from './ConfigurationHealthPanel';
 
 export const FormConfigBuilder: React.FC = () => {
     const { id } = useParams<{ id?: string }>();
@@ -40,6 +41,8 @@ export const FormConfigBuilder: React.FC = () => {
     const [metadata, setMetadata] = useState<EntityMetadataDto[]>([]);
     const [selectedEntityMeta, setSelectedEntityMeta] = useState<EntityMetadataDto | null>(null);
     const [addingTemplate, setAddingTemplate] = useState(false);
+    const [healthRefreshToken, setHealthRefreshToken] = useState(0);
+    const [healthIssueCount, setHealthIssueCount] = useState<number>(0);
 
     // added: state to track default conflict notification
     const [defaultConflictMsg, setDefaultConflictMsg] = useState<string | null>(null);
@@ -133,6 +136,15 @@ export const FormConfigBuilder: React.FC = () => {
             setSelectedEntityMeta(null);
         }
     }, [config.entityTypeName, metadata]);
+
+    const allFieldsInConfiguration = useMemo(() => {
+        const collectFields = (steps: FormStepDto[]): FormFieldDto[] => {
+            const directFields = steps.flatMap(s => s.fields || []);
+            const childFields = steps.flatMap(s => collectFields(s.childFormSteps || []));
+            return [...directFields, ...childFields];
+        };
+        return collectFields(config.steps || []);
+    }, [config.steps]);
 
     const loadData = async () => {
         try {
@@ -343,10 +355,10 @@ export const FormConfigBuilder: React.FC = () => {
             // Prepare data with ordering arrays
             const configToSave: FormConfigurationDto = {
                 ...config,
-                stepOrderJson: JSON.stringify(config.steps.map(s => s.id)),
+                stepOrderJson: JSON.stringify(config.steps.map(s => s.stepGuid)),
                 steps: config.steps.map(step => ({
                     ...step,
-                    fieldOrderJson: JSON.stringify(step.fields.map(f => f.id))
+                    fieldOrderJson: JSON.stringify(step.fields.map(f => f.fieldGuid))
                 }))
             };
 
@@ -388,6 +400,9 @@ export const FormConfigBuilder: React.FC = () => {
             autoCloseRef.current = window.setTimeout(() => {
                 handleSaveContinue();
             }, 3000);
+            if (isEditMode) {
+                setHealthRefreshToken(prev => prev + 1);
+            }
 
         } catch (err: any) {
             console.error('Failed to save configuration:', err);
@@ -422,6 +437,10 @@ export const FormConfigBuilder: React.FC = () => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleRulesChanged = () => {
+        setHealthRefreshToken(prev => prev + 1);
     };
 
     // added: helper to check existing default for selected entity
@@ -473,6 +492,14 @@ export const FormConfigBuilder: React.FC = () => {
                         <h1 className="text-2xl font-bold text-gray-900">
                             {isEditMode ? 'Edit Form Configuration' : 'Create Form Configuration'}
                         </h1>
+                        {isEditMode && config.id && (
+                            <div className="mt-1 text-sm text-gray-600 flex items-center space-x-2">
+                                <span>Health issues detected:</span>
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${healthIssueCount > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-700'}`}>
+                                    {healthIssueCount}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {/* changed: show warning only when isDefault is true and a conflict exists */}
@@ -624,6 +651,8 @@ export const FormConfigBuilder: React.FC = () => {
                                 reusableSteps={reusableSteps}
                                 onUpdate={handleUpdateStep}
                                 metadataFields={selectedEntityMeta?.fields ?? []}
+                                allConfigurationFields={allFieldsInConfiguration}
+                                onRulesChanged={handleRulesChanged}
                             />
                         ) : (
                             <div className="bg-white shadow-sm rounded-lg p-12 text-center text-gray-500">
@@ -631,6 +660,16 @@ export const FormConfigBuilder: React.FC = () => {
                             </div>
                         )}
                     </div>
+                </div>
+
+                {/* Configuration Health */}
+                <div className="mt-6">
+                    <ConfigurationHealthPanel
+                        configurationId={config.id}
+                        draftConfig={config}
+                        refreshToken={healthRefreshToken}
+                        onIssuesLoaded={setHealthIssueCount}
+                    />
                 </div>
 
                 {/* Save Button */}
