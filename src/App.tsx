@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { LandingPage } from './pages/LandingPage';
+import { AccountManagementPage } from './pages/AccountManagementPage';
 import ObjectDashboard from './components/ObjectDashboard';
 import { objectConfigs } from './config/objectConfigs';
 import { Subscription } from 'rxjs/internal/Subscription';
@@ -15,9 +17,10 @@ import { DisplayWizardPage } from './pages/DisplayWizardPage';
 import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayConfigBuilder';
 import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import React from 'react';
+import { RegisterPage, RegisterSuccessPage, LoginPage } from './pages/auth';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
-function App() {
-
+function AppContent() {
   var result: any[] = [];
   const errorContent = useRef(result);
 
@@ -81,39 +84,103 @@ function App() {
     }
   }, []);
 
+  const { isLoggedIn } = useAuth();
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-100">
-        <Navigation objectTypes={objectTypes} />
+        {isLoggedIn && <Navigation objectTypes={objectTypes} />}
         <div className="pt-16 p-8">
           <div className="max-w-7xl mx-auto space-y-12">
             <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/auth/register" element={<RegisterPage />} />
+              <Route path="/auth/register/success" element={<RegisterSuccessPage />} />
+              <Route path="/auth/login" element={<LoginPage />} />
+              <Route path="/account" element={
+                <ProtectedRoute>
+                  <AccountManagementPage />
+                </ProtectedRoute>
+              } />
               <Route path="/dashboard" element={
-                <>
+                <ProtectedRoute>
                   <ObjectDashboard objectTypes={objectTypes} />
-                </>
+                </ProtectedRoute>
               } />
               {/* changed: Use Case 3 - Browse forms (no auto-open) */}
-              <Route path="/forms" element={<FormWizardPage entityTypeName='' objectTypes={objectTypes} autoOpenDefaultForm={false} />} />
+              <Route path="/forms" element={
+                <ProtectedRoute>
+                  <FormWizardPage entityTypeName='' objectTypes={objectTypes} autoOpenDefaultForm={false} />
+                </ProtectedRoute>
+              } />
               {/* changed: Use Case 2 - Browse entity forms (no auto-open) */}
-              <Route path="/forms/:entityName" element={<FormWizardPage entityTypeName='' objectTypes={objectTypes} autoOpenDefaultForm={false} />} />
+              <Route path="/forms/:entityName" element={
+                <ProtectedRoute>
+                  <FormWizardPage entityTypeName='' objectTypes={objectTypes} autoOpenDefaultForm={false} />
+                </ProtectedRoute>
+              } />
               {/* changed: Use Case 1 - Edit entity (no auto-open, loads default for edit) */}
-              <Route path="/forms/:entityName/edit/:entityId" element={<FormWizardPage entityTypeName='' objectTypes={objectTypes} autoOpenDefaultForm={false} />} />
-              <Route path="/admin/form-configurations" element={<FormConfigListPage />} />
-              <Route path="/admin/form-configurations/new" element={<FormConfigBuilder />} />
-              <Route path="/admin/form-configurations/edit/:id" element={<FormConfigBuilder />} />
+              <Route path="/forms/:entityName/edit/:entityId" element={
+                <ProtectedRoute>
+                  <FormWizardPage entityTypeName='' objectTypes={objectTypes} autoOpenDefaultForm={false} />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/form-configurations" element={
+                <ProtectedRoute>
+                  <FormConfigListPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/form-configurations/new" element={
+                <ProtectedRoute>
+                  <FormConfigBuilder />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/form-configurations/edit/:id" element={
+                <ProtectedRoute>
+                  <FormConfigBuilder />
+                </ProtectedRoute>
+              } />
+              {/* Town Create Wizard - Hybrid Workflow */}
+              <Route path="/towns/create" element={
+                <ProtectedRoute>
+                  <TownCreateWizardPage />
+                </ProtectedRoute>
+              } />
               {/* DisplayConfiguration routes */}
-              <Route path="/admin/display-configurations" element={<DisplayConfigListPage />} />
-              <Route path="/admin/display-configurations/new" element={<DisplayConfigBuilder />} />
-              <Route path="/admin/display-configurations/edit/:id" element={<DisplayConfigBuilder />} />
+              <Route path="/admin/display-configurations" element={
+                <ProtectedRoute>
+                  <DisplayConfigListPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/display-configurations/new" element={
+                <ProtectedRoute>
+                  <DisplayConfigBuilder />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/display-configurations/edit/:id" element={
+                <ProtectedRoute>
+                  <DisplayConfigBuilder />
+                </ProtectedRoute>
+              } />
               {/* DisplayWizard routes */}
-              <Route path="/display/:entityName/:id" element={<DisplayWizardPage />} />
+              <Route path="/display/:entityName/:id" element={
+                <ProtectedRoute>
+                  <DisplayWizardPage />
+                </ProtectedRoute>
+              } />
             </Routes>
           </div>
         </div>
       </div>
     </Router>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

@@ -59,6 +59,8 @@ export enum UIObjectConfigurationOperation {
 }
 
 export enum Controllers {
+    Auth = 'Auth',
+    Users = 'Users',
     Items = 'Items',
     Structures = 'Structures',
     GateStructures = 'GateStructures',

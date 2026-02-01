@@ -1,6 +1,7 @@
 import { InvokeServiceArgs } from "../apiClients/interfaces";
 import ConfigurationHelper from "../utils/config-helper";
 import { HttpMethod } from "../utils/enums";
+import { tokenService } from "../utils/tokenService";
 
 export class ServiceCall {
 
@@ -16,10 +17,14 @@ export class ServiceCall {
 
         let url = `${baseUrl}/${args.controller}`;
 
+        const authToken = tokenService.getAccessToken();
+
         let requestParams: any = {
             method: args.httpMethod,
+            credentials: 'include', // Include cookies for cross-origin requests (needed for refresh token)
             headers:  {
                 'Accept': '*/*',
+                ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
             }
         };
 
@@ -50,9 +55,11 @@ export class ServiceCall {
         } else if (args.httpMethod == HttpMethod.Delete) {} else{
             requestParams = {
                 method: args.httpMethod,
+                credentials: 'include', // Include cookies for cross-origin requests (needed for refresh token)
                 headers: {
                     'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
                 }
             };
         
@@ -98,8 +105,15 @@ export class ServiceCall {
                     args.responseHandler.success(result);
                 }
             } else {
+                console.error(`[ServiceCall] HTTP ${response.status} error for ${args.controller}/${args.operation}:`, result);
                 if (args.responseHandler) {
-                    args.responseHandler.error(result);
+                    const error = new Error(result?.message || `HTTP ${response.status}: ${response.statusText}`);
+                    (error as any).response = result;
+                    (error as any).status = response.status;
+                    console.error('[ServiceCall] Calling error handler with:', error);
+                    args.responseHandler.error(error);
+                } else {
+                    throw new Error(result?.message || `HTTP ${response.status}: ${response.statusText}`);
                 }
             }
         } catch (ex) {

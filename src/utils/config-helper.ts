@@ -4,7 +4,7 @@ export interface ConfigDefinition {
 
 const ConfigurationHelper: ConfigDefinition = {
     // gatewayApiUrl: (window as any)['config'].gatewayApiUrl || 'https:localhost:5111'
-    gatewayApiUrl: 'http://localhost:5294/api'
+    gatewayApiUrl: 'https://localhost:7104/api'
 
 }
 

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, Layout } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, FileText, Layout, LogOut, UserCircle2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 // added: explicit types for object types prop
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -9,15 +10,21 @@ type Props = { objectTypes: ObjectType[] };
 // changed: accept props object instead of raw array parameter
 export function Navigation({ objectTypes }: Props) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout, isLoading } = useAuth();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+      }
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+        setIsAccountMenuOpen(false);
       }
     };
 
@@ -38,12 +45,23 @@ export function Navigation({ objectTypes }: Props) {
       case 'Enter':
         if (selectedIndex >= 0) {
           navigate(objectTypes[selectedIndex].createRoute);
+          navigate(objectTypes[selectedIndex].createRoute);
           setIsOpen(false);
         }
         break;
       case 'Escape':
         setIsOpen(false);
         break;
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/auth/login');
+    } catch (err) {
+      // Error is already handled in useAuth hook
+      navigate('/auth/login');
     }
   };
 
@@ -131,16 +149,66 @@ export function Navigation({ objectTypes }: Props) {
               <Link
                 to="/ui-field-configurations"
                 className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                  location.pathname === '/ui-field-configurations'
+                  location.pathname.startsWith('/admin/display-configurations')
                     ? 'border-b-2 border-primary text-slate-900'
                     : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
-                UI Configurations
+                <Layout className="h-4 w-4 mr-2" />
+                Display Builder
               </Link>
             </div>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center space-x-4">
+            {/* Account Menu Dropdown */}
+            <div className="relative" ref={accountMenuRef}>
+              <button
+                onMouseEnter={() => setIsAccountMenuOpen(true)}
+                onClick={() => {
+                  navigate('/account');
+                  setIsAccountMenuOpen(false);
+                }}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                title="Account"
+              >
+                <UserCircle2 className="h-5 w-5" />
+              </button>
+
+              {isAccountMenuOpen && (
+                <div
+                  onMouseLeave={() => setIsAccountMenuOpen(false)}
+                  className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
+                  role="menu"
+                >
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        navigate('/account');
+                        setIsAccountMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      role="menuitem"
+                    >
+                      <UserCircle2 className="h-4 w-4 mr-3" />
+                      Account Settings
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsAccountMenuOpen(false);
+                      }}
+                      disabled={isLoading}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center disabled:opacity-50"
+                      role="menuitem"
+                    >
+                      <LogOut className="h-4 w-4 mr-3" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsOpen(!isOpen)}
@@ -163,6 +231,8 @@ export function Navigation({ objectTypes }: Props) {
                       <button
                         key={type.id}
                         onClick={() => {
+                          // changed: Navigate to forms with autoOpenDefaultForm=true for Use Case 4
+                          navigate(`/forms/${type.id}?autoOpen=true`);
                           // changed: Navigate to forms with autoOpenDefaultForm=true for Use Case 4
                           navigate(`/forms/${type.id}?autoOpen=true`);
                           setIsOpen(false);

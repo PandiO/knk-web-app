@@ -106,6 +106,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             onClick={onClose}
         >
             <div
+                role="dialog"
+                aria-label={title}
                 className={`w-full max-w-md rounded-lg shadow-lg border ${borderClass[status]} ${bgClass[status]} relative`}
                 onClick={e => e.stopPropagation()}
             >
