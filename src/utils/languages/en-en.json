@@ -1,0 +1,17 @@
+{
+    "ErrorMessage": {
+        "Test": "This is a test error message.",
+        "UIConfigurations": {
+            "LoadFailed": "Failed to load UI configurations."
+        },
+        "FormConfiguration": {
+            "LoadFailed": "Failed to load form configuration.",
+            "SaveFailed": "Failed to save form configuration."
+        },
+        "FormSubmission": {
+            "SaveFailed": "Failed to save form progress.",
+            "LoadFailed": "Failed to load form progress.",
+            "DeleteFailed": "Failed to delete form progress."
+        }
+    }
+}

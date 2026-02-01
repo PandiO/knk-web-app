@@ -1,0 +1,27 @@
+/* DisplayWizard Component Styles - Using standard Tailwind classes inline */
+/* Minimal custom CSS - most styling done via className in components */
+
+.display-wizard {
+  max-width: 1152px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.display-wizard-loading,
+.display-wizard-error,
+.display-wizard-empty {
+  text-align: center;
+  padding: 3rem 0;
+  color: #6b7280;
+}
+
+.display-wizard-error {
+  color: #dc2626;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .display-wizard {
+    padding: 1rem;
+  }
+}
