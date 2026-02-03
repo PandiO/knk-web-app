@@ -1,4 +1,4 @@
-import { logging, Controllers, HttpMethod } from "../utils";
+import { logging, Controllers, HttpMethod, DisplayConfigurationOperation } from "../utils";
 import { ObjectManager } from "./objectManager";
 import {
   DisplayConfigurationDto,
@@ -25,16 +25,15 @@ export class DisplayConfigClient extends ObjectManager {
   /**
    * Get all display configurations
    */
-  getAll(includeDrafts: boolean = true): Promise<DisplayConfigurationDto[]> {
-    const operation = includeDrafts ? 'getall' : 'getall-published';
-    return this.invokeServiceCall(null, operation, Controllers.DisplayConfigurations, HttpMethod.Get);
+  async getAll(includeDrafts: boolean = true): Promise<DisplayConfigurationDto[]> {
+    return this.invokeServiceCall({'includeDrafts': includeDrafts}, DisplayConfigurationOperation.GetAll, Controllers.DisplayConfigurations, HttpMethod.Get);
   }
 
   /**
    * Get display configuration by ID
    */
-  getById(id: number): Promise<DisplayConfigurationDto> {
-    return this.invokeServiceCall(null, `getbyid/${id}`, Controllers.DisplayConfigurations, HttpMethod.Get);
+  async getById(id: number): Promise<DisplayConfigurationDto> {
+    return this.invokeServiceCall(null, `${id}`, Controllers.DisplayConfigurations, HttpMethod.Get);
   }
 
   /**
@@ -44,61 +43,59 @@ export class DisplayConfigClient extends ObjectManager {
     entityName: string,
     includeDrafts: boolean = false
   ): Promise<DisplayConfigurationDto> {
-    const operation = `entity/${entityName}`;
-    return this.invokeServiceCall({ includeDrafts }, operation, Controllers.DisplayConfigurations, HttpMethod.Get);
+    return this.invokeServiceCall({ includeDrafts }, `${DisplayConfigurationOperation.GetByEntity}/${entityName}`, Controllers.DisplayConfigurations, HttpMethod.Get);
   }
 
   /**
    * Get all display configurations for entity type
    */
-  getAllByEntityType(
+  async getAllByEntityType(
     entityName: string,
     includeDrafts: boolean = true
   ): Promise<DisplayConfigurationDto[]> {
-    const operation = `entity/${entityName}/all`;
-    return this.invokeServiceCall({ includeDrafts }, operation, Controllers.DisplayConfigurations, HttpMethod.Get);
+    return this.invokeServiceCall({ includeDrafts }, `${DisplayConfigurationOperation.GetByEntityAll}/${entityName}`, Controllers.DisplayConfigurations, HttpMethod.Get);
   }
 
   /**
    * Get list of all entity type names with display configurations
    */
-  getEntityTypeNames(): Promise<string[]> {
+  async getEntityTypeNames(): Promise<string[]> {
     return this.invokeServiceCall(null, 'entity-names', Controllers.DisplayConfigurations, HttpMethod.Get);
   }
 
   /**
    * Create new display configuration (starts as draft)
    */
-  create(config: DisplayConfigurationDto): Promise<DisplayConfigurationDto> {
+  async create(config: DisplayConfigurationDto): Promise<DisplayConfigurationDto> {
     return this.invokeServiceCall(config, '', Controllers.DisplayConfigurations, HttpMethod.Post);
   }
 
   /**
    * Update existing display configuration
    */
-  update(id: number, config: DisplayConfigurationDto): Promise<void> {
-    return this.invokeServiceCall(config, `update/${id}`, Controllers.DisplayConfigurations, HttpMethod.Put);
+  async update(id: number, config: DisplayConfigurationDto): Promise<void> {
+    return this.invokeServiceCall(config, `${DisplayConfigurationOperation.Update}/${id}`, Controllers.DisplayConfigurations, HttpMethod.Put);
   }
 
   /**
    * Delete display configuration
    */
-  delete(id: number): Promise<void> {
-    return this.invokeServiceCall(null, `delete/${id}`, Controllers.DisplayConfigurations, HttpMethod.Delete);
+  async delete(id: number): Promise<void> {
+    return this.invokeServiceCall(null, `${DisplayConfigurationOperation.Delete}/${id}`, Controllers.DisplayConfigurations, HttpMethod.Delete);
   }
 
   /**
    * Publish display configuration (sets IsDraft = false after validation)
    */
-  publish(id: number): Promise<DisplayConfigurationDto> {
-    return this.invokeServiceCall(null, `publish/${id}`, Controllers.DisplayConfigurations, HttpMethod.Post);
+  async publish(id: number): Promise<DisplayConfigurationDto> {
+    return this.invokeServiceCall(null, `${id}/${DisplayConfigurationOperation.Publish}`, Controllers.DisplayConfigurations, HttpMethod.Post);
   }
 
   /**
    * Clone/copy configuration
    */
-  clone(id: number, linkMode: ReuseLinkMode): Promise<DisplayConfigurationDto> {
-    return this.invokeServiceCall({ linkMode }, `clone/${id}`, Controllers.DisplayConfigurations, HttpMethod.Post);
+  async clone(id: number, linkMode: ReuseLinkMode): Promise<DisplayConfigurationDto> {
+    return this.invokeServiceCall({ linkMode }, `${id}/${DisplayConfigurationOperation.Clone}`, Controllers.DisplayConfigurations, HttpMethod.Post);
   }
 
   // ===== DISPLAYSECTIONS ENDPOINTS =====
@@ -106,43 +103,43 @@ export class DisplayConfigClient extends ObjectManager {
   /**
    * Get all reusable sections
    */
-  getAllReusableSections(): Promise<DisplaySectionDto[]> {
+  async getAllReusableSections(): Promise<DisplaySectionDto[]> {
     return this.invokeServiceCall(null, 'reusable', Controllers.DisplaySections, HttpMethod.Get);
   }
 
   /**
    * Get section by ID
    */
-  getSectionById(id: number): Promise<DisplaySectionDto> {
-    return this.invokeServiceCall(null, `getbyid/${id}`, Controllers.DisplaySections, HttpMethod.Get);
+  async getSectionById(id: number): Promise<DisplaySectionDto> {
+    return this.invokeServiceCall(null, `${id}`, Controllers.DisplaySections, HttpMethod.Get);
   }
 
   /**
    * Create standalone reusable section
    */
-  createReusableSection(section: DisplaySectionDto): Promise<DisplaySectionDto> {
+  async createReusableSection(section: DisplaySectionDto): Promise<DisplaySectionDto> {
     return this.invokeServiceCall(section, 'reusable', Controllers.DisplaySections, HttpMethod.Post);
   }
 
   /**
    * Update section
    */
-  updateSection(id: number, section: DisplaySectionDto): Promise<void> {
-    return this.invokeServiceCall(section, `update/${id}`, Controllers.DisplaySections, HttpMethod.Put);
+  async updateSection(id: number, section: DisplaySectionDto): Promise<void> {
+    return this.invokeServiceCall(section, `${id}`, Controllers.DisplaySections, HttpMethod.Put);
   }
 
   /**
    * Delete section
    */
-  deleteSection(id: number): Promise<void> {
-    return this.invokeServiceCall(null, `delete/${id}`, Controllers.DisplaySections, HttpMethod.Delete);
+  async deleteSection(id: number): Promise<void> {
+    return this.invokeServiceCall(null, `${id}`, Controllers.DisplaySections, HttpMethod.Delete);
   }
 
   /**
    * Clone/copy section
    */
   cloneSection(id: number, linkMode: ReuseLinkMode): Promise<DisplaySectionDto> {
-    return this.invokeServiceCall({ linkMode }, `clone/${id}`, Controllers.DisplaySections, HttpMethod.Post);
+    return this.invokeServiceCall({ linkMode }, `${id}/clone`, Controllers.DisplaySections, HttpMethod.Post);
   }
 
   // ===== DISPLAYFIELDS ENDPOINTS =====
@@ -150,43 +147,43 @@ export class DisplayConfigClient extends ObjectManager {
   /**
    * Get all reusable fields
    */
-  getAllReusableFields(): Promise<DisplayFieldDto[]> {
+  async getAllReusableFields(): Promise<DisplayFieldDto[]> {
     return this.invokeServiceCall(null, 'reusable', Controllers.DisplayFields, HttpMethod.Get);
   }
 
   /**
    * Get field by ID
    */
-  getFieldById(id: number): Promise<DisplayFieldDto> {
-    return this.invokeServiceCall(null, `getbyid/${id}`, Controllers.DisplayFields, HttpMethod.Get);
+  async getFieldById(id: number): Promise<DisplayFieldDto> {
+    return this.invokeServiceCall(null, `${id}`, Controllers.DisplayFields, HttpMethod.Get);
   }
 
   /**
    * Create standalone reusable field
    */
-  createReusableField(field: DisplayFieldDto): Promise<DisplayFieldDto> {
+  async createReusableField(field: DisplayFieldDto): Promise<DisplayFieldDto> {
     return this.invokeServiceCall(field, 'reusable', Controllers.DisplayFields, HttpMethod.Post);
   }
 
   /**
    * Update field
    */
-  updateField(id: number, field: DisplayFieldDto): Promise<void> {
-    return this.invokeServiceCall(field, `update/${id}`, Controllers.DisplayFields, HttpMethod.Put);
+  async updateField(id: number, field: DisplayFieldDto): Promise<void> {
+    return this.invokeServiceCall(field, `${id}`, Controllers.DisplayFields, HttpMethod.Put);
   }
 
   /**
    * Delete field
    */
-  deleteField(id: number): Promise<void> {
-    return this.invokeServiceCall(null, `delete/${id}`, Controllers.DisplayFields, HttpMethod.Delete);
+  async deleteField(id: number): Promise<void> {
+    return this.invokeServiceCall(null, `${id}`, Controllers.DisplayFields, HttpMethod.Delete);
   }
 
   /**
    * Clone/copy field
    */
-  cloneField(id: number, linkMode: ReuseLinkMode): Promise<DisplayFieldDto> {
-    return this.invokeServiceCall({ linkMode }, `clone/${id}`, Controllers.DisplayFields, HttpMethod.Post);
+  async cloneField(id: number, linkMode: ReuseLinkMode): Promise<DisplayFieldDto> {
+    return this.invokeServiceCall({ linkMode }, `${id}/clone`, Controllers.DisplayFields, HttpMethod.Post);
   }
 
   // ===== TEMPLATE OPERATIONS (for builder) =====
@@ -199,7 +196,7 @@ export class DisplayConfigClient extends ObjectManager {
     payload: AddReusableSectionRequestDto
   ): Promise<DisplaySectionDto> {
     const operation = `addsection/${configId}`;
-    return this.invokeServiceCall(payload, operation, Controllers.DisplayConfigurations, HttpMethod.Post);
+    return this.invokeServiceCall(payload, `${configId}/sections/add-from-template`, Controllers.DisplayConfigurations, HttpMethod.Post);
   }
 
   /**
@@ -210,7 +207,7 @@ export class DisplayConfigClient extends ObjectManager {
     payload: AddReusableFieldRequestDto
   ): Promise<DisplayFieldDto> {
     const operation = `addfield/${sectionId}`;
-    return this.invokeServiceCall(payload, operation, Controllers.DisplaySections, HttpMethod.Post);
+    return this.invokeServiceCall(payload, `${sectionId}/fields/add-from-template`, Controllers.DisplaySections, HttpMethod.Post);
   }
 }
 

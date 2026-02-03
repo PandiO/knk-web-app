@@ -157,6 +157,19 @@ export enum ConditionOperator {
     IsNotEmpty = 'IsNotEmpty'
 }
 
+export enum DisplayConfigurationOperation {
+    GetAll = '',
+    GetById = '',
+    GetByEntity = 'entity',
+    GetByEntityAll = 'entity/all',
+    GetEntityNames = 'entity-names',
+    Create = '',
+    Update = '',
+    Delete = '',
+    Publish = 'publish',
+    Clone = 'clone'
+}
+
 export enum FormConfigurationOperation {
     GetAll = '',
     GetById = '',

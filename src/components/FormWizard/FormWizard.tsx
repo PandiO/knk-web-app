@@ -108,11 +108,49 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         return () => clearAutoClose();
     }, []);
 
+    const getOrderedFields = (step?: FormStepDto): FormFieldDto[] => {
+        if (!step) return [];
+        if (!step.fieldOrderJson) {
+            return [...step.fields].sort((a, b) => a.order - b.order);
+        }
+
+        try {
+            const orderArray = JSON.parse(step.fieldOrderJson);
+            if (!Array.isArray(orderArray) || orderArray.length === 0) {
+                return [...step.fields].sort((a, b) => a.order - b.order);
+            }
+
+            const fieldMap = new Map<string, FormFieldDto>();
+            step.fields.forEach(f => {
+                if (f.fieldGuid) {
+                    fieldMap.set(f.fieldGuid, f);
+                }
+            });
+
+            const reordered: FormFieldDto[] = [];
+            orderArray.forEach((guid: string) => {
+                const field = fieldMap.get(guid);
+                if (field) {
+                    reordered.push(field);
+                }
+            });
+
+            step.fields.forEach(f => {
+                if (!reordered.includes(f)) {
+                    reordered.push(f);
+                }
+            });
+
+            return reordered;
+        } catch {
+            return [...step.fields].sort((a, b) => a.order - b.order);
+        }
+    };
+
     // Helpers to enforce full field shape per step and flatten for DTO
     const normalizeStepData = (step: FormStepDto, data: StepData | undefined): StepData => {
         const result: StepData = {};
-        step.fields
-            .sort((a, b) => a.order - b.order)
+        getOrderedFields(step)
             .forEach(field => {
                 const hasValue = data && Object.prototype.hasOwnProperty.call(data, field.fieldName);
                 const value = hasValue ? (data as StepData)[field.fieldName] : (field.defaultValue ?? null);
@@ -132,7 +170,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const flattenAllStepsData = (cfg: FormConfigurationDto, stepsData: AllStepsData): Record<string, unknown> => {
         const flat: Record<string, unknown> = {};
         cfg.steps.forEach((step, idx) => {
-            step.fields.forEach(field => {
+            getOrderedFields(step).forEach(field => {
                 const val = stepsData?.[idx]?.[field.fieldName];
                 flat[field.fieldName] = val ?? field.defaultValue ?? null;
             });
@@ -247,7 +285,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
     const runValidationsForStep = async (step: FormStepDto, stepsData: AllStepsData, stepIndex: number) => {
         if (!config) return [] as Array<{ fieldId: number; result: ValidationResultDto }>;
-        const targets = step.fields
+        const targets = getOrderedFields(step)
             .map(f => ({ field: f, fieldId: f.id ? Number(f.id) : NaN }))
             .filter(item => !Number.isNaN(item.fieldId) && (validationRules[item.fieldId]?.length || 0) > 0);
 
@@ -397,7 +435,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             const populatedStepsData: AllStepsData = {};
             cfg.steps.forEach((step, stepIndex) => {
                 const stepData: StepData = {};
-                step.fields.forEach(field => {
+                getOrderedFields(step).forEach(field => {
                     // Use utility function for case-insensitive lookup
                     const value = findValueByFieldName(entityData, field.fieldName);
                     stepData[field.fieldName] = value !== undefined ? value : (field.defaultValue ?? null);
@@ -417,7 +455,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     };
 
     const currentStep = config?.steps[currentStepIndex];
-    const orderedFields = currentStep?.fields.sort((a, b) => a.order - b.order) || [];
+    const orderedFields = getOrderedFields(currentStep);
 
     const computeStepKey = (step: FormStepDto, index: number): string => {
         const key = step.stepName?.trim();
