@@ -19,19 +19,22 @@ interface WorldBoundFieldRendererProps {
 
 /**
  * Maps task types to their expected output field names in outputJson
- * This ensures consistent extraction of results regardless of task type
+ * For Location tasks, we extract raw coordinates and convert them to location objects
  */
 const TASK_OUTPUT_FIELD_MAP: Record<string, string> = {
     'RegionCreate': 'regionId',
     'ReagionCreate': 'regionId', // Handle typo in current data
-    'LocationCapture': 'locationId',
+    'LocationCapture': 'location', // Extract as raw location data
+    'CaptureLocation': 'location', // Alternative naming
+    'Location': 'location', // Field name based
     'StructureCapture': 'structureId',
     'WgRegionId': 'regionId', // Field-based naming
 };
 
 /**
  * Extracts the result value from a completed WorldTask's outputJson
- * Uses task-type mapping to ensure correct field extraction
+ * For Location tasks, converts raw coordinates to location object
+ * For Region tasks, extracts the regionId directly
  */
 function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
     if (!task.outputJson) return null;
@@ -39,22 +42,47 @@ function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
     try {
         const output = JSON.parse(task.outputJson);
         
+        // Special handling for Location tasks
+        if (isLocationTask(taskType, task.taskType)) {
+            // Extract raw location data and convert to location object
+            if (output.x !== undefined && output.y !== undefined && output.z !== undefined) {
+                const locationObject = {
+                    x: output.x,
+                    y: output.y,
+                    z: output.z,
+                    yaw: output.yaw ?? 0,
+                    pitch: output.pitch ?? 0,
+                    worldName: output.worldName ?? 'world'
+                };
+                console.log('Extracted location from task:', locationObject);
+                return locationObject;
+            }
+        }
+        
         // Use task-type mapping to find the correct field
         const expectedFieldName = TASK_OUTPUT_FIELD_MAP[taskType] || 
                                  TASK_OUTPUT_FIELD_MAP[task.taskType] ||
                                  null;
         
-        if (expectedFieldName && output[expectedFieldName]) {
+        if (expectedFieldName && expectedFieldName !== 'location' && output[expectedFieldName]) {
             return output[expectedFieldName];
         }
         
         // Fallback: try common result field names
-        return output.regionId || output.locationId || output.structureId || 
+        return output.regionId || output.structureId || 
                output.value || output.result || output.id;
     } catch (e) {
         console.error(`Failed to extract result from task ${task.id}:`, e);
         return null;
     }
+}
+
+/**
+ * Check if the task type indicates a Location capture task
+ */
+function isLocationTask(taskType: string, actualTaskType?: string): boolean {
+    const types = [taskType, actualTaskType].filter(Boolean).map(t => t?.toLowerCase() || '');
+    return types.some(t => t.includes('location') || t.includes('capture'));
 }
 
 export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = ({

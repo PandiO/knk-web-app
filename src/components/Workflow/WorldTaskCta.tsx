@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { worldTaskClient } from '../../apiClients/worldTaskClient';
 import { workflowClient } from '../../apiClients/workflowClient';
+import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { WorldTaskReadDto } from '../../types/dtos/workflow/WorkflowDtos';
+import { FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { AlertCircle, CheckCircle2, Loader2, Send, Copy, Check } from 'lucide-react';
 
 type Props = {
@@ -12,6 +14,9 @@ type Props = {
   taskType?: string; // optional override; else defaults to `Verify${fieldName}`
   onCompleted?: (task: WorldTaskReadDto) => void;
   hint?: string; // optional hint to show when pending/missing
+  // NEW: Additional props for validation context
+  fieldId?: number; // Field ID to load validation rules
+  formContext?: Record<string, unknown>; // All form data for dependency resolution
 };
 
 const POLL_MS = 3000;
@@ -23,7 +28,9 @@ export const WorldTaskCta: React.FC<Props> = ({
   value,
   taskType,
   onCompleted,
-  hint
+  hint,
+  fieldId,
+  formContext = {}
 }) => {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,10 +81,41 @@ export const WorldTaskCta: React.FC<Props> = ({
     setError(null);
     setCreating(true);
     try {
-      const payload = {
+      // Build base payload
+      const payload: Record<string, unknown> = {
         fieldName,
         currentValue: value ?? null,
       };
+
+      // Load and resolve validation rules if fieldId is provided
+      if (fieldId) {
+        try {
+          const validationRules = await fieldValidationRuleClient.getByFormFieldId(fieldId);
+          
+          if (validationRules && validationRules.length > 0) {
+            // Resolve dependency field values from formContext
+            const resolvedRules = validationRules.map((rule: FieldValidationRuleDto) => ({
+              validationType: rule.validationType,
+              configJson: rule.configJson,
+              errorMessage: rule.errorMessage,
+              isBlocking: rule.isBlocking,
+              dependencyFieldValue: rule.dependsOnFieldId 
+                ? resolveDependencyFieldValue(rule.dependsOnFieldId, formContext)
+                : null
+            }));
+
+            // Embed validation context in payload
+            payload.validationContext = {
+              validationRules: resolvedRules,
+              formContext: formContext
+            };
+          }
+        } catch (validationError) {
+          console.warn('Failed to load validation rules, proceeding without validation:', validationError);
+          // Continue without validation context
+        }
+      }
+
       const created = await worldTaskClient.create({
         workflowSessionId,
         stepNumber: 0,
@@ -93,6 +131,22 @@ export const WorldTaskCta: React.FC<Props> = ({
     } finally {
       setCreating(false);
     }
+  };
+
+  // Helper function to resolve dependency field value from form context
+  const resolveDependencyFieldValue = (dependencyFieldId: number, context: Record<string, unknown>): unknown => {
+    // In a real implementation, this would:
+    // 1. Find the field name by ID from the form configuration
+    // 2. Extract the value from context
+    // 3. If it's an entity reference, fetch the full entity
+    // For now, return the raw value from context
+    // TODO: Implement proper field ID -> field name resolution
+    const fieldEntry = Object.entries(context).find(([key, val]) => {
+      // Try to match by various patterns
+      return typeof val === 'object' && val !== null && 'id' in val;
+    });
+    
+    return fieldEntry ? fieldEntry[1] : null;
   };
 
   const statusPill = () => {
@@ -195,15 +249,32 @@ export const WorldTaskCta: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Task failure display */}
+      {/* Task failure display with enhanced validation error messaging */}
       {task && task.status === 'Failed' && (
-        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm font-medium text-red-800">
-            ❌ Task Failed
-          </p>
-          {task.errorMessage && (
-            <p className="text-xs text-red-700 mt-1">{task.errorMessage}</p>
-          )}
+        <div className="mt-3 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
+          <div className="flex items-start">
+            <AlertCircle className="h-5 w-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-red-900 mb-1">
+                ❌ Task Failed
+              </p>
+              {task.errorMessage && (
+                <div className="text-sm text-red-800 mb-2 whitespace-pre-wrap">
+                  {task.errorMessage}
+                </div>
+              )}
+              <div className="mt-3 pt-3 border-t border-red-200">
+                <p className="text-xs text-red-700">
+                  💡 <strong>What to do:</strong>
+                </p>
+                <ul className="text-xs text-red-700 ml-4 mt-1 space-y-1">
+                  <li>• Fix the issue in Minecraft and retry the task</li>
+                  <li>• Or cancel this task and start over</li>
+                  <li>• If you believe this is an error, contact a developer</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
