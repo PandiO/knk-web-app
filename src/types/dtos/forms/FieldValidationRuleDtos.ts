@@ -68,3 +68,16 @@ export interface ValidationIssueDto {
     fieldId?: number;
     ruleId?: number;
 }
+
+export interface ResolvePlaceholdersRequestDto {
+    currentEntityType: string;
+    currentEntityId?: number;
+    placeholderPaths: string[];
+    currentEntityPlaceholders?: { [key: string]: string };
+}
+
+export interface ResolvePlaceholdersResponseDto {
+    resolvedPlaceholders: { [key: string]: string };
+    unresolvedPlaceholders: string[];
+    resolutionErrors: string[];
+}
