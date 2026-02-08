@@ -9,12 +9,17 @@ import {
     ValidationResultDto,
     ValidationIssueDto
 } from "../types/dtos/forms/FieldValidationRuleDtos";
-import { FormConfigurationDto } from "../types/dtos/forms/FormConfigurationDtos";
+import {
+    PlaceholderResolutionRequest,
+    PlaceholderResolutionResponse
+} from "../types/dtos/forms/PlaceholderResolutionDtos";
+import { FormConfigurationDto } from "../types/dtos/forms/FormModels";
 
 export enum FieldValidationRuleOperation {
     GetByField = "by-field/",
     GetByConfiguration = "by-configuration/",
     Validate = "validate",
+    ResolvePlaceholders = "resolve-placeholders",
     HealthCheckConfiguration = "health-check/configuration/",
     HealthCheckDraft = "health-check/configuration/draft"
 }
@@ -56,6 +61,10 @@ export class FieldValidationRuleClient extends ObjectManager {
 
     validateField(request: ValidateFieldRequestDto): Promise<ValidationResultDto> {
         return this.invokeServiceCall(request, FieldValidationRuleOperation.Validate, Controllers.FieldValidationRules, HttpMethod.Post);
+    }
+
+    resolvePlaceholders(request: PlaceholderResolutionRequest): Promise<PlaceholderResolutionResponse> {
+        return this.invokeServiceCall(request, FieldValidationRuleOperation.ResolvePlaceholders, Controllers.FieldValidationRules, HttpMethod.Post);
     }
 
     validateConfigurationHealth(configId: number): Promise<ValidationIssueDto[]> {

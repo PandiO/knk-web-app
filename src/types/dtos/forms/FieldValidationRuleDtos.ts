@@ -58,6 +58,7 @@ export interface ValidationResultDto {
     isValid: boolean;
     isBlocking: boolean;
     message?: string;
+    successMessage?: string;
     placeholders?: { [key: string]: string };
     metadata?: ValidationMetadataDto;
 }
