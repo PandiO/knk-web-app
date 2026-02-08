@@ -7,6 +7,7 @@ import { metadataClient } from '../../apiClients/metadataClient';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { logging } from '../../utils';
 import { StepEditor } from './StepEditor';
+import { getManyToManyStepIssues } from '../../utils/forms/manyToManyStepValidation';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableStepItem } from './SortableStepItem';
@@ -208,6 +209,11 @@ export const FormConfigBuilder: React.FC = () => {
             isReusable: false,
             isLinkedToSource: false,
             hasCompatibilityIssues: false,
+            isManyToManyRelationship: false,
+            relatedEntityPropertyName: undefined,
+            joinEntityType: undefined,
+            subConfigurationId: undefined,
+            childFormSteps: [],
             fields: [],
             conditions: []
         };
@@ -325,6 +331,12 @@ export const FormConfigBuilder: React.FC = () => {
         for (const step of config.steps) {
             if (!step.stepName.trim()) {
                 setError(`Step ${step.order + 1} must have a name`);
+                return false;
+            }
+
+            const m2mIssues = getManyToManyStepIssues(step);
+            if (m2mIssues.length > 0) {
+                setError(`Step ${step.order + 1} (${step.stepName}) has many-to-many configuration issues: ${m2mIssues.map(i => i.message).join(' ')}`);
                 return false;
             }
         }

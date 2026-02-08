@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Copy, GripVertical, Trash2, Pencil, AlertTriangle, Link as LinkIcon, Copy as CopyIcon } from 'lucide-react';
-import { FormStepDto, FormFieldDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
+import { FormStepDto, FormFieldDto, FormConfigurationDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -13,6 +13,7 @@ import { ReusableStepSelector } from './ReusableStepSelector';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { metadataClient } from '../../apiClients/metadataClient';
 import { logging } from '../../utils';
+import { getManyToManyStepIssues } from '../../utils/forms/manyToManyStepValidation';
 
 interface Props {
     step: FormStepDto;
@@ -45,6 +46,9 @@ export const StepEditor: React.FC<Props> = ({
     const [childFieldSelectorIndex, setChildFieldSelectorIndex] = useState<number | null>(null);
     const [joinEntityFields, setJoinEntityFields] = useState<FieldMetadataDto[]>([]);
     const [loadingJoinEntityFields, setLoadingJoinEntityFields] = useState(false);
+    const [joinEntityConfigurations, setJoinEntityConfigurations] = useState<FormConfigurationDto[]>([]);
+    const [loadingJoinConfigurations, setLoadingJoinConfigurations] = useState(false);
+    const [joinConfigError, setJoinConfigError] = useState<string | null>(null);
 
     // Load available entity types for join entity dropdown
     useEffect(() => {
@@ -103,6 +107,37 @@ export const StepEditor: React.FC<Props> = ({
 
         loadJoinEntityMeta();
     }, [step.joinEntityType]);
+
+    useEffect(() => {
+        const loadJoinConfigurations = async () => {
+            if (!step.isManyToManyRelationship || !step.joinEntityType) {
+                setJoinEntityConfigurations([]);
+                setJoinConfigError(null);
+                return;
+            }
+
+            try {
+                setLoadingJoinConfigurations(true);
+                setJoinConfigError(null);
+                const configs = await formConfigClient.getByEntityAll(step.joinEntityType);
+                setJoinEntityConfigurations(configs || []);
+
+                if (step.subConfigurationId && !(configs || []).some(cfg => cfg.id === step.subConfigurationId)) {
+                    onUpdate({ ...step, subConfigurationId: undefined });
+                }
+            } catch (err) {
+                console.error('Failed to load join entity form configurations:', err);
+                setJoinEntityConfigurations([]);
+                setJoinConfigError('Unable to load join entity form configurations.');
+            } finally {
+                setLoadingJoinConfigurations(false);
+            }
+        };
+
+        void loadJoinConfigurations();
+    }, [step.isManyToManyRelationship, step.joinEntityType, step.subConfigurationId, onUpdate]);
+
+    const manyToManyIssues = useMemo(() => getManyToManyStepIssues(step), [step]);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -556,6 +591,7 @@ export const StepEditor: React.FC<Props> = ({
                                 // Clear M2M fields if unchecked
                                 relatedEntityPropertyName: e.target.checked ? step.relatedEntityPropertyName : undefined,
                                 joinEntityType: e.target.checked ? step.joinEntityType : undefined,
+                                subConfigurationId: e.target.checked ? step.subConfigurationId : undefined,
                                 childFormSteps: e.target.checked ? (step.childFormSteps ?? []) : []
                             })}
                             className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
@@ -573,6 +609,22 @@ export const StepEditor: React.FC<Props> = ({
                                     This step will display a PagedEntityTable for selecting related entities and cards for editing relationship instances with join entity fields.
                                 </p>
                             </div>
+
+                            {manyToManyIssues.length > 0 && (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-sm text-yellow-900">
+                                    <div className="flex items-start">
+                                        <AlertTriangle className="h-4 w-4 mr-2 mt-0.5" />
+                                        <div className="space-y-1">
+                                            <p className="font-medium">Configuration checks</p>
+                                            <ul className="list-disc list-inside text-xs text-yellow-800">
+                                                {manyToManyIssues.map(issue => (
+                                                    <li key={issue.code}>{issue.message}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -606,7 +658,11 @@ export const StepEditor: React.FC<Props> = ({
                                 </label>
                                 <select
                                     value={step.joinEntityType || ''}
-                                    onChange={e => onUpdate({ ...step, joinEntityType: e.target.value })}
+                                    onChange={e => onUpdate({ 
+                                        ...step, 
+                                        joinEntityType: e.target.value,
+                                        subConfigurationId: e.target.value === step.joinEntityType ? step.subConfigurationId : undefined
+                                    })}
                                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                                 >
                                     <option value="">-- Select join entity type --</option>
@@ -621,6 +677,39 @@ export const StepEditor: React.FC<Props> = ({
                                 </p>
                                 {loadingJoinEntityFields && (
                                     <p className="mt-1 text-xs text-blue-700">Loading join entity metadata…</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Join Entity Form Configuration (optional)
+                                </label>
+                                <select
+                                    value={step.subConfigurationId || ''}
+                                    onChange={e => onUpdate({ ...step, subConfigurationId: e.target.value || undefined })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                    disabled={!step.joinEntityType || loadingJoinConfigurations}
+                                >
+                                    <option value="">-- Use child steps (inline join fields) --</option>
+                                    {joinEntityConfigurations.map(cfg => (
+                                        <option key={cfg.id} value={cfg.id}>
+                                            {cfg.configurationName}{cfg.isDefault ? ' (default)' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Link a join-entity FormConfiguration to drive join field layout and validation. When linked, it takes precedence over child steps.
+                                </p>
+                                {loadingJoinConfigurations && (
+                                    <p className="mt-1 text-xs text-blue-700">Loading join entity configurations…</p>
+                                )}
+                                {joinConfigError && (
+                                    <p className="mt-1 text-xs text-red-600">{joinConfigError}</p>
+                                )}
+                                {!loadingJoinConfigurations && !joinConfigError && step.joinEntityType && joinEntityConfigurations.length === 0 && (
+                                    <p className="mt-1 text-xs text-yellow-700">
+                                        No form configurations found for {step.joinEntityType}. Create one to enable the join entity modal flow.
+                                    </p>
                                 )}
                             </div>
 

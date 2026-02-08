@@ -87,6 +87,7 @@ export interface FormStepDto {
     isManyToManyRelationship: boolean;
     relatedEntityPropertyName?: string;
     joinEntityType?: string;
+    subConfigurationId?: string;
     parentStepId?: string;
     childFormSteps: FormStepDto[];
     fields: FormFieldDto[];
