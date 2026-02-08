@@ -133,32 +133,10 @@ const parseHybridEnchantmentSettings = (settingsJson?: string): { categoryFilter
     }
 };
 
-const interpolatePlaceholders = (message?: string, placeholders?: { [key: string]: any }) => {
+const interpolatePlaceholders = (message?: string, placeholders?: { [key: string]: string }) => {
     if (!message) return '';
     if (!placeholders) return message;
-    return Object.entries(placeholders).reduce((acc, [key, val]) => {
-        const stringValue = formatPlaceholderValue(val);
-        return acc.replace(`{${key}}`, stringValue);
-    }, message);
-};
-
-const formatPlaceholderValue = (value: any): string => {
-    if (value == null) return '';
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-    
-    // Handle location objects specifically
-    if (value.x !== undefined && value.y !== undefined && value.z !== undefined) {
-        const coords = `${value.x}, ${value.y}, ${value.z}`;
-        return value.worldName ? `${coords} in ${value.worldName}` : coords;
-    }
-    
-    // Fallback: JSON stringify for other objects
-    try {
-        return JSON.stringify(value);
-    } catch {
-        return String(value);
-    }
+    return Object.entries(placeholders).reduce((acc, [key, val]) => acc.replace(`{${key}}`, val), message);
 };
 
 const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pending?: boolean }> = ({ validationResult, pending }) => {

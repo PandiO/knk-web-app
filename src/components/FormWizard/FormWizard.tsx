@@ -457,27 +457,6 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const currentStep = config?.steps[currentStepIndex];
     const orderedFields = getOrderedFields(currentStep);
 
-    const getFieldValueByIdMap = (): Record<number, unknown> => {
-        const map: Record<number, unknown> = {};
-        if (!config) return map;
-
-        config.steps.forEach((step, stepIndex) => {
-            const stepData = stepIndex === currentStepIndex ? currentStepData : allStepsData[stepIndex];
-            if (!stepData) return;
-
-            step.fields.forEach(field => {
-                if (!field.id) return;
-                if (field.fieldName in stepData) {
-                    map[Number(field.id)] = (stepData as Record<string, unknown>)[field.fieldName];
-                }
-            });
-        });
-
-        return map;
-    };
-
-    const fieldValueById = getFieldValueByIdMap();
-
     const computeStepKey = (step: FormStepDto, index: number): string => {
         const key = step.stepName?.trim();
         return key && key.length > 0 ? key : `step-${index + 1}`;
@@ -992,9 +971,6 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                     stepKey={stepKey}
                                     allowExisting={false}
                                     allowCreate={true}
-                                       fieldId={field.id ? Number(field.id) : undefined}
-                                       formContext={currentStepData}
-                                    formFieldValueById={fieldValueById}
                                     onTaskCompleted={(task: any, extractedValue: any) => {
                                         console.log('WorldTask completed:', task, 'Extracted value:', extractedValue);
                                         // Field value already updated via onChange callback

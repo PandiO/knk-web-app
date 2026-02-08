@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { worldTaskClient } from '../../apiClients/worldTaskClient';
-import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
-import { FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { WorldTaskReadDto } from '../../types/dtos/workflow/WorkflowDtos';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { CheckCircle, Copy, Check } from 'lucide-react';
@@ -16,9 +14,6 @@ interface WorldBoundFieldRendererProps {
     workflowSessionId: number;
     stepNumber?: number;
     stepKey?: string;
-    fieldId?: number;
-    formContext?: Record<string, unknown>;
-    formFieldValueById?: Record<number, unknown>;
     onTaskCompleted?: (task: WorldTaskReadDto, extractedValue: any) => void;
 }
 
@@ -90,28 +85,6 @@ function isLocationTask(taskType: string, actualTaskType?: string): boolean {
     return types.some(t => t.includes('location') || t.includes('capture'));
 }
 
-/**
- * Format a field value for display in the UI
- * Converts location objects to readable string format
- */
-function formatValueForDisplay(value: any): string {
-    if (!value) return '';
-    
-    // Check if it's a location object
-    if (typeof value === 'object' && 'x' in value && 'y' in value && 'z' in value) {
-        const loc = value as { x: number; y: number; z: number; worldName?: string; yaw?: number; pitch?: number };
-        return `${loc.worldName || 'world'} (${Math.round(loc.x)}, ${Math.round(loc.y)}, ${Math.round(loc.z)})`;
-    }
-    
-    // For other objects, attempt JSON stringification
-    if (typeof value === 'object') {
-        return JSON.stringify(value);
-    }
-    
-    // Primitive values: convert to string
-    return String(value);
-}
-
 export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = ({
     field,
     value,
@@ -123,9 +96,6 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     stepNumber,
     stepKey,
     onTaskCompleted,
-    fieldId,
-    formContext = {},
-    formFieldValueById = {},
 }) => {
     const [taskId, setTaskId] = useState<number | null>(null);
     const [task, setTask] = useState<WorldTaskReadDto | null>(null);
@@ -185,63 +155,9 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         return () => clearInterval(pollInterval);
     }, [taskId, extractionSucceeded, taskType, onChange, onTaskCompleted]);
 
-    const resolveDependencyFieldValue = (dependencyFieldId: number, context: Record<string, unknown>): unknown => {
-        if (dependencyFieldId in formFieldValueById) {
-            return formFieldValueById[dependencyFieldId];
-        }
-
-        const fieldEntry = Object.entries(context).find(([key, val]) => {
-            return typeof val === 'object' && val !== null && 'id' in val;
-        });
-
-        return fieldEntry ? fieldEntry[1] : null;
-    };
-
-    const loadValidationRules = async (): Promise<
-        Array<{
-            validationType: string;
-            configJson?: string | null;
-            errorMessage?: string | null;
-            isBlocking: boolean;
-            dependencyFieldValue?: unknown | null;
-        }>
-    > => {
-        if (!fieldId) return [];
-        try {
-            const rules = await fieldValidationRuleClient.getByFormFieldId(fieldId);
-            if (!rules || rules.length === 0) return [];
-
-            return rules.map((rule: FieldValidationRuleDto) => ({
-                validationType: rule.validationType,
-                configJson: rule.configJson,
-                errorMessage: rule.errorMessage,
-                isBlocking: rule.isBlocking,
-                dependencyFieldValue: rule.dependsOnFieldId
-                    ? resolveDependencyFieldValue(rule.dependsOnFieldId, formContext)
-                    : null
-            }));
-        } catch (error) {
-            console.warn('Failed to load validation rules, proceeding without validation:', error);
-            return [];
-        }
-    };
-
     const handleCreateInMinecraft = async () => {
         setIsLoading(true);
         try {
-            const validationRules = await loadValidationRules();
-            const payload: Record<string, unknown> = {
-                fieldName: field.fieldName,
-                currentValue: value ?? null
-            };
-
-            if (validationRules.length > 0) {
-                payload.validationContext = {
-                    validationRules,
-                    formContext
-                };
-            }
-
             // Create world task via API
             const created = await worldTaskClient.create({
                 workflowSessionId,
@@ -249,7 +165,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 stepKey: stepKey || field.formStepId || 'unknown',
                 fieldName: field.fieldName,
                 taskType: taskType,  // e.g., "WgRegionId"
-                inputJson: JSON.stringify(payload),
+                inputJson: JSON.stringify({ fieldName: field.fieldName, currentValue: value }),
             });
 
             setTask(created);  // Set full task object immediately (includes linkCode)
@@ -282,7 +198,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             {value && (
                 <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-md flex items-center justify-between">
                     <p className="text-sm font-medium text-green-800">
-                        ✓ {field.label}: <span className="font-mono text-green-900">{formatValueForDisplay(value)}</span>
+                        ✓ {field.label}: <span className="font-mono text-green-900">{value}</span>
                     </p>
                     {extractionSucceeded && (
                         <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded flex items-center gap-1">
