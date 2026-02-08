@@ -154,4 +154,58 @@ describe('ManyToManyRelationshipEditor', () => {
             )
         ).toBeInTheDocument();
     });
+
+    it('surfaces join entry actions when a linked configuration is present', async () => {
+        mockGetEntityMetadata.mockResolvedValue({
+            entityName: 'ItemBlueprintDefaultEnchantment',
+            displayName: 'Item Blueprint Default Enchantment',
+            fields: [
+                {
+                    fieldName: 'itemBlueprint',
+                    fieldType: 'ItemBlueprint',
+                    isNullable: false,
+                    isRelatedEntity: true,
+                    relatedEntityType: 'ItemBlueprint',
+                    hasDefaultValue: false,
+                    defaultValue: null
+                },
+                {
+                    fieldName: 'enchantmentDefinition',
+                    fieldType: 'EnchantmentDefinition',
+                    isNullable: false,
+                    isRelatedEntity: true,
+                    relatedEntityType: 'EnchantmentDefinition',
+                    hasDefaultValue: false,
+                    defaultValue: null
+                },
+                {
+                    fieldName: 'enchantmentDefinitionId',
+                    fieldType: 'int',
+                    isNullable: false,
+                    isRelatedEntity: false,
+                    relatedEntityType: null,
+                    hasDefaultValue: false,
+                    defaultValue: null
+                }
+            ]
+        });
+
+        const handleOpenJoinEntry = jest.fn();
+
+        render(
+            <ManyToManyRelationshipEditor
+                step={{ ...baseStep, subConfigurationId: 'config-1' }}
+                value={[{ relatedEntityId: 7, relatedEntity: { name: 'Enchantment A' } }]}
+                onChange={jest.fn()}
+                entityName="ItemBlueprint"
+                joinFormConfigurationId="config-1"
+                onOpenJoinEntry={handleOpenJoinEntry}
+            />
+        );
+
+        const buttons = await screen.findAllByRole('button', { name: 'Create Join Entry' });
+        fireEvent.click(buttons[0]);
+
+        expect(handleOpenJoinEntry).toHaveBeenCalledWith(0);
+    });
 });

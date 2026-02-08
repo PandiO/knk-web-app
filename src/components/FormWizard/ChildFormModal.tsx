@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FormConfigurationDto } from '../../types/dtos/forms/FormModels';
+import { FormConfigurationDto, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { FormWizard } from './FormWizard';
 import { FeedbackModal } from '../FeedbackModal';
@@ -7,11 +7,11 @@ import { FeedbackModal } from '../FeedbackModal';
 interface ChildFormModalProps {
     open: boolean;
     entityTypeName: string;
-    parentProgressId: string;
+    parentProgressId?: string;
     userId: string;
     fieldName: string;
     currentStepIndex: number;
-    onComplete: (data: any) => void;
+    onComplete: (data: any, progress?: FormSubmissionProgressDto) => void;
     onClose: () => void;
 }
 
@@ -67,8 +67,8 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
         loadDefaultConfig();
     }, [open, entityTypeName]);
 
-    const handleChildComplete = (data: any) => {
-        onComplete(data);
+    const handleChildComplete = (data: any, progress?: FormSubmissionProgressDto) => {
+        onComplete(data, progress);
         onClose();
     };
 

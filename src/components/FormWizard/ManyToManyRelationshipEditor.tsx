@@ -10,6 +10,8 @@ interface Props {
     value: Record<string, unknown>[]; // Array of join entity instances
     onChange: (value: Record<string, unknown>[]) => void;
     entityName: string; // Parent entity being edited
+    joinFormConfigurationId?: string;
+    onOpenJoinEntry?: (relationshipIndex: number) => void;
 }
 
 /**
@@ -27,7 +29,9 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     step,
     value = [],
     onChange,
-    entityName
+    entityName,
+    joinFormConfigurationId,
+    onOpenJoinEntry
 }) => {
     const [loading, setLoading] = useState(true);
     const [relatedEntityType, setRelatedEntityType] = useState<string>('');
@@ -144,6 +148,15 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     };
 
     const renderJoinEntityFields = (relationship: Record<string, unknown>, index: number) => {
+        const joinConfigId = joinFormConfigurationId ?? step.subConfigurationId;
+        if (joinConfigId) {
+            return (
+                <div className="text-xs text-gray-500 italic">
+                    Join entry fields are configured via the linked form. Use “Create Join Entry” to edit details.
+                </div>
+            );
+        }
+
         if (!step.childFormSteps || step.childFormSteps.length === 0) {
             return <p className="text-xs text-gray-500 italic">No editable fields configured</p>;
         }
@@ -198,6 +211,8 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         );
     }
 
+    const joinConfigId = joinFormConfigurationId ?? step.subConfigurationId;
+
     return (
         <div className="space-y-6">
             {/* Section 1: Selected Relationships (Cards) */}
@@ -229,6 +244,15 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                                             </p>
                                         )}
                                     </div>
+                                    {joinConfigId && onOpenJoinEntry && (
+                                        <button
+                                            onClick={() => onOpenJoinEntry(index)}
+                                            className="mr-2 text-xs font-medium text-primary hover:text-primary-dark"
+                                            type="button"
+                                        >
+                                            Create Join Entry
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => handleRemoveRelationship(index)}
                                         className="p-1 text-gray-400 hover:text-red-600 flex-shrink-0"
@@ -247,9 +271,21 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
 
             {/* Section 2: Entity Selection Table */}
             <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-sm font-medium text-gray-900 mb-3">
-                    Add Relationships
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-gray-900">
+                        Add Relationships
+                    </h3>
+                    {joinConfigId && onOpenJoinEntry && (
+                        <button
+                            type="button"
+                            className="text-xs font-medium text-primary hover:text-primary-dark disabled:text-gray-400"
+                            onClick={() => onOpenJoinEntry(value.length - 1)}
+                            disabled={value.length === 0}
+                        >
+                            Create Join Entry
+                        </button>
+                    )}
+                </div>
                 <PagedEntityTable
                     entityTypeName={relatedEntityType}
                     columns={[]} // Will use default columns from registry

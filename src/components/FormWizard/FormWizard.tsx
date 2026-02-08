@@ -15,6 +15,7 @@ import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { FeedbackModal } from '../FeedbackModal';
 import { ChildFormModal } from './ChildFormModal';
 import { ManyToManyRelationshipEditor } from './ManyToManyRelationshipEditor';
+import { JoinEntityFormModal } from './JoinEntityFormModal';
 import { workflowClient } from '../../apiClients/workflowClient';
 import { StepProgressReadDto } from '../../types/dtos/workflow/WorkflowDtos';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
@@ -94,6 +95,24 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         fieldName: ''
     });
 
+    type JoinEntryModalState = {
+        open: boolean;
+        stepIndex: number | null;
+        relationshipIndex: number | null;
+        joinEntityType: string;
+        joinConfigurationId: string;
+        parentProgressId?: string;
+        existingProgressId?: string;
+    };
+
+    const [joinEntryModal, setJoinEntryModal] = useState<JoinEntryModalState>({
+        open: false,
+        stepIndex: null,
+        relationshipIndex: null,
+        joinEntityType: '',
+        joinConfigurationId: ''
+    });
+
     const clearAutoClose = () => {
         if (autoCloseRef.current) {
             window.clearTimeout(autoCloseRef.current);
@@ -167,6 +186,65 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             normalized[idx] = normalizeStepData(step, stepsData?.[idx]);
         });
         return normalized;
+    };
+
+    const mergeChildProgressesIntoManyToManySteps = (
+        cfg: FormConfigurationDto,
+        stepsData: AllStepsData,
+        childProgresses: FormSubmissionProgressDto[]
+    ): AllStepsData => {
+        if (!childProgresses || childProgresses.length === 0) return stepsData;
+
+        const updated: AllStepsData = { ...stepsData };
+
+        cfg.steps.forEach((step, idx) => {
+            if (!step.isManyToManyRelationship || !step.joinEntityType) return;
+
+            const fieldName = step.relatedEntityPropertyName || 'relationships';
+            const existing = Array.isArray(updated[idx]?.[fieldName])
+                ? (updated[idx]![fieldName] as Array<Record<string, unknown>>)
+                : [];
+            const mergedRelationships = [...existing];
+
+            childProgresses
+                .filter(child => child.entityTypeName === step.joinEntityType)
+                .forEach(child => {
+                    const parsedCurrent = JSON.parse(child.currentStepDataJson || '{}') as Record<string, unknown>;
+                    const parsedAll = JSON.parse(child.allStepsDataJson || '{}') as Record<string, Record<string, unknown>>;
+                    const mergedChildData = Object.values(parsedAll).reduce(
+                        (acc, stepData) => ({ ...acc, ...stepData }),
+                        { ...parsedCurrent }
+                    );
+                    const relatedEntityId = mergedChildData.relatedEntityId as string | number | undefined;
+
+                    const existingIndex = mergedRelationships.findIndex(rel =>
+                        rel.__childProgressId === child.id ||
+                        (relatedEntityId !== undefined && rel.relatedEntityId === relatedEntityId)
+                    );
+
+                    const mergedRelationship: Record<string, unknown> = {
+                        ...mergedChildData,
+                        relatedEntityId,
+                        __childProgressId: child.id
+                    };
+
+                    if (existingIndex >= 0) {
+                        mergedRelationships[existingIndex] = {
+                            ...mergedRelationships[existingIndex],
+                            ...mergedRelationship
+                        };
+                    } else if (relatedEntityId !== undefined) {
+                        mergedRelationships.push(mergedRelationship);
+                    }
+                });
+
+            updated[idx] = {
+                ...updated[idx],
+                [fieldName]: mergedRelationships
+            };
+        });
+
+        return updated;
     };
 
     const flattenAllStepsData = (cfg: FormConfigurationDto, stepsData: AllStepsData): Record<string, unknown> => {
@@ -399,10 +477,20 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
                 const parsedCurrent = JSON.parse(progress.currentStepDataJson || '{}');
                 const parsedAll = JSON.parse(progress.allStepsDataJson || '{}');
+                const mergedAll = mergeChildProgressesIntoManyToManySteps(
+                    fetchedCfg,
+                    parsedAll,
+                    progress.childProgresses || []
+                );
 
                 // Ensure all fields present with null/defaults
-                setCurrentStepData(normalizeStepData(fetchedCfg.steps[progress.currentStepIndex], parsedCurrent));
-                setAllStepsData(normalizeAllStepsData(fetchedCfg, parsedAll));
+                setCurrentStepData(
+                    normalizeStepData(
+                        fetchedCfg.steps[progress.currentStepIndex],
+                        mergedAll[progress.currentStepIndex] || parsedCurrent
+                    )
+                );
+                setAllStepsData(normalizeAllStepsData(fetchedCfg, mergedAll));
 
                 // Load entity metadata for normalization
                 if (progress.entityTypeName) {
@@ -579,7 +667,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     };
 
     // added: handle child form completion and data insertion
-    const handleChildFormComplete = async (childData: Record<string, unknown>) => {
+    const handleChildFormComplete = async (childData: Record<string, unknown>, progress?: FormSubmissionProgressDto) => {
         const fieldName = childFormModal.fieldName;
 
         try {
@@ -595,7 +683,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             });
 
             // If this is a child form (has parentProgressId), save to childProgresses
-            if (parentProgressId && progressId && currentStepIndex !== undefined) {
+            if (!progress?.parentProgressId && parentProgressId && progressId && currentStepIndex !== undefined) {
                 // Save child progress to parent's childProgresses array
                 const childProgress: FormSubmissionProgressDto = {
                     id: undefined,
@@ -632,6 +720,116 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             console.error('Failed to complete child form:', error);
             logging.errorHandler.next('ErrorMessage.FormSubmission.ChildFormFailed');
         }
+    };
+
+    const updateManyToManyStepData = (stepIndex: number, fieldName: string, relationships: Array<Record<string, unknown>>) => {
+        const updatedAll: AllStepsData = {
+            ...allStepsData,
+            [stepIndex]: {
+                ...(allStepsData[stepIndex] || {}),
+                [fieldName]: relationships
+            }
+        };
+
+        if (stepIndex === currentStepIndex) {
+            setCurrentStepData(prev => ({
+                ...prev,
+                [fieldName]: relationships
+            }));
+        }
+
+        setAllStepsData(updatedAll);
+    };
+
+    const handleOpenJoinEntry = async (relationshipIndex: number) => {
+        if (!config || !currentStep?.isManyToManyRelationship) return;
+        if (!currentStep.joinEntityType || !currentStep.subConfigurationId) return;
+        if (relationshipIndex < 0) return;
+
+        let parentId = progressId;
+        if (!parentId) {
+            const saved = await saveProgress(FormSubmissionStatus.InProgress);
+            parentId = saved?.id;
+        }
+
+        if (!parentId) {
+            setError('Unable to create a draft for join entries. Please try again.');
+            return;
+        }
+
+        const fieldName = currentStep.relatedEntityPropertyName || 'relationships';
+        const relationships = (allStepsData[currentStepIndex]?.[fieldName] || currentStepData[fieldName] || []) as Array<Record<string, unknown>>;
+        const selectedRelationship = relationships[relationshipIndex];
+        if (!selectedRelationship) {
+            setError('Please select a related entity before creating a join entry.');
+            return;
+        }
+        const existingProgressId = selectedRelationship?.__childProgressId as string | undefined;
+
+        setJoinEntryModal({
+            open: true,
+            stepIndex: currentStepIndex,
+            relationshipIndex,
+            joinEntityType: currentStep.joinEntityType,
+            joinConfigurationId: currentStep.subConfigurationId,
+            parentProgressId: parentId,
+            existingProgressId
+        });
+    };
+
+    const handleCloseJoinEntryModal = () => {
+        setJoinEntryModal(prev => ({ ...prev, open: false }));
+    };
+
+    const handleJoinEntryComplete = async (joinData: Record<string, unknown>, progress?: FormSubmissionProgressDto) => {
+        if (!config || joinEntryModal.stepIndex === null || joinEntryModal.relationshipIndex === null) {
+            handleCloseJoinEntryModal();
+            return;
+        }
+
+        const step = config.steps[joinEntryModal.stepIndex];
+        const fieldName = step.relatedEntityPropertyName || 'relationships';
+        const relationships = (allStepsData[joinEntryModal.stepIndex]?.[fieldName] || currentStepData[fieldName] || []) as Array<Record<string, unknown>>;
+
+        const updatedRelationships = [...relationships];
+        const existingRelationship = updatedRelationships[joinEntryModal.relationshipIndex] || {};
+        const relatedEntityId = existingRelationship.relatedEntityId;
+        const relatedEntity = existingRelationship.relatedEntity;
+
+        const mergedRelationship: Record<string, unknown> = {
+            ...existingRelationship,
+            ...joinData,
+            relatedEntityId,
+            relatedEntity
+        };
+
+        if (progress?.id) {
+            mergedRelationship.__childProgressId = progress.id;
+        }
+
+        updatedRelationships[joinEntryModal.relationshipIndex] = mergedRelationship;
+        updateManyToManyStepData(joinEntryModal.stepIndex, fieldName, updatedRelationships);
+
+        if (progress?.id && joinEntryModal.parentProgressId && relatedEntityId !== undefined) {
+            try {
+                const parsedCurrent = JSON.parse(progress.currentStepDataJson || '{}') as Record<string, unknown>;
+                const parsedAll = JSON.parse(progress.allStepsDataJson || '{}') as Record<string, Record<string, unknown>>;
+                const updatedAll = Object.fromEntries(
+                    Object.entries(parsedAll).map(([key, value]) => [key, { ...value, relatedEntityId }])
+                );
+
+                await formSubmissionClient.update({
+                    ...progress,
+                    parentProgressId: joinEntryModal.parentProgressId,
+                    currentStepDataJson: JSON.stringify({ ...parsedCurrent, relatedEntityId }),
+                    allStepsDataJson: JSON.stringify(updatedAll)
+                });
+            } catch (error) {
+                console.error('Failed to update join entry progress:', error);
+            }
+        }
+
+        handleCloseJoinEntryModal();
     };
 
     const validateField = (field: FormFieldDto): string | null => {
@@ -706,13 +904,14 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 currentStepIndex,
                 currentStepDataJson: JSON.stringify(normalizeStepData(config!.steps[currentStepIndex], currentStepData)),
                 allStepsDataJson: JSON.stringify(mergedAllSteps),
+                parentProgressId: parentProgressId,
                 status: FormSubmissionStatus.InProgress,
                 updatedAt: new Date().toISOString(),
             };
         return progressData;
     };
 
-    const saveProgress = async (status: FormSubmissionStatus = FormSubmissionStatus.Paused) => {
+    const saveProgress = async (status: FormSubmissionStatus = FormSubmissionStatus.Paused): Promise<FormSubmissionProgressDto | null> => {
         try {
             setSaving(true);
             // changed: clear error before attempting save
@@ -724,11 +923,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             }
             progressData.status = status;
 
+            let savedProgress: FormSubmissionProgressDto;
             if (progressId) {
-                await formSubmissionClient.update(progressData);
+                savedProgress = await formSubmissionClient.update(progressData);
             } else {
-                const created = await formSubmissionClient.create(progressData);
-                setProgressId(created.id);
+                savedProgress = await formSubmissionClient.create(progressData);
+                setProgressId(savedProgress.id);
             }
             // Only surface modal feedback for explicit draft saves to avoid interrupting step navigation
             if (status === FormSubmissionStatus.Paused) {
@@ -744,8 +944,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 }, 3000);
             }
 
-            // changed: return true on success so caller knows save succeeded
-            return true;
+            return savedProgress;
         } catch (error: unknown) {
             console.error('Failed to save progress:', error);
             // changed: set user-friendly error message from API or fallback
@@ -767,8 +966,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 });
                 clearAutoClose();
             }
-            // changed: return false to indicate failure
-            return false;
+            return null;
         } finally {
             setSaving(false);
         }
@@ -999,6 +1197,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         value={currentStepData[currentStep.relatedEntityPropertyName || 'relationships'] || []}
                         onChange={(value) => handleFieldChange(currentStep.relatedEntityPropertyName || 'relationships', value)}
                         entityName={entityName}
+                        joinFormConfigurationId={currentStep.subConfigurationId}
+                        onOpenJoinEntry={handleOpenJoinEntry}
                     />
                 ) : (
                     /* Standard Field-Based Step */
@@ -1088,12 +1288,23 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             <ChildFormModal
                 open={childFormModal.open}
                 entityTypeName={childFormModal.entityTypeName}
-                parentProgressId={progressId || ''}
+                parentProgressId={progressId}
                 userId={userId}
                 fieldName={childFormModal.fieldName}
                 currentStepIndex={currentStepIndex}
                 onComplete={handleChildFormComplete}
                 onClose={handleCloseChildForm}
+            />
+
+            <JoinEntityFormModal
+                open={joinEntryModal.open}
+                entityTypeName={joinEntryModal.joinEntityType}
+                formConfigurationId={joinEntryModal.joinConfigurationId}
+                parentProgressId={joinEntryModal.parentProgressId}
+                userId={userId}
+                existingProgressId={joinEntryModal.existingProgressId}
+                onComplete={handleJoinEntryComplete}
+                onClose={handleCloseJoinEntryModal}
             />
         </div>
     );
