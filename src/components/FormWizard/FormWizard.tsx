@@ -19,6 +19,7 @@ import { workflowClient } from '../../apiClients/workflowClient';
 import { StepProgressReadDto } from '../../types/dtos/workflow/WorkflowDtos';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { buildPlaceholderContext } from '../../utils/placeholderExtraction';
 
 interface FormWizardProps {
     entityName: string;
@@ -64,6 +65,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const [validationRules, setValidationRules] = useState<Record<number, FieldValidationRuleDto[]>>({});
     const [validationResults, setValidationResults] = useState<Record<number, ValidationResultDto>>({});
     const [validationLoading, setValidationLoading] = useState<Record<number, boolean>>({});
+    const [preResolvedPlaceholders, setPreResolvedPlaceholders] = useState<Record<number, Record<string, string>>>({});
     const validationTimersRef = useRef<Record<number, number>>({});
 
     type SaveFeedbackState = {
@@ -283,6 +285,57 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         });
     };
 
+    /**
+     * Phase 5.2: Pre-resolve placeholders for WorldTask integration
+     * Fetches and resolves all placeholders from validation rules for the field
+     * Returns a dictionary of placeholder names to resolved values
+     */
+    const resolvePlaceholdersForField = async (
+        fieldId: number,
+        stepsData: AllStepsData
+    ): Promise<Record<string, string>> => {
+        const rules = validationRules[fieldId] || [];
+        if (rules.length === 0 || !config) {
+            return {};
+        }
+
+        const normalizedSteps = normalizeAllStepsData(config, stepsData);
+        const contextData = buildFormContextData(config, normalizedSteps);
+        const allPlaceholders: Record<string, string> = {};
+
+        // Build Layer 0 placeholders from form context
+        const layer0Placeholders = buildPlaceholderContext(config, normalizedSteps);
+        Object.assign(allPlaceholders, layer0Placeholders);
+
+        // For each validation rule, resolve placeholders if not already resolved
+        for (const rule of rules) {
+            try {
+                const response = await fieldValidationRuleClient.resolvePlaceholders({
+                    fieldValidationRuleId: rule.id,
+                    entityTypeName: entityName,
+                    entityId: entityId ? Number(entityId) : null,
+                    placeholderPaths: [], // Let backend extract from rule's messages
+                    currentEntityPlaceholders: layer0Placeholders
+                });
+
+                // Merge resolved placeholders
+                if (response.resolvedPlaceholders) {
+                    Object.assign(allPlaceholders, response.resolvedPlaceholders);
+                }
+
+                // Log any resolution errors for debugging
+                if (response.unresolvedPlaceholders && response.unresolvedPlaceholders.length > 0) {
+                    console.warn('Unresolved placeholders for rule', rule.id, ':', response.unresolvedPlaceholders);
+                }
+            } catch (error) {
+                console.error('Failed to resolve placeholders for rule', rule.id, ':', error);
+                // Fail-open: continue even if placeholder resolution fails
+            }
+        }
+
+        return allPlaceholders;
+    };
+
     const runValidationsForStep = async (step: FormStepDto, stepsData: AllStepsData, stepIndex: number) => {
         if (!config) return [] as Array<{ fieldId: number; result: ValidationResultDto }>;
         const targets = getOrderedFields(step)
@@ -499,6 +552,15 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             triggerFieldValidation(field, value, updatedAllData, true);
             if (field.id) {
                 revalidateDependents(Number(field.id), updatedAllData);
+                
+                // Phase 5.2: Pre-resolve placeholders for this field if it has world task enabled
+                const { enabled: worldTaskEnabled } = parseWorldTaskSettings(field.settingsJson);
+                if (worldTaskEnabled && field.id) {
+                    const fieldId = Number(field.id);
+                    void resolvePlaceholdersForField(fieldId, updatedAllData).then(placeholders => {
+                        setPreResolvedPlaceholders(prev => ({ ...prev, [fieldId]: placeholders }));
+                    });
+                }
             }
         }
     };
@@ -957,6 +1019,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
                         // If world task is enabled and we have a workflow session, use WorldBoundFieldRenderer
                         if (worldTaskEnabled && workflowSessionId != null && taskType) {
+                            // Phase 5.2: Pre-resolve placeholders for this field before rendering
+                            const fieldId = field.id ? Number(field.id) : null;
+                            const fieldPlaceholders = fieldId ? preResolvedPlaceholders[fieldId] : undefined;
+                            
                             // eslint-disable-next-line @typescript-eslint/no-var-requires
                             const WorldBoundFieldRenderer = require('../Workflow/WorldBoundFieldRenderer').WorldBoundFieldRenderer;
                             return (
@@ -969,6 +1035,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                     workflowSessionId={workflowSessionId}
                                     stepNumber={currentStepIndex}
                                     stepKey={stepKey}
+                                    preResolvedPlaceholders={fieldPlaceholders}
                                     allowExisting={false}
                                     allowCreate={true}
                                     onTaskCompleted={(task: any, extractedValue: any) => {

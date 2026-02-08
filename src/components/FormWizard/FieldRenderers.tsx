@@ -7,6 +7,7 @@ import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../confi
 import { HybridMaterialPicker } from '../minecraft/HybridMaterialPicker';
 import { HybridEnchantmentPicker } from '../minecraft/HybridEnchantmentPicker';
 import { ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { interpolatePlaceholders } from '../../utils/placeholderInterpolation';
 
 interface FieldRendererProps {
     field: FormFieldDto;
@@ -131,12 +132,6 @@ const parseHybridEnchantmentSettings = (settingsJson?: string): { categoryFilter
         console.warn('Failed to parse hybrid enchantment settingsJson', err);
         return {};
     }
-};
-
-const interpolatePlaceholders = (message?: string, placeholders?: { [key: string]: string }) => {
-    if (!message) return '';
-    if (!placeholders) return message;
-    return Object.entries(placeholders).reduce((acc, [key, val]) => acc.replace(`{${key}}`, val), message);
 };
 
 const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pending?: boolean }> = ({ validationResult, pending }) => {

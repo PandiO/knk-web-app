@@ -14,6 +14,7 @@ interface WorldBoundFieldRendererProps {
     workflowSessionId: number;
     stepNumber?: number;
     stepKey?: string;
+    preResolvedPlaceholders?: Record<string, string>; // Phase 5.2: Pre-resolved placeholders from validation rules
     onTaskCompleted?: (task: WorldTaskReadDto, extractedValue: any) => void;
 }
 
@@ -95,6 +96,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     workflowSessionId,
     stepNumber,
     stepKey,
+    preResolvedPlaceholders,
     onTaskCompleted,
 }) => {
     const [taskId, setTaskId] = useState<number | null>(null);
@@ -158,6 +160,18 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const handleCreateInMinecraft = async () => {
         setIsLoading(true);
         try {
+            // Phase 5.2: Build input JSON with pre-resolved placeholders
+            const inputData: any = {
+                fieldName: field.fieldName,
+                currentValue: value
+            };
+
+            // Include pre-resolved placeholders if available
+            if (preResolvedPlaceholders && Object.keys(preResolvedPlaceholders).length > 0) {
+                inputData.allPlaceholders = preResolvedPlaceholders;
+                console.log('WorldTask created with pre-resolved placeholders:', preResolvedPlaceholders);
+            }
+
             // Create world task via API
             const created = await worldTaskClient.create({
                 workflowSessionId,
@@ -165,7 +179,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 stepKey: stepKey || field.formStepId || 'unknown',
                 fieldName: field.fieldName,
                 taskType: taskType,  // e.g., "WgRegionId"
-                inputJson: JSON.stringify({ fieldName: field.fieldName, currentValue: value }),
+                inputJson: JSON.stringify(inputData),
             });
 
             setTask(created);  // Set full task object immediately (includes linkCode)
