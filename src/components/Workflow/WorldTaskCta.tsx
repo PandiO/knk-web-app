@@ -100,7 +100,7 @@ export const WorldTaskCta: React.FC<Props> = ({
               errorMessage: rule.errorMessage,
               isBlocking: rule.isBlocking,
               dependencyFieldValue: rule.dependsOnFieldId 
-                ? resolveDependencyFieldValue(rule.dependsOnFieldId, formContext)
+                ? resolveDependencyFieldValue(rule)
                 : null
             }));
 
@@ -134,15 +134,13 @@ export const WorldTaskCta: React.FC<Props> = ({
   };
 
   // Helper function to resolve dependency field value from form context
-  const resolveDependencyFieldValue = (dependencyFieldId: number, context: Record<string, unknown>): unknown => {
-    // In a real implementation, this would:
-    // 1. Find the field name by ID from the form configuration
-    // 2. Extract the value from context
-    // 3. If it's an entity reference, fetch the full entity
-    // For now, return the raw value from context
-    // TODO: Implement proper field ID -> field name resolution
-    const fieldEntry = Object.entries(context).find(([key, val]) => {
-      // Try to match by various patterns
+  const resolveDependencyFieldValue = (rule: FieldValidationRuleDto): unknown => {
+    if (!rule.dependsOnFieldId) {
+      return null;
+    }
+
+    // Fallback heuristic: find first object with an 'id' property
+    const fieldEntry = Object.entries(formContext).find(([key, val]) => {
       return typeof val === 'object' && val !== null && 'id' in val;
     });
     
