@@ -31,15 +31,27 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
 }) => {
     const [loading, setLoading] = useState(true);
     const [relatedEntityType, setRelatedEntityType] = useState<string>('');
+    const [relatedEntityIdField, setRelatedEntityIdField] = useState<string>('');
+    const [metadataError, setMetadataError] = useState<string>('');
+
+    const getRelatedEntityIdField = (relatedType: string, fieldNames: string[]): string | null => {
+        const expectedField = `${relatedType}Id`;
+        const match = fieldNames.find(name => name.toLowerCase() === expectedField.toLowerCase());
+        return match ?? null;
+    };
 
     const loadMetadata = React.useCallback(async () => {
         if (!step.joinEntityType) {
             setLoading(false);
+            setRelatedEntityType('');
+            setRelatedEntityIdField('');
+            setMetadataError('');
             return;
         }
 
         try {
             setLoading(true);
+            setMetadataError('');
             // Get metadata for the join entity to understand its fields
             const joinMetadata = await metadataClient.getEntityMetadata(step.joinEntityType);
 
@@ -49,10 +61,30 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                 f => f.isRelatedEntity && f.relatedEntityType !== entityName
             );
             if (relatedProp) {
-                setRelatedEntityType(relatedProp.relatedEntityType!);
+                const resolvedRelatedEntityType = relatedProp.relatedEntityType!;
+                setRelatedEntityType(resolvedRelatedEntityType);
+
+                const idFieldName = getRelatedEntityIdField(
+                    resolvedRelatedEntityType,
+                    joinMetadata.fields.map(field => field.fieldName)
+                );
+
+                if (!idFieldName) {
+                    setRelatedEntityIdField('');
+                    setMetadataError('Unable to resolve the join entity foreign key field from metadata. Please verify the join entity model and metadata.');
+                } else {
+                    setRelatedEntityIdField(idFieldName);
+                }
+            } else {
+                setRelatedEntityType('');
+                setRelatedEntityIdField('');
+                setMetadataError('Unable to resolve the related entity from join entity metadata. Please verify the join entity configuration.');
             }
         } catch (err) {
             console.error('Failed to load join entity metadata:', err);
+            setRelatedEntityType('');
+            setRelatedEntityIdField('');
+            setMetadataError('Failed to load join entity metadata. Please try again or contact support.');
         } finally {
             setLoading(false);
         }
@@ -63,12 +95,18 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     }, [loadMetadata]);
 
     const handleAddRelationship = (selectedEntities: Record<string, unknown>[]) => {
+        if (!relatedEntityIdField) {
+            setMetadataError('Join entity mapping is not configured. Please verify join entity metadata before adding relationships.');
+            return;
+        }
+
         // Create new join entity instances for each selected related entity
         const newRelationships = selectedEntities
             .filter(entity => !value.some(v => v.relatedEntityId === entity.id))
             .map(entity => ({
                 id: undefined, // New relationship
                 relatedEntityId: entity.id,
+                [relatedEntityIdField]: entity.id,
                 relatedEntity: entity, // Store for display
                 // Initialize join entity fields from child step defaults
                 ...getDefaultJoinEntityFields()
@@ -145,12 +183,17 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         );
     }
 
-    if (!step.joinEntityType || !relatedEntityType) {
+    if (!step.joinEntityType || !relatedEntityType || !relatedEntityIdField) {
         return (
             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
                 <p className="text-sm text-yellow-800">
                     Many-to-many relationship configuration is incomplete. Please configure the join entity type and related entity property.
                 </p>
+                {metadataError && (
+                    <p className="text-xs text-yellow-700 mt-2">
+                        {metadataError}
+                    </p>
+                )}
             </div>
         );
     }

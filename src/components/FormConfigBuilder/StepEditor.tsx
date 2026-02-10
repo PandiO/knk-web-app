@@ -653,6 +653,7 @@ export const StepEditor: React.FC<Props> = ({
                                 <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
                                     <p className="text-xs text-yellow-800">
                                         These child steps mirror the Display Config collection flow. Configure fields here to shape the join entity cards.
+                                        When a linked join-entity FormConfiguration is provided, it will take precedence and these child steps act as the fallback.
                                     </p>
                                 </div>
 
