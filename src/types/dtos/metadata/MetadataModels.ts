@@ -8,10 +8,19 @@ export interface FieldMetadataDto {
   defaultValue?: string | null;
 }
 
+export interface EntityPropertyDto {
+  name: string;
+  type?: string;
+  description?: string;
+  isRequired?: boolean;
+  isNavigable?: boolean;
+}
+
 export interface EntityMetadataDto {
   entityName: string;
   displayName: string;
   fields: FieldMetadataDto[];
+  properties?: EntityPropertyDto[];
 }
 
 /**
