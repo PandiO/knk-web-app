@@ -653,6 +653,7 @@ export const FormConfigBuilder: React.FC = () => {
                                 metadataFields={selectedEntityMeta?.fields ?? []}
                                 allConfigurationFields={allFieldsInConfiguration}
                                 onRulesChanged={handleRulesChanged}
+                                entityTypeName={config.entityTypeName}
                             />
                         ) : (
                             <div className="bg-white shadow-sm rounded-lg p-12 text-center text-gray-500">

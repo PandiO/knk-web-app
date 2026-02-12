@@ -17,6 +17,7 @@ interface Props {
     metadataFields?: FieldMetadataDto[];
     allFields?: FormFieldDto[];
     onRulesChanged?: () => void;
+    entityTypeName?: string;
 }
 
 export const FieldEditor: React.FC<Props> = ({
@@ -25,7 +26,8 @@ export const FieldEditor: React.FC<Props> = ({
     onCancel,
     metadataFields = [],
     allFields = [],
-    onRulesChanged
+    onRulesChanged,
+    entityTypeName
 }) => {
     const [field, setField] = useState<FormFieldDto>(initialField);
     const [collectionElementType, setCollectionElementType] = useState<FieldType>(
@@ -56,6 +58,10 @@ export const FieldEditor: React.FC<Props> = ({
     const [rulesError, setRulesError] = useState<string | null>(null);
     type RuleFeedbackState = { open: boolean; title: string; message: string; status: 'success' | 'error' | 'info' };
     const [ruleFeedback, setRuleFeedback] = useState<RuleFeedbackState>({ open: false, title: '', message: '', status: 'info' });
+
+    const entityMetadataMap = React.useMemo(() => {
+        return new Map(entityMetadata.map(meta => [meta.entityName, meta]));
+    }, [entityMetadata]);
 
     useEffect(() => {
         const loadMetadata = async () => {
@@ -296,6 +302,11 @@ export const FieldEditor: React.FC<Props> = ({
                                             Depends on: {resolveFieldLabel(rule.dependsOnFieldId)}
                                         </p>
                                     )}
+                                    {rule.dependencyPath && (
+                                        <p className="text-xs text-gray-600">
+                                            Path: {rule.dependencyPath}
+                                        </p>
+                                    )}
                                     <p className="text-xs text-gray-700">{rule.errorMessage}</p>
                                     {rule.successMessage && (
                                         <p className="text-xs text-green-700 flex items-center">
@@ -320,6 +331,8 @@ export const FieldEditor: React.FC<Props> = ({
                         <ValidationRuleBuilder
                             field={field}
                             availableFields={allFields}
+                            entityTypeName={entityTypeName || ''}
+                            entityMetadata={entityMetadataMap}
                             onSave={handleAddRule}
                             onCancel={() => setShowRuleBuilder(false)}
                         />

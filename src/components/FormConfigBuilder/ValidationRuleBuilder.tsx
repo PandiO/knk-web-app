@@ -1,11 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
-import { CreateFieldValidationRuleDto, FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { CreateFieldValidationRuleDto, FieldValidationRuleDto, PathValidationResult } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
+import { PathBuilder } from '../PathBuilder/PathBuilder';
 
 interface ValidationRuleBuilderProps {
     field: FormFieldDto;
     availableFields: FormFieldDto[];
+    entityTypeName: string;
+    entityMetadata: Map<string, EntityMetadataDto>;
     onSave: (rule: CreateFieldValidationRuleDto) => Promise<void> | void;
     onCancel: () => void;
     initialRule?: FieldValidationRuleDto;
@@ -38,12 +42,15 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
 }) => {
     const [validationType, setValidationType] = useState<string>(initialRule?.validationType || 'LocationInsideRegion');
     const [dependsOnFieldId, setDependsOnFieldId] = useState<number | ''>(initialRule?.dependsOnFieldId || '');
+    const [dependencyPath, setDependencyPath] = useState<string>(initialRule?.dependencyPath || '');
     const [configJson, setConfigJson] = useState<string>(initialRule?.configJson || '');
     const [errorMessage, setErrorMessage] = useState<string>(initialRule?.errorMessage || '');
     const [successMessage, setSuccessMessage] = useState<string>(initialRule?.successMessage || '');
     const [isBlocking, setIsBlocking] = useState<boolean>(initialRule?.isBlocking ?? true);
     const [requiresDependencyFilled, setRequiresDependencyFilled] = useState<boolean>(initialRule?.requiresDependencyFilled ?? false);
     const [jsonError, setJsonError] = useState<string | null>(null);
+    const [pathError, setPathError] = useState<string | null>(null);
+    const [pathValidationResult, setPathValidationResult] = useState<PathValidationResult | null>(null);
 
     const dependencyOptions = useMemo(() => {
         return availableFields.filter(f => f.id && f.id !== field.id);
@@ -59,6 +66,12 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
             setSuccessMessage(template.success ?? '');
         }
     }, [validationType, initialRule]);
+
+    useEffect(() => {
+        setDependencyPath(initialRule?.dependencyPath || '');
+        setPathValidationResult(null);
+        setPathError(null);
+    }, [initialRule]);
 
     const validateJson = (value: string): boolean => {
         try {
@@ -81,10 +94,21 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
             return;
         }
 
+        if (dependsOnFieldId !== '' && !dependencyPath) {
+            setPathError('Dependency path is required when a dependency field is selected.');
+            return;
+        }
+
+        if (pathValidationResult && !pathValidationResult.isValid) {
+            setPathError(pathValidationResult.error || 'Dependency path is invalid.');
+            return;
+        }
+
         const payload: CreateFieldValidationRuleDto = {
             formFieldId: parseInt(field.id, 10),
             validationType,
             dependsOnFieldId: dependsOnFieldId === '' ? undefined : Number(dependsOnFieldId),
+            dependencyPath: dependencyPath || undefined,
             configJson,
             errorMessage: errorMessage.trim(),
             successMessage: successMessage?.trim() || undefined,
@@ -104,6 +128,9 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
             </div>
         </div>
     );
+
+    const shouldDisablePathBuilder = !dependsOnFieldId || !entityTypeName;
+    const isPathMissing = dependsOnFieldId !== '' && !dependencyPath;
 
     return (
         <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
@@ -136,7 +163,13 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                     <label className="block text-sm font-medium text-gray-700 mb-1">Depends On Field</label>
                     <select
                         value={dependsOnFieldId}
-                        onChange={e => setDependsOnFieldId(e.target.value ? Number(e.target.value) : '')}
+                        onChange={e => {
+                            const next = e.target.value ? Number(e.target.value) : '';
+                            setDependsOnFieldId(next);
+                            setDependencyPath('');
+                            setPathValidationResult(null);
+                            setPathError(null);
+                        }}
                         className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                     >
                         <option value="">-- Select dependency field --</option>
@@ -148,6 +181,41 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                     </select>
                     <p className="mt-1 text-xs text-gray-500">Dependency must appear earlier in the form.</p>
                 </div>
+            </div>
+
+            <div className="space-y-2">
+                <PathBuilder
+                    initialPath={dependencyPath}
+                    entityTypeName={entityTypeName}
+                    entityMetadata={entityMetadata}
+                    onPathChange={(path) => {
+                        setDependencyPath(path);
+                        setPathError(null);
+                    }}
+                    onValidationStatusChange={(result) => {
+                        setPathValidationResult(result);
+                        setPathError(result.isValid ? null : (result.error || 'Dependency path is invalid.'));
+                    }}
+                    disabled={shouldDisablePathBuilder}
+                    label="Dependency Path"
+                    required={dependsOnFieldId !== ''}
+                    className="border border-gray-200 rounded-md p-3"
+                />
+                {shouldDisablePathBuilder && (
+                    <p className="text-xs text-gray-500">
+                        Select a dependency field before building a path.
+                    </p>
+                )}
+                {isPathMissing && !pathError && (
+                    <p className="text-xs text-gray-600">
+                        Select a valid dependency path before saving.
+                    </p>
+                )}
+                {pathError && (
+                    <p className="text-xs text-red-600 flex items-center">
+                        <AlertCircle className="h-4 w-4 mr-1" /> {pathError}
+                    </p>
+                )}
             </div>
 
             <div>
@@ -218,7 +286,7 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                 <button
                     onClick={handleSave}
                     className="btn-primary"
-                    disabled={!errorMessage.trim() || !validationType || !!jsonError}
+                    disabled={!errorMessage.trim() || !validationType || !!jsonError || !!pathError || isPathMissing}
                 >
                     {initialRule ? 'Save Rule' : 'Add Rule'}
                 </button>

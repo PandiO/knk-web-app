@@ -35,6 +35,7 @@ export interface CreateFieldValidationRuleDto {
 export interface UpdateFieldValidationRuleDto {
     validationType: string;
     dependsOnFieldId?: number;
+    dependencyPath?: string;
     configJson: string;
     errorMessage: string;
     successMessage?: string;

@@ -22,6 +22,7 @@ interface Props {
     metadataFields?: FieldMetadataDto[]; // added
     allConfigurationFields?: FormFieldDto[];
     onRulesChanged?: () => void;
+    entityTypeName?: string;
 }
 
 export const StepEditor: React.FC<Props> = ({
@@ -31,7 +32,8 @@ export const StepEditor: React.FC<Props> = ({
     onUpdate,
     metadataFields = [],
     allConfigurationFields,
-    onRulesChanged
+    onRulesChanged,
+    entityTypeName
 }) => {
     const [editingField, setEditingField] = useState<{ field: FormFieldDto; index: number } | null>(null);
     const [showFieldSelector, setShowFieldSelector] = useState(false);
@@ -852,6 +854,7 @@ export const StepEditor: React.FC<Props> = ({
                     metadataFields={metadataFields} // added
                     allFields={allConfigurationFields || step.fields}
                     onRulesChanged={onRulesChanged}
+                    entityTypeName={entityTypeName}
                 />
             )}
 
@@ -863,6 +866,7 @@ export const StepEditor: React.FC<Props> = ({
                     metadataFields={joinEntityFields.length > 0 ? joinEntityFields : metadataFields}
                     allFields={allConfigurationFields || step.fields}
                     onRulesChanged={onRulesChanged}
+                    entityTypeName={entityTypeName}
                 />
             )}
 

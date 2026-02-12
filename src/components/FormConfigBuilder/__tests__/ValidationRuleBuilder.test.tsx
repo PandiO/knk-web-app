@@ -1,11 +1,12 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { ValidationRuleBuilder } from '../ValidationRuleBuilder';
-import { FieldValidationRuleDto, CreateFieldValidationRuleDto } from '../../../types/dtos/forms/FieldValidationRuleDtos';
+import { FieldValidationRuleDto } from '../../../types/dtos/forms/FieldValidationRuleDtos';
 import { FormFieldDto } from '../../../types/dtos/forms/FormModels';
 import { FieldType } from '../../../utils/enums';
+import { EntityMetadataDto } from '../../../types/dtos/metadata/MetadataModels';
 
 describe('ValidationRuleBuilder', () => {
   const mockFormFields: FormFieldDto[] = [
@@ -18,6 +19,10 @@ describe('ValidationRuleBuilder', () => {
   const mockOnCancel = jest.fn();
   const mockField = mockFormFields[0];
   const mockAvailableFields = mockFormFields.slice(1);
+  const mockEntityMetadata: EntityMetadataDto[] = [
+    { entityName: 'Town', displayName: 'Town', fields: [] }
+  ];
+  const mockEntityMetadataMap = new Map(mockEntityMetadata.map(meta => [meta.entityName, meta]));
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -29,6 +34,8 @@ describe('ValidationRuleBuilder', () => {
         <ValidationRuleBuilder
           field={mockField}
           availableFields={mockAvailableFields}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
           onSave={mockOnSave}
           onCancel={mockOnCancel}
         />
@@ -43,13 +50,15 @@ describe('ValidationRuleBuilder', () => {
         <ValidationRuleBuilder
           field={mockField}
           availableFields={mockAvailableFields}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
           onSave={mockOnSave}
           onCancel={mockOnCancel}
         />
       );
 
-      const typeSelect = screen.queryByRole('combobox') || screen.queryByRole('select');
-      expect(document.body).toBeInTheDocument();
+      const selects = screen.getAllByRole('combobox');
+      expect(selects.length).toBeGreaterThan(0);
     });
 
     it('renders Cancel button', () => {
@@ -57,6 +66,8 @@ describe('ValidationRuleBuilder', () => {
         <ValidationRuleBuilder
           field={mockField}
           availableFields={mockAvailableFields}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
           onSave={mockOnSave}
           onCancel={mockOnCancel}
         />
@@ -74,6 +85,8 @@ describe('ValidationRuleBuilder', () => {
         <ValidationRuleBuilder
           field={mockField}
           availableFields={mockAvailableFields}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
           onSave={mockOnSave}
           onCancel={mockOnCancel}
         />
@@ -93,6 +106,8 @@ describe('ValidationRuleBuilder', () => {
         <ValidationRuleBuilder
           field={mockField}
           availableFields={mockAvailableFields}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
           onSave={mockOnSave}
           onCancel={mockOnCancel}
         />
@@ -144,21 +159,24 @@ describe('ValidationRuleBuilder', () => {
     it('populates form with existing rule data', () => {
       const existingRule: FieldValidationRuleDto = {
         id: 1,
-        fieldId: mockField.id,
+        formFieldId: mockField.id,
         validationType: 'LocationInsideRegion',
         dependsOnFieldId: 2,
+        dependencyPath: undefined,
         configJson: '{}',
         errorMessage: 'Invalid location',
         successMessage: 'Valid location',
         isBlocking: true,
-        formConfigurationId: 1,
-        requiresDependencyFilled: false
+        requiresDependencyFilled: false,
+        createdAt: '2026-02-12T00:00:00Z'
       };
 
       render(
         <ValidationRuleBuilder
           field={mockField}
           availableFields={mockAvailableFields}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
           onSave={mockOnSave}
           onCancel={mockOnCancel}
           initialRule={existingRule}
