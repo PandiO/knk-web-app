@@ -3,8 +3,13 @@ import { logging } from "../utils";
 import { ObjectManager } from "./objectManager";
 import {
     CreateFieldValidationRuleDto,
+    DependencyResolutionRequest,
+    DependencyResolutionResponse,
+    EntityPropertySuggestion,
     FieldValidationRuleDto,
+    PathValidationResult,
     UpdateFieldValidationRuleDto,
+    ValidatePathRequest,
     ValidateFieldRequestDto,
     ValidationResultDto,
     ValidationIssueDto
@@ -19,6 +24,9 @@ export enum FieldValidationRuleOperation {
     GetByField = "by-field/",
     GetByConfiguration = "by-configuration/",
     Validate = "validate",
+    ResolveDependencies = "resolve-dependencies",
+    ValidatePath = "validate-path",
+    EntityProperties = "entity/",
     ResolvePlaceholders = "resolve-placeholders",
     HealthCheckConfiguration = "health-check/configuration/",
     HealthCheckDraft = "health-check/configuration/draft"
@@ -61,6 +69,20 @@ export class FieldValidationRuleClient extends ObjectManager {
 
     validateField(request: ValidateFieldRequestDto): Promise<ValidationResultDto> {
         return this.invokeServiceCall(request, FieldValidationRuleOperation.Validate, Controllers.FieldValidationRules, HttpMethod.Post);
+    }
+
+    resolveDependencies(request: DependencyResolutionRequest): Promise<DependencyResolutionResponse> {
+        return this.invokeServiceCall(request, FieldValidationRuleOperation.ResolveDependencies, Controllers.FieldValidationRules, HttpMethod.Post);
+    }
+
+    validatePath(path: string, entityTypeName: string): Promise<PathValidationResult> {
+        const payload: ValidatePathRequest = { path, entityTypeName };
+        return this.invokeServiceCall(payload, FieldValidationRuleOperation.ValidatePath, Controllers.FieldValidationRules, HttpMethod.Post);
+    }
+
+    getEntityProperties(entityTypeName: string): Promise<EntityPropertySuggestion[]> {
+        const encoded = encodeURIComponent(entityTypeName);
+        return this.invokeServiceCall(null, `${FieldValidationRuleOperation.EntityProperties}${encoded}/properties`, Controllers.FieldValidationRules, HttpMethod.Get);
     }
 
     resolvePlaceholders(request: PlaceholderResolutionRequest): Promise<PlaceholderResolutionResponse> {

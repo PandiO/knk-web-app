@@ -9,6 +9,7 @@ export interface FieldValidationRuleDto {
     formFieldId: number;
     validationType: string;
     dependsOnFieldId?: number;
+    dependencyPath?: string;
     configJson: string;
     errorMessage: string;
     successMessage?: string;
@@ -23,6 +24,7 @@ export interface CreateFieldValidationRuleDto {
     formFieldId: number;
     validationType: string;
     dependsOnFieldId?: number;
+    dependencyPath?: string;
     configJson: string;
     errorMessage: string;
     successMessage?: string;
@@ -68,4 +70,45 @@ export interface ValidationIssueDto {
     message: string;
     fieldId?: number;
     ruleId?: number;
+}
+
+export interface DependencyResolutionRequest {
+    fieldIds: number[];
+    formContextSnapshot: Record<string, any>;
+    formConfigurationId?: number;
+}
+
+export interface ResolvedDependency {
+    ruleId: number;
+    status: 'success' | 'pending' | 'error';
+    resolvedValue?: any;
+    dependencyPath: string;
+    resolvedAt: string;
+    message?: string;
+    errorDetail?: string;
+}
+
+export interface DependencyResolutionResponse {
+    resolved: Record<number, ResolvedDependency>;
+    resolvedAt: string;
+    issues?: ValidationIssueDto[];
+}
+
+export interface ValidatePathRequest {
+    path: string;
+    entityTypeName: string;
+}
+
+export interface PathValidationResult {
+    isValid: boolean;
+    error?: string;
+    detailedError?: string;
+}
+
+export interface EntityPropertySuggestion {
+    propertyName: string;
+    propertyType?: string;
+    isRequired?: boolean;
+    isNavigable?: boolean;
+    description?: string;
 }
