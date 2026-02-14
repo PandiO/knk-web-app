@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { worldTaskClient } from '../../apiClients/worldTaskClient';
 import { WorldTaskReadDto } from '../../types/dtos/workflow/WorkflowDtos';
-import { FormFieldDto } from '../../types/dtos/forms/FormModels';
+import { FormFieldDto, FormConfigurationDto } from '../../types/dtos/forms/FormModels';
 import { CheckCircle, Copy, Check } from 'lucide-react';
+import { useEnrichedFormContext } from '../../hooks/useEnrichedFormContext';
 
 interface WorldBoundFieldRendererProps {
     field: FormFieldDto;
@@ -15,6 +16,7 @@ interface WorldBoundFieldRendererProps {
     stepNumber?: number;
     stepKey?: string;
     preResolvedPlaceholders?: Record<string, string>; // Phase 5.2: Pre-resolved placeholders from validation rules
+    formConfiguration?: FormConfigurationDto; // Phase 7: Form configuration for dependency resolution context
     onTaskCompleted?: (task: WorldTaskReadDto, extractedValue: any) => void;
 }
 
@@ -97,6 +99,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     stepNumber,
     stepKey,
     preResolvedPlaceholders,
+    formConfiguration,
     onTaskCompleted,
 }) => {
     const [taskId, setTaskId] = useState<number | null>(null);
@@ -105,6 +108,9 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const [extractionSucceeded, setExtractionSucceeded] = useState(false);
     const [extractionError, setExtractionError] = useState<string | null>(null);
     const [copiedCodeId, setCopiedCodeId] = useState<number | null>(null);
+
+    // Phase 7: Use enriched form context for dependency resolution
+    const formContext = formConfiguration ? useEnrichedFormContext(formConfiguration) : null;
 
     // Poll task status when taskId is set
     useEffect(() => {
@@ -161,6 +167,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         setIsLoading(true);
         try {
             // Phase 5.2: Build input JSON with pre-resolved placeholders
+            // Phase 7: Include enriched form context with resolved dependencies
             const inputData: any = {
                 fieldName: field.fieldName,
                 currentValue: value
@@ -170,6 +177,19 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             if (preResolvedPlaceholders && Object.keys(preResolvedPlaceholders).length > 0) {
                 inputData.allPlaceholders = preResolvedPlaceholders;
                 console.log('WorldTask created with pre-resolved placeholders:', preResolvedPlaceholders);
+            }
+
+            // Phase 7: Include enriched validation context if form configuration is available
+            if (formContext) {
+                const validationContext = {
+                    formContextValues: formContext.values,
+                    resolvedDependencies: Array.from(formContext.resolvedDependencies.values()),
+                    entityMetadata: Array.from(formContext.entityMetadata.values()),
+                    isLoading: formContext.isLoading,
+                    error: formContext.error
+                };
+                inputData.validationContext = validationContext;
+                console.log('WorldTask created with enriched validation context:', validationContext);
             }
 
             // Create world task via API

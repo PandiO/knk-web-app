@@ -1023,7 +1023,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                             const fieldId = field.id ? Number(field.id) : null;
                             const fieldPlaceholders = fieldId ? preResolvedPlaceholders[fieldId] : undefined;
                             
-                            // eslint-disable-next-line @typescript-eslint/no-var-requires
+                    // eslint-disable-next-line @typescript-eslint/no-var-requires
                             const WorldBoundFieldRenderer = require('../Workflow/WorldBoundFieldRenderer').WorldBoundFieldRenderer;
                             return (
                                 <WorldBoundFieldRenderer
@@ -1037,6 +1037,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                     stepKey={stepKey}
                                     fieldId={fieldId || undefined}
                                     formContext={currentStepData}
+                                    formConfiguration={config} // Phase 7: Pass form configuration for dependency resolution
                                     preResolvedPlaceholders={fieldPlaceholders}
                                     allowExisting={false}
                                     allowCreate={true}
