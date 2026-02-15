@@ -98,88 +98,60 @@ describe('ConfigurationHealthPanel', () => {
       expect(mockValidate).toHaveBeenCalledTimes(2);
     });
   });
-});
-      const user = userEvent.setup();
-      const mockValidate = jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
-        .mockRejectedValueOnce(new Error('API Error'))
-        .mockResolvedValueOnce(mockNoIssues);
 
-      render(<ConfigurationHealthPanel configurationId="1" />);
+  it('shows error then refreshes successfully', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
+      .mockRejectedValueOnce(new Error('API Error'))
+      .mockResolvedValueOnce(mockNoIssues);
 
-      await waitFor(() => {
-        expect(screen.getByText(/Error loading health check/i)).toBeInTheDocument();
-      });
+    render(<ConfigurationHealthPanel configurationId="1" />);
 
-      const retryButton = screen.getByRole('button', { name: /retry/i });
-      await user.click(retryButton);
+    await waitFor(() => {
+      expect(screen.getByText(/API Error/i)).toBeInTheDocument();
+    });
 
-      await waitFor(() => {
-        expect(screen.getByText(/Configuration is valid/i)).toBeInTheDocument();
-      });
+    const refreshButton = screen.getByRole('button', { name: /refresh/i });
+    await user.click(refreshButton);
 
-      mockValidate.mockRestore();
+    await waitFor(() => {
+      expect(screen.getByText(/Configuration is healthy/i)).toBeInTheDocument();
     });
   });
 
-  describe('Expandable Issue Details', () => {
-    it('expands issue details when clicked', async () => {
-      const user = userEvent.setup();
-      jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
-        .mockResolvedValue(mockIssuesWithErrors);
+  it('expands issue details when clicked', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
+      .mockResolvedValue(mockIssues);
 
-      render(<ConfigurationHealthPanel configurationId="1" />);
+    render(<ConfigurationHealthPanel configurationId="1" />);
 
-      await waitFor(() => {
-        const issueItems = screen.getAllByTestId('issue-item');
-        expect(issueItems.length).toBeGreaterThan(0);
-      });
-
-      const firstIssue = screen.getAllByTestId('issue-item')[0];
-      await user.click(firstIssue);
-
-      expect(firstIssue).toHaveClass('expanded');
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /details/i }).length).toBeGreaterThan(0);
     });
 
-    it('shows linked field and rule on expansion', async () => {
-      const user = userEvent.setup();
-      jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
-        .mockResolvedValue(mockIssuesWithErrors);
+    const detailsButton = screen.getAllByRole('button', { name: /details/i })[0];
+    await user.click(detailsButton);
 
-      render(<ConfigurationHealthPanel configurationId="1" />);
-
-      await waitFor(() => {
-        const issueItems = screen.getAllByTestId('issue-item');
-        expect(issueItems.length).toBeGreaterThan(0);
-      });
-
-      const firstIssue = screen.getAllByTestId('issue-item')[0];
-      await user.click(firstIssue);
-
-      expect(screen.getByText(/Jump to Field/i)).toBeInTheDocument();
-      if (mockIssuesWithErrors[0].ruleId) {
-        expect(screen.getByText(/Jump to Rule/i)).toBeInTheDocument();
-      }
-    });
+    expect(screen.getByText(/Field ID: 2/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rule ID: 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/Severity: Error/i)).toBeInTheDocument();
   });
 
-  describe('Auto-refresh on Configuration Change', () => {
-    it('automatically refreshes when configurationId changes', async () => {
-      const mockValidate = jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
-        .mockResolvedValue(mockNoIssues);
+  it('automatically refreshes when configurationId changes', async () => {
+    const mockValidate = jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
+      .mockResolvedValue(mockNoIssues);
 
-      const { rerender } = render(<ConfigurationHealthPanel configurationId="1" />);
+    const { rerender } = render(<ConfigurationHealthPanel configurationId="1" />);
 
-      await waitFor(() => {
-        expect(mockValidate).toHaveBeenCalledWith(1);
-      });
+    await waitFor(() => {
+      expect(mockValidate).toHaveBeenCalledWith(1);
+    });
 
-      rerender(<ConfigurationHealthPanel configurationId="2" />);
+    rerender(<ConfigurationHealthPanel configurationId="2" />);
 
-      await waitFor(() => {
-        expect(mockValidate).toHaveBeenCalledWith(2);
-      });
-
-      mockValidate.mockRestore();
+    await waitFor(() => {
+      expect(mockValidate).toHaveBeenCalledWith(2);
     });
   });
 });

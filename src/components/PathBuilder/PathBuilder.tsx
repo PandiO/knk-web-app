@@ -50,6 +50,7 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastNotifiedPath, setLastNotifiedPath] = useState<string>('');
 
   const logger = useMemo(() => logging.getLogger('PathBuilder'), []);
 
@@ -75,12 +76,34 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
         setIsLoadingSuggestions(true);
         setError(null);
         const props = await fieldValidationRuleClient.getEntityProperties(selectedEntity);
-        setSuggestions(props);
+        
+        // Debug: Log raw response with details
         logger.debug(`Loaded ${props.length} properties for entity ${selectedEntity}`);
+        console.log('Raw property suggestions from API:', props);
+        console.log('Selected Entity:', selectedEntity);
+        console.log('Disabled prop:', disabled);
+        
+        // Log first property to see structure
+        if (props && props.length > 0) {
+          console.log('First property structure:', props[0]);
+          console.log('Property keys:', Object.keys(props[0]));
+        }
+        
+        // Set all suggestions - don't filter aggressively
+        // The API should return valid data
+        setSuggestions(props || []);
+        
+        if (!props || props.length === 0) {
+          logger.warn(`No properties returned for entity ${selectedEntity}`);
+          console.warn('Property dropdown will be DISABLED because suggestions.length === 0');
+        } else {
+          console.log(`Property dropdown should be ${disabled ? 'DISABLED (parent disabled)' : 'ENABLED'} with ${props.length} options`);
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load properties';
         setError(`Failed to load properties: ${message}`);
         logger.error(`Error loading properties for ${selectedEntity}: ${message}`);
+        console.error('Property loading error:', err);
         setSuggestions([]);
       } finally {
         setIsLoadingSuggestions(false);
@@ -99,19 +122,31 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
         return;
       }
 
-      const path = `${selectedEntity}.${selectedProperty}`;
+      // Build path: if selectedEntity matches the form's entityTypeName, it's a self-reference
+      // Use just the property name. Otherwise, use Entity.Property format.
+      const isSelfReference = selectedEntity === entityTypeName;
+      const path = isSelfReference ? selectedProperty : `${selectedEntity}.${selectedProperty}`;
+      
+      console.log(`Validating path: "${path}" (entityTypeName: "${entityTypeName}", selectedEntity: "${selectedEntity}", isSelfReference: ${isSelfReference})`);
 
       try {
         setIsValidating(true);
         setError(null);
         const result = await fieldValidationRuleClient.validatePath(path, entityTypeName);
         
-        setValidationStatus(result.isValid ? 'success' : 'error');
+        // Handle both camelCase and PascalCase from backend
+        const isValid = (result as any).isValid ?? (result as any).IsValid ?? false;
+        const errorMsg = (result as any).error || (result as any).ErrorMessage;
+        
+        setValidationStatus(isValid ? 'success' : 'error');
         setValidationResult(result);
         onValidationStatusChange?.(result);
         
-        if (!result.isValid) {
-          logger.warn(`Invalid path: ${path}. Reason: ${result.error}`);
+        if (!isValid) {
+          logger.warn(`Invalid path: ${path}. Reason: ${errorMsg}`);
+          console.warn('Path validation failed:', result);
+        } else {
+          console.log('✓ Path validation succeeded:', path);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Validation failed';
@@ -128,14 +163,24 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
     }, 300); // Debounce validation
 
     return () => clearTimeout(debounceTimer);
-  }, [selectedEntity, selectedProperty, entityTypeName, onValidationStatusChange, logger]);
+  }, [selectedEntity, selectedProperty, entityTypeName, logger]);
 
   // Notify parent when path changes
   useEffect(() => {
     if (selectedEntity && selectedProperty && validationStatus === 'success') {
-      onPathChange(`${selectedEntity}.${selectedProperty}`);
+      // Build path: if selectedEntity matches the form's entityTypeName, it's a self-reference
+      const isSelfReference = selectedEntity === entityTypeName;
+      const path = isSelfReference ? selectedProperty : `${selectedEntity}.${selectedProperty}`;
+      
+      // Only notify if the path actually changed to prevent infinite loops
+      if (path !== lastNotifiedPath) {
+        console.log(`Notifying parent of path change: "${path}"`);
+        setLastNotifiedPath(path);
+        onPathChange(path);
+      }
     }
-  }, [selectedEntity, selectedProperty, validationStatus, onPathChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEntity, selectedProperty, validationStatus, entityTypeName]);
 
   const handleEntityChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
@@ -147,7 +192,11 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
     setSelectedProperty(e.target.value);
   }, []);
 
-  const currentPath = selectedEntity && selectedProperty ? `${selectedEntity}.${selectedProperty}` : '';
+  // Build display path
+  const isSelfReference = selectedEntity === entityTypeName;
+  const currentPath = selectedEntity && selectedProperty 
+    ? (isSelfReference ? selectedProperty : `${selectedEntity}.${selectedProperty}`)
+    : '';
 
   // Responsive classes
   const containerClass = `space-y-4 ${className}`;
@@ -183,8 +232,8 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
             <option value="">Select a dependency field...</option>
             {Array.from(entityMetadata.values())
               .sort((a, b) => (a.displayName || a.entityName).localeCompare(b.displayName || b.entityName))
-              .map((entity) => (
-                <option key={entity.entityName} value={entity.entityName}>
+              .map((entity, index) => (
+                <option key={`${entity.entityName}-${index}`} value={entity.entityName}>
                   {entity.displayName || entity.entityName}
                 </option>
               ))}
@@ -212,21 +261,35 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
                   value={selectedProperty}
                   onChange={handlePropertyChange}
                   disabled={disabled || suggestions.length === 0}
-                  className={disabled ? dropdownDisabledClass : dropdownNormalClass}
+                  className={disabled || suggestions.length === 0 ? dropdownDisabledClass : dropdownNormalClass}
                   aria-label="Select property"
+                  style={{ zIndex: 10, position: 'relative', pointerEvents: 'auto' }}
                 >
                   <option value="">Select a property...</option>
-                  {suggestions.map((suggestion) => (
-                    <option key={suggestion.propertyName} value={suggestion.propertyName} title={suggestion.description}>
-                      {suggestion.propertyName}
-                      {suggestion.propertyType && ` (${suggestion.propertyType})`}
-                    </option>
-                  ))}
+                  {suggestions.map((suggestion, index) => {
+                    // Handle both camelCase (propertyName) and PascalCase (PropertyName) from backend
+                    const propName = (suggestion as any).propertyName || (suggestion as any).PropertyName || `property_${index}`;
+                    const propType = (suggestion as any).propertyType || (suggestion as any).PropertyType || '';
+                    const propDesc = (suggestion as any).description || (suggestion as any).Description || '';
+                    return (
+                      <option 
+                        key={`${propName}-${index}`} 
+                        value={propName} 
+                        title={propDesc || undefined}
+                      >
+                        {propName}
+                        {propType && ` (${propType})`}
+                      </option>
+                    );
+                  })}
                 </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" style={{ zIndex: 5 }} />
               </>
             )}
           </div>
+          {suggestions.length === 0 && !isLoadingSuggestions && selectedEntity && (
+            <p className="text-xs text-yellow-600">No properties available for this entity. This may indicate a backend configuration issue.</p>
+          )}
           {suggestions.length === 0 && !isLoadingSuggestions && selectedEntity && error && (
             <p className="text-xs text-red-600">{error}</p>
           )}
@@ -248,6 +311,16 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
               <p className="font-mono text-sm font-semibold text-gray-900 break-all">
                 {currentPath}
               </p>
+              {isSelfReference && validationStatus === 'success' && (
+                <p className="text-xs text-blue-600 mt-1">
+                  ℹ️ Same-entity reference: refers to the <strong>{entityTypeName}</strong> property on the same form entity
+                </p>
+              )}
+              {!isSelfReference && validationStatus === 'success' && (
+                <p className="text-xs text-blue-600 mt-1">
+                  ℹ️ Cross-entity reference: refers to the related <strong>{selectedEntity}</strong> entity
+                </p>
+              )}
               {validationResult?.detailedError && (
                 <p className="text-xs text-gray-600 mt-2 leading-relaxed">
                   {validationResult.detailedError}

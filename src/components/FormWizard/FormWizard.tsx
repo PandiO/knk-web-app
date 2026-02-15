@@ -300,7 +300,6 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         }
 
         const normalizedSteps = normalizeAllStepsData(config, stepsData);
-        const contextData = buildFormContextData(config, normalizedSteps);
         const allPlaceholders: Record<string, string> = {};
 
         // Build Layer 0 placeholders from form context

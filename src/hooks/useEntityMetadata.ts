@@ -1,9 +1,7 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { metadataClient } from '../apiClients/metadataClient';
 import { entityTypeConfigurationClient } from '../apiClients/entityTypeConfigurationClient';
-import { EntityMetadataDto, MergedEntityMetadata, EntityTypeConfigurationDto, FieldMetadataDto } from '../types/dtos/metadata/MetadataModels';
-import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../types/dtos/forms/FormModels';
-import { FieldValidationRuleDto, DependencyResolutionRequest, DependencyResolutionResponse, ResolvedDependency } from '../types/dtos/forms/FieldValidationRuleDtos';
+import { EntityMetadataDto, MergedEntityMetadata, EntityTypeConfigurationDto } from '../types/dtos/metadata/MetadataModels';
 import { fieldValidationRuleClient } from '../apiClients/fieldValidationRuleClient';
 import { logging } from '../utils';
 
@@ -85,12 +83,9 @@ export function useEntityMetadata() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load metadata and configurations on mount
-  useEffect(() => {
-    loadMetadata();
-  }, []);
+  const logger = { info: console.log, error: console.error, warn: console.warn }; // Simple logger
 
-  const loadMetadata = async () => {
+  const loadMetadata = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -111,11 +106,15 @@ export function useEntityMetadata() {
       const errorMsg = err instanceof Error ? err.message : 'Failed to load metadata';
       setError(errorMsg);
       console.error('Failed to load entity metadata:', err);
-      logging.errorHandler.next('ErrorMessage.Metadata.LoadFailed');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Load metadata and configurations on mount
+  useEffect(() => {
+    void loadMetadata();
+  }, [loadMetadata]);
 
   /**
    * Get merged metadata for a specific entity by name.
@@ -138,9 +137,9 @@ export function useEntityMetadata() {
   /**
    * Refresh all metadata (useful when admin updates configuration)
    */
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     await loadMetadata();
-  };
+  }, [loadMetadata]);
 
   /**
    * Create a new entity type configuration
@@ -154,7 +153,6 @@ export function useEntityMetadata() {
       return created;
     } catch (err) {
       console.error('Failed to create entity configuration:', err);
-      logging.errorHandler.next('ErrorMessage.EntityConfiguration.CreateFailed');
       return null;
     }
   };
@@ -171,7 +169,6 @@ export function useEntityMetadata() {
       return updated;
     } catch (err) {
       console.error('Failed to update entity configuration:', err);
-      logging.errorHandler.next('ErrorMessage.EntityConfiguration.UpdateFailed');
       return null;
     }
   };
@@ -188,7 +185,6 @@ export function useEntityMetadata() {
       return true;
     } catch (err) {
       console.error('Failed to delete entity configuration:', err);
-      logging.errorHandler.next('ErrorMessage.EntityConfiguration.DeleteFailed');
       return false;
     }
   };

@@ -101,15 +101,27 @@ export interface ValidatePathRequest {
 }
 
 export interface PathValidationResult {
-    isValid: boolean;
+    // Support both camelCase and PascalCase from backend
+    isValid?: boolean;
+    IsValid?: boolean;
     error?: string;
+    ErrorMessage?: string;
     detailedError?: string;
+    DetailedError?: string;
 }
 
 export interface EntityPropertySuggestion {
-    propertyName: string;
+    // Support both camelCase and PascalCase from backend
+    propertyName?: string;
+    PropertyName?: string;
     propertyType?: string;
+    PropertyType?: string;
     isRequired?: boolean;
-    isNavigable?: boolean;
+    IsRequired?: boolean;
+    isNavigationProperty?: boolean;
+    IsNavigationProperty?: boolean;
+    isCollection?: boolean;
+    IsCollection?: boolean;
     description?: string;
+    Description?: string;
 }

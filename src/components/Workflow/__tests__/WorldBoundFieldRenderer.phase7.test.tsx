@@ -115,6 +115,8 @@ describe('WorldBoundFieldRenderer - Phase 7 E2E Tests', () => {
 
         it('should handle missing formConfiguration gracefully (backward compatibility)', async () => {
             const onChange = jest.fn();
+
+            (useEnrichedFormContextModule.useEnrichedFormContext as jest.Mock).mockReturnValue(mockFormContextValue);
             
             const { container } = render(
                 <WorldBoundFieldRenderer
@@ -129,7 +131,7 @@ describe('WorldBoundFieldRenderer - Phase 7 E2E Tests', () => {
 
             // Component should still render without errors
             expect(container).toBeInTheDocument();
-            expect(useEnrichedFormContextModule.useEnrichedFormContext).not.toHaveBeenCalled();
+            expect(useEnrichedFormContextModule.useEnrichedFormContext).toHaveBeenCalled();
         });
     });
 

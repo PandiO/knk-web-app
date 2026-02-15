@@ -110,7 +110,8 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const [copiedCodeId, setCopiedCodeId] = useState<number | null>(null);
 
     // Phase 7: Use enriched form context for dependency resolution
-    const formContext = formConfiguration ? useEnrichedFormContext(formConfiguration) : null;
+    // NOTE: Hook must be called unconditionally per React rules
+    const formContext = useEnrichedFormContext(formConfiguration || {} as any);
 
     // Poll task status when taskId is set
     useEffect(() => {

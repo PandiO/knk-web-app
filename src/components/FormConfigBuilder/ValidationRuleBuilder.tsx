@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { CreateFieldValidationRuleDto, FieldValidationRuleDto, PathValidationResult } from '../../types/dtos/forms/FieldValidationRuleDtos';
@@ -36,6 +36,8 @@ const CONFIG_TEMPLATES: Record<string, { config: unknown; error: string; success
 export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
     field,
     availableFields,
+    entityTypeName,
+    entityMetadata,
     onSave,
     onCancel,
     initialRule
@@ -55,6 +57,19 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
     const dependencyOptions = useMemo(() => {
         return availableFields.filter(f => f.id && f.id !== field.id);
     }, [availableFields, field.id]);
+
+    const handlePathChange = useCallback((path: string) => {
+        setDependencyPath(path);
+        setPathError(null);
+    }, []);
+
+    const handleValidationStatusChange = useCallback((result: PathValidationResult) => {
+        setPathValidationResult(result);
+        // Handle both camelCase and PascalCase from backend
+        const isValid = (result as any).isValid ?? (result as any).IsValid ?? false;
+        const errorMsg = (result as any).error || (result as any).ErrorMessage;
+        setPathError(isValid ? null : (errorMsg || 'Dependency path is invalid.'));
+    }, []);
 
     useEffect(() => {
         // Auto-populate template when creating a new rule
@@ -99,9 +114,14 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
             return;
         }
 
-        if (pathValidationResult && !pathValidationResult.isValid) {
-            setPathError(pathValidationResult.error || 'Dependency path is invalid.');
-            return;
+        if (pathValidationResult) {
+            // Handle both camelCase and PascalCase from backend
+            const isValid = (pathValidationResult as any).isValid ?? (pathValidationResult as any).IsValid ?? false;
+            if (!isValid) {
+                const errorMsg = (pathValidationResult as any).error || (pathValidationResult as any).ErrorMessage;
+                setPathError(errorMsg || 'Dependency path is invalid.');
+                return;
+            }
         }
 
         const payload: CreateFieldValidationRuleDto = {
@@ -188,14 +208,8 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                     initialPath={dependencyPath}
                     entityTypeName={entityTypeName}
                     entityMetadata={entityMetadata}
-                    onPathChange={(path) => {
-                        setDependencyPath(path);
-                        setPathError(null);
-                    }}
-                    onValidationStatusChange={(result) => {
-                        setPathValidationResult(result);
-                        setPathError(result.isValid ? null : (result.error || 'Dependency path is invalid.'));
-                    }}
+                    onPathChange={handlePathChange}
+                    onValidationStatusChange={handleValidationStatusChange}
                     disabled={shouldDisablePathBuilder}
                     label="Dependency Path"
                     required={dependsOnFieldId !== ''}

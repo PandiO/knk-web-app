@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ShieldAlert, ShieldCheck, X } from 'lucide-react';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
@@ -98,7 +98,7 @@ export const FieldEditor: React.FC<Props> = ({
 
     const canManageRules = field.id && !field.id.toString().startsWith('temp');
 
-    const loadValidationRules = async () => {
+    const loadValidationRules = useCallback(async () => {
         if (!canManageRules) {
             setValidationRules([]);
             return;
@@ -114,11 +114,11 @@ export const FieldEditor: React.FC<Props> = ({
         } finally {
             setRulesLoading(false);
         }
-    };
+    }, [canManageRules, field.id]);
 
     useEffect(() => {
         void loadValidationRules();
-    }, [field.id]);
+    }, [field.id, loadValidationRules]);
 
     const mergeSettings = (partial: any) => {
         let base: any = {};
@@ -698,9 +698,6 @@ export const FieldEditor: React.FC<Props> = ({
                     </button>
                 </div>
             </div>
-        </div>
-    );
-
             <FeedbackModal
                 open={ruleFeedback.open}
                 title={ruleFeedback.title}
@@ -708,6 +705,8 @@ export const FieldEditor: React.FC<Props> = ({
                 status={ruleFeedback.status}
                 onClose={() => setRuleFeedback(prev => ({ ...prev, open: false }))}
             />
+        </div>
+    );
 };
 
 interface FieldMetadataHintProps {

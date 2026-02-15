@@ -6,7 +6,7 @@ import {
   ResolvedDependency,
   ValidationIssueDto,
 } from '../types/dtos/forms/FieldValidationRuleDtos';
-import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../types/dtos/forms/FormModels';
+import { FormConfigurationDto, FormStepDto } from '../types/dtos/forms/FormModels';
 import { EntityMetadataDto } from '../types/dtos/metadata/MetadataModels';
 import { logging } from '../utils';
 

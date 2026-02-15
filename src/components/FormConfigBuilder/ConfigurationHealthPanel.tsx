@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { ValidationIssueDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { FormConfigurationDto } from '../../types/dtos/forms/FormConfigurationDtos';
@@ -24,7 +24,7 @@ export const ConfigurationHealthPanel: React.FC<ConfigurationHealthPanelProps> =
 
     const configIdNumber = configurationId ? Number(configurationId) : undefined;
 
-    const loadHealthCheck = async () => {
+    const loadHealthCheck = useCallback(async () => {
         // If we have a draft config, validate it directly (real-time validation)
         if (draftConfig) {
             try {
@@ -62,11 +62,11 @@ export const ConfigurationHealthPanel: React.FC<ConfigurationHealthPanelProps> =
         } finally {
             setLoading(false);
         }
-    };
+    }, [configIdNumber, draftConfig, onIssuesLoaded]);
 
     useEffect(() => {
         void loadHealthCheck();
-    }, [configIdNumber, refreshToken, draftConfig]);
+    }, [configIdNumber, refreshToken, draftConfig, loadHealthCheck]);
 
     const categorizeIssue = (issue: ValidationIssueDto): string => {
         const message = (issue.message || '').toLowerCase();

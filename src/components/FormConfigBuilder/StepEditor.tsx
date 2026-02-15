@@ -737,7 +737,7 @@ export const StepEditor: React.FC<Props> = ({
                                                                 strategy={verticalListSortingStrategy}
                                                             >
                                                                 <div className="space-y-2">
-                                                                    {getOrderedChildFields(childStep).map((field, displayIndex) => {
+                                                                    {getOrderedChildFields(childStep).map((field, _displayIndex) => {
                                                                         const actualIndex = childStep.fields.findIndex(f => f.id === field.id);
                                                                         return (
                                                                             <SortableFieldItem
@@ -823,7 +823,7 @@ export const StepEditor: React.FC<Props> = ({
                                 strategy={verticalListSortingStrategy}
                             >
                                 <div className="space-y-2">
-                                    {orderedFields.map((field, index) => (
+                                    {orderedFields.map((field, _index) => (
                                         <SortableFieldItem
                                             key={field.id}
                                             field={field}

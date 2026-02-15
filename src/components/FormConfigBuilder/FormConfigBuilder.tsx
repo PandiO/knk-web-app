@@ -1,12 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Save, Plus, GripVertical, Trash2, AlertCircle, Loader2, Copy } from 'lucide-react';
+import { Save, Plus, AlertCircle, Loader2, Copy } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, FormFieldDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
-import { formStepClient } from '../../apiClients/formStepClient';
-import { formFieldClient } from '../../apiClients/formFieldClient';
 import { metadataClient } from '../../apiClients/metadataClient';
-import { EntityMetadataDto, FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
+import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { logging } from '../../utils';
 import { StepEditor } from './StepEditor';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -94,9 +92,37 @@ export const FormConfigBuilder: React.FC = () => {
         navigate('/admin/form-configurations');
     };
 
+    const loadData = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            // Always load reusable templates (needed for both create and edit)
+            const [stepsData, fieldsData] = await Promise.all([
+                formConfigClient.getReusableSteps(),
+                formConfigClient.getReusableFields()
+            ]);
+
+            setReusableSteps(stepsData);
+            setReusableFields(fieldsData);
+
+            // Only load existing config if editing (not creating new)
+            if (isEditMode && configId) {
+                const configData = await formConfigClient.getById(configId);
+                setConfig(configData);
+            }
+        } catch (err) {
+            console.error('Failed to load data:', err);
+            setError('Failed to load form configuration');
+            logging.errorHandler.next('ErrorMessage.FormConfiguration.LoadFailed');
+        } finally {
+            setLoading(false);
+        }
+    }, [isEditMode, configId]);
+
     useEffect(() => {
-        loadData();
-    }, [configId]);
+        void loadData();
+    }, [configId, loadData]);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -145,34 +171,6 @@ export const FormConfigBuilder: React.FC = () => {
         };
         return collectFields(config.steps || []);
     }, [config.steps]);
-
-    const loadData = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-
-            // Always load reusable templates (needed for both create and edit)
-            const [stepsData, fieldsData] = await Promise.all([
-                formConfigClient.getReusableSteps(),
-                formConfigClient.getReusableFields()
-            ]);
-
-            setReusableSteps(stepsData);
-            setReusableFields(fieldsData);
-
-            // Only load existing config if editing (not creating new)
-            if (isEditMode && configId) {
-                const configData = await formConfigClient.getById(configId);
-                setConfig(configData);
-            }
-        } catch (err) {
-            console.error('Failed to load data:', err);
-            setError('Failed to load form configuration');
-            logging.errorHandler.next('ErrorMessage.FormConfiguration.LoadFailed');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const generateTempId = () => `temp-${Date.now()}-${Math.random()}`;
 

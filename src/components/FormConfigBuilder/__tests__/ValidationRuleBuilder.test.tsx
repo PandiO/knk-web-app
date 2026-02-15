@@ -129,6 +129,8 @@ describe('ValidationRuleBuilder', () => {
         <ValidationRuleBuilder
           field={mockField}
           availableFields={mockAvailableFields}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
           onSave={mockOnSave}
           onCancel={mockOnCancel}
         />
@@ -145,6 +147,8 @@ describe('ValidationRuleBuilder', () => {
         <ValidationRuleBuilder
           field={mockField}
           availableFields={mockAvailableFields}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
           onSave={mockOnSave}
           onCancel={mockOnCancel}
         />
