@@ -53,12 +53,13 @@ function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
             // Extract raw location data and convert to location object
             if (output.x !== undefined && output.y !== undefined && output.z !== undefined) {
                 const locationObject = {
+                    name: 'Location',
                     x: output.x,
                     y: output.y,
                     z: output.z,
                     yaw: output.yaw ?? 0,
                     pitch: output.pitch ?? 0,
-                    worldName: output.worldName ?? 'world'
+                    World: output.World ?? output.worldName ?? 'world'
                 };
                 console.log('Extracted location from task:', locationObject);
                 return locationObject;
@@ -99,8 +100,9 @@ function formatValueForDisplay(value: any): string {
     
     // Check if value is a Location object (has x, y, z properties)
     if (typeof value === 'object' && 'x' in value && 'y' in value && 'z' in value) {
-        const loc = value as { x: number; y: number; z: number; yaw?: number; pitch?: number; worldName?: string };
-        return `${loc.worldName || 'world'} (${loc.x.toFixed(1)}, ${loc.y.toFixed(1)}, ${loc.z.toFixed(1)})`;
+        const loc = value as { x: number; y: number; z: number; yaw?: number; pitch?: number; worldName?: string; World?: string };
+        const worldLabel = loc.World || loc.worldName || 'world';
+        return `${worldLabel} (${loc.x.toFixed(1)}, ${loc.y.toFixed(1)}, ${loc.z.toFixed(1)})`;
     }
     
     // For other objects, use JSON
