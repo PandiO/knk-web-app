@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { worldTaskClient } from '../../apiClients/worldTaskClient';
 import { WorldTaskReadDto } from '../../types/dtos/workflow/WorkflowDtos';
 import { FormFieldDto, FormConfigurationDto } from '../../types/dtos/forms/FormModels';
+import { FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { CheckCircle, Copy, Check } from 'lucide-react';
 import { useEnrichedFormContext } from '../../hooks/useEnrichedFormContext';
 
@@ -17,6 +18,8 @@ interface WorldBoundFieldRendererProps {
     stepKey?: string;
     preResolvedPlaceholders?: Record<string, string>; // Phase 5.2: Pre-resolved placeholders from validation rules
     formConfiguration?: FormConfigurationDto; // Phase 7: Form configuration for dependency resolution context
+    validationRules?: FieldValidationRuleDto[]; // Phase 7: Validation rules for current field
+    currentFormValues?: Record<string, any>; // Phase 7: Current form values for validation context
     onTaskCompleted?: (task: WorldTaskReadDto, extractedValue: any) => void;
 }
 
@@ -121,6 +124,8 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     stepKey,
     preResolvedPlaceholders,
     formConfiguration,
+    validationRules,
+    currentFormValues,
     onTaskCompleted,
 }) => {
     const [taskId, setTaskId] = useState<number | null>(null);
@@ -203,10 +208,29 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
             // Phase 7: Include enriched validation context if form configuration is available
             if (formContext) {
+                // Enrich validation rules with dependency values from form
+                const enrichedRules = validationRules?.map(rule => {
+                    const enriched: any = { ...rule };
+                    
+                    // Get dependency field name and look up its value
+                    const depFieldName = rule.dependsOnField?.fieldName || rule.dependencyPath;
+                    if (depFieldName && currentFormValues) {
+                        // For simple fields, use the field name directly
+                        // For multi-layer paths like "Town.WgRegionId", use the last segment
+                        const fieldName = depFieldName.includes('.') 
+                            ? depFieldName.split('.').pop() 
+                            : depFieldName;
+                        enriched.dependencyFieldValue = currentFormValues[fieldName || ''];
+                    }
+                    
+                    return enriched;
+                }) || [];
+
                 const validationContext = {
-                    formContextValues: formContext.values,
+                    formContextValues: currentFormValues || formContext.values, // Use provided form values or hook values
                     resolvedDependencies: Array.from(formContext.resolvedDependencies.values()),
                     entityMetadata: Array.from(formContext.entityMetadata.values()),
+                    validationRules: enrichedRules, // Include enriched validation rules for plugin
                     isLoading: formContext.isLoading,
                     error: formContext.error
                 };

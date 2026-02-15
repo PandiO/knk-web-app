@@ -1022,6 +1022,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                             const fieldId = field.id ? Number(field.id) : null;
                             const fieldPlaceholders = fieldId ? preResolvedPlaceholders[fieldId] : undefined;
                             
+                            // Phase 7+: Get validation rules and prepare form context for WorldTask validation
+                            const fieldValidationRules = fieldId ? (validationRules[fieldId] || []) : [];
+                            const flatFormValues = config ? flattenAllStepsData(config, allStepsData) : {};
+                            
                     // eslint-disable-next-line @typescript-eslint/no-var-requires
                             const WorldBoundFieldRenderer = require('../Workflow/WorldBoundFieldRenderer').WorldBoundFieldRenderer;
                             return (
@@ -1037,6 +1041,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                     fieldId={fieldId || undefined}
                                     formContext={currentStepData}
                                     formConfiguration={config} // Phase 7: Pass form configuration for dependency resolution
+                                    validationRules={fieldValidationRules} // Phase 7+: Pass validation rules
+                                    currentFormValues={flatFormValues} // Phase 7+: Pass all form values for validation context
                                     preResolvedPlaceholders={fieldPlaceholders}
                                     allowExisting={false}
                                     allowCreate={true}
