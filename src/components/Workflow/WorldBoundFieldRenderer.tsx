@@ -88,6 +88,27 @@ function isLocationTask(taskType: string, actualTaskType?: string): boolean {
     return types.some(t => t.includes('location') || t.includes('capture'));
 }
 
+/**
+ * Format a value for display, handling Location objects properly
+ */
+function formatValueForDisplay(value: any): string {
+    if (!value) return '';
+    
+    // Check if value is a Location object (has x, y, z properties)
+    if (typeof value === 'object' && 'x' in value && 'y' in value && 'z' in value) {
+        const loc = value as { x: number; y: number; z: number; yaw?: number; pitch?: number; worldName?: string };
+        return `${loc.worldName || 'world'} (${loc.x.toFixed(1)}, ${loc.y.toFixed(1)}, ${loc.z.toFixed(1)})`;
+    }
+    
+    // For other objects, use JSON
+    if (typeof value === 'object') {
+        return JSON.stringify(value);
+    }
+    
+    // For primitives, convert to string
+    return String(value);
+}
+
 export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = ({
     field,
     value,
@@ -233,7 +254,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             {value && (
                 <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-md flex items-center justify-between">
                     <p className="text-sm font-medium text-green-800">
-                        ✓ {field.label}: <span className="font-mono text-green-900">{value}</span>
+                        ✓ {field.label}: <span className="font-mono text-green-900">{formatValueForDisplay(value)}</span>
                     </p>
                     {extractionSucceeded && (
                         <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded flex items-center gap-1">
