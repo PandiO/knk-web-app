@@ -1,6 +1,6 @@
-import { FormConfigurationDto, FormFieldDto } from '../domain/dto/forms/FormModels';
+import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../enums';
-import { FieldMetadataDto } from '../domain/dto/metadata/MetadataModels';
+import { EntityMetadataDto, FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 
 /**
  * Arguments for normalizing form submission data.
@@ -14,6 +14,8 @@ export interface NormalizeFormSubmissionArgs {
     rawFormValue: Record<string, any>;
     /** Optional entity metadata from the backend (for relationship info) */
     entityMetadata?: FieldMetadataDto[];
+    /** Optional join entity metadata map keyed by join entity type */
+    joinEntityMetadataMap?: Record<string, EntityMetadataDto>;
 }
 
 /**
@@ -113,6 +115,102 @@ function extractHybridIdentifiers(value: any): { id?: any; namespaceKey?: string
     return {};
 }
 
+function getManyToManyStepMap(formConfiguration: FormConfigurationDto): Record<string, FormStepDto> {
+    const map: Record<string, FormStepDto> = {};
+    formConfiguration.steps.forEach(step => {
+        if (step.isManyToManyRelationship && step.relatedEntityPropertyName) {
+            map[step.relatedEntityPropertyName] = step;
+        }
+    });
+    return map;
+}
+
+function getCaseInsensitiveValue(obj: Record<string, unknown>, key: string): unknown {
+    const match = Object.keys(obj).find(k => k.toLowerCase() === key.toLowerCase());
+    return match ? obj[match] : undefined;
+}
+
+function resolveJoinEntityMapping(args: {
+    joinEntityType: string;
+    parentEntityTypeName: string;
+    joinEntityMetadataMap?: Record<string, EntityMetadataDto>;
+}): { relatedEntityType: string; relatedEntityIdField: string } {
+    const { joinEntityType, parentEntityTypeName, joinEntityMetadataMap } = args;
+    const joinMetadata = joinEntityMetadataMap?.[joinEntityType];
+
+    if (!joinMetadata) {
+        throw new Error(`Join entity metadata is missing for ${joinEntityType}. Please reload or contact support.`);
+    }
+
+    const relatedNav = joinMetadata.fields.find(
+        f => f.isRelatedEntity && f.relatedEntityType && f.relatedEntityType !== parentEntityTypeName
+    );
+
+    if (!relatedNav?.relatedEntityType) {
+        throw new Error(`Unable to resolve the related entity type for ${joinEntityType}. Please verify metadata configuration.`);
+    }
+
+    const expectedField = `${relatedNav.relatedEntityType}Id`;
+    const relatedEntityIdField = joinMetadata.fields.find(
+        f => f.fieldName.toLowerCase() === expectedField.toLowerCase()
+    )?.fieldName;
+
+    if (!relatedEntityIdField) {
+        throw new Error(`Unable to resolve the join entity foreign key field for ${joinEntityType}. Expected ${expectedField}.`);
+    }
+
+    return { relatedEntityType: relatedNav.relatedEntityType, relatedEntityIdField };
+}
+
+function normalizeManyToManyRelationshipField(args: {
+    fieldName: string;
+    rawValue: any;
+    step: FormStepDto;
+    parentEntityTypeName: string;
+    joinEntityMetadataMap?: Record<string, EntityMetadataDto>;
+}): Record<string, unknown>[] {
+    const { fieldName, rawValue, step, parentEntityTypeName, joinEntityMetadataMap } = args;
+
+    if (!Array.isArray(rawValue)) {
+        return [];
+    }
+
+    if (!step.joinEntityType) {
+        throw new Error(`Join entity type is missing for ${fieldName}. Please update the form configuration.`);
+    }
+
+    const { relatedEntityIdField } = resolveJoinEntityMapping({
+        joinEntityType: step.joinEntityType,
+        parentEntityTypeName,
+        joinEntityMetadataMap
+    });
+
+    return rawValue.map((entry, index) => {
+        if (!entry || typeof entry !== 'object') {
+            throw new Error(`Join entry ${index + 1} in ${fieldName} is invalid. Please reselect the related entity.`);
+        }
+
+        const typedEntry = entry as Record<string, unknown>;
+        const existingFkValue = getCaseInsensitiveValue(typedEntry, relatedEntityIdField);
+        const relatedEntityId = extractId(
+            existingFkValue ??
+            typedEntry.relatedEntityId ??
+            typedEntry.relatedEntity
+        );
+
+        if (relatedEntityId === null || relatedEntityId === undefined) {
+            throw new Error(`Join entry ${index + 1} in ${fieldName} is missing a related entity selection.`);
+        }
+
+        const { relatedEntity, relatedEntityId: _relatedEntityId, __childProgressId, ...rest } = typedEntry;
+
+        return {
+            ...rest,
+            [relatedEntityIdField]: relatedEntityId
+        };
+    });
+}
+
 /**
  * Normalizes form submission data by converting nested objects to foreign key IDs.
  * 
@@ -127,7 +225,7 @@ function extractHybridIdentifiers(value: any): { id?: any; namespaceKey?: string
  * @returns The normalized payload ready for API submission
  */
 export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Record<string, any> {
-    const { formConfiguration, rawFormValue, entityMetadata } = args;
+    const { formConfiguration, rawFormValue, entityMetadata, joinEntityMetadataMap } = args;
     
     const normalized: Record<string, any> = {};
     
@@ -137,6 +235,8 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
         allFields.push(...step.fields);
     });
     
+    const manyToManyStepMap = getManyToManyStepMap(formConfiguration);
+
     // Process each field in the configuration
     allFields.forEach(field => {
         const fieldName = field.fieldName;
@@ -150,6 +250,17 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
         // Special handling for hybrid Minecraft material/block picker
         if (field.fieldType === FieldType.HybridMinecraftMaterialRefPicker) {
             handleHybridMaterialField(field, fieldName, rawValue, normalized);
+            return;
+        }
+
+        if (manyToManyStepMap[fieldName]) {
+            normalized[fieldName] = normalizeManyToManyRelationshipField({
+                fieldName,
+                rawValue,
+                step: manyToManyStepMap[fieldName],
+                parentEntityTypeName: args.entityTypeName,
+                joinEntityMetadataMap
+            });
             return;
         }
 
