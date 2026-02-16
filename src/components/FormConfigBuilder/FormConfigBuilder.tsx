@@ -45,6 +45,11 @@ export const FormConfigBuilder: React.FC = () => {
 
     // added: state to track default conflict notification
     const [defaultConflictMsg, setDefaultConflictMsg] = useState<string | null>(null);
+    
+    // added: state and ref to track config name generation
+    const [configNameSuggestion, setConfigNameSuggestion] = useState<string>('');
+    // Using ref instead of state to avoid infinite dependency loops
+    const entityConfigCountsRef = useRef<Record<string, number>>({});
 
     type SaveFeedbackState = {
         open: boolean;
@@ -159,10 +164,30 @@ export const FormConfigBuilder: React.FC = () => {
         if (config.entityTypeName) {
             const meta = metadata.find(m => m.entityName === config.entityTypeName) || null;
             setSelectedEntityMeta(meta);
+            
+            // Auto-generate configuration name for new configurations when entity is selected
+            if (!isEditMode) {
+                // Get the current count for this entity (1-indexed)
+                const currentCount = (entityConfigCountsRef.current[config.entityTypeName] ?? 0) + 1;
+                const generatedName = `${config.entityTypeName} Template ${currentCount}`;
+                setConfigNameSuggestion(generatedName);
+                
+                // Auto-fill if empty or matches previous suggestion
+                setConfig(prev => {
+                    if (!prev.configurationName || prev.configurationName.startsWith(`${config.entityTypeName} Template`)) {
+                        return { ...prev, configurationName: generatedName };
+                    }
+                    return prev;
+                });
+                
+                // Update counter for next time (using ref to avoid dependency cycle)
+                entityConfigCountsRef.current[config.entityTypeName] = currentCount;
+            }
         } else {
             setSelectedEntityMeta(null);
+            setConfigNameSuggestion('');
         }
-    }, [config.entityTypeName, metadata]);
+    }, [config.entityTypeName, metadata, isEditMode]);
 
     const allFieldsInConfiguration = useMemo(() => {
         const collectFields = (steps: FormStepDto[]): FormFieldDto[] => {
@@ -559,8 +584,13 @@ export const FormConfigBuilder: React.FC = () => {
                                     value={config.configurationName}
                                     onChange={e => setConfig({ ...config, configurationName: e.target.value })}
                                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                    placeholder="e.g., Default Structure Form"
+                                    placeholder={configNameSuggestion || "Select an entity first to auto-generate a name"}
                                 />
+                                {!isEditMode && configNameSuggestion && (
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Auto-generated: {configNameSuggestion} (edit to customize)
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <div>

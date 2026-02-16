@@ -148,7 +148,13 @@ export const FieldEditor: React.FC<Props> = ({
                 label: metaField.fieldName, // auto-populate label
                 fieldType: mapFieldType(metaField.fieldType), // auto-populate type
                 // optionally set objectType if it's a related entity
-                objectType: metaField.isRelatedEntity ? metaField.relatedEntityType || undefined : undefined
+                objectType: metaField.isRelatedEntity ? metaField.relatedEntityType || undefined : undefined,
+                // automatically set Required checkbox based on field nullability: non-nullable fields are required
+                isRequired: !metaField.isNullable,
+                // auto-fill placeholder with default value from metadata if present
+                placeholder: metaField.hasDefaultValue && metaField.defaultValue 
+                    ? metaField.defaultValue 
+                    : prev.placeholder
             }));
         } else {
             setField(prev => ({ ...prev, fieldName: selectedFieldName }));
