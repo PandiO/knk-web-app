@@ -52,6 +52,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 }) => {
     const [config, setConfig] = useState<FormConfigurationDto | null>(null);
     const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto | null>(null);
+    const [joinEntityMetadataMap, setJoinEntityMetadataMap] = useState<Record<string, EntityMetadataDto>>({});
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [currentStepData, setCurrentStepData] = useState<StepData>({});
     const [allStepsData, setAllStepsData] = useState<AllStepsData>({});
@@ -455,6 +456,35 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         );
     };
 
+    const loadJoinEntityMetadata = async (cfg: FormConfigurationDto) => {
+        const joinEntityTypes = Array.from(
+            new Set(
+                cfg.steps
+                    .filter(step => step.isManyToManyRelationship && step.joinEntityType)
+                    .map(step => step.joinEntityType!)
+            )
+        );
+
+        if (joinEntityTypes.length === 0) {
+            setJoinEntityMetadataMap({});
+            return;
+        }
+
+        try {
+            const metadataList = await Promise.all(
+                joinEntityTypes.map(type => metadataClient.getEntityMetadata(type))
+            );
+            const map = metadataList.reduce<Record<string, EntityMetadataDto>>((acc, metadata) => {
+                acc[metadata.entityName] = metadata;
+                return acc;
+            }, {});
+            setJoinEntityMetadataMap(map);
+        } catch (error) {
+            console.error('Failed to load join entity metadata:', error);
+            setJoinEntityMetadataMap({});
+        }
+    };
+
     const loadConfiguration = React.useCallback(async () => {
         try {
             setLoading(true);
@@ -474,6 +504,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 const fetchedCfg = await formConfigClient.getById(progress.formConfigurationId);
                 setConfig(fetchedCfg);
                 void loadValidationRulesForConfig(fetchedCfg.id);
+                await loadJoinEntityMetadata(fetchedCfg);
 
                 const parsedCurrent = JSON.parse(progress.currentStepDataJson || '{}');
                 const parsedAll = JSON.parse(progress.allStepsDataJson || '{}');
@@ -519,6 +550,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 }
                 setConfig(fetchedConfig);
                 void loadValidationRulesForConfig(fetchedConfig.id);
+                await loadJoinEntityMetadata(fetchedConfig);
                 
                 // changed: if entityId provided, load existing entity data
                 if (currentEntityId) {
@@ -1032,12 +1064,23 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
             // changed: normalize the form data before sending to API
             // This converts nested objects (e.g., parentCategory) to foreign keys (e.g., parentCategoryId)
-            const normalizedPayload = normalizeFormSubmission({
-                entityTypeName: entityName,
-                formConfiguration: config!,
-                rawFormValue: flattenedDto,
-                entityMetadata: entityMetadata?.fields || []
-            });
+            let normalizedPayload: Record<string, unknown>;
+
+            try {
+                normalizedPayload = normalizeFormSubmission({
+                    entityTypeName: entityName,
+                    formConfiguration: config!,
+                    rawFormValue: flattenedDto,
+                    entityMetadata: entityMetadata?.fields || [],
+                    joinEntityMetadataMap
+                });
+            } catch (normalizeError) {
+                const message = normalizeError instanceof Error
+                    ? normalizeError.message
+                    : 'Unable to prepare your submission. Please review the join entries and try again.';
+                setError(message);
+                return;
+            }
 
             // CRITICAL: Include entity ID in payload for edit mode
             // This ensures the parent component calls UPDATE instead of CREATE
