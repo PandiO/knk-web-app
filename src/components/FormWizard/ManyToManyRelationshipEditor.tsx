@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2 } from 'lucide-react';
-import { FormStepDto } from '../../types/dtos/forms/FormModels';
+import { Trash2, AlertTriangle } from 'lucide-react';
+import { FormStepDto, FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 import { FieldRenderer } from './FieldRenderers';
 import { metadataClient } from '../../apiClients/metadataClient';
+import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 
 interface Props {
     step: FormStepDto;
@@ -12,6 +14,10 @@ interface Props {
     entityName: string; // Parent entity being edited
     joinFormConfigurationId?: string;
     onOpenJoinEntry?: (relationshipIndex: number) => void;
+    // Validation support
+    validationRules?: Record<number, FieldValidationRuleDto[]>;
+    validationResults?: Record<number, ValidationResultDto>;
+    onValidateField?: (fieldId: number, value: unknown, relationshipIndex: number) => Promise<void>;
 }
 
 /**
@@ -31,12 +37,16 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     onChange,
     entityName,
     joinFormConfigurationId,
-    onOpenJoinEntry
+    onOpenJoinEntry,
+    validationResults = {},
+    onValidateField
 }) => {
     const [loading, setLoading] = useState(true);
     const [relatedEntityType, setRelatedEntityType] = useState<string>('');
     const [relatedEntityIdField, setRelatedEntityIdField] = useState<string>('');
     const [metadataError, setMetadataError] = useState<string>('');
+    const [relationshipErrors, setRelationshipErrors] = useState<Record<number, Record<string, string>>>({});
+    const [missingEntityWarnings, setMissingEntityWarnings] = useState<Record<number, string>>({});
 
     const getRelatedEntityIdField = (relatedType: string, fieldNames: string[]): string | null => {
         const expectedField = `${relatedType}Id`;
@@ -98,6 +108,22 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         loadMetadata();
     }, [loadMetadata]);
 
+    // Validate all relationships when value changes to detect missing entities
+    useEffect(() => {
+        const warnings: Record<number, string> = {};
+        
+        value.forEach((relationship, index) => {
+            // Check if related entity is missing or deleted
+            if (!relationship.relatedEntity) {
+                warnings[index] = 'Related entity is missing or has been deleted. Please remove and re-add this relationship.';
+            } else if (!relationship.relatedEntityId && !relationship[relatedEntityIdField]) {
+                warnings[index] = 'Related entity ID is missing. Please remove and re-add this relationship.';
+            }
+        });
+
+        setMissingEntityWarnings(warnings);
+    }, [value, relatedEntityIdField]);
+
     const handleAddRelationship = (selectedEntities: Record<string, unknown>[]) => {
         if (!relatedEntityIdField) {
             setMetadataError('Join entity mapping is not configured. Please verify join entity metadata before adding relationships.');
@@ -123,13 +149,65 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         onChange(value.filter((_, i) => i !== index));
     };
 
-    const handleUpdateRelationship = (index: number, fieldName: string, fieldValue: unknown) => {
+    const handleUpdateRelationship = async (index: number, fieldName: string, fieldValue: unknown) => {
         const updated = [...value];
         updated[index] = {
             ...updated[index],
             [fieldName]: fieldValue
         };
         onChange(updated);
+
+        // Trigger validation for this field if validation is enabled
+        const field = findFieldInChildSteps(fieldName);
+        if (field?.id && onValidateField) {
+            await onValidateField(Number(field.id), fieldValue, index);
+        }
+
+        // Update local validation state for required fields
+        validateJoinEntityField(index, fieldName, fieldValue, field);
+    };
+
+    const findFieldInChildSteps = (fieldName: string): FormFieldDto | undefined => {
+        for (const childStep of step.childFormSteps) {
+            const field = childStep.fields.find(f => f.fieldName === fieldName);
+            if (field) return field;
+        }
+        return undefined;
+    };
+
+    const validateJoinEntityField = (relationshipIndex: number, fieldName: string, fieldValue: unknown, field?: FormFieldDto) => {
+        if (!field) field = findFieldInChildSteps(fieldName);
+        if (!field) return;
+
+        const errors = { ...relationshipErrors };
+        if (!errors[relationshipIndex]) {
+            errors[relationshipIndex] = {};
+        }
+
+        // Required field validation
+        if (field.isRequired && (fieldValue === null || fieldValue === undefined || fieldValue === '')) {
+            errors[relationshipIndex][fieldName] = `${field.label} is required`;
+        } else {
+            // Check if we have a validation result for this field
+            const fieldId = field.id ? Number(field.id) : undefined;
+            if (fieldId) {
+                const validationResult = validationResults[fieldId];
+                if (validationResult && !validationResult.isValid && validationResult.isBlocking) {
+                    errors[relationshipIndex][fieldName] = validationResult.message || `${field.label} failed validation`;
+                } else {
+                    delete errors[relationshipIndex][fieldName];
+                }
+            } else {
+                delete errors[relationshipIndex][fieldName];
+            }
+        }
+
+        // Clean up empty error objects
+        if (Object.keys(errors[relationshipIndex]).length === 0) {
+            delete errors[relationshipIndex];
+        }
+
+        setRelationshipErrors(errors);
     };
 
     const getDefaultJoinEntityFields = (): Record<string, unknown> => {
@@ -161,28 +239,44 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
             return <p className="text-xs text-gray-500 italic">No editable fields configured</p>;
         }
 
+        const cardErrors = relationshipErrors[index] || {};
+        const hasErrors = Object.keys(cardErrors).length > 0;
+
         return (
             <div className="space-y-3">
                 {step.childFormSteps.map(childStep => (
                     <div key={childStep.id || childStep.stepName}>
-                        {childStep.fields.map(field => (
-                            <div key={field.id || field.fieldName} className="mb-2">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                    {field.label}
-                                    {field.isRequired && <span className="text-red-500 ml-1">*</span>}
-                                </label>
-                                <FieldRenderer
-                                    field={field}
-                                    value={relationship[field.fieldName]}
-                                    onChange={(newValue) => handleUpdateRelationship(index, field.fieldName, newValue)}
-                                />
-                                {field.description && (
-                                    <p className="mt-1 text-xs text-gray-500">{field.description}</p>
-                                )}
-                            </div>
-                        ))}
+                        {childStep.fields.map(field => {
+                            const fieldError = cardErrors[field.fieldName];
+                            const fieldId = field.id ? Number(field.id) : undefined;
+                            const validationResult = fieldId ? validationResults[fieldId] : undefined;
+                            
+                            return (
+                                <div key={field.id || field.fieldName} className="mb-2">
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                        {field.label}
+                                        {field.isRequired && <span className="text-red-500 ml-1">*</span>}
+                                    </label>
+                                    <FieldRenderer
+                                        field={field}
+                                        value={relationship[field.fieldName]}
+                                        onChange={(newValue) => handleUpdateRelationship(index, field.fieldName, newValue)}
+                                        error={fieldError}
+                                        validationResult={validationResult}
+                                    />
+                                    {field.description && !fieldError && (
+                                        <p className="mt-1 text-xs text-gray-500">{field.description}</p>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 ))}
+                {hasErrors && (
+                    <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-md">
+                        <p className="text-xs text-red-700 font-medium">Please fix the errors above before proceeding.</p>
+                    </div>
+                )}
             </div>
         );
     };
@@ -226,45 +320,60 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {value.map((relationship, index) => (
-                            <div
-                                key={index}
-                                className="bg-white border border-gray-200 rounded-lg shadow-sm p-4"
-                            >
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex-1">
-                                        <h4 className="text-sm font-medium text-gray-900">
-                                            {(relationship.relatedEntity as { name?: string; displayName?: string })?.name || 
-                                             (relationship.relatedEntity as { name?: string; displayName?: string })?.displayName || 
-                                             `Relationship #${index + 1}`}
-                                        </h4>
-                                        {(relationship.relatedEntity as { description?: string })?.description && (
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                {(relationship.relatedEntity as { description?: string }).description}
-                                            </p>
-                                        )}
-                                    </div>
-                                    {joinConfigId && onOpenJoinEntry && (
-                                        <button
-                                            onClick={() => onOpenJoinEntry(index)}
-                                            className="mr-2 text-xs font-medium text-primary hover:text-primary-dark"
-                                            type="button"
-                                        >
-                                            Create Join Entry
-                                        </button>
+                        {value.map((relationship, index) => {
+                            const hasMissingEntity = missingEntityWarnings[index];
+                            const hasFieldErrors = relationshipErrors[index] && Object.keys(relationshipErrors[index]).length > 0;
+                            const cardBorderClass = hasMissingEntity ? 'border-red-300' : hasFieldErrors ? 'border-yellow-300' : 'border-gray-200';
+                            
+                            return (
+                                <div
+                                    key={index}
+                                    className={`bg-white border ${cardBorderClass} rounded-lg shadow-sm p-4`}
+                                >
+                                    {hasMissingEntity && (
+                                        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-md flex items-start">
+                                            <AlertTriangle className="h-4 w-4 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                                            <div className="flex-1">
+                                                <p className="text-xs text-red-700 font-medium">Missing Entity</p>
+                                                <p className="text-xs text-red-600 mt-1">{missingEntityWarnings[index]}</p>
+                                            </div>
+                                        </div>
                                     )}
-                                    <button
-                                        onClick={() => handleRemoveRelationship(index)}
-                                        className="p-1 text-gray-400 hover:text-red-600 flex-shrink-0"
-                                        title="Remove relationship"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </div>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex-1">
+                                            <h4 className="text-sm font-medium text-gray-900">
+                                                {(relationship.relatedEntity as { name?: string; displayName?: string })?.name || 
+                                                 (relationship.relatedEntity as { name?: string; displayName?: string })?.displayName || 
+                                                 `Relationship #${index + 1}`}
+                                            </h4>
+                                            {(relationship.relatedEntity as { description?: string })?.description && (
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {(relationship.relatedEntity as { description?: string }).description}
+                                                </p>
+                                            )}
+                                        </div>
+                                        {joinConfigId && onOpenJoinEntry && (
+                                            <button
+                                                onClick={() => onOpenJoinEntry(index)}
+                                                className="mr-2 text-xs font-medium text-primary hover:text-primary-dark"
+                                                type="button"
+                                            >
+                                                Create Join Entry
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => handleRemoveRelationship(index)}
+                                            className="p-1 text-gray-400 hover:text-red-600 flex-shrink-0"
+                                            title="Remove relationship"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
 
-                                {renderJoinEntityFields(relationship, index)}
-                            </div>
-                        ))}
+                                    {renderJoinEntityFields(relationship, index)}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
