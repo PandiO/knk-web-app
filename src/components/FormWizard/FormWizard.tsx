@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Save, Check, AlertCircle } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, FormFieldDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
@@ -229,18 +229,47 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         const rules = validationRules[fieldId] || [];
         if (rules.length === 0 || !config) return;
 
-        const normalizedSteps = normalizeAllStepsData(config, stepsData);
-        const contextData = buildFormContextData(config, normalizedSteps);
-
         const runValidation = async () => {
             setValidationLoading(prev => ({ ...prev, [fieldId]: true }));
             try {
+                const normalizedSteps = normalizeAllStepsData(config, stepsData);
+                const contextData = buildFormContextData(config, normalizedSteps);
+                
+                // NEW: Extract dependency value if any rule has a dependency
+                let dependencyValue: unknown = undefined;
+                const rulesForField = validationRules[fieldId] || [];
+                if (rulesForField.length > 0 && rulesForField[0].dependsOnFieldId) {
+                    const rule = rulesForField[0];
+                    const dependencyFieldName = rule.dependsOnField?.fieldName;
+                    
+                    if (dependencyFieldName) {
+                        // CRITICAL: Pass the full entity object, NOT the extracted property
+                        // The validation method needs access to all properties for error messages and nested extraction
+                        // The validator will handle extracting the specific property using DependencyPath
+                        dependencyValue = contextData[dependencyFieldName];
+                    }
+                }
+                
+                console.log(`[VALIDATION_TRACE] Validating field ${fieldId} (${field.fieldName})`, {
+                    fieldValue,
+                    dependencyValue,
+                    stepsData,
+                    normalizedSteps,
+                    formContextData: contextData,
+                    validationRulesForField: validationRules[fieldId]
+                });
+                
                 const result = await fieldValidationRuleClient.validateField({
                     fieldId,
                     fieldValue,
+                    dependencyValue,
                     formContextData: contextData
                 });
+                console.log(`[VALIDATION_TRACE] Field ${fieldId} validation result:`, result);
+                
+                // CRITICAL: Always store the validation result, not just on error
                 setValidationResults(prev => ({ ...prev, [fieldId]: result }));
+                
                 if (result.isValid) {
                     setErrors(prev => {
                         const copy = { ...prev };
@@ -290,7 +319,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
      * Fetches and resolves all placeholders from validation rules for the field
      * Returns a dictionary of placeholder names to resolved values
      */
-    const resolvePlaceholdersForField = async (
+    const resolvePlaceholdersForField = useCallback(async (
         fieldId: number,
         stepsData: AllStepsData
     ): Promise<Record<string, string>> => {
@@ -333,7 +362,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         }
 
         return allPlaceholders;
-    };
+    }, [validationRules, config, entityName, entityId, normalizeAllStepsData]);
 
     const runValidationsForStep = async (step: FormStepDto, stepsData: AllStepsData, stepIndex: number) => {
         if (!config) return [] as Array<{ fieldId: number; result: ValidationResultDto }>;
@@ -479,6 +508,36 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         void fetchProgress();
     }, [workflowSessionId]);
 
+    // Phase 5.2: Pre-resolve placeholders for WorldTask fields when step changes
+    useEffect(() => {
+        if (!currentStepIndex || !config) return;
+
+        const step = config.steps[currentStepIndex];
+        if (!step) return;
+
+        const orderedFields = getOrderedFields(step);
+        const worldTaskFields = orderedFields.filter(f => {
+            const { enabled } = parseWorldTaskSettings(f.settingsJson);
+            return enabled && f.id;
+        });
+
+        // Pre-resolve placeholders for all WorldTask fields on this step
+        worldTaskFields.forEach(field => {
+            const fieldId = Number(field.id);
+            // Only resolve if not already resolved
+            if (!preResolvedPlaceholders[fieldId]) {
+                void resolvePlaceholdersForField(fieldId, allStepsData)
+                    .then(placeholders => {
+                        setPreResolvedPlaceholders(prev => ({ ...prev, [fieldId]: placeholders }));
+                    })
+                    .catch(err => {
+                        // Fail-open: if placeholder resolution fails, continue anyway
+                        console.error(`Failed to pre-resolve placeholders for field ${fieldId}:`, err);
+                    });
+            }
+        });
+    }, [currentStepIndex, config, allStepsData, preResolvedPlaceholders, resolvePlaceholdersForField]);
+
     // changed: simplified using utility function
     const loadExistingEntityData = async (entityTypeName: string, id: string, cfg: FormConfigurationDto) => {
         try {
@@ -551,15 +610,6 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             triggerFieldValidation(field, value, updatedAllData, true);
             if (field.id) {
                 revalidateDependents(Number(field.id), updatedAllData);
-                
-                // Phase 5.2: Pre-resolve placeholders for this field if it has world task enabled
-                const { enabled: worldTaskEnabled } = parseWorldTaskSettings(field.settingsJson);
-                if (worldTaskEnabled && field.id) {
-                    const fieldId = Number(field.id);
-                    void resolvePlaceholdersForField(fieldId, updatedAllData).then(placeholders => {
-                        setPreResolvedPlaceholders(prev => ({ ...prev, [fieldId]: placeholders }));
-                    });
-                }
             }
         }
     };
@@ -676,8 +726,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 return;
             }
 
+            // CRITICAL: Only check validation results for fields that actually exist on current step
+            // and have a fieldId. Fields from other steps should not block progression.
             const fieldId = field.id ? Number(field.id) : undefined;
-            if (fieldId) {
+            if (fieldId && currentStep?.fields.some(f => f.id === field.id)) {
                 const validationResult = validationResults[fieldId];
                 if (validationResult && !validationResult.isValid && validationResult.isBlocking) {
                     newErrors[field.fieldName] =
@@ -822,6 +874,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 } catch {}
                 setCurrentStepData(normalizeStepData(config!.steps[nextIndex], updatedAllData[nextIndex] || {}));
                 setErrors({});
+                // CRITICAL: Clear validation results when advancing to prevent contamination from previous steps
+                setValidationResults({});
                 return nextIndex;
             });
         } else {
@@ -871,6 +925,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 const previousIndex = prev - 1;
                 setCurrentStepData(normalizeStepData(config!.steps[previousIndex], allStepsData[previousIndex] || {}));
                 setErrors({});
+                // CRITICAL: Clear validation results when retreating to prevent contamination from previous steps
+                setValidationResults({});
                 return previousIndex;
             });
         }
@@ -1048,6 +1104,26 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                     allowCreate={true}
                                     onTaskCompleted={(task: any, extractedValue: any) => {
                                         console.log('WorldTask completed:', task, 'Extracted value:', extractedValue);
+                                        
+                                        // Clear the previous validation result for this field so it re-validates fresh
+                                        // with the newly populated value (prevents blocking on stale validation state)
+                                        console.log('Clearing validation result for fieldId:', fieldId);
+                                        console.log('Current validation results before clearing:', validationResults);
+                                        if (fieldId) {
+                                            setValidationResults(prev => {
+                                                const updated = { ...prev };
+                                                delete updated[fieldId];
+                                                console.log('Updated validation results after clearing:', updated);
+                                                return updated;
+                                            });
+                                            // Clear any error messages for this field as well
+                                            setErrors(prev => {
+                                                const updated = { ...prev };
+                                                delete updated[field.fieldName];
+                                                return updated;
+                                            });
+                                        }
+                                        
                                         // Field value already updated via onChange callback
                                         // Optionally notify workflow about step advancement
                                         onStepAdvanced?.({ from: currentStepIndex, to: currentStepIndex, stepKey });

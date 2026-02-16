@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { worldTaskClient } from '../../apiClients/worldTaskClient';
 import { WorldTaskReadDto } from '../../types/dtos/workflow/WorkflowDtos';
 import { FormFieldDto, FormConfigurationDto } from '../../types/dtos/forms/FormModels';
@@ -136,6 +136,10 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const [extractionSucceeded, setExtractionSucceeded] = useState(false);
     const [extractionError, setExtractionError] = useState<string | null>(null);
     const [copiedCodeId, setCopiedCodeId] = useState<number | null>(null);
+    
+    // Refs to prevent duplicate polling when effect re-runs due to parent re-renders
+    const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const polledTaskIdRef = useRef<number | null>(null);
 
     // Phase 7: Use enriched form context for dependency resolution
     // NOTE: Hook must be called unconditionally per React rules
@@ -143,8 +147,22 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
     // Poll task status when taskId is set
     useEffect(() => {
+        // Clean up old polling if taskId has changed to a new value
+        if (polledTaskIdRef.current !== null && polledTaskIdRef.current !== taskId && pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+        }
+
+        // Don't start new polling if:
+        // 1. No taskId set
+        // 2. Extraction already succeeded
+        // 3. We're already polling for this taskId
+        if (!taskId || extractionSucceeded || polledTaskIdRef.current === taskId) {
+            return;
+        }
+
         console.log('Starting task status polling for taskId:', taskId);
-        if (!taskId || extractionSucceeded) return;
+        polledTaskIdRef.current = taskId;
 
         const pollInterval = setInterval(async () => {
             try {
@@ -170,12 +188,16 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                         }
                         
                         console.log(`✓ WorldTask ${taskId} result extracted and field populated:`, extractedValue);
+                        clearInterval(pollInterval);
+                        pollingIntervalRef.current = null;
+                        polledTaskIdRef.current = null;
                     } else {
                         setExtractionError('Could not extract result from task output');
                         console.warn(`WorldTask ${taskId} completed but no result value found in output`);
+                        clearInterval(pollInterval);
+                        pollingIntervalRef.current = null;
+                        polledTaskIdRef.current = null;
                     }
-                    
-                    clearInterval(pollInterval);
                 }
 
                 // If task failed, show error and stop polling
@@ -183,13 +205,20 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     setExtractionError(updated.errorMessage || 'Task failed in Minecraft');
                     console.error('WorldTask failed:', updated.errorMessage);
                     clearInterval(pollInterval);
+                    pollingIntervalRef.current = null;
+                    polledTaskIdRef.current = null;
                 }
             } catch (error) {
                 console.error('Failed to poll task status:', error);
             }
         }, 2000);  // Poll every 2 seconds
 
-        return () => clearInterval(pollInterval);
+        pollingIntervalRef.current = pollInterval;
+
+        return () => {
+            clearInterval(pollInterval);
+            pollingIntervalRef.current = null;
+        };
     }, [taskId, extractionSucceeded, taskType, onChange, onTaskCompleted]);
 
     const handleCreateInMinecraft = async () => {

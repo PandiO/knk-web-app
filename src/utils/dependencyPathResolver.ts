@@ -1,51 +1,47 @@
 /**
- * Resolves multi-layer dependency paths through form context data.
+ * Resolves dependency paths through entity properties.
  * 
- * Supports navigating through related entities to extract property values.
+ * This utility supports navigating through entity relationships to extract property values.
+ * Aligns with IPathResolutionService backend contract.
+ * 
  * Examples:
- * - "WgRegionId" (Layer 0): Direct property from formContext
- * - "Town.WgRegionId" (Layer 1): Navigate to Town, get WgRegionId
- * - "District.Town.WgRegionId" (Layer 2): Navigate through multiple relations
+ * - "wgRegionId" (Layer 0): Direct property from entity
+ * - "town.wgRegionId" (Layer 1): Navigate to related entity, then extract property  
+ * - "district.town.wgRegionId" (Layer 2): Multi-level navigation
  */
 
 /**
- * Resolve a dependency path from form context data.
+ * Resolve a property path from an entity instance.
  * 
- * @param formContext - The form context containing field values (entities, primitives, etc.)
- * @param dependencyFieldName - The field name to start from in formContext
- * @param dependencyPath - Path to navigate from the dependency field value (e.g., "Town.WgRegionId")
+ * This is the primary function used by FormWizard to extract dependency values.
+ * It navigates from a given entity through a property path to extract the actual value.
+ * 
+ * @param entity - The entity instance to navigate (e.g., a Town object)
+ * @param propertyPath - Path to navigate from the entity (e.g., "wgRegionId" or "district.name")
  * @returns The resolved value, or null if path cannot be resolved
  * 
  * @example
- * // Given formContext = { Town: { id: 4, wgRegionId: "town_1", name: "Cinix" }, ... }
- * resolveDependencyPath(formContext, "Town", "wgRegionId")
+ * // Given entity = { id: 4, wgRegionId: "town_1", name: "Cinix" }
+ * resolveDependencyPath(entity, "wgRegionId")
  * // Returns: "town_1"
  * 
  * @example
- * // For multi-layer navigation
- * // Given formContext = { Structure: { id: 1, district: { town: { wgRegionId: "town_2" } } } }
- * resolveDependencyPath(formContext, "Structure", "district.town.wgRegionId")
+ * // For navigation through related entities
+ * // Given entity = { id: 1, district: { town: { wgRegionId: "town_2" } } }
+ * resolveDependencyPath(entity, "district.town.wgRegionId")
  * // Returns: "town_2"
  */
 export function resolveDependencyPath(
-  formContext: Record<string, unknown> | undefined,
-  dependencyFieldName: string | undefined,
-  dependencyPath: string | undefined
+  entity: unknown,
+  propertyPath: string | undefined
 ): unknown {
-  if (!formContext || !dependencyFieldName) {
-    return null;
-  }
-
-  // Get the starting field from context
-  const fieldValue = formContext[dependencyFieldName];
-
-  // If no path specified, return the field value itself (Layer 0)
-  if (!dependencyPath || dependencyPath.trim() === '') {
-    return fieldValue;
+  // If no entity or empty path, return the entity itself
+  if (!entity || !propertyPath || propertyPath.trim() === '') {
+    return entity;
   }
 
   // Navigate through the path
-  return navigatePath(fieldValue, dependencyPath);
+  return navigatePath(entity, propertyPath);
 }
 
 /**
@@ -97,12 +93,22 @@ function navigatePath(value: unknown, path: string): unknown {
 }
 
 /**
- * Parse a dependency path to understand the navigation layers.
+ * Parse a property path to understand the navigation layers.
  * 
+ * @param path - The property path (e.g., "wgRegionId" or "district.town.wgRegionId")
  * @returns Object with segments and depth
+ * 
  * @example
- * parsePath("Town.WgRegionId") // Returns { segments: ["Town", "WgRegionId"], depth: 1 }
- * parsePath("District.Town.WgRegionId") // Returns { segments: ["District", "Town", "WgRegionId"], depth: 2 }
+ * parsePath("wgRegionId") 
+ * // Returns { segments: ["wgRegionId"], depth: 0 }
+ * 
+ * @example
+ * parsePath("town.wgRegionId") 
+ * // Returns { segments: ["town", "wgRegionId"], depth: 1 }
+ * 
+ * @example
+ * parsePath("district.town.wgRegionId") 
+ * // Returns { segments: ["district", "town", "wgRegionId"], depth: 2 }
  */
 export function parsePath(path: string | undefined): {
   segments: string[];
@@ -120,38 +126,50 @@ export function parsePath(path: string | undefined): {
 }
 
 /**
- * Get the field reference from a dependency field name.
- * Handles both direct field names and prefixed references.
+ * Get the first navigation segment from a property path.
+ * Used to identify which related entity to navigate to first.
+ * 
+ * @param propertyPath - The property path (e.g., "town.wgRegionId" or "wgRegionId")
+ * @returns The first segment (navigation target) or null if path is empty
  * 
  * @example
- * getFieldReference("Town") // Returns "Town"
- * getFieldReference("Town.Name") // Returns "Town" (first segment)
+ * getFirstNavigationSegment("town.wgRegionId") // Returns "town"
+ * getFirstNavigationSegment("wgRegionId") // Returns "wgRegionId"
+ * getFirstNavigationSegment("") // Returns null
  */
-export function getFieldReference(dependencyPath: string | undefined): string | null {
-  if (!dependencyPath || dependencyPath.trim() === '') {
+export function getFirstNavigationSegment(propertyPath: string | undefined): string | null {
+  if (!propertyPath || propertyPath.trim() === '') {
     return null;
   }
 
   // Get the first segment before the first dot
-  const firstSegment = dependencyPath.split('.')[0];
+  const firstSegment = propertyPath.split('.')[0];
   return firstSegment || null;
 }
 
 /**
- * Get the property path (navigation path) from a full dependency path.
+ * Get the remaining property path after the first navigation.
+ * Used to continue navigating through related entities.
+ * 
+ * @param propertyPath - The property path (e.g., "town.wgRegionId" or "wgRegionId")
+ * @returns The remaining path after first segment, or null if only one segment
  * 
  * @example
- * getPropertyPath("Town.WgRegionId") // Returns "WgRegionId"
- * getPropertyPath("District.Town.WgRegionId") // Returns "Town.WgRegionId"
+ * getRemainingPath("district.town.wgRegionId") 
+ * // Returns "town.wgRegionId"
+ * 
+ * @example
+ * getRemainingPath("wgRegionId") 
+ * // Returns null (no further navigation)
  */
-export function getPropertyPath(dependencyPath: string | undefined): string | null {
-  if (!dependencyPath || dependencyPath.trim() === '') {
+export function getRemainingPath(propertyPath: string | undefined): string | null {
+  if (!propertyPath || propertyPath.trim() === '') {
     return null;
   }
 
-  const segments = dependencyPath.split('.');
+  const segments = propertyPath.split('.');
   if (segments.length <= 1) {
-    // No property path - it's a direct field
+    // No more navigation - it's a direct property
     return null;
   }
 
