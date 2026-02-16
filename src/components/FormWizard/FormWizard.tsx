@@ -707,6 +707,18 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         return {};
     };
 
+    /**
+     * Handler for validating join entity fields in many-to-many relationships.
+     * Called by ManyToManyRelationshipEditor when a join field changes.
+     */
+    const handleValidateJoinEntityField = async (fieldId: number, value: unknown, _relationshipIndex: number): Promise<void> => {
+        const field = findFieldById(fieldId);
+        if (!field) return;
+        
+        // Trigger validation with context from all steps
+        triggerFieldValidation(field.field, value, allStepsData, false);
+    };
+
     const handleFieldChange = (fieldName: string, value: unknown) => {
         if (!currentStep) return;
 
@@ -1298,6 +1310,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         entityName={entityName}
                         joinFormConfigurationId={currentStep.subConfigurationId}
                         onOpenJoinEntry={handleOpenJoinEntry}
+                        validationRules={validationRules}
+                        validationResults={validationResults}
+                        onValidateField={handleValidateJoinEntityField}
                     />
                 ) : (
                     /* Standard Field-Based Step */
