@@ -227,7 +227,6 @@ export const FormConfigBuilder: React.FC = () => {
         const newStep: FormStepDto = {
             id: generateTempId(),
             stepName: `Step ${config.steps.length + 1}`,
-            title: `Step ${config.steps.length + 1}`,
             description: '',
             order: config.steps.length,
             fieldOrderJson: '[]',

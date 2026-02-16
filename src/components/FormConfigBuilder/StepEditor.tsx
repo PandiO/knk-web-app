@@ -269,7 +269,6 @@ export const StepEditor: React.FC<Props> = ({
         const newChild: FormStepDto = {
             id: generateTempId(),
             stepName: `Child Step ${(step.childFormSteps?.length || 0) + 1}`,
-            title: `Child Step ${(step.childFormSteps?.length || 0) + 1}`,
             description: '',
             order: step.childFormSteps?.length || 0,
             fieldOrderJson: '[]',
@@ -544,18 +543,6 @@ export const StepEditor: React.FC<Props> = ({
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Title <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                        type="text"
-                        value={step.title}
-                        onChange={e => onUpdate({ ...step, title: e.target.value })}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                    />
-                </div>
-
-                <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                     <textarea
                         value={step.description || ''}
@@ -755,7 +742,6 @@ export const StepEditor: React.FC<Props> = ({
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div className="flex-1">
                                                         <div className="text-sm font-medium text-gray-900">{childStep.stepName || `Child Step ${childIdx + 1}`}</div>
-                                                        <div className="text-xs text-gray-500">{childStep.title || 'Join entity card template'}</div>
                                                         <div className="text-xs text-gray-500 mt-1">{childStep.fields.length} field{childStep.fields.length === 1 ? '' : 's'}</div>
                                                     </div>
                                                     <div className="flex gap-2">
@@ -794,14 +780,6 @@ export const StepEditor: React.FC<Props> = ({
                                                             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                                                             value={childStep.stepName}
                                                             onChange={e => handleUpdateChildMeta(childIdx, { stepName: e.target.value })}
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
-                                                        <input
-                                                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                                            value={childStep.title}
-                                                            onChange={e => handleUpdateChildMeta(childIdx, { title: e.target.value })}
                                                         />
                                                     </div>
                                                 </div>

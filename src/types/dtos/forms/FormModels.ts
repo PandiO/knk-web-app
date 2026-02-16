@@ -75,7 +75,6 @@ export interface FormStepDto {
     formConfigurationId?: string;
     stepGuid?: string;
     stepName: string;
-    title: string;
     description?: string;
     order: number;
     fieldOrderJson?: string;
