@@ -3,7 +3,7 @@ import { worldTaskClient } from '../../apiClients/worldTaskClient';
 import { WorldTaskReadDto } from '../../types/dtos/workflow/WorkflowDtos';
 import { FormFieldDto, FormConfigurationDto } from '../../types/dtos/forms/FormModels';
 import { FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
-import { CheckCircle, Copy, Check } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 import { useEnrichedFormContext } from '../../hooks/useEnrichedFormContext';
 
 interface WorldBoundFieldRendererProps {
@@ -22,6 +22,9 @@ interface WorldBoundFieldRendererProps {
     currentFormValues?: Record<string, any>; // Phase 7: Current form values for validation context
     onTaskCompleted?: (task: WorldTaskReadDto, extractedValue: any) => void;
     showLabel?: boolean;
+    hidePrimaryActionButton?: boolean;
+    actionButtonId?: string;
+    onStatusBannerVisibilityChange?: (visible: boolean) => void;
 }
 
 /**
@@ -93,28 +96,6 @@ function isLocationTask(taskType: string, actualTaskType?: string): boolean {
     return types.some(t => t.includes('location') || t.includes('capture'));
 }
 
-/**
- * Format a value for display, handling Location objects properly
- */
-function formatValueForDisplay(value: any): string {
-    if (!value) return '';
-    
-    // Check if value is a Location object (has x, y, z properties)
-    if (typeof value === 'object' && 'x' in value && 'y' in value && 'z' in value) {
-        const loc = value as { x: number; y: number; z: number; yaw?: number; pitch?: number; worldName?: string; World?: string };
-        const worldLabel = loc.World || loc.worldName || 'world';
-        return `${worldLabel} (${loc.x.toFixed(1)}, ${loc.y.toFixed(1)}, ${loc.z.toFixed(1)})`;
-    }
-    
-    // For other objects, use JSON
-    if (typeof value === 'object') {
-        return JSON.stringify(value);
-    }
-    
-    // For primitives, convert to string
-    return String(value);
-}
-
 export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = ({
     field,
     value,
@@ -131,6 +112,9 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     currentFormValues,
     onTaskCompleted,
     showLabel = true,
+    hidePrimaryActionButton = false,
+    actionButtonId,
+    onStatusBannerVisibilityChange,
 }) => {
     const [taskId, setTaskId] = useState<number | null>(null);
     const [task, setTask] = useState<WorldTaskReadDto | null>(null);
@@ -307,6 +291,18 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         setExtractionError(null);
     };
 
+    const hasVisibleStatusBanner =
+        (!!task && task.status === 'Pending' && !!task.linkCode) ||
+        (!!task && (task.status === 'InProgress' || task.status === 'Accepted')) ||
+        (!!task && task.status === 'Completed' && !extractionSucceeded && !extractionError) ||
+        (!!task && task.status === 'Completed' && extractionSucceeded) ||
+        !!extractionError ||
+        (!!task && task.status === 'Failed');
+
+    useEffect(() => {
+        onStatusBannerVisibilityChange?.(hasVisibleStatusBanner);
+    }, [hasVisibleStatusBanner, onStatusBannerVisibilityChange]);
+
     return (
         <div className="mb-4">
             {showLabel && (
@@ -314,20 +310,6 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     {field.label}
                     {field.isRequired && <span className="text-red-500 ml-1">*</span>}
                 </label>
-            )}
-
-            {/* Display current value with extraction success indicator */}
-            {value && (
-                <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-md flex items-center justify-between">
-                    <p className="text-sm font-medium text-green-800">
-                        ✓ {field.label}: <span className="font-mono text-green-900">{formatValueForDisplay(value)}</span>
-                    </p>
-                    {extractionSucceeded && (
-                        <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded flex items-center gap-1">
-                            <CheckCircle className="h-3 w-3" /> Auto-populated
-                        </span>
-                    )}
-                </div>
             )}
 
             {/* Prominent claim code display for Pending tasks */}
@@ -451,9 +433,10 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             {/* Button to create in Minecraft */}
             {allowCreate && !taskId && (
                 <button
+                    id={actionButtonId}
                     onClick={handleCreateInMinecraft}
                     disabled={isLoading}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400"
+                    className={hidePrimaryActionButton ? 'hidden' : 'px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400'}
                 >
                     {isLoading ? 'Creating task...' : value ? 'Replace via Minecraft' : 'Send to Minecraft'}
                 </button>

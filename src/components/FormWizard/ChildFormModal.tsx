@@ -7,6 +7,7 @@ import { FeedbackModal } from '../FeedbackModal';
 interface ChildFormModalProps {
     open: boolean;
     entityTypeName: string;
+    entityId?: string;
     parentProgressId?: string;
     userId: string;
     fieldName: string;
@@ -20,6 +21,7 @@ interface ChildFormModalProps {
 export const ChildFormModal: React.FC<ChildFormModalProps> = ({
     open,
     entityTypeName,
+    entityId,
     parentProgressId,
     userId,
     fieldName,
@@ -94,6 +96,8 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
         onClose();
     };
 
+    const isEditMode = !!entityId;
+
     if (!open) return null;
 
     return (
@@ -103,8 +107,14 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                 <div className="w-full max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-2xl">
                     <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                         <div>
-                            <h2 className="text-xl font-bold text-gray-900">Create New {entityTypeName}</h2>
-                            <p className="text-sm text-gray-600 mt-1">Fill in the form to create a new {entityTypeName}</p>
+                            <h2 className="text-xl font-bold text-gray-900">
+                                {isEditMode ? `Edit ${entityTypeName}` : `Create New ${entityTypeName}`}
+                            </h2>
+                            <p className="text-sm text-gray-600 mt-1">
+                                {isEditMode
+                                    ? `Update the ${entityTypeName} details`
+                                    : `Fill in the form to create a new ${entityTypeName}`}
+                            </p>
                         </div>
                         <button
                             onClick={onClose}
@@ -126,6 +136,7 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                         ) : defaultConfig ? (
                             <FormWizard
                                 entityName={entityTypeName}
+                                entityId={entityId}
                                 userId={userId}
                                 onComplete={handleChildComplete}
                                 parentProgressId={parentProgressId}

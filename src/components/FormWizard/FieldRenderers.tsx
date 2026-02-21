@@ -16,6 +16,9 @@ interface FieldRendererProps {
     error?: string;
     onBlur?: () => void;
     onCreateNew?: () => void;
+    onEditInstance?: (instance: any, index?: number) => void;
+    onWorldTaskAction?: () => void;
+    worldTaskStatusVisible?: boolean;
     allStepsData?: { [stepIndex: number]: any }; // optional: for dependency evaluation
     currentStepIndex?: number; // optional: for context
     errors?: { [fieldName: string]: string }; // optional: error map
@@ -31,6 +34,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     error,
     onBlur,
     onCreateNew,
+    onEditInstance,
+    onWorldTaskAction,
+    worldTaskStatusVisible,
     validationResult,
     validationPending,
     onRetryValidation
@@ -72,11 +78,26 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
             );
         case FieldType.Object:
             return withFeedback(
-                <ObjectField field={field} value={value} onChange={onChange} error={error} onCreateNew={onCreateNew} />
+                <ObjectField
+                    field={field}
+                    value={value}
+                    onChange={onChange}
+                    error={error}
+                    onCreateNew={onCreateNew}
+                    onEditInstance={onEditInstance}
+                    onWorldTaskAction={onWorldTaskAction}
+                    worldTaskStatusVisible={worldTaskStatusVisible}
+                />
             );
         case FieldType.List:
             return withFeedback(
-                <ListField field={field} value={value} onChange={onChange} error={error} />
+                <ListField
+                    field={field}
+                    value={value}
+                    onChange={onChange}
+                    error={error}
+                    onEditInstance={onEditInstance}
+                />
             );
         case FieldType.HybridMinecraftMaterialRefPicker: {
             const settings = parseHybridMaterialSettings(field.settingsJson);
@@ -572,8 +593,24 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
     );
 };
 
-const ObjectField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onCreateNew }) => {
+const ObjectField: React.FC<FieldRendererProps> = ({
+    field,
+    value,
+    onChange,
+    error,
+    onCreateNew,
+    onEditInstance,
+    onWorldTaskAction,
+    worldTaskStatusVisible
+}) => {
     const canCreate = field.canCreate !== false; // default true if not specified
+    const [showReplaceTable, setShowReplaceTable] = React.useState(false);
+
+    React.useEffect(() => {
+        if (value) {
+            setShowReplaceTable(false);
+        }
+    }, [value]);
 
     const selectionConfig: SelectionConfig = {
         mode: 'single'
@@ -587,6 +624,39 @@ const ObjectField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
     const handleRemoveSelection = () => {
         onChange(null);
     };
+
+    const showHorizontalActions = !showReplaceTable && !worldTaskStatusVisible;
+    const actions: Array<{ key: string; label: string; onClick: () => void }> = [];
+
+    if (onCreateNew && canCreate) {
+        actions.push({
+            key: 'create',
+            label: 'Create New',
+            onClick: onCreateNew
+        });
+    }
+
+    if (value && onEditInstance) {
+        actions.push({
+            key: 'edit',
+            label: 'Edit instance',
+            onClick: () => onEditInstance(value)
+        });
+    }
+
+    if (onWorldTaskAction) {
+        actions.push({
+            key: 'worldtask',
+            label: value ? 'Replace via Minecraft' : 'Send to Minecraft',
+            onClick: onWorldTaskAction
+        });
+    }
+
+    actions.push({
+        key: 'replace',
+        label: 'Replace instance',
+        onClick: () => setShowReplaceTable(prev => !prev)
+    });
 
     return (
         <div>
@@ -624,34 +694,83 @@ const ObjectField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
             )}
 
             <div className="flex space-x-2">
-                <div className="relative flex-1">
-                    <PagedEntityTable
-                        entityTypeName={field.objectType!}
-                        columns={columnDefinitionsRegistry[field.objectType!]?.default || defaultColumnDefinitions.default}
-                        initialQuery={{ page: 1, pageSize: 10}}
-                        selectionConfig={selectionConfig}
-                        selectedItems={value ? [value] : []}
-                        onSelectionChange={handleSelectionChange}
-                        showSelectionBanner={false}
-                    />
-                </div>
-                {onCreateNew && canCreate && (
-                    <button
-                        type="button"
-                        onClick={onCreateNew}
-                        className="btn-secondary whitespace-nowrap self-start"
-                    >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Create New
-                    </button>
+                {showReplaceTable && (
+                    <div className="relative flex-1">
+                        <PagedEntityTable
+                            entityTypeName={field.objectType!}
+                            columns={columnDefinitionsRegistry[field.objectType!]?.default || defaultColumnDefinitions.default}
+                            initialQuery={{ page: 1, pageSize: 10}}
+                            selectionConfig={selectionConfig}
+                            selectedItems={value ? [value] : []}
+                            onSelectionChange={handleSelectionChange}
+                            showSelectionBanner={false}
+                        />
+                    </div>
                 )}
+                <div className="self-start">
+                    <details className="relative sm:hidden">
+                        <summary className="btn-secondary whitespace-nowrap cursor-pointer list-none">
+                            Actions
+                        </summary>
+                        <div className="absolute right-0 z-20 mt-2 min-w-[220px] rounded-md border border-gray-200 bg-white p-2 shadow-lg">
+                            {actions.map(action => (
+                                <button
+                                    key={action.key}
+                                    type="button"
+                                    onClick={action.onClick}
+                                    className="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-50"
+                                >
+                                    {action.label}
+                                </button>
+                            ))}
+                        </div>
+                    </details>
+
+                    <div className={`hidden sm:flex ${showHorizontalActions ? 'flex-row flex-wrap gap-2' : 'flex-col space-y-2'}`}>
+                        {onCreateNew && canCreate && (
+                            <button
+                                type="button"
+                                onClick={onCreateNew}
+                                className="btn-secondary whitespace-nowrap"
+                            >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Create New
+                            </button>
+                        )}
+                        {value && onEditInstance && (
+                            <button
+                                type="button"
+                                onClick={() => onEditInstance(value)}
+                                className="btn-secondary whitespace-nowrap"
+                            >
+                                Edit instance
+                            </button>
+                        )}
+                        {onWorldTaskAction && (
+                            <button
+                                type="button"
+                                onClick={onWorldTaskAction}
+                                className="btn-secondary whitespace-nowrap"
+                            >
+                                {value ? 'Replace via Minecraft' : 'Send to Minecraft'}
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setShowReplaceTable(prev => !prev)}
+                            className="btn-secondary whitespace-nowrap"
+                        >
+                            Replace instance
+                        </button>
+                    </div>
+                </div>
             </div>
             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         </div>
     );
 };
 
-const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error }) => {
+const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onEditInstance }) => {
     console.log('Rendering ListField with value:', value);
     const items = Array.isArray(value) ? value : [];
     
@@ -786,6 +905,15 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                                         >
                                             <X className="h-4 w-4" />
                                         </button>
+                                        {onEditInstance && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onEditInstance(item, items.findIndex(current => current.id === item.id))}
+                                                className="btn-secondary whitespace-nowrap ml-2"
+                                            >
+                                                Edit instance
+                                            </button>
+                                        )}
                                     </div>
                                 ))}
                             </div>

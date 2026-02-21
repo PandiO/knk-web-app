@@ -5,6 +5,7 @@ import { formConfigClient } from '../../apiClients/formConfigClient';
 import { formSubmissionClient } from '../../apiClients/formSubmissionClient';
 import { ConditionEvaluator } from '../../utils/conditionEvaluator';
 import { FormSubmissionStatus } from '../../utils/enums';
+import { FieldType } from '../../utils/enums';
 import { FieldRenderer } from './FieldRenderers';
 import { WorldBoundFieldRenderer } from '../Workflow/WorldBoundFieldRenderer';
 import { logging } from '../../utils';
@@ -71,6 +72,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const [validationResults, setValidationResults] = useState<Record<number, ValidationResultDto>>({});
     const [validationLoading, setValidationLoading] = useState<Record<number, boolean>>({});
     const [preResolvedPlaceholders, setPreResolvedPlaceholders] = useState<Record<number, Record<string, string>>>({});
+    const [worldTaskStatusVisibility, setWorldTaskStatusVisibility] = useState<Record<string, boolean>>({});
     const validationTimersRef = useRef<Record<number, number>>({});
 
     type SaveFeedbackState = {
@@ -92,12 +94,16 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         open: boolean;
         entityTypeName: string;
         fieldName: string;
+        entityId?: string;
+        listItemIndex?: number;
         worldTaskHint?: string;
     };
     const [childFormModal, setChildFormModal] = useState<ChildFormState>({
         open: false,
         entityTypeName: '',
         fieldName: '',
+        entityId: undefined,
+        listItemIndex: undefined,
         worldTaskHint: undefined
     });
 
@@ -752,24 +758,53 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     };
 
     // added: open child form modal for creating new object
-    const handleOpenChildForm = (field: FormFieldDto) => {
+    const handleOpenChildForm = (field: FormFieldDto, existingInstance?: any, listItemIndex?: number) => {
         const { enabled, taskType } = parseWorldTaskSettings(field.settingsJson);
+        const resolvedEntityId = existingInstance?.id != null ? String(existingInstance.id) : undefined;
         setChildFormModal({
             open: true,
             entityTypeName: field.objectType || '',
             fieldName: field.fieldName,
+            entityId: resolvedEntityId,
+            listItemIndex,
             worldTaskHint: enabled ? taskType : undefined
         });
     };
 
     // added: close child form modal
     const handleCloseChildForm = () => {
-        setChildFormModal(prev => ({ ...prev, open: false, worldTaskHint: undefined }));
+        setChildFormModal(prev => ({
+            ...prev,
+            open: false,
+            entityId: undefined,
+            listItemIndex: undefined,
+            worldTaskHint: undefined
+        }));
     };
 
     // added: handle child form completion and data insertion
     const handleChildFormComplete = async (childData: Record<string, unknown>, progress?: FormSubmissionProgressDto) => {
         const fieldName = childFormModal.fieldName;
+        const listItemIndex = childFormModal.listItemIndex;
+
+        const applyChildValue = (createdEntity: Record<string, unknown>) => {
+            if (typeof listItemIndex === 'number') {
+                const existingItems = Array.isArray(currentStepData[fieldName])
+                    ? [...(currentStepData[fieldName] as Record<string, unknown>[])]
+                    : [];
+
+                if (listItemIndex >= 0 && listItemIndex < existingItems.length) {
+                    existingItems[listItemIndex] = createdEntity;
+                } else {
+                    existingItems.push(createdEntity);
+                }
+
+                handleFieldChange(fieldName, existingItems);
+                return;
+            }
+
+            handleFieldChange(fieldName, createdEntity);
+        };
 
         try {
             // Extract ID from the created entity if it exists
@@ -803,17 +838,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
                 // Insert the entity data into the field
                 // Store the full object for display, normalizeFormSubmission will extract ID when submitting
-                setCurrentStepData(prev => ({
-                    ...prev,
-                    [childFormModal.fieldName]: createdEntity
-                }));
+                applyChildValue(createdEntity);
             } else {
                 // Regular child form: insert data directly into the field
                 // Store the full object for display, normalizeFormSubmission will extract ID when submitting
-                setCurrentStepData(prev => ({
-                    ...prev,
-                    [fieldName]: createdEntity
-                }));
+                applyChildValue(createdEntity);
             }
 
             handleCloseChildForm();
@@ -1407,6 +1436,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
                         const fieldId = field.id ? Number(field.id) : null;
                         const canRenderWorldTaskPanel = worldTaskEnabled && workflowSessionId != null && !!taskType;
+                        const worldTaskActionButtonId = `worldtask-action-${currentStepIndex}-${field.fieldName}`;
+                        const worldTaskStatusVisibleForField = worldTaskStatusVisibility[worldTaskActionButtonId] || false;
                         const fieldPlaceholders = fieldId ? preResolvedPlaceholders[fieldId] : undefined;
                         const fieldValidationRules = fieldId ? (validationRules[fieldId] || []) : [];
                         const flatFormValues = config ? flattenAllStepsData(config, allStepsData) : {};
@@ -1455,6 +1486,14 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                     error={errors[field.fieldName]}
                                     onBlur={() => validateField(field)}
                                     onCreateNew={() => handleOpenChildForm(field)}
+                                    onEditInstance={(instance, listIndex) => handleOpenChildForm(field, instance, listIndex)}
+                                    onWorldTaskAction={canRenderWorldTaskPanel
+                                        ? () => {
+                                            const actionButton = document.getElementById(worldTaskActionButtonId) as HTMLButtonElement | null;
+                                            actionButton?.click();
+                                        }
+                                        : undefined}
+                                    worldTaskStatusVisible={worldTaskStatusVisibleForField}
                                     validationResult={field.id ? validationResults[Number(field.id)] : undefined}
                                     validationPending={field.id ? validationLoading[Number(field.id)] : false}
                                     onRetryValidation={canRetryValidation ? handleRetryValidation : undefined}
@@ -1476,6 +1515,20 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                         allowExisting={false}
                                         allowCreate={true}
                                         showLabel={false}
+                                        actionButtonId={worldTaskActionButtonId}
+                                        hidePrimaryActionButton={field.fieldType === FieldType.Object || field.fieldType === FieldType.List}
+                                        onStatusBannerVisibilityChange={(visible: boolean) => {
+                                            setWorldTaskStatusVisibility(prev => {
+                                                if (prev[worldTaskActionButtonId] === visible) {
+                                                    return prev;
+                                                }
+
+                                                return {
+                                                    ...prev,
+                                                    [worldTaskActionButtonId]: visible
+                                                };
+                                            });
+                                        }}
                                         onTaskCompleted={(task: any, extractedValue: any) => {
                                             console.log('WorldTask completed:', task, 'Extracted value:', extractedValue);
                                             console.log('Clearing validation result for fieldId:', fieldId);
@@ -1518,6 +1571,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             <ChildFormModal
                 open={childFormModal.open}
                 entityTypeName={childFormModal.entityTypeName}
+                entityId={childFormModal.entityId}
                 parentProgressId={progressId}
                 userId={userId}
                 fieldName={childFormModal.fieldName}
