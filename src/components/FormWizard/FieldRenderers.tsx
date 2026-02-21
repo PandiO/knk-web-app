@@ -1,7 +1,7 @@
 import React from 'react';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
-import { Calendar, Plus, Minus, X, CheckCircle2, AlertTriangle, Loader2, Info } from 'lucide-react';
+import { Calendar, Plus, Minus, X, CheckCircle2, AlertTriangle, Loader2, Info, Pencil, Gamepad2, RefreshCw } from 'lucide-react';
 import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 import { HybridMaterialPicker } from '../minecraft/HybridMaterialPicker';
@@ -625,14 +625,15 @@ const ObjectField: React.FC<FieldRendererProps> = ({
         onChange(null);
     };
 
-    const showHorizontalActions = !showReplaceTable && !worldTaskStatusVisible;
-    const actions: Array<{ key: string; label: string; onClick: () => void }> = [];
+    const showHorizontalActions = !worldTaskStatusVisible;
+    const actions: Array<{ key: string; label: string; onClick: () => void; icon?: React.ReactNode }> = [];
 
     if (onCreateNew && canCreate) {
         actions.push({
             key: 'create',
             label: 'Create New',
-            onClick: onCreateNew
+            onClick: onCreateNew,
+            icon: <Plus className="h-4 w-4" />
         });
     }
 
@@ -640,7 +641,8 @@ const ObjectField: React.FC<FieldRendererProps> = ({
         actions.push({
             key: 'edit',
             label: 'Edit instance',
-            onClick: () => onEditInstance(value)
+            onClick: () => onEditInstance(value),
+            icon: <Pencil className="h-4 w-4" />
         });
     }
 
@@ -648,14 +650,16 @@ const ObjectField: React.FC<FieldRendererProps> = ({
         actions.push({
             key: 'worldtask',
             label: value ? 'Replace via Minecraft' : 'Send to Minecraft',
-            onClick: onWorldTaskAction
+            onClick: onWorldTaskAction,
+            icon: <Gamepad2 className="h-4 w-4" />
         });
     }
 
     actions.push({
         key: 'replace',
         label: 'Replace instance',
-        onClick: () => setShowReplaceTable(prev => !prev)
+        onClick: () => setShowReplaceTable(prev => !prev),
+        icon: <RefreshCw className="h-4 w-4" />
     });
 
     return (
@@ -693,20 +697,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                 </div>
             )}
 
-            <div className="flex space-x-2">
-                {showReplaceTable && (
-                    <div className="relative flex-1">
-                        <PagedEntityTable
-                            entityTypeName={field.objectType!}
-                            columns={columnDefinitionsRegistry[field.objectType!]?.default || defaultColumnDefinitions.default}
-                            initialQuery={{ page: 1, pageSize: 10}}
-                            selectionConfig={selectionConfig}
-                            selectedItems={value ? [value] : []}
-                            onSelectionChange={handleSelectionChange}
-                            showSelectionBanner={false}
-                        />
-                    </div>
-                )}
+            <div className="space-y-2">
                 <div className="self-start">
                     <details className="relative sm:hidden">
                         <summary className="btn-secondary whitespace-nowrap cursor-pointer list-none">
@@ -718,22 +709,23 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                                     key={action.key}
                                     type="button"
                                     onClick={action.onClick}
-                                    className="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-50"
+                                    className="w-full px-3 py-2 text-sm rounded hover:bg-gray-50 inline-flex items-center gap-2"
                                 >
+                                    {action.icon}
                                     {action.label}
                                 </button>
                             ))}
                         </div>
                     </details>
 
-                    <div className={`hidden sm:flex ${showHorizontalActions ? 'flex-row flex-wrap gap-2' : 'flex-col space-y-2'}`}>
+                    <div className={`hidden sm:flex items-start ${showHorizontalActions ? 'flex-row flex-wrap gap-2' : 'flex-col gap-2'}`}>
                         {onCreateNew && canCreate && (
                             <button
                                 type="button"
                                 onClick={onCreateNew}
-                                className="btn-secondary whitespace-nowrap"
+                                className="btn-secondary whitespace-nowrap inline-flex items-center gap-1"
                             >
-                                <Plus className="h-4 w-4 mr-1" />
+                                <Plus className="h-4 w-4" />
                                 Create New
                             </button>
                         )}
@@ -741,8 +733,9 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                             <button
                                 type="button"
                                 onClick={() => onEditInstance(value)}
-                                className="btn-secondary whitespace-nowrap"
+                                className="btn-secondary whitespace-nowrap inline-flex items-center gap-1"
                             >
+                                <Pencil className="h-4 w-4" />
                                 Edit instance
                             </button>
                         )}
@@ -750,20 +743,36 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                             <button
                                 type="button"
                                 onClick={onWorldTaskAction}
-                                className="btn-secondary whitespace-nowrap"
+                                className="btn-secondary whitespace-nowrap inline-flex items-center gap-1"
                             >
+                                <Gamepad2 className="h-4 w-4" />
                                 {value ? 'Replace via Minecraft' : 'Send to Minecraft'}
                             </button>
                         )}
                         <button
                             type="button"
                             onClick={() => setShowReplaceTable(prev => !prev)}
-                            className="btn-secondary whitespace-nowrap"
+                            className="btn-secondary whitespace-nowrap inline-flex items-center gap-1"
                         >
+                            <RefreshCw className="h-4 w-4" />
                             Replace instance
                         </button>
                     </div>
                 </div>
+
+                {showReplaceTable && (
+                    <div className="relative">
+                        <PagedEntityTable
+                            entityTypeName={field.objectType!}
+                            columns={columnDefinitionsRegistry[field.objectType!]?.default || defaultColumnDefinitions.default}
+                            initialQuery={{ page: 1, pageSize: 10}}
+                            selectionConfig={selectionConfig}
+                            selectedItems={value ? [value] : []}
+                            onSelectionChange={handleSelectionChange}
+                            showSelectionBanner={false}
+                        />
+                    </div>
+                )}
             </div>
             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         </div>
