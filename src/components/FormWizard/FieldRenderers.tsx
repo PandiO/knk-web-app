@@ -21,6 +21,7 @@ interface FieldRendererProps {
     errors?: { [fieldName: string]: string }; // optional: error map
     validationResult?: ValidationResultDto;
     validationPending?: boolean;
+    onRetryValidation?: () => void;
 }
 
 export const FieldRenderer: React.FC<FieldRendererProps> = ({
@@ -31,13 +32,18 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     onBlur,
     onCreateNew,
     validationResult,
-    validationPending
+    validationPending,
+    onRetryValidation
     // Note: allStepsData, currentStepIndex, errors are available in props but currently unused
 }) => {
     const withFeedback = (content: React.ReactNode) => (
         <div className="space-y-1">
             {content}
-            <ValidationFeedback validationResult={validationResult} pending={validationPending} />
+            <ValidationFeedback
+                validationResult={validationResult}
+                pending={validationPending}
+                onRetryValidation={onRetryValidation}
+            />
         </div>
     );
 
@@ -134,11 +140,25 @@ const parseHybridEnchantmentSettings = (settingsJson?: string): { categoryFilter
     }
 };
 
-const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pending?: boolean }> = ({ validationResult, pending }) => {
+const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pending?: boolean; onRetryValidation?: () => void }> = ({ validationResult, pending, onRetryValidation }) => {
+    const retryButton = onRetryValidation ? (
+        <button
+            type="button"
+            onClick={onRetryValidation}
+            disabled={!!pending}
+            className="ml-2 text-xs px-2 py-1 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+            Re-run validation
+        </button>
+    ) : null;
+
     if (pending) {
         return (
-            <div className="flex items-center text-xs text-gray-500">
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Validating…
+            <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center">
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Validating…
+                </div>
+                {retryButton}
             </div>
         );
     }
@@ -150,8 +170,11 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
     if (validationResult.isValid) {
         if (!message) return null;
         return (
-            <div className="flex items-center text-xs text-green-700">
-                <CheckCircle2 className="h-4 w-4 mr-1" /> {message}
+            <div className="flex items-center justify-between text-xs text-green-700">
+                <div className="flex items-center">
+                    <CheckCircle2 className="h-4 w-4 mr-1" /> {message}
+                </div>
+                {retryButton}
             </div>
         );
     }
@@ -161,9 +184,12 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
     const Icon = isBlocking ? AlertTriangle : Info;
 
     return (
-        <div className={`flex items-start text-xs ${color}`}>
-            <Icon className="h-4 w-4 mr-1 mt-0.5" />
-            <span>{message || 'Validation failed.'}</span>
+        <div className={`flex items-start justify-between text-xs ${color}`}>
+            <div className="flex items-start">
+                <Icon className="h-4 w-4 mr-1 mt-0.5" />
+                <span>{message || 'Validation failed.'}</span>
+            </div>
+            {retryButton}
         </div>
     );
 };

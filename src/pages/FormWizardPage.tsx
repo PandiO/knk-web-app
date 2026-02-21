@@ -247,6 +247,19 @@ export const FormWizardPage: React.FC<Props> = ({
             setDefaultConfig(defaultCfg);
             setWizardConfig(defaultCfg);
             setWizardProgressId(undefined);
+            try {
+                    const cfgIdNum = defaultCfg.id ? parseInt(String(defaultCfg.id), 10) : undefined;
+                    const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
+                    const session = await workflowClient.createSession({
+                        userId: parseInt(userId, 10) || 0,
+                        formConfigurationId: cfgIdNum,
+                        entityTypeName: selectedTypeName,
+                        entityId: entityIdNum
+                    });
+                    setWorkflowSessionId(session.id);
+                } catch {
+                    setWorkflowSessionId(undefined);
+                }
             setShowWizard(true);
         } catch (error) {
             console.error('Failed to load configuration for edit:', error);

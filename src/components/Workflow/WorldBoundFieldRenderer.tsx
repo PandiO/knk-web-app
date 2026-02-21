@@ -21,6 +21,7 @@ interface WorldBoundFieldRendererProps {
     validationRules?: FieldValidationRuleDto[]; // Phase 7: Validation rules for current field
     currentFormValues?: Record<string, any>; // Phase 7: Current form values for validation context
     onTaskCompleted?: (task: WorldTaskReadDto, extractedValue: any) => void;
+    showLabel?: boolean;
 }
 
 /**
@@ -129,6 +130,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     validationRules,
     currentFormValues,
     onTaskCompleted,
+    showLabel = true,
 }) => {
     const [taskId, setTaskId] = useState<number | null>(null);
     const [task, setTask] = useState<WorldTaskReadDto | null>(null);
@@ -138,7 +140,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const [copiedCodeId, setCopiedCodeId] = useState<number | null>(null);
     
     // Refs to prevent duplicate polling when effect re-runs due to parent re-renders
-    const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const polledTaskIdRef = useRef<number | null>(null);
 
     // Phase 7: Use enriched form context for dependency resolution
@@ -298,12 +300,21 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         }
     };
 
+    const handleRunAgain = () => {
+        setTaskId(null);
+        setTask(null);
+        setExtractionSucceeded(false);
+        setExtractionError(null);
+    };
+
     return (
         <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-                {field.label}
-                {field.isRequired && <span className="text-red-500 ml-1">*</span>}
-            </label>
+            {showLabel && (
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {field.label}
+                    {field.isRequired && <span className="text-red-500 ml-1">*</span>}
+                </label>
+            )}
 
             {/* Display current value with extraction success indicator */}
             {value && (
@@ -394,6 +405,12 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     <p className="text-sm font-medium text-green-800">
                         ✅ Task completed! Field has been auto-populated with the result.
                     </p>
+                    <button
+                        onClick={handleRunAgain}
+                        className="mt-2 text-xs px-2 py-1 bg-green-200 text-green-800 rounded hover:bg-green-300"
+                    >
+                        Capture again
+                    </button>
                 </div>
             )}
 
@@ -431,19 +448,19 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 </div>
             )}
 
-            {/* Button to create in Minecraft (disabled if already set or in progress) */}
-            {!value && !taskId && (
+            {/* Button to create in Minecraft */}
+            {allowCreate && !taskId && (
                 <button
                     onClick={handleCreateInMinecraft}
                     disabled={isLoading}
                     className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400"
                 >
-                    {isLoading ? 'Creating task...' : 'Send to Minecraft'}
+                    {isLoading ? 'Creating task...' : value ? 'Replace via Minecraft' : 'Send to Minecraft'}
                 </button>
             )}
 
             {/* Existing region selector (optional) */}
-            {allowExisting && !value && !taskId && (
+            {allowExisting && !taskId && (
                 <select
                     onChange={e => onChange(e.target.value || null)}
                     className="block w-full mt-2 border-gray-300 rounded-md"

@@ -6,6 +6,7 @@ import { formSubmissionClient } from '../../apiClients/formSubmissionClient';
 import { ConditionEvaluator } from '../../utils/conditionEvaluator';
 import { FormSubmissionStatus } from '../../utils/enums';
 import { FieldRenderer } from './FieldRenderers';
+import { WorldBoundFieldRenderer } from '../Workflow/WorldBoundFieldRenderer';
 import { logging } from '../../utils';
 import { getFetchByIdFunctionForEntity } from '../../utils/entityApiMapping';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
@@ -46,9 +47,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     onComplete,
     existingProgressId,
     parentProgressId, // added
+    fieldName,
     workflowSessionId,
-    onStepAdvanced
-    // Note: fieldName, currentStepIndex, and worldTaskHint props removed as unused
+    onStepAdvanced,
+    worldTaskHint
+    // Note: currentStepIndex prop removed as unused
 }) => {
     const [config, setConfig] = useState<FormConfigurationDto | null>(null);
     const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto | null>(null);
@@ -89,11 +92,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         open: boolean;
         entityTypeName: string;
         fieldName: string;
+        worldTaskHint?: string;
     };
     const [childFormModal, setChildFormModal] = useState<ChildFormState>({
         open: false,
         entityTypeName: '',
-        fieldName: ''
+        fieldName: '',
+        worldTaskHint: undefined
     });
 
     type JoinEntryModalState = {
@@ -431,8 +436,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 }
 
                 // Log any resolution errors for debugging
-                if (response.unresolvedPlaceholders && response.unresolvedPlaceholders.length > 0) {
-                    console.warn('Unresolved placeholders for rule', rule.id, ':', response.unresolvedPlaceholders);
+                if (response.resolutionErrors && response.resolutionErrors.length > 0) {
+                    console.warn('Resolution errors for rule', rule.id, ':', response.resolutionErrors);
                 }
             } catch (error) {
                 console.error('Failed to resolve placeholders for rule', rule.id, ':', error);
@@ -748,16 +753,18 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
     // added: open child form modal for creating new object
     const handleOpenChildForm = (field: FormFieldDto) => {
+        const { enabled, taskType } = parseWorldTaskSettings(field.settingsJson);
         setChildFormModal({
             open: true,
             entityTypeName: field.objectType || '',
-            fieldName: field.fieldName
+            fieldName: field.fieldName,
+            worldTaskHint: enabled ? taskType : undefined
         });
     };
 
     // added: close child form modal
     const handleCloseChildForm = () => {
-        setChildFormModal(prev => ({ ...prev, open: false }));
+        setChildFormModal(prev => ({ ...prev, open: false, worldTaskHint: undefined }));
     };
 
     // added: handle child form completion and data insertion
@@ -1258,7 +1265,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 <div className="text-center mb-6">
                     {/* changed: show edit mode in title */}
                     <h2 className="text-xl md:text-2xl font-bold text-gray-900">
-                        {entityId ? `Edit ${entityName}` : currentStep.title}
+                        {entityId ? `Edit ${entityName}` : currentStep.stepName}
                     </h2>
                     {currentStep.description && (
                         <p className="mt-2 text-sm text-gray-600">{currentStep.description}</p>
@@ -1326,83 +1333,172 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
                         if (!shouldShow) return null;
 
-                        // Check if this field has world task enabled
-                        const { enabled: worldTaskEnabled, taskType } = parseWorldTaskSettings(field.settingsJson);
-                        const stepKey = computeStepKey(currentStep!, currentStepIndex);
-
-                        // If world task is enabled and we have a workflow session, use WorldBoundFieldRenderer
-                        if (worldTaskEnabled && workflowSessionId != null && taskType) {
-                            // Phase 5.2: Pre-resolve placeholders for this field before rendering
-                            const fieldId = field.id ? Number(field.id) : null;
-                            const fieldPlaceholders = fieldId ? preResolvedPlaceholders[fieldId] : undefined;
-                            
-                            // Phase 7+: Get validation rules and prepare form context for WorldTask validation
-                            const fieldValidationRules = fieldId ? (validationRules[fieldId] || []) : [];
-                            const flatFormValues = config ? flattenAllStepsData(config, allStepsData) : {};
-                            
-                    // eslint-disable-next-line @typescript-eslint/no-var-requires
-                            const WorldBoundFieldRenderer = require('../Workflow/WorldBoundFieldRenderer').WorldBoundFieldRenderer;
-                            return (
-                                <WorldBoundFieldRenderer
-                                    key={field.id}
-                                    field={field}
-                                    value={currentStepData[field.fieldName]}
-                                    onChange={(value: any) => handleFieldChange(field.fieldName, value)}
-                                    taskType={taskType}
-                                    workflowSessionId={workflowSessionId}
-                                    stepNumber={currentStepIndex}
-                                    stepKey={stepKey}
-                                    fieldId={fieldId || undefined}
-                                    formContext={currentStepData}
-                                    formConfiguration={config} // Phase 7: Pass form configuration for dependency resolution
-                                    validationRules={fieldValidationRules} // Phase 7+: Pass validation rules
-                                    currentFormValues={flatFormValues} // Phase 7+: Pass all form values for validation context
-                                    preResolvedPlaceholders={fieldPlaceholders}
-                                    allowExisting={false}
-                                    allowCreate={true}
-                                    onTaskCompleted={(task: any, extractedValue: any) => {
-                                        console.log('WorldTask completed:', task, 'Extracted value:', extractedValue);
-                                        
-                                        // Clear the previous validation result for this field so it re-validates fresh
-                                        // with the newly populated value (prevents blocking on stale validation state)
-                                        console.log('Clearing validation result for fieldId:', fieldId);
-                                        console.log('Current validation results before clearing:', validationResults);
-                                        if (fieldId) {
-                                            setValidationResults(prev => {
-                                                const updated = { ...prev };
-                                                delete updated[fieldId];
-                                                console.log('Updated validation results after clearing:', updated);
-                                                return updated;
-                                            });
-                                            // Clear any error messages for this field as well
-                                            setErrors(prev => {
-                                                const updated = { ...prev };
-                                                delete updated[field.fieldName];
-                                                return updated;
-                                            });
-                                        }
-                                        
-                                        // Field value already updated via onChange callback
-                                        // Optionally notify workflow about step advancement
-                                        onStepAdvanced?.({ from: currentStepIndex, to: currentStepIndex, stepKey });
-                                    }}
-                                />
-                            );
+                        const isDebugField = Number(field.id) === 4;
+                        if (isDebugField) {
+                            console.groupCollapsed('[FW_DEBUG][Field#4] Render cycle');
+                            console.log('step', {
+                                currentStepIndex,
+                                stepName: currentStep?.stepName,
+                                stepId: currentStep?.id,
+                                workflowSessionId,
+                                worldTaskHint,
+                                inheritedFieldName: fieldName
+                            });
+                            console.log('field', {
+                                id: field.id,
+                                fieldName: field.fieldName,
+                                fieldType: field.fieldType,
+                                objectType: field.objectType,
+                                settingsJson: field.settingsJson
+                            });
+                            console.log('value state', {
+                                currentStepValue: currentStepData[field.fieldName],
+                                allStepsCurrentStepValue: allStepsData[currentStepIndex]?.[field.fieldName],
+                                hasValueInCurrentStepData: Object.prototype.hasOwnProperty.call(currentStepData, field.fieldName)
+                            });
                         }
 
-                        // Otherwise use standard field renderer
+                        // Check if this field has world task enabled
+                        const { enabled: fieldWorldTaskEnabled, taskType: fieldTaskType } = parseWorldTaskSettings(field.settingsJson);
+
+                        const hasAnyFieldLevelWorldTask = !!config?.steps.some(step =>
+                            step.fields.some(stepField => {
+                                const { enabled } = parseWorldTaskSettings(stepField.settingsJson);
+                                return !!enabled;
+                            })
+                        );
+
+                        // Child-form inheritance: if opened from a worldTask-enabled source field,
+                        // and this child configuration has no explicit worldTask-enabled fields,
+                        // apply the worldTask hint to a matching field name or fallback to first visible field.
+                        const canInheritWorldTask =
+                            !!worldTaskHint &&
+                            workflowSessionId != null &&
+                            !!fieldName &&
+                            !hasAnyFieldLevelWorldTask;
+
+                        const matchesInheritedFieldName =
+                            !!fieldName && field.fieldName.toLowerCase() === fieldName.toLowerCase();
+
+                        const isFirstOrderedField = orderedFields.length > 0 && orderedFields[0].id === field.id;
+
+                        const worldTaskEnabled = fieldWorldTaskEnabled || (canInheritWorldTask && (matchesInheritedFieldName || isFirstOrderedField));
+                        const taskType = fieldTaskType || (canInheritWorldTask ? worldTaskHint : undefined);
+                        const stepKey = computeStepKey(currentStep!, currentStepIndex);
+
+                        if (isDebugField) {
+                            console.log('world task decision', {
+                                fieldWorldTaskEnabled,
+                                fieldTaskType,
+                                hasAnyFieldLevelWorldTask,
+                                canInheritWorldTask,
+                                matchesInheritedFieldName,
+                                isFirstOrderedField,
+                                worldTaskEnabled,
+                                resolvedTaskType: taskType,
+                                willUseWorldBoundRenderer: worldTaskEnabled && workflowSessionId != null && !!taskType,
+                                blockedBy: {
+                                    worldTaskDisabled: !worldTaskEnabled,
+                                    missingWorkflowSessionId: workflowSessionId == null,
+                                    missingTaskType: !taskType
+                                }
+                            });
+                        }
+
+                        const fieldId = field.id ? Number(field.id) : null;
+                        const canRenderWorldTaskPanel = worldTaskEnabled && workflowSessionId != null && !!taskType;
+                        const fieldPlaceholders = fieldId ? preResolvedPlaceholders[fieldId] : undefined;
+                        const fieldValidationRules = fieldId ? (validationRules[fieldId] || []) : [];
+                        const flatFormValues = config ? flattenAllStepsData(config, allStepsData) : {};
+                        const canRetryValidation = !!fieldId && fieldValidationRules.length > 0;
+
+                        const handleRetryValidation = () => {
+                            if (!fieldId) return;
+
+                            const normalizedCurrentStepData = normalizeStepData(currentStep!, currentStepData);
+                            const stepsDataForValidation: AllStepsData = {
+                                ...allStepsData,
+                                [currentStepIndex]: normalizedCurrentStepData
+                            };
+                            const fieldValue = stepsDataForValidation[currentStepIndex]?.[field.fieldName];
+
+                            triggerFieldValidation(field, fieldValue, stepsDataForValidation, false);
+                            revalidateDependents(fieldId, stepsDataForValidation);
+                        };
+
+                        if (isDebugField) {
+                            console.log('[FW_DEBUG][Field#4] Rendering FieldRenderer + optional WorldTask panel', {
+                                worldTaskEnabled,
+                                workflowSessionId,
+                                taskType,
+                                canRenderWorldTaskPanel,
+                                currentValue: currentStepData[field.fieldName]
+                            });
+                            if (canRenderWorldTaskPanel) {
+                                console.log('[FW_DEBUG][Field#4] Rendering WorldBoundFieldRenderer panel', {
+                                    fieldId,
+                                    fieldName: field.fieldName,
+                                    taskType,
+                                    fieldPlaceholders,
+                                    fieldValidationRuleCount: fieldValidationRules.length
+                                });
+                            }
+                            console.groupEnd();
+                        }
+
                         return (
-                            <FieldRenderer
-                                key={field.id}
-                                field={field}
-                                value={currentStepData[field.fieldName]}
-                                onChange={value => handleFieldChange(field.fieldName, value)}
-                                error={errors[field.fieldName]}
-                                onBlur={() => validateField(field)}
-                                onCreateNew={() => handleOpenChildForm(field)}
-                                validationResult={field.id ? validationResults[Number(field.id)] : undefined}
-                                validationPending={field.id ? validationLoading[Number(field.id)] : false}
-                            />
+                            <div key={`${field.id ?? field.fieldName}-composed`} className="space-y-3">
+                                <FieldRenderer
+                                    field={field}
+                                    value={currentStepData[field.fieldName]}
+                                    onChange={value => handleFieldChange(field.fieldName, value)}
+                                    error={errors[field.fieldName]}
+                                    onBlur={() => validateField(field)}
+                                    onCreateNew={() => handleOpenChildForm(field)}
+                                    validationResult={field.id ? validationResults[Number(field.id)] : undefined}
+                                    validationPending={field.id ? validationLoading[Number(field.id)] : false}
+                                    onRetryValidation={canRetryValidation ? handleRetryValidation : undefined}
+                                />
+
+                                {canRenderWorldTaskPanel && (
+                                    <WorldBoundFieldRenderer
+                                        field={field}
+                                        value={currentStepData[field.fieldName]}
+                                        onChange={(value: any) => handleFieldChange(field.fieldName, value)}
+                                        taskType={taskType!}
+                                        workflowSessionId={workflowSessionId!}
+                                        stepNumber={currentStepIndex}
+                                        stepKey={stepKey}
+                                        formConfiguration={config}
+                                        validationRules={fieldValidationRules}
+                                        currentFormValues={flatFormValues}
+                                        preResolvedPlaceholders={fieldPlaceholders}
+                                        allowExisting={false}
+                                        allowCreate={true}
+                                        showLabel={false}
+                                        onTaskCompleted={(task: any, extractedValue: any) => {
+                                            console.log('WorldTask completed:', task, 'Extracted value:', extractedValue);
+                                            console.log('Clearing validation result for fieldId:', fieldId);
+                                            console.log('Current validation results before clearing:', validationResults);
+                                            if (fieldId) {
+                                                setValidationResults(prev => {
+                                                    const updated = { ...prev };
+                                                    delete updated[fieldId];
+                                                    console.log('Updated validation results after clearing:', updated);
+                                                    return updated;
+                                                });
+                                                setErrors(prev => {
+                                                    const updated = { ...prev };
+                                                    delete updated[field.fieldName];
+                                                    return updated;
+                                                });
+                                            }
+
+                                            onStepAdvanced?.({ from: currentStepIndex, to: currentStepIndex, stepKey });
+                                        }}
+                                    />
+                                )}
+                            </div>
                         );
                     })
                 )}
@@ -1426,6 +1522,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 userId={userId}
                 fieldName={childFormModal.fieldName}
                 currentStepIndex={currentStepIndex}
+                workflowSessionId={childFormModal.worldTaskHint ? workflowSessionId : undefined}
+                worldTaskHint={childFormModal.worldTaskHint}
                 onComplete={handleChildFormComplete}
                 onClose={handleCloseChildForm}
             />

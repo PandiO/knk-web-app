@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FormConfigurationDto, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { FormWizard } from './FormWizard';
@@ -11,6 +11,8 @@ interface ChildFormModalProps {
     userId: string;
     fieldName: string;
     currentStepIndex: number;
+    workflowSessionId?: number;
+    worldTaskHint?: string;
     onComplete: (data: any, progress?: FormSubmissionProgressDto) => void;
     onClose: () => void;
 }
@@ -22,6 +24,8 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
     userId,
     fieldName,
     currentStepIndex,
+    workflowSessionId,
+    worldTaskHint,
     onComplete,
     onClose
 }) => {
@@ -29,13 +33,23 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showErrorFeedback, setShowErrorFeedback] = useState(false);
+    const activeLoadKeyRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (!open) {
             setDefaultConfig(null);
             setError(null);
+            activeLoadKeyRef.current = null;
             return;
         }
+
+        const loadKey = `${entityTypeName}:${worldTaskHint || ''}`;
+        if (activeLoadKeyRef.current === loadKey) {
+            return;
+        }
+        activeLoadKeyRef.current = loadKey;
+
+        let cancelled = false;
 
         const loadDefaultConfig = async () => {
             try {
@@ -46,6 +60,7 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                 const config = await formConfigClient.getByEntityTypeName(entityTypeName, true);
                 
                 if (!config || (Array.isArray(config) && config.length === 0)) {
+                    if (cancelled) return;
                     setError(`No default form configuration found for ${entityTypeName}`);
                     setShowErrorFeedback(true);
                     setDefaultConfig(null);
@@ -53,19 +68,26 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                 }
 
                 const actualConfig = Array.isArray(config) ? config[0] : config;
+                if (cancelled) return;
                 setDefaultConfig(actualConfig);
             } catch (err: any) {
+                if (cancelled) return;
                 const errorMessage = err?.response?.data?.message || `Failed to load form configuration for ${entityTypeName}`;
                 setError(errorMessage);
                 setShowErrorFeedback(true);
                 setDefaultConfig(null);
             } finally {
+                if (cancelled) return;
                 setLoading(false);
             }
         };
 
         loadDefaultConfig();
-    }, [open, entityTypeName]);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [open, entityTypeName, worldTaskHint]);
 
     const handleChildComplete = (data: any, progress?: FormSubmissionProgressDto) => {
         onComplete(data, progress);
@@ -109,6 +131,8 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                                 parentProgressId={parentProgressId}
                                 fieldName={fieldName}
                                 currentStepIndex={currentStepIndex}
+                                workflowSessionId={worldTaskHint ? workflowSessionId : undefined}
+                                worldTaskHint={worldTaskHint}
                             />
                         ) : (
                             <div className="text-center py-12">
