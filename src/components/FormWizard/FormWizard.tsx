@@ -1438,6 +1438,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         const canRenderWorldTaskPanel = worldTaskEnabled && workflowSessionId != null && !!taskType;
                         const worldTaskActionButtonId = `worldtask-action-${currentStepIndex}-${field.fieldName}`;
                         const worldTaskStatusVisibleForField = worldTaskStatusVisibility[worldTaskActionButtonId] || false;
+                        const hasFieldError = !!errors[field.fieldName];
+                        const fieldContainerClass = hasFieldError
+                            ? 'space-y-3 rounded-lg border border-red-200 bg-red-50/40 p-4 md:p-5'
+                            : 'space-y-3 rounded-lg border border-gray-200 bg-gray-50/60 p-4 md:p-5';
                         const fieldPlaceholders = fieldId ? preResolvedPlaceholders[fieldId] : undefined;
                         const fieldValidationRules = fieldId ? (validationRules[fieldId] || []) : [];
                         const flatFormValues = config ? flattenAllStepsData(config, allStepsData) : {};
@@ -1478,7 +1482,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         }
 
                         return (
-                            <div key={`${field.id ?? field.fieldName}-composed`} className="space-y-3">
+                            <div key={`${field.id ?? field.fieldName}-composed`} className={fieldContainerClass}>
                                 <FieldRenderer
                                     field={field}
                                     value={currentStepData[field.fieldName]}
