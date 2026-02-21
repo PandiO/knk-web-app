@@ -36,21 +36,22 @@ export const FieldEditor: React.FC<Props> = ({
     const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto[]>([]);
     const [worldTaskEnabled, setWorldTaskEnabled] = useState<boolean>(false);
     const [worldTaskType, setWorldTaskType] = useState<string>('');
-        const [customTaskType, setCustomTaskType] = useState<string>('');
+    const [customTaskType, setCustomTaskType] = useState<string>('');
+    const [minecraftTextColorEnabled, setMinecraftTextColorEnabled] = useState<boolean>(false);
 
-        // Predefined task types
-        const PREDEFINED_TASK_TYPES = [
-            'ReagionCreate',
-            'LocationSelection',
-            'LocationCapture',
-            'RegionClaim',
-            'VerifyLocation',
-            'VerifyStructure',
-            'VerifyPlacement',
-            'VerifyResource',
-            'VerifyBoundary',
-            'Custom'
-        ];
+    // Predefined task types
+    const PREDEFINED_TASK_TYPES = [
+        'ReagionCreate',
+        'LocationSelection',
+        'LocationCapture',
+        'RegionClaim',
+        'VerifyLocation',
+        'VerifyStructure',
+        'VerifyPlacement',
+        'VerifyResource',
+        'VerifyBoundary',
+        'Custom'
+    ];
 
     const [validationRules, setValidationRules] = useState<FieldValidationRuleDto[]>([]);
     const [rulesLoading, setRulesLoading] = useState<boolean>(false);
@@ -80,18 +81,21 @@ export const FieldEditor: React.FC<Props> = ({
         try {
             const current = field.settingsJson ? JSON.parse(field.settingsJson) : {};
             const wt = current?.worldTask || {};
+            const mtc = current?.['minecraft-text-color'] || {};
             setWorldTaskEnabled(!!wt.enabled);
-                const taskType = typeof wt.taskType === 'string' ? wt.taskType : '';
-                setWorldTaskType(taskType);
-                // If task type is not in predefined list, set it as custom
-                if (taskType && !PREDEFINED_TASK_TYPES.includes(taskType)) {
-                    setWorldTaskType('Custom');
-                    setCustomTaskType(taskType);
-                }
+            setMinecraftTextColorEnabled(!!mtc.enabled);
+            const taskType = typeof wt.taskType === 'string' ? wt.taskType : '';
+            setWorldTaskType(taskType);
+            // If task type is not in predefined list, set it as custom
+            if (taskType && !PREDEFINED_TASK_TYPES.includes(taskType)) {
+                setWorldTaskType('Custom');
+                setCustomTaskType(taskType);
+            }
         } catch {
             setWorldTaskEnabled(false);
             setWorldTaskType('');
-                setCustomTaskType('');
+            setCustomTaskType('');
+            setMinecraftTextColorEnabled(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialField.id]);
@@ -194,7 +198,16 @@ export const FieldEditor: React.FC<Props> = ({
             enabled: worldTaskEnabled,
             ...(taskTypeToPersist ? { taskType: taskTypeToPersist } : {})
         };
-        const mergedSettings = { ...baseSettings, worldTask: mergedWorldTask };
+        const mergedSettings: any = { ...baseSettings, worldTask: mergedWorldTask };
+
+        if (field.fieldType === FieldType.String && minecraftTextColorEnabled) {
+            mergedSettings['minecraft-text-color'] = {
+                ...(baseSettings['minecraft-text-color'] || {}),
+                enabled: true
+            };
+        } else {
+            delete mergedSettings['minecraft-text-color'];
+        }
 
         const fieldToSave: FormFieldDto = {
             ...field,
@@ -543,6 +556,38 @@ export const FieldEditor: React.FC<Props> = ({
                             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                         />
                     </div>
+
+                    {field.fieldType === FieldType.String && (
+                        <div className="mt-1 p-3 rounded-md border border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-gray-700">Enable Minecraft text coloring</label>
+                                <input
+                                    type="checkbox"
+                                    checked={minecraftTextColorEnabled}
+                                    onChange={e => {
+                                        const enabled = e.target.checked;
+                                        setMinecraftTextColorEnabled(enabled);
+                                        if (enabled) {
+                                            mergeSettings({ 'minecraft-text-color': { enabled: true } });
+                                        } else {
+                                            let base: any = {};
+                                            try {
+                                                base = field.settingsJson ? JSON.parse(field.settingsJson) : {};
+                                            } catch {
+                                                base = {};
+                                            }
+                                            delete base['minecraft-text-color'];
+                                            setField(prev => ({ ...prev, settingsJson: JSON.stringify(base) }));
+                                        }
+                                    }}
+                                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                />
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Adds/removes <span className="font-mono">minecraft-text-color.enabled</span> in settings.
+                            </p>
+                        </div>
+                    )}
 
                     {field.fieldType === FieldType.HybridMinecraftMaterialRefPicker && (
                         <div>

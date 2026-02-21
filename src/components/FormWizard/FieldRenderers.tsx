@@ -168,31 +168,234 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
     );
 };
 
-const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onBlur }) => (
-    <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-            {field.label}
-            {field.isRequired && <span className="text-red-500 ml-1">*</span>}
-        </label>
-        {field.description && (
-            <p className="text-xs text-gray-500 mb-2">{field.description}</p>
-        )}
-        <textarea
-            value={value || ''}
-            onChange={e => onChange(e.target.value)}
-            onBlur={onBlur}
-            placeholder={field.placeholder}
-            disabled={field.isReadOnly}
-            rows={3}
-            className={`block w-full rounded-md shadow-sm sm:text-sm ${
-                error
-                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                    : 'border-gray-300 focus:border-primary focus:ring-primary'
-            } ${field.isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-        />
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-    </div>
-);
+const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onBlur }) => {
+    const minecraftTextColorEnabled = parseMinecraftTextColorEnabled(field.settingsJson);
+    const textValue = typeof value === 'string' ? value : '';
+
+    return (
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+                {field.label}
+                {field.isRequired && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            {field.description && (
+                <p className="text-xs text-gray-500 mb-2">{field.description}</p>
+            )}
+            <textarea
+                value={textValue}
+                onChange={e => onChange(e.target.value)}
+                onBlur={onBlur}
+                placeholder={field.placeholder}
+                disabled={field.isReadOnly}
+                rows={3}
+                className={`block w-full rounded-md shadow-sm sm:text-sm ${
+                    error
+                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:border-primary focus:ring-primary'
+                } ${field.isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+            />
+            {minecraftTextColorEnabled && (
+                <>
+                    <p className="mt-1 text-xs text-blue-700">
+                        Minecraft text coloring is enabled. Use &amp; followed by a code like 1-2-3-4-5-6-7-8-9-0-a-e-l.
+                    </p>
+                    <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-2">
+                        <p className="text-xs text-gray-500 mb-1">Preview</p>
+                        <MinecraftLegacyPreview text={textValue} />
+                    </div>
+                </>
+            )}
+            {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        </div>
+    );
+};
+
+type LegacyStyleState = {
+    color?: string;
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    strikethrough?: boolean;
+    obfuscated?: boolean;
+};
+
+type LegacySegment = {
+    text: string;
+    style: LegacyStyleState;
+};
+
+const LEGACY_SECTION_CHAR = '§';
+const LEGACY_ALT_CHAR = '&';
+const LEGACY_TRANSLATABLE_CODES = '0123456789AaBbCcDdEeFfKkLlMmNnOoRrXx';
+
+const LEGACY_COLOR_MAP: Record<string, string> = {
+    '0': '#000000',
+    '1': '#0000AA',
+    '2': '#00AA00',
+    '3': '#00AAAA',
+    '4': '#AA0000',
+    '5': '#AA00AA',
+    '6': '#FFAA00',
+    '7': '#AAAAAA',
+    '8': '#555555',
+    '9': '#5555FF',
+    a: '#55FF55',
+    b: '#55FFFF',
+    c: '#FF5555',
+    d: '#FF55FF',
+    e: '#FFFF55',
+    f: '#FFFFFF'
+};
+
+const translateAlternateColorCodes = (altColorChar: string, textToTranslate: string): string => {
+    if (!textToTranslate) return '';
+    const chars = textToTranslate.split('');
+    for (let i = 0; i < chars.length - 1; i++) {
+        if (chars[i] === altColorChar && LEGACY_TRANSLATABLE_CODES.indexOf(chars[i + 1]) > -1) {
+            chars[i] = LEGACY_SECTION_CHAR;
+            chars[i + 1] = chars[i + 1].toLowerCase();
+        }
+    }
+    return chars.join('');
+};
+
+const tryReadBungeeHexColor = (input: string, sectionIndex: number): { hex: string; skipToIndex: number } | null => {
+    if (input.charAt(sectionIndex + 1) !== 'x') return null;
+
+    if (sectionIndex + 13 >= input.length) return null;
+
+    let hex = '';
+    let cursor = sectionIndex + 2;
+    for (let part = 0; part < 6; part++) {
+        if (input.charAt(cursor) !== LEGACY_SECTION_CHAR) return null;
+        const digit = input.charAt(cursor + 1);
+        if (!/[0-9a-f]/i.test(digit)) return null;
+        hex += digit;
+        cursor += 2;
+    }
+
+    return { hex: `#${hex.toLowerCase()}`, skipToIndex: cursor - 1 };
+};
+
+const toStyle = (state: LegacyStyleState): React.CSSProperties => ({
+    color: state.color,
+    fontWeight: state.bold ? 700 : undefined,
+    fontStyle: state.italic ? 'italic' : undefined,
+    textDecoration: [
+        state.underline ? 'underline' : '',
+        state.strikethrough ? 'line-through' : ''
+    ]
+        .filter(Boolean)
+        .join(' ') || undefined,
+    letterSpacing: state.obfuscated ? '0.08em' : undefined
+});
+
+const deserializeLegacyText = (input: string): LegacySegment[] => {
+    if (!input) return [];
+
+    const segments: LegacySegment[] = [];
+    let state: LegacyStyleState = {};
+    let currentText = '';
+
+    const flush = () => {
+        if (!currentText) return;
+        segments.push({ text: currentText, style: { ...state } });
+        currentText = '';
+    };
+
+    for (let i = 0; i < input.length; i++) {
+        if (input.charAt(i) === LEGACY_SECTION_CHAR && i + 1 < input.length) {
+            const hex = tryReadBungeeHexColor(input, i);
+            if (hex) {
+                flush();
+                state = { color: hex.hex };
+                i = hex.skipToIndex;
+                continue;
+            }
+
+            const code = input.charAt(i + 1).toLowerCase();
+
+            if (code in LEGACY_COLOR_MAP) {
+                flush();
+                state = { color: LEGACY_COLOR_MAP[code] };
+                i++;
+                continue;
+            }
+
+            if (code === 'k') {
+                flush();
+                state = { ...state, obfuscated: true };
+                i++;
+                continue;
+            }
+            if (code === 'l') {
+                flush();
+                state = { ...state, bold: true };
+                i++;
+                continue;
+            }
+            if (code === 'm') {
+                flush();
+                state = { ...state, strikethrough: true };
+                i++;
+                continue;
+            }
+            if (code === 'n') {
+                flush();
+                state = { ...state, underline: true };
+                i++;
+                continue;
+            }
+            if (code === 'o') {
+                flush();
+                state = { ...state, italic: true };
+                i++;
+                continue;
+            }
+            if (code === 'r') {
+                flush();
+                state = {};
+                i++;
+                continue;
+            }
+        }
+
+        currentText += input.charAt(i);
+    }
+
+    flush();
+    return segments;
+};
+
+const MinecraftLegacyPreview: React.FC<{ text: string }> = ({ text }) => {
+    const translated = translateAlternateColorCodes(LEGACY_ALT_CHAR, text);
+    const segments = deserializeLegacyText(translated);
+
+    if (segments.length === 0) {
+        return <p className="text-sm text-gray-700 whitespace-pre-wrap">{text || ' '}</p>;
+    }
+
+    return (
+        <p className="text-sm whitespace-pre-wrap">
+            {segments.map((segment, index) => (
+                <span key={index} style={toStyle(segment.style)}>
+                    {segment.text}
+                </span>
+            ))}
+        </p>
+    );
+};
+
+const parseMinecraftTextColorEnabled = (settingsJson?: string): boolean => {
+    if (!settingsJson) return false;
+    try {
+        const parsed = JSON.parse(settingsJson);
+        return !!parsed?.['minecraft-text-color']?.enabled;
+    } catch (err) {
+        console.warn('Failed to parse minecraft text color settingsJson', err);
+        return false;
+    }
+};
 
 const IntegerField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onBlur }) => {
     const increment = field.incrementValue || 1;
