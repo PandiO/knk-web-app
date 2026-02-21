@@ -9,6 +9,8 @@ interface Props {
     onRemoveDefault: (config: DisplayConfigurationDto) => void;
     onPublish?: (config: DisplayConfigurationDto) => void;
     onDelete?: (config: DisplayConfigurationDto) => void;
+    onCreate: () => void;
+    onCreateDefault: () => void;
 }
 
 export const DisplayConfigurationTable: React.FC<Props> = ({
@@ -17,7 +19,9 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
     onSetDefault,
     onRemoveDefault,
     onPublish,
-    onDelete
+    onDelete,
+    onCreate,
+    onCreateDefault
 }) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -53,22 +57,33 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
         return spaceBelow < menuHeight ? 'top' : 'bottom';
     };
 
-    if (configurations.length === 0) {
-        return (
-            <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-                <p className="text-gray-500">No display configurations found for this entity.</p>
-            </div>
-        );
-    }
-
     return (
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                 <h2 className="text-lg font-medium text-gray-900">Display Configurations</h2>
-                <span className="text-xs text-gray-500">{configurations.length} total</span>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={onCreate}
+                        className="btn-primary text-sm"
+                    >
+                        Create Display
+                    </button>
+                    <button
+                        onClick={onCreateDefault}
+                        className="btn-secondary text-sm"
+                    >
+                        Create Display as Default
+                    </button>
+                    <span className="text-xs text-gray-500">{configurations.length} total</span>
+                </div>
             </div>
-            <div className="overflow-x-auto">
-                <table className="min-w-full table-fixed divide-y divide-gray-200">
+            {configurations.length === 0 ? (
+                <div className="text-center py-12 bg-white">
+                    <p className="text-gray-500">No display configurations found for this entity.</p>
+                </div>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full table-fixed divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -248,8 +263,9 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                             );
                         })}
                     </tbody>
-                </table>
-            </div>
+                    </table>
+                </div>
+            )}
         </div>
     );
 };

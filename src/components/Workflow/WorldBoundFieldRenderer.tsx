@@ -41,6 +41,19 @@ const TASK_OUTPUT_FIELD_MAP: Record<string, string> = {
     'WgRegionId': 'regionId', // Field-based naming
 };
 
+const getNormalizedStatus = (status?: string): string => (status || '').toLowerCase();
+
+const hasExtractedValue = (value: unknown): boolean => value !== null && value !== undefined;
+
+const getOutputValueByKey = (output: Record<string, any>, key: string): any => {
+    if (Object.prototype.hasOwnProperty.call(output, key)) {
+        return output[key];
+    }
+
+    const matchedKey = Object.keys(output).find(existingKey => existingKey.toLowerCase() === key.toLowerCase());
+    return matchedKey ? output[matchedKey] : undefined;
+};
+
 /**
  * Extracts the result value from a completed WorldTask's outputJson
  * For Location tasks, converts raw coordinates to location object
@@ -50,7 +63,8 @@ function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
     if (!task.outputJson) return null;
     
     try {
-        const output = JSON.parse(task.outputJson);
+        const parsedOutput = JSON.parse(task.outputJson);
+        const output = parsedOutput && typeof parsedOutput === 'object' ? parsedOutput as Record<string, any> : {};
         
         // Special handling for Location tasks
         if (isLocationTask(taskType, task.taskType)) {
@@ -75,13 +89,23 @@ function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
                                  TASK_OUTPUT_FIELD_MAP[task.taskType] ||
                                  null;
         
-        if (expectedFieldName && expectedFieldName !== 'location' && output[expectedFieldName]) {
-            return output[expectedFieldName];
+        if (expectedFieldName && expectedFieldName !== 'location') {
+            const mappedValue = getOutputValueByKey(output, expectedFieldName);
+            if (hasExtractedValue(mappedValue)) {
+                return mappedValue;
+            }
         }
         
         // Fallback: try common result field names
-        return output.regionId || output.structureId || 
-               output.value || output.result || output.id;
+        const fallbackKeys = ['regionId', 'structureId', 'value', 'result', 'id'];
+        for (const key of fallbackKeys) {
+            const fallbackValue = getOutputValueByKey(output, key);
+            if (hasExtractedValue(fallbackValue)) {
+                return fallbackValue;
+            }
+        }
+
+        return null;
     } catch (e) {
         console.error(`Failed to extract result from task ${task.id}:`, e);
         return null;
@@ -122,10 +146,19 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const [extractionSucceeded, setExtractionSucceeded] = useState(false);
     const [extractionError, setExtractionError] = useState<string | null>(null);
     const [copiedCodeId, setCopiedCodeId] = useState<number | null>(null);
+    const onChangeRef = useRef(onChange);
+    const onTaskCompletedRef = useRef(onTaskCompleted);
     
-    // Refs to prevent duplicate polling when effect re-runs due to parent re-renders
+    // Keep polling interval stable across parent re-renders
     const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const polledTaskIdRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        onChangeRef.current = onChange;
+    }, [onChange]);
+
+    useEffect(() => {
+        onTaskCompletedRef.current = onTaskCompleted;
+    }, [onTaskCompleted]);
 
     // Phase 7: Use enriched form context for dependency resolution
     // NOTE: Hook must be called unconditionally per React rules
@@ -133,66 +166,65 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
     // Poll task status when taskId is set
     useEffect(() => {
-        // Clean up old polling if taskId has changed to a new value
-        if (polledTaskIdRef.current !== null && polledTaskIdRef.current !== taskId && pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
+        // Don't start polling when task is not active or already completed locally
+        if (!taskId || extractionSucceeded) {
+            return;
         }
 
-        // Don't start new polling if:
-        // 1. No taskId set
-        // 2. Extraction already succeeded
-        // 3. We're already polling for this taskId
-        if (!taskId || extractionSucceeded || polledTaskIdRef.current === taskId) {
+        // Prevent duplicate intervals for the same active task
+        if (pollingIntervalRef.current) {
             return;
         }
 
         console.log('Starting task status polling for taskId:', taskId);
-        polledTaskIdRef.current = taskId;
 
         const pollInterval = setInterval(async () => {
             try {
                 console.log('Polling status for WorldTask ID:', taskId);
                 const updated = await worldTaskClient.getById(taskId);
                 setTask(updated);
+                const updatedStatus = getNormalizedStatus(updated.status);
 
                 // If task completed, extract output and bind to field
-                if (updated.status === 'Completed' && updated.outputJson) {
+                if (updatedStatus === 'completed' && updated.outputJson) {
                     console.log('WorldTask completed, extracting result:', updated);
                     // Use the task's actual taskType for extraction (not the prop)
                     const extractedValue = extractTaskResult(updated, updated.taskType || taskType);
                     
-                    if (extractedValue) {
+                    if (hasExtractedValue(extractedValue)) {
                         // Update field value
-                        onChange(extractedValue);
+                        onChangeRef.current(extractedValue);
                         setExtractionSucceeded(true);
                         setExtractionError(null);
                         
                         // Notify parent about successful completion
-                        if (onTaskCompleted) {
-                            onTaskCompleted(updated, extractedValue);
+                        if (onTaskCompletedRef.current) {
+                            onTaskCompletedRef.current(updated, extractedValue);
                         }
                         
                         console.log(`✓ WorldTask ${taskId} result extracted and field populated:`, extractedValue);
                         clearInterval(pollInterval);
                         pollingIntervalRef.current = null;
-                        polledTaskIdRef.current = null;
                     } else {
                         setExtractionError('Could not extract result from task output');
                         console.warn(`WorldTask ${taskId} completed but no result value found in output`);
                         clearInterval(pollInterval);
                         pollingIntervalRef.current = null;
-                        polledTaskIdRef.current = null;
                     }
                 }
 
+                if (updatedStatus === 'completed' && !updated.outputJson) {
+                    setExtractionError('Task completed but no output was returned.');
+                    clearInterval(pollInterval);
+                    pollingIntervalRef.current = null;
+                }
+
                 // If task failed, show error and stop polling
-                if (updated.status === 'Failed') {
+                if (updatedStatus === 'failed') {
                     setExtractionError(updated.errorMessage || 'Task failed in Minecraft');
                     console.error('WorldTask failed:', updated.errorMessage);
                     clearInterval(pollInterval);
                     pollingIntervalRef.current = null;
-                    polledTaskIdRef.current = null;
                 }
             } catch (error) {
                 console.error('Failed to poll task status:', error);
@@ -205,7 +237,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             clearInterval(pollInterval);
             pollingIntervalRef.current = null;
         };
-    }, [taskId, extractionSucceeded, taskType, onChange, onTaskCompleted]);
+    }, [taskId, extractionSucceeded, taskType]);
 
     const handleCreateInMinecraft = async () => {
         setIsLoading(true);
@@ -291,13 +323,15 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         setExtractionError(null);
     };
 
+    const taskStatus = getNormalizedStatus(task?.status);
+
     const hasVisibleStatusBanner =
-        (!!task && task.status === 'Pending' && !!task.linkCode) ||
-        (!!task && (task.status === 'InProgress' || task.status === 'Accepted')) ||
-        (!!task && task.status === 'Completed' && !extractionSucceeded && !extractionError) ||
-        (!!task && task.status === 'Completed' && extractionSucceeded) ||
+        (!!task && taskStatus === 'pending' && !!task.linkCode) ||
+        (!!task && (taskStatus === 'inprogress' || taskStatus === 'accepted')) ||
+        (!!task && taskStatus === 'completed' && !extractionSucceeded && !extractionError) ||
+        (!!task && taskStatus === 'completed' && extractionSucceeded) ||
         !!extractionError ||
-        (!!task && task.status === 'Failed');
+        (!!task && taskStatus === 'failed');
 
     useEffect(() => {
         onStatusBannerVisibilityChange?.(hasVisibleStatusBanner);
@@ -313,7 +347,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             )}
 
             {/* Prominent claim code display for Pending tasks */}
-            {task && task.status === 'Pending' && task.linkCode && (
+            {task && taskStatus === 'pending' && task.linkCode && (
                 <div className="mb-4 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg shadow-sm">
                     <div className="flex items-start">
                         <span className="text-3xl mr-3">🎮</span>
@@ -355,7 +389,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             )}
 
             {/* Task in-progress state with claim info */}
-            {task && (task.status === 'InProgress' || task.status === 'Accepted') && (
+            {task && (taskStatus === 'inprogress' || taskStatus === 'accepted') && (
                 <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
                     <p className="text-sm text-blue-800">
                         Task Status: <strong>{task.status}</strong>
@@ -373,7 +407,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             )}
 
             {/* Task completion in progress state */}
-            {task && task.status === 'Completed' && !extractionSucceeded && !extractionError && (
+            {task && taskStatus === 'completed' && !extractionSucceeded && !extractionError && (
                 <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                     <p className="text-sm text-yellow-800">
                         ⏳ Processing task result...
@@ -382,7 +416,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             )}
 
             {/* Task completion success state */}
-            {task && task.status === 'Completed' && extractionSucceeded && (
+            {task && taskStatus === 'completed' && extractionSucceeded && (
                 <div className="mb-3 p-3 bg-green-50 border border-green-300 rounded-md">
                     <p className="text-sm font-medium text-green-800">
                         ✅ Task completed! Field has been auto-populated with the result.
@@ -409,7 +443,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             )}
 
             {/* Task failure display */}
-            {task && task.status === 'Failed' && (
+            {task && taskStatus === 'failed' && (
                 <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md">
                     <p className="text-sm font-medium text-red-800">
                         ❌ Task Failed

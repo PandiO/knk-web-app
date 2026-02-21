@@ -4,8 +4,10 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { displayConfigClient } from '../apiClients/displayConfigClient';
 import { formConfigClient } from '../apiClients/formConfigClient';
 import { formSubmissionClient } from '../apiClients/formSubmissionClient';
+import { metadataClient } from '../apiClients/metadataClient';
 import { FeedbackModal } from '../components/FeedbackModal';
 import { DisplayConfigurationTable } from '../components/FormWizard/DisplayConfigurationTable';
+import { EntityMetadataNavigator } from '../components/FormWizard/EntityMetadataNavigator';
 import { FormConfigurationTable } from '../components/FormWizard/FormConfigurationTable';
 import { FormWizard } from '../components/FormWizard/FormWizard';
 import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
@@ -14,9 +16,8 @@ import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
 import { logging } from '../utils';
 import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../types/dtos/forms/FormModels';
 import { DisplayConfigurationDto } from '../types/dtos/displayConfig/DisplayModels';
-import { FieldMetadataDto } from '../types/dtos/metadata/MetadataModels';
+import { EntityMetadataDto } from '../types/dtos/metadata/MetadataModels';
 import { useEntityMetadata } from '../hooks/useEntityMetadata';
-import { renderIcon } from '../utils/iconRegistry';
 import { getCreateFunctionForEntity, getFetchByIdFunctionForEntity, getUpdateFunctionForEntity } from '../utils/entityApiMapping';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -52,11 +53,7 @@ export const FormWizardPage: React.FC<Props> = ({
     // changed: check both prop and query parameter for auto-open
     const shouldAutoOpen = autoOpenDefaultForm || searchParams.get('autoOpen') === 'true';
 
-    const [selectedObjectType, setSelectedObjectType] = useState<ObjectType | null>(
-        objectTypes.find(ot => ot.id === selectedTypeName) || null
-    );
-    const [initialLoading, setInitialLoading] = useState(true);
-    const [entityNamesLower, setEntityNamesLower] = useState<string[]>([]);
+    const selectedObjectType = useMemo(() => objectTypes.find(ot => ot.id === selectedTypeName) || null, [objectTypes, selectedTypeName]);
     
     const [formConfigs, setFormConfigs] = useState<FormConfigurationDto[]>([]);
     const [defaultConfig, setDefaultConfig] = useState<FormConfigurationDto | null>(null);
@@ -70,7 +67,7 @@ export const FormWizardPage: React.FC<Props> = ({
     const [wizardConfig, setWizardConfig] = useState<FormConfigurationDto | null>(null);
     const [wizardProgressId, setWizardProgressId] = useState<string | undefined>(undefined);
     const [workflowSessionId, setWorkflowSessionId] = useState<number | undefined>(undefined);
-    const [entityMetadata, setEntityMetadata] = useState<FieldMetadataDto[]>([]);
+    const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto[]>([]);
     const [autoOpenForm, setAutoOpenForm] = useState(false); // removed: old auto-open flag logic
 
     type FeedbackState = {
@@ -106,57 +103,34 @@ export const FormWizardPage: React.FC<Props> = ({
 
     const userId = '1'; // TODO: Get from auth context
 
-    // Load available entity names on mount
+    // Load all metadata to ensure entity navigation includes all configurable entity types
     useEffect(() => {
-        const fetchAvailableEntityNames = async () => {
+        const loadMetadata = async () => {
             try {
-                setInitialLoading(true);
-                const entityNames = await formConfigClient.getEntityNames();
-                const normalized = (entityNames || [])
-                    .map((n: string) => n?.trim().toLowerCase())
-                    .filter(Boolean);
-                setEntityNamesLower(normalized);
+                const metadata = await metadataClient.getAllEntityMetadata();
+                setEntityMetadata(metadata);
             } catch (error) {
-                console.error('Failed to fetch entity names:', error);
-                setEntityNamesLower([]);
-            } finally {
-                setInitialLoading(false);
+                console.error('Failed to load entity metadata:', error);
+                setEntityMetadata([]);
             }
         };
-        fetchAvailableEntityNames();
+        void loadMetadata();
     }, []);
 
-    // Load merged metadata for sidebar items
-    const { allMergedMetadata } = useEntityMetadata();
+    // Load merged metadata for UI context and selection display
+    const { allMergedMetadata, loading: metadataLoading } = useEntityMetadata();
 
-    // Sidebar items built from merged metadata (base + admin config)
-    const sidebarItems = useMemo(() => {
-        return allMergedMetadata
-            .filter(meta => {
-                const nameLower = (meta.entityName || '').toLowerCase();
-                const displayLower = (meta.displayName || '').toLowerCase();
-                return (
-                    entityNamesLower.includes(nameLower) ||
-                    entityNamesLower.includes(displayLower)
-                );
-            })
-            .map(meta => ({
-                id: meta.entityName,
-                label: meta.displayName,
-                icon: renderIcon(meta.iconKey),
-                createRoute: `/forms/${meta.entityName}`,
-            }));
-    }, [entityNamesLower, allMergedMetadata]);
-
-    // added: Update selectedObjectType whenever selectedTypeName changes
-    useEffect(() => {
-        if (selectedTypeName) {
-            const matchingType = objectTypes.find(ot => ot.id === selectedTypeName);
-            setSelectedObjectType(matchingType || null);
-        } else {
-            setSelectedObjectType(null);
+    const selectedEntityMetadata = useMemo(() => {
+        if (!selectedTypeName) {
+            return null;
         }
-    }, [selectedTypeName, objectTypes]);
+
+        return (
+            entityMetadata.find(meta => meta.entityName.toLowerCase() === selectedTypeName.toLowerCase()) ||
+            allMergedMetadata.find(meta => meta.entityName.toLowerCase() === selectedTypeName.toLowerCase()) ||
+            null
+        );
+    }, [entityMetadata, allMergedMetadata, selectedTypeName]);
 
     // Main effect: Handle the four use cases
     useEffect(() => {
@@ -557,6 +531,38 @@ export const FormWizardPage: React.FC<Props> = ({
         }
     };
 
+    const handleCreateFormConfiguration = () => {
+        if (!selectedTypeName) {
+            navigate('/admin/form-configurations/new');
+            return;
+        }
+        navigate(`/admin/form-configurations/new?entity=${encodeURIComponent(selectedTypeName)}`);
+    };
+
+    const handleCreateFormConfigurationAsDefault = () => {
+        if (!selectedTypeName) {
+            navigate('/admin/form-configurations/new');
+            return;
+        }
+        navigate(`/admin/form-configurations/new?entity=${encodeURIComponent(selectedTypeName)}&default=true`);
+    };
+
+    const handleCreateDisplayConfiguration = () => {
+        if (!selectedTypeName) {
+            navigate('/admin/display-configurations/new');
+            return;
+        }
+        navigate(`/admin/display-configurations/new?entity=${encodeURIComponent(selectedTypeName)}`);
+    };
+
+    const handleCreateDisplayConfigurationAsDefault = () => {
+        if (!selectedTypeName) {
+            navigate('/admin/display-configurations/new');
+            return;
+        }
+        navigate(`/admin/display-configurations/new?entity=${encodeURIComponent(selectedTypeName)}&default=true`);
+    };
+
     // Handler: Complete wizard
     const handleComplete = async (data: any, progress?: FormSubmissionProgressDto) => {
         try {
@@ -654,7 +660,7 @@ export const FormWizardPage: React.FC<Props> = ({
     };
 
     // Loading state
-    if (initialLoading) {
+    if (metadataLoading) {
         return (
             <div className="flex items-center justify-center min-h-96">
                 <div className="text-center">
@@ -675,8 +681,9 @@ export const FormWizardPage: React.FC<Props> = ({
             <div className="dashboard-parent">
                 <div className='dashboard-sidebar'>
                     <ObjectTypeExplorer
-                        items={sidebarItems}
+                        entityMetadata={entityMetadata}
                         onSelect={handleSelectEntity}
+                        selectedId={selectedTypeName}
                     />
                 </div>
                 <div className='dashboard-content'>
@@ -695,6 +702,11 @@ export const FormWizardPage: React.FC<Props> = ({
                             Open Form Builder
                         </button>
                     </div>
+
+                    <div className="mb-4">
+                        <EntityMetadataNavigator metadata={selectedEntityMetadata} />
+                    </div>
+
                     {/* Notification bar */}
                     {(showNoConfigs || showNoDefault || showTooManyDefaults) && (
                         <div className="mb-4">
@@ -704,10 +716,10 @@ export const FormWizardPage: React.FC<Props> = ({
                                 </svg>
                                 <span className="text-sm text-yellow-800">
                                     {showNoConfigs
-                                        ? `No form configurations found for "${selectedObjectType?.label || selectedTypeName}". Please create a configuration first.`
+                                        ? `No form configurations found for "${selectedEntityMetadata?.displayName || selectedObjectType?.label || selectedTypeName}". Please create a configuration first.`
                                         : showNoDefault
-                                        ? `No default configuration set for "${selectedObjectType?.label || selectedTypeName}". Please set one as default to enable form wizard.`
-                                        : `Too many default configurations found for "${selectedObjectType?.label || selectedTypeName}". Please ensure only one default is set.`}
+                                        ? `No default configuration set for "${selectedEntityMetadata?.displayName || selectedObjectType?.label || selectedTypeName}". Please set one as default to enable form wizard.`
+                                        : `Too many default configurations found for "${selectedEntityMetadata?.displayName || selectedObjectType?.label || selectedTypeName}". Please ensure only one default is set.`}
                                 </span>
                             </div>
                         </div>
@@ -750,6 +762,8 @@ export const FormWizardPage: React.FC<Props> = ({
                                                 onRemoveDefault={handleRemoveDefault}
                                                 onEdit={handleEditConfiguration}
                                                 onDelete={handleFormConfigDelete}
+                                                onCreate={handleCreateFormConfiguration}
+                                                onCreateDefault={handleCreateFormConfigurationAsDefault}
                                             />
 
                                             {loadingDisplayConfigs ? (
@@ -764,6 +778,8 @@ export const FormWizardPage: React.FC<Props> = ({
                                                     onRemoveDefault={handleDisplayRemoveDefault}
                                                     onPublish={handleDisplayPublish}
                                                     onDelete={handleDisplayDelete}
+                                                    onCreate={handleCreateDisplayConfiguration}
+                                                    onCreateDefault={handleCreateDisplayConfigurationAsDefault}
                                                 />
                                             )}
                                             
