@@ -38,6 +38,9 @@ export const FieldEditor: React.FC<Props> = ({
     const [worldTaskType, setWorldTaskType] = useState<string>('');
     const [customTaskType, setCustomTaskType] = useState<string>('');
     const [minecraftTextColorEnabled, setMinecraftTextColorEnabled] = useState<boolean>(false);
+    const [placeholderIsDefault, setPlaceholderIsDefault] = useState<boolean>(
+        initialField.defaultValue !== undefined && initialField.defaultValue !== null
+    );
 
     // Predefined task types
     const PREDEFINED_TASK_TYPES = [
@@ -100,6 +103,10 @@ export const FieldEditor: React.FC<Props> = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialField.id]);
 
+    useEffect(() => {
+        setPlaceholderIsDefault(initialField.defaultValue !== undefined && initialField.defaultValue !== null);
+    }, [initialField.id, initialField.defaultValue]);
+
     const canManageRules = field.id && !field.id.toString().startsWith('temp');
 
     const loadValidationRules = useCallback(async () => {
@@ -146,6 +153,8 @@ export const FieldEditor: React.FC<Props> = ({
     const handleFieldNameChange = (selectedFieldName: string) => {
         const metaField = metadataFields.find(mf => mf.fieldName === selectedFieldName);
         if (metaField) {
+            const hasMetadataDefault = metaField.hasDefaultValue && metaField.defaultValue !== undefined && metaField.defaultValue !== null;
+            setPlaceholderIsDefault(hasMetadataDefault);
             setField(prev => ({
                 ...prev,
                 fieldName: metaField.fieldName,
@@ -155,10 +164,9 @@ export const FieldEditor: React.FC<Props> = ({
                 objectType: metaField.isRelatedEntity ? metaField.relatedEntityType || undefined : undefined,
                 // automatically set Required checkbox based on field nullability: non-nullable fields are required
                 isRequired: !metaField.isNullable,
-                // auto-fill placeholder with default value from metadata if present
-                placeholder: metaField.hasDefaultValue && metaField.defaultValue 
-                    ? metaField.defaultValue 
-                    : prev.placeholder
+                // if metadata has default value, use defaultValue mode and auto-fill it
+                defaultValue: hasMetadataDefault ? (metaField.defaultValue ?? undefined) : prev.defaultValue,
+                placeholder: hasMetadataDefault ? undefined : prev.placeholder
             }));
         } else {
             setField(prev => ({ ...prev, fieldName: selectedFieldName }));
@@ -211,10 +219,35 @@ export const FieldEditor: React.FC<Props> = ({
 
         const fieldToSave: FormFieldDto = {
             ...field,
+            placeholder: placeholderIsDefault ? undefined : field.placeholder,
+            defaultValue: placeholderIsDefault ? field.defaultValue : undefined,
             settingsJson: JSON.stringify(mergedSettings),
             elementType: isCollectionType(field.fieldType) ? collectionElementType : undefined
         };
         onSave(fieldToSave);
+    };
+
+    const placeholderInputValue = placeholderIsDefault
+        ? (field.defaultValue ?? '')
+        : (field.placeholder ?? '');
+
+    const handlePlaceholderInputChange = (value: string) => {
+        setField(prev => placeholderIsDefault
+            ? { ...prev, defaultValue: value }
+            : { ...prev, placeholder: value }
+        );
+    };
+
+    const handlePlaceholderModeToggle = (enabled: boolean) => {
+        const currentValue = placeholderIsDefault
+            ? (field.defaultValue ?? '')
+            : (field.placeholder ?? '');
+
+        setPlaceholderIsDefault(enabled);
+        setField(prev => enabled
+            ? { ...prev, defaultValue: currentValue, placeholder: undefined }
+            : { ...prev, placeholder: currentValue, defaultValue: undefined }
+        );
     };
 
     const handleAddRule = async (rule: CreateFieldValidationRuleDto) => {
@@ -538,13 +571,30 @@ export const FieldEditor: React.FC<Props> = ({
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Placeholder</label>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Placeholder</label>
+                            <label className="flex items-center text-xs text-gray-700 gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={placeholderIsDefault}
+                                    onChange={e => handlePlaceholderModeToggle(e.target.checked)}
+                                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                />
+                                Use as default value
+                            </label>
+                        </div>
                         <input
                             type="text"
-                            value={field.placeholder || ''}
-                            onChange={e => setField({ ...field, placeholder: e.target.value })}
+                            value={placeholderInputValue}
+                            onChange={e => handlePlaceholderInputChange(e.target.value)}
                             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                            placeholder={placeholderIsDefault ? 'Default value' : 'Placeholder text'}
                         />
+                        <p className="mt-1 text-xs text-gray-500">
+                            {placeholderIsDefault
+                                ? 'This value is saved as the field default and used to initialize new form state.'
+                                : 'This value is display-only hint text shown when the field is empty.'}
+                        </p>
                     </div>
 
                     <div>
