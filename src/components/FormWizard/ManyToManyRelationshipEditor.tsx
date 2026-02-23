@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2, AlertTriangle } from 'lucide-react';
 import { FormStepDto, FormFieldDto } from '../../types/dtos/forms/FormModels';
-import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 import { FieldRenderer } from './FieldRenderers';
+import { ChildFormModal } from './ChildFormModal';
 import { metadataClient } from '../../apiClients/metadataClient';
+import { getCreateFunctionForEntity, getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
-import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 
 interface Props {
     step: FormStepDto;
@@ -14,6 +14,8 @@ interface Props {
     entityName: string; // Parent entity being edited
     joinFormConfigurationId?: string;
     onOpenJoinEntry?: (relationshipIndex: number) => void;
+    userId: string;
+    parentProgressId?: string;
     // Validation support
     validationRules?: Record<number, FieldValidationRuleDto[]>;
     validationResults?: Record<number, ValidationResultDto>;
@@ -22,14 +24,8 @@ interface Props {
 
 /**
  * Component for editing many-to-many relationships with join entity extra fields.
- * 
- * Displays:
- * 1. PagedEntityTable for selecting related entities
- * 2. Cards showing selected relationships with editable join entity fields
- * 
- * Example: For ItemBlueprint → EnchantmentDefinition relationship:
- * - PagedEntityTable shows available enchantments
- * - Cards show selected enchantments with Level field editor
+ *
+ * Displays existing join relationships and supports creating/editing join entries.
  */
 export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     step,
@@ -38,15 +34,19 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     entityName,
     joinFormConfigurationId,
     onOpenJoinEntry,
+    userId,
+    parentProgressId,
     validationResults = {},
     onValidateField
 }) => {
+    const debug = (...args: unknown[]) => console.log('[M2M_DEBUG]', ...args);
     const [loading, setLoading] = useState(true);
     const [relatedEntityType, setRelatedEntityType] = useState<string>('');
     const [relatedEntityIdField, setRelatedEntityIdField] = useState<string>('');
     const [metadataError, setMetadataError] = useState<string>('');
     const [relationshipErrors, setRelationshipErrors] = useState<Record<number, Record<string, string>>>({});
     const [missingEntityWarnings, setMissingEntityWarnings] = useState<Record<number, string>>({});
+    const [showCreateRelatedModal, setShowCreateRelatedModal] = useState(false);
 
     const getRelatedEntityIdField = (relatedType: string, fieldNames: string[]): string | null => {
         const expectedField = `${relatedType}Id`;
@@ -55,11 +55,17 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     };
 
     const loadMetadata = React.useCallback(async () => {
+        debug('loadMetadata:start', {
+            joinEntityType: step.joinEntityType,
+            parentEntityName: entityName,
+            currentStepName: step.stepName
+        });
         if (!step.joinEntityType) {
             setLoading(false);
             setRelatedEntityType('');
             setRelatedEntityIdField('');
             setMetadataError('');
+            debug('loadMetadata:skip-no-join-entity-type');
             return;
         }
 
@@ -86,21 +92,49 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                 if (!idFieldName) {
                     setRelatedEntityIdField('');
                     setMetadataError('Unable to resolve the join entity foreign key field from metadata. Please verify the join entity model and metadata.');
+                    debug('loadMetadata:missing-related-id-field', {
+                        resolvedRelatedEntityType,
+                        availableFields: joinMetadata.fields.map(f => f.fieldName)
+                    });
                 } else {
                     setRelatedEntityIdField(idFieldName);
+                    debug('loadMetadata:resolved-related-id-field', {
+                        resolvedRelatedEntityType,
+                        relatedEntityIdField: idFieldName
+                    });
                 }
+
+                console.log('[M2M] Metadata resolved', {
+                    parentEntity: entityName,
+                    joinEntityType: step.joinEntityType,
+                    relatedEntityType: resolvedRelatedEntityType,
+                    relatedEntityIdField: idFieldName,
+                    joinFieldCount: joinMetadata.fields.length
+                });
             } else {
                 setRelatedEntityType('');
                 setRelatedEntityIdField('');
                 setMetadataError('Unable to resolve the related entity from join entity metadata. Please verify the join entity configuration.');
+                debug('loadMetadata:missing-related-navigation', {
+                    joinEntityType: step.joinEntityType,
+                    parentEntityName: entityName,
+                    availableRelatedFields: joinMetadata.fields
+                        .filter(f => f.isRelatedEntity)
+                        .map(f => ({ fieldName: f.fieldName, relatedEntityType: f.relatedEntityType }))
+                });
             }
         } catch (err) {
             console.error('Failed to load join entity metadata:', err);
             setRelatedEntityType('');
             setRelatedEntityIdField('');
             setMetadataError('Failed to load join entity metadata. Please try again or contact support.');
+            debug('loadMetadata:error', err);
         } finally {
             setLoading(false);
+            debug('loadMetadata:complete', {
+                relatedEntityType,
+                relatedEntityIdField
+            });
         }
     }, [step.joinEntityType, entityName]);
 
@@ -108,11 +142,34 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         loadMetadata();
     }, [loadMetadata]);
 
+    useEffect(() => {
+        console.log('[M2M] Render state', {
+            stepName: step.stepName,
+            relatedEntityType,
+            relatedEntityIdField,
+            joinConfigId: joinFormConfigurationId ?? step.subConfigurationId,
+            selectedRelationshipCount: value.length,
+            metadataError
+        });
+    }, [
+        step.stepName,
+        step.subConfigurationId,
+        joinFormConfigurationId,
+        relatedEntityType,
+        relatedEntityIdField,
+        value.length,
+        metadataError
+    ]);
+
     // Validate all relationships when value changes to detect missing entities
     useEffect(() => {
         const warnings: Record<number, string> = {};
         
         value.forEach((relationship, index) => {
+            if (relationship.__pendingJoinEntry) {
+                return;
+            }
+
             // Check if related entity is missing or deleted
             if (!relationship.relatedEntity) {
                 warnings[index] = 'Related entity is missing or has been deleted. Please remove and re-add this relationship.';
@@ -122,13 +179,27 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         });
 
         setMissingEntityWarnings(warnings);
+        debug('relationshipWarnings:updated', warnings);
     }, [value, relatedEntityIdField]);
 
     const handleAddRelationship = (selectedEntities: Record<string, unknown>[]) => {
+        debug('handleAddRelationship:input', {
+            selectedCount: selectedEntities.length,
+            selectedEntities,
+            existingCount: value.length,
+            relatedEntityIdField
+        });
         if (!relatedEntityIdField) {
             setMetadataError('Join entity mapping is not configured. Please verify join entity metadata before adding relationships.');
+            debug('handleAddRelationship:blocked-no-related-id-field');
             return;
         }
+
+        console.log('[M2M] Selection changed', {
+            selectedEntities,
+            existingRelationshipCount: value.length,
+            relatedEntityIdField
+        });
 
         // Create new join entity instances for each selected related entity
         const newRelationships = selectedEntities
@@ -143,24 +214,162 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
             }));
 
         onChange([...value, ...newRelationships]);
+        debug('handleAddRelationship:output', {
+            addedCount: newRelationships.length,
+            newRelationships
+        });
     };
 
     const handleRemoveRelationship = (index: number) => {
+        debug('handleRemoveRelationship', {
+            index,
+            relationship: value[index]
+        });
         onChange(value.filter((_, i) => i !== index));
     };
 
+    const handleCreateJoinEntry = () => {
+        if (!onOpenJoinEntry) {
+            return;
+        }
+
+        const newRelationship: Record<string, unknown> = {
+            id: undefined,
+            __pendingJoinEntry: true,
+            ...getDefaultJoinEntityFields()
+        };
+
+        const newIndex = value.length;
+        onChange([...value, newRelationship]);
+
+        window.setTimeout(() => {
+            onOpenJoinEntry(newIndex);
+        }, 0);
+
+        debug('handleCreateJoinEntry', {
+            newIndex,
+            newRelationship
+        });
+    };
+
+    const handleCreateRelatedEntity = async (createdEntity: Record<string, unknown>) => {
+        debug('handleCreateRelatedEntity:start', {
+            createdEntity,
+            relatedEntityType,
+                relationshipCount: value.length
+        });
+        if (!createdEntity || typeof createdEntity !== 'object') {
+            debug('handleCreateRelatedEntity:invalid-created-entity', createdEntity);
+            return;
+        }
+
+        try {
+            setMetadataError('');
+            let persisted = createdEntity;
+            const existingId = persisted.id;
+
+            if (existingId === undefined || existingId === null || existingId === '') {
+                const createFn = getCreateFunctionForEntity(relatedEntityType);
+                const createdFromApi = await createFn(createdEntity);
+                debug('handleCreateRelatedEntity:create-response', createdFromApi);
+                if (createdFromApi && typeof createdFromApi === 'object') {
+                    persisted = createdFromApi as Record<string, unknown>;
+                }
+
+                if (persisted.id === undefined || persisted.id === null || persisted.id === '') {
+                    const searchFn = getSearchFunctionForEntity(relatedEntityType);
+                    const searchTerm = String(
+                        createdEntity.key ?? createdEntity.displayName ?? createdEntity.name ?? ''
+                    );
+
+                    if (searchTerm) {
+                        const searchResult = await searchFn({
+                            page: 1,
+                            pageSize: 20,
+                            searchTerm,
+                            sortBy: undefined,
+                            sortDescending: false,
+                            filters: {}
+                        });
+                        debug('handleCreateRelatedEntity:search-fallback-result', {
+                            searchTerm,
+                            resultCount: searchResult.items.length,
+                            items: searchResult.items
+                        });
+
+                        const matched = searchResult.items.find((item: Record<string, unknown>) => {
+                            const itemKey = String((item as Record<string, unknown>).key ?? '').toLowerCase();
+                            const itemDisplayName = String((item as Record<string, unknown>).displayName ?? (item as Record<string, unknown>).name ?? '').toLowerCase();
+                            const expectedKey = String(createdEntity.key ?? '').toLowerCase();
+                            const expectedDisplayName = String(createdEntity.displayName ?? createdEntity.name ?? '').toLowerCase();
+
+                            return (expectedKey && itemKey === expectedKey) ||
+                                (expectedDisplayName && itemDisplayName === expectedDisplayName);
+                        }) as Record<string, unknown> | undefined;
+
+                        if (matched) {
+                            persisted = matched;
+                            debug('handleCreateRelatedEntity:search-fallback-matched', matched);
+                        }
+                    }
+                }
+            }
+
+            if (persisted.id === undefined || persisted.id === null || persisted.id === '') {
+                setMetadataError(`Created ${relatedEntityType}, but it has no identifier yet. Please select it from the table after refresh.`);
+                debug('handleCreateRelatedEntity:missing-id-after-create', {
+                    persisted,
+                    createdEntity
+                });
+                return;
+            }
+
+            handleAddRelationship([persisted]);
+            // Open join-entry editor for the newly added relationship
+            if (onOpenJoinEntry) {
+                window.setTimeout(() => onOpenJoinEntry(value.length), 0);
+            }
+            debug('handleCreateRelatedEntity:success', {
+                persisted,
+                newRelationshipIndex: value.length
+            });
+        } catch (error) {
+            console.error('[M2M] Failed to create related entity:', error);
+            setMetadataError(`Failed to create ${relatedEntityType}. Please try again.`);
+            debug('handleCreateRelatedEntity:error', error);
+        } finally {
+            setShowCreateRelatedModal(false);
+            debug('handleCreateRelatedEntity:complete', {
+                showCreateRelatedModal: false
+            });
+        }
+    };
+
     const handleUpdateRelationship = async (index: number, fieldName: string, fieldValue: unknown) => {
+        debug('handleUpdateRelationship:start', {
+            index,
+            fieldName,
+            fieldValue,
+            previousRelationship: value[index]
+        });
         const updated = [...value];
         updated[index] = {
             ...updated[index],
             [fieldName]: fieldValue
         };
         onChange(updated);
+        debug('handleUpdateRelationship:after-onChange', {
+            updatedRelationship: updated[index]
+        });
 
         // Trigger validation for this field if validation is enabled
         const field = findFieldInChildSteps(fieldName);
         if (field?.id && onValidateField) {
             await onValidateField(Number(field.id), fieldValue, index);
+            debug('handleUpdateRelationship:validation-triggered', {
+                fieldId: field.id,
+                index
+            });
         }
 
         // Update local validation state for required fields
@@ -208,6 +417,12 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         }
 
         setRelationshipErrors(errors);
+        debug('validateJoinEntityField:result', {
+            relationshipIndex,
+            fieldName,
+            fieldValue,
+            errorsForRelationship: errors[relationshipIndex]
+        });
     };
 
     const getDefaultJoinEntityFields = (): Record<string, unknown> => {
@@ -222,6 +437,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
             });
         });
 
+        debug('getDefaultJoinEntityFields', defaults);
         return defaults;
     };
 
@@ -282,6 +498,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     };
 
     if (loading) {
+        debug('render:loading');
         return (
             <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -291,6 +508,12 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     }
 
     if (!step.joinEntityType || !relatedEntityType || !relatedEntityIdField) {
+        debug('render:incomplete-configuration', {
+            joinEntityType: step.joinEntityType,
+            relatedEntityType,
+            relatedEntityIdField,
+            metadataError
+        });
         return (
             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
                 <p className="text-sm text-yellow-800">
@@ -306,17 +529,41 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     }
 
     const joinConfigId = joinFormConfigurationId ?? step.subConfigurationId;
+    debug('render:ready', {
+        joinConfigId,
+        relatedEntityType,
+        relatedEntityIdField,
+        selectedRelationshipCount: value.length
+    });
 
     return (
         <div className="space-y-6">
+            {metadataError && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                    <p className="text-sm text-yellow-800">{metadataError}</p>
+                </div>
+            )}
+
             {/* Section 1: Selected Relationships (Cards) */}
             <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-3">
-                    Selected and Current Relationships
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-gray-900">
+                        Selected and Current Relationships
+                    </h3>
+                    {joinConfigId && onOpenJoinEntry && (
+                        <button
+                            type="button"
+                            className="text-xs font-medium text-primary hover:text-primary-dark disabled:text-gray-400"
+                            onClick={handleCreateJoinEntry}
+                            disabled={!relatedEntityType}
+                        >
+                            Create New Join Entry
+                        </button>
+                    )}
+                </div>
                 {value.length === 0 ? (
                     <div className="text-center py-8 text-gray-500 text-sm border border-dashed border-gray-300 rounded-md">
-                        No relationships selected yet. Use the table below to add relationships.
+                        No relationships selected yet. Use “Create New Join Entry” to add one.
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -358,7 +605,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                                                 className="mr-2 text-xs font-medium text-primary hover:text-primary-dark"
                                                 type="button"
                                             >
-                                                Create Join Entry
+                                                Edit Join Entry
                                             </button>
                                         )}
                                         <button
@@ -378,32 +625,17 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                 )}
             </div>
 
-            {/* Section 2: Entity Selection Table */}
-            <div className="border-t border-gray-200 pt-6">
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-medium text-gray-900">
-                        Add Relationships
-                    </h3>
-                    {joinConfigId && onOpenJoinEntry && (
-                        <button
-                            type="button"
-                            className="text-xs font-medium text-primary hover:text-primary-dark disabled:text-gray-400"
-                            onClick={() => onOpenJoinEntry(value.length - 1)}
-                            disabled={value.length === 0}
-                        >
-                            Create Join Entry
-                        </button>
-                    )}
-                </div>
-                <PagedEntityTable
-                    entityTypeName={relatedEntityType}
-                    columns={[]} // Will use default columns from registry
-                    selectionConfig={{ mode: 'multiple' }}
-                    selectedItems={value.map(v => ({ id: v.relatedEntityId }))}
-                    onSelectionChange={handleAddRelationship}
-                    rowActions={[]}
-                />
-            </div>
+
+            <ChildFormModal
+                open={showCreateRelatedModal}
+                entityTypeName={relatedEntityType}
+                parentProgressId={parentProgressId}
+                userId={userId}
+                fieldName={`__m2m_related_${step.relatedEntityPropertyName || 'relationships'}`}
+                currentStepIndex={0}
+                onComplete={handleCreateRelatedEntity}
+                onClose={() => setShowCreateRelatedModal(false)}
+            />
         </div>
     );
 };

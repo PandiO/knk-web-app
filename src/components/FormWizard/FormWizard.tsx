@@ -28,6 +28,7 @@ interface FormWizardProps {
     entityName: string;
     entityId?: string; // added: optional entity ID for edit mode
     formConfigurationId?: string; // added: optional specific form configuration to use
+    initialFieldValues?: Record<string, unknown>;
     userId: string;
     onComplete?: (data: Record<string, unknown>, progress?: FormSubmissionProgressDto) => void;
     existingProgressId?: string;
@@ -44,6 +45,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     entityName,
     entityId: initialEntityId, // Rename to make clear this is the initial prop
     formConfigurationId, // added
+    initialFieldValues,
     userId,
     onComplete,
     existingProgressId,
@@ -54,6 +56,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     worldTaskHint
     // Note: currentStepIndex prop removed as unused
 }) => {
+    const debug = (...args: unknown[]) => console.log('[FORM_WIZARD_DEBUG]', ...args);
     const [config, setConfig] = useState<FormConfigurationDto | null>(null);
     const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto | null>(null);
     const [joinEntityMetadataMap, setJoinEntityMetadataMap] = useState<Record<string, EntityMetadataDto>>({});
@@ -74,6 +77,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const [preResolvedPlaceholders, setPreResolvedPlaceholders] = useState<Record<number, Record<string, string>>>({});
     const [worldTaskStatusVisibility, setWorldTaskStatusVisibility] = useState<Record<string, boolean>>({});
     const validationTimersRef = useRef<Record<number, number>>({});
+    const initialValuesAppliedRef = useRef(false);
 
     type SaveFeedbackState = {
         open: boolean;
@@ -113,6 +117,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         relationshipIndex: number | null;
         joinEntityType: string;
         joinConfigurationId: string;
+        initialFieldValues?: Record<string, unknown>;
         parentProgressId?: string;
         existingProgressId?: string;
     };
@@ -122,7 +127,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         stepIndex: null,
         relationshipIndex: null,
         joinEntityType: '',
-        joinConfigurationId: ''
+        joinConfigurationId: '',
+        initialFieldValues: undefined
     });
 
     const clearAutoClose = () => {
@@ -198,6 +204,49 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             normalized[idx] = normalizeStepData(step, stepsData?.[idx]);
         });
         return normalized;
+    };
+
+    const applyInitialFieldValuesToSteps = (
+        cfg: FormConfigurationDto,
+        stepsData: AllStepsData,
+        values?: Record<string, unknown>
+    ): AllStepsData => {
+        debug('applyInitialFieldValuesToSteps:start', {
+            hasValues: !!values,
+            valueKeys: values ? Object.keys(values) : [],
+            stepCount: cfg.steps.length
+        });
+        if (!values || Object.keys(values).length === 0) {
+            return normalizeAllStepsData(cfg, stepsData);
+        }
+
+        const seeded = normalizeAllStepsData(cfg, stepsData);
+
+        cfg.steps.forEach((step, stepIndex) => {
+            const current = seeded[stepIndex] || {};
+            const next = { ...current };
+
+            getOrderedFields(step).forEach(field => {
+                const incomingKey = Object.keys(values).find(key => key.toLowerCase() === field.fieldName.toLowerCase());
+                const incoming = incomingKey ? values[incomingKey] : undefined;
+                const existing = next[field.fieldName];
+                const hasExistingValue = existing !== undefined && existing !== null && existing !== '';
+
+                if (incoming !== undefined && !hasExistingValue) {
+                    next[field.fieldName] = incoming;
+                }
+            });
+
+            seeded[stepIndex] = next;
+            debug('applyInitialFieldValuesToSteps:step-seeded', {
+                stepIndex,
+                stepName: step.stepName,
+                seededValues: next
+            });
+        });
+
+        debug('applyInitialFieldValuesToSteps:complete', seeded);
+        return seeded;
     };
 
     const mergeChildProgressesIntoManyToManySteps = (
@@ -526,6 +575,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     };
 
     const loadConfiguration = React.useCallback(async () => {
+        debug('loadConfiguration:start', {
+            entityName,
+            existingProgressId,
+            initialEntityId,
+            formConfigurationId
+        });
         try {
             setLoading(true);
             // CRITICAL: Use initialEntityId prop directly, not the state variable
@@ -542,6 +597,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 }
 
                 const fetchedCfg = await formConfigClient.getById(progress.formConfigurationId);
+                debug('loadConfiguration:from-progress', {
+                    progressId: progress.id,
+                    progressEntityId: progress.entityId,
+                    formConfigurationId: progress.formConfigurationId,
+                    currentStepIndex: progress.currentStepIndex
+                });
                 setConfig(fetchedCfg);
                 void loadValidationRulesForConfig(fetchedCfg.id);
                 await loadJoinEntityMetadata(fetchedCfg);
@@ -562,6 +623,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     )
                 );
                 setAllStepsData(normalizeAllStepsData(fetchedCfg, mergedAll));
+                debug('loadConfiguration:restored-state', {
+                    currentStepIndex: progress.currentStepIndex,
+                    parsedCurrent,
+                    mergedAll
+                });
 
                 // Load entity metadata for normalization
                 if (progress.entityTypeName) {
@@ -589,6 +655,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     });
                 }
                 setConfig(fetchedConfig);
+                debug('loadConfiguration:fetched-config', {
+                    configurationId: fetchedConfig.id,
+                    configurationName: fetchedConfig.configurationName,
+                    stepCount: fetchedConfig.steps.length
+                });
                 void loadValidationRulesForConfig(fetchedConfig.id);
                 await loadJoinEntityMetadata(fetchedConfig);
                 
@@ -596,13 +667,32 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 if (currentEntityId) {
                     setEntityId(currentEntityId); // Update state for use in other places
                     await loadExistingEntityData(entityName, currentEntityId, fetchedConfig);
+                    debug('loadConfiguration:edit-mode-entity-load', {
+                        entityName,
+                        currentEntityId
+                    });
                 } else {
-                    // Initialize all fields for step 0 to default/null
-                    const initialData: StepData = normalizeStepData(fetchedConfig.steps[0], {});
-                    setCurrentStepData(initialData);
+                    // Initialize all fields for all steps and seed initial values immediately.
+                    // This prevents race conditions where later config loads can wipe prefilled child-modal values.
+                    const seededStepsData = applyInitialFieldValuesToSteps(
+                        fetchedConfig,
+                        {} as AllStepsData,
+                        initialFieldValues
+                    );
+                    const initialData: StepData = normalizeStepData(fetchedConfig.steps[0], seededStepsData[0] || {});
 
-                    // Initialize allStepsData for all steps
-                    setAllStepsData(normalizeAllStepsData(fetchedConfig, {} as AllStepsData));
+                    setCurrentStepData(initialData);
+                    setAllStepsData(seededStepsData);
+
+                    if (initialFieldValues && Object.keys(initialFieldValues).length > 0) {
+                        initialValuesAppliedRef.current = true;
+                    }
+
+                    debug('loadConfiguration:new-mode-initialized', {
+                        step0: initialData,
+                        seededStep0: seededStepsData[0],
+                        initialFieldValueKeys: initialFieldValues ? Object.keys(initialFieldValues) : []
+                    });
                 }
 
                 // Load entity metadata for normalization
@@ -612,15 +702,35 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         } catch (error) {
             console.error('Failed to load form configuration:', error);
             logging.errorHandler.next('ErrorMessage.UIConfigurations.LoadFailed');
+            debug('loadConfiguration:error', error);
         } finally {
             setLoading(false);
+            debug('loadConfiguration:complete');
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [entityName, existingProgressId, initialEntityId, formConfigurationId]);
 
     useEffect(() => {
+        initialValuesAppliedRef.current = false;
         loadConfiguration();
     }, [loadConfiguration]);
+
+    useEffect(() => {
+        if (loading || !config || !initialFieldValues || initialValuesAppliedRef.current) {
+            return;
+        }
+
+        debug('initialFieldValues:apply', {
+            currentStepIndex,
+            initialFieldValues
+        });
+
+        const seeded = applyInitialFieldValuesToSteps(config, allStepsData, initialFieldValues);
+        setAllStepsData(seeded);
+        setCurrentStepData(normalizeStepData(config.steps[currentStepIndex], seeded[currentStepIndex] || {}));
+        initialValuesAppliedRef.current = true;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loading, config, initialFieldValues, allStepsData, currentStepIndex]);
 
     // Load workflow step progress if workflow session is active
     useEffect(() => {
@@ -733,12 +843,23 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const handleFieldChange = (fieldName: string, value: unknown) => {
         if (!currentStep) return;
 
+        debug('handleFieldChange', {
+            currentStepIndex,
+            stepName: currentStep.stepName,
+            fieldName,
+            value
+        });
+
         const mergedCurrent = { ...currentStepData, [fieldName]: value };
         const normalizedCurrent = normalizeStepData(currentStep, mergedCurrent);
         const updatedAllData: AllStepsData = { ...allStepsData, [currentStepIndex]: normalizedCurrent };
 
         setCurrentStepData(mergedCurrent);
         setAllStepsData(updatedAllData);
+        debug('handleFieldChange:updated-state', {
+            mergedCurrent,
+            updatedAllDataForStep: updatedAllData[currentStepIndex]
+        });
 
         if (errors[fieldName]) {
             setErrors(prev => {
@@ -872,6 +993,17 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     };
 
     const handleOpenJoinEntry = async (relationshipIndex: number) => {
+        debug('handleOpenJoinEntry:start', {
+            relationshipIndex,
+            currentStepIndex,
+            currentStepName: currentStep?.stepName,
+            currentStepIsManyToMany: currentStep?.isManyToManyRelationship,
+            joinEntityType: currentStep?.joinEntityType,
+            joinConfigurationId: currentStep?.subConfigurationId,
+            progressId,
+            entityId,
+            entityName
+        });
         if (!config || !currentStep?.isManyToManyRelationship) return;
         if (!currentStep.joinEntityType || !currentStep.subConfigurationId) return;
         if (relationshipIndex < 0) return;
@@ -889,11 +1021,116 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
         const fieldName = currentStep.relatedEntityPropertyName || 'relationships';
         const relationships = (allStepsData[currentStepIndex]?.[fieldName] || currentStepData[fieldName] || []) as Array<Record<string, unknown>>;
-        const selectedRelationship = relationships[relationshipIndex];
+        let selectedRelationship = relationships[relationshipIndex];
         if (!selectedRelationship) {
-            setError('Please select a related entity before creating a join entry.');
-            return;
+            const updatedRelationships = [...relationships];
+            while (updatedRelationships.length <= relationshipIndex) {
+                updatedRelationships.push({ __pendingJoinEntry: true });
+            }
+
+            updateManyToManyStepData(currentStepIndex, fieldName, updatedRelationships);
+            selectedRelationship = updatedRelationships[relationshipIndex];
+
+            debug('handleOpenJoinEntry:inserted-missing-relationship', {
+                relationshipIndex,
+                relationshipCountBefore: relationships.length,
+                relationshipCountAfter: updatedRelationships.length
+            });
         }
+
+        const joinMetadata = joinEntityMetadataMap[currentStep.joinEntityType];
+        const selectedRelatedEntity = selectedRelationship.relatedEntity as Record<string, unknown> | undefined;
+        const selectedRelatedEntityId = selectedRelationship.relatedEntityId ?? selectedRelatedEntity?.id;
+
+        const parentSnapshot = flattenAllStepsData(
+            config,
+            {
+                ...allStepsData,
+                [currentStepIndex]: normalizeStepData(currentStep, currentStepData)
+            }
+        );
+
+        const parentEntityNameLower = entityName.length > 0
+            ? entityName[0].toLowerCase() + entityName.slice(1)
+            : entityName;
+
+        const initialJoinFieldValues: Record<string, unknown> = {};
+
+        // Generic fallback keys (work even if metadata is incomplete or naming differs in case)
+        initialJoinFieldValues[`${entityName}Id`] = entityId ?? -1;
+        initialJoinFieldValues[`${parentEntityNameLower}Id`] = entityId ?? -1;
+        initialJoinFieldValues[entityName] = {
+            ...parentSnapshot,
+            id: entityId ?? -1,
+            __isUnsavedParent: !entityId
+        };
+        initialJoinFieldValues[parentEntityNameLower] = initialJoinFieldValues[entityName];
+
+        if (selectedRelatedEntityId !== undefined && selectedRelatedEntityId !== null) {
+            initialJoinFieldValues.relatedEntityId = selectedRelatedEntityId;
+        }
+        if (selectedRelatedEntity) {
+            initialJoinFieldValues.relatedEntity = selectedRelatedEntity;
+        }
+
+        if (joinMetadata) {
+            const metadataFields = joinMetadata.fields;
+
+            const parentIdField = metadataFields.find(field =>
+                field.isRelatedEntity &&
+                field.relatedEntityType === entityName &&
+                field.fieldName.toLowerCase().endsWith('id')
+            )?.fieldName;
+
+            const parentNavigationField = metadataFields.find(field =>
+                field.isRelatedEntity &&
+                field.relatedEntityType === entityName &&
+                !field.fieldName.toLowerCase().endsWith('id')
+            )?.fieldName;
+
+            const relatedNavField = metadataFields.find(field =>
+                field.isRelatedEntity &&
+                field.relatedEntityType &&
+                field.relatedEntityType !== entityName &&
+                !field.fieldName.toLowerCase().endsWith('id')
+            );
+
+            const relatedIdField = relatedNavField?.relatedEntityType
+                ? metadataFields.find(field =>
+                    field.isRelatedEntity &&
+                    field.relatedEntityType === relatedNavField.relatedEntityType &&
+                    field.fieldName.toLowerCase().endsWith('id')
+                )?.fieldName
+                : undefined;
+
+            if (parentIdField) {
+                // For unsaved parent entities we still seed a non-empty placeholder value
+                // so required FK fields don't block join entry completion.
+                // Parent-side FK values are stripped during many-to-many normalization.
+                initialJoinFieldValues[parentIdField] = entityId ?? -1;
+            }
+
+            if (parentNavigationField) {
+                initialJoinFieldValues[parentNavigationField] = {
+                    ...parentSnapshot,
+                    id: entityId ?? -1,
+                    __isUnsavedParent: !entityId
+                };
+            }
+
+            if (relatedIdField && selectedRelatedEntityId !== undefined && selectedRelatedEntityId !== null) {
+                initialJoinFieldValues[relatedIdField] = selectedRelatedEntityId;
+            }
+
+            if (relatedNavField?.fieldName && selectedRelatedEntity) {
+                initialJoinFieldValues[relatedNavField.fieldName] = selectedRelatedEntity;
+            }
+        }
+        debug('handleOpenJoinEntry:initial-join-values', {
+            joinMetadataLoaded: !!joinMetadata,
+            selectedRelationship,
+            initialJoinFieldValues
+        });
         const existingProgressId = selectedRelationship?.__childProgressId as string | undefined;
 
         setJoinEntryModal({
@@ -902,8 +1139,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             relationshipIndex,
             joinEntityType: currentStep.joinEntityType,
             joinConfigurationId: currentStep.subConfigurationId,
+            initialFieldValues: initialJoinFieldValues,
             parentProgressId: parentId,
             existingProgressId
+        });
+        debug('handleOpenJoinEntry:modal-opened', {
+            existingProgressId,
+            parentProgressId: parentId
         });
     };
 
@@ -912,6 +1154,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     };
 
     const handleJoinEntryComplete = async (joinData: Record<string, unknown>, progress?: FormSubmissionProgressDto) => {
+        debug('handleJoinEntryComplete:start', {
+            joinData,
+            progress,
+            joinEntryModal
+        });
         if (!config || joinEntryModal.stepIndex === null || joinEntryModal.relationshipIndex === null) {
             handleCloseJoinEntryModal();
             return;
@@ -920,18 +1167,58 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         const step = config.steps[joinEntryModal.stepIndex];
         const fieldName = step.relatedEntityPropertyName || 'relationships';
         const relationships = (allStepsData[joinEntryModal.stepIndex]?.[fieldName] || currentStepData[fieldName] || []) as Array<Record<string, unknown>>;
+        const joinMetadata = step.joinEntityType ? joinEntityMetadataMap[step.joinEntityType] : undefined;
+
+        let relatedNavigationFieldName: string | undefined;
+        let relatedEntityIdFieldName: string | undefined;
+
+        if (joinMetadata) {
+            const metadataFields = joinMetadata.fields;
+            const relatedNavigationField = metadataFields.find(field =>
+                field.isRelatedEntity &&
+                field.relatedEntityType &&
+                field.relatedEntityType !== entityName &&
+                !field.fieldName.toLowerCase().endsWith('id')
+            );
+
+            relatedNavigationFieldName = relatedNavigationField?.fieldName;
+
+            if (relatedNavigationField?.relatedEntityType) {
+                relatedEntityIdFieldName = metadataFields.find(field =>
+                    field.isRelatedEntity &&
+                    field.relatedEntityType === relatedNavigationField.relatedEntityType &&
+                    field.fieldName.toLowerCase().endsWith('id')
+                )?.fieldName;
+            }
+        }
 
         const updatedRelationships = [...relationships];
         const existingRelationship = updatedRelationships[joinEntryModal.relationshipIndex] || {};
-        const relatedEntityId = existingRelationship.relatedEntityId;
-        const relatedEntity = existingRelationship.relatedEntity;
+        const joinDataRelatedEntity = (
+            (relatedNavigationFieldName ? joinData[relatedNavigationFieldName] : undefined) ??
+            joinData.relatedEntity
+        ) as Record<string, unknown> | undefined;
+
+        const joinDataRelatedEntityId = (
+            (relatedEntityIdFieldName ? joinData[relatedEntityIdFieldName] : undefined) ??
+            joinData.relatedEntityId ??
+            joinDataRelatedEntity?.id
+        ) as unknown;
+
+        const relatedEntityId = existingRelationship.relatedEntityId ?? joinDataRelatedEntityId;
+        const relatedEntity = (existingRelationship.relatedEntity ?? joinDataRelatedEntity) as Record<string, unknown> | undefined;
 
         const mergedRelationship: Record<string, unknown> = {
             ...existingRelationship,
             ...joinData,
             relatedEntityId,
-            relatedEntity
+            relatedEntity,
+            __pendingJoinEntry: false
         };
+
+        if (relatedEntityIdFieldName && relatedEntityId !== undefined && relatedEntityId !== null) {
+            mergedRelationship[relatedEntityIdFieldName] = relatedEntityId;
+        }
 
         if (progress?.id) {
             mergedRelationship.__childProgressId = progress.id;
@@ -939,6 +1226,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
         updatedRelationships[joinEntryModal.relationshipIndex] = mergedRelationship;
         updateManyToManyStepData(joinEntryModal.stepIndex, fieldName, updatedRelationships);
+        debug('handleJoinEntryComplete:merged-relationship', {
+            mergedRelationship,
+            updatedRelationships
+        });
 
         if (progress?.id && joinEntryModal.parentProgressId && relatedEntityId !== undefined) {
             try {
@@ -956,10 +1247,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 });
             } catch (error) {
                 console.error('Failed to update join entry progress:', error);
+                debug('handleJoinEntryComplete:progress-update-error', error);
             }
         }
 
         handleCloseJoinEntryModal();
+        debug('handleJoinEntryComplete:complete');
     };
 
     const validateField = (field: FormFieldDto): string | null => {
@@ -1344,6 +1637,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         value={currentStepData[currentStep.relatedEntityPropertyName || 'relationships'] || []}
                         onChange={(value) => handleFieldChange(currentStep.relatedEntityPropertyName || 'relationships', value)}
                         entityName={entityName}
+                        userId={userId}
+                        parentProgressId={progressId}
                         joinFormConfigurationId={currentStep.subConfigurationId}
                         onOpenJoinEntry={handleOpenJoinEntry}
                         validationRules={validationRules}
@@ -1590,6 +1885,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 open={joinEntryModal.open}
                 entityTypeName={joinEntryModal.joinEntityType}
                 formConfigurationId={joinEntryModal.joinConfigurationId}
+                initialFieldValues={joinEntryModal.initialFieldValues}
                 parentProgressId={joinEntryModal.parentProgressId}
                 userId={userId}
                 existingProgressId={joinEntryModal.existingProgressId}

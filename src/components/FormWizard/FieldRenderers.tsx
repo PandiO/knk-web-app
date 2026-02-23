@@ -42,6 +42,20 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     onRetryValidation
     // Note: allStepsData, currentStepIndex, errors are available in props but currently unused
 }) => {
+    const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG]', ...args);
+
+    React.useEffect(() => {
+        debug('render', {
+            fieldName: field.fieldName,
+            fieldType: field.fieldType,
+            objectType: field.objectType,
+            value,
+            hasError: !!error,
+            validationPending,
+            validationResult
+        });
+    }, [field.fieldName, field.fieldType, field.objectType, value, error, validationPending, validationResult]);
+
     const withFeedback = (content: React.ReactNode) => (
         <div className="space-y-1">
             {content}
@@ -603,6 +617,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
     onWorldTaskAction,
     worldTaskStatusVisible
 }) => {
+    const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ObjectField]', ...args);
     const canCreate = field.canCreate !== false; // default true if not specified
     const [showReplaceTable, setShowReplaceTable] = React.useState(false);
 
@@ -610,20 +625,41 @@ const ObjectField: React.FC<FieldRendererProps> = ({
         if (value) {
             setShowReplaceTable(false);
         }
-    }, [value]);
+        debug('value-changed', {
+            fieldName: field.fieldName,
+            value,
+            showReplaceTableAfterValue: false
+        });
+    }, [value, field.fieldName]);
 
     const selectionConfig: SelectionConfig = {
         mode: 'single'
     };
 
     const handleSelectionChange = (selected: any[]) => {
+        debug('handleSelectionChange', {
+            selected,
+            selectedFirst: selected[0] || null
+        });
         onChange(selected[0] || null);
     };
 
     // changed: handler to remove selected item
     const handleRemoveSelection = () => {
+        debug('handleRemoveSelection', { fieldName: field.fieldName, previousValue: value });
         onChange(null);
     };
+
+    React.useEffect(() => {
+        debug('render-state', {
+            fieldName: field.fieldName,
+            objectType: field.objectType,
+            canCreate,
+            hasValue: !!value,
+            showReplaceTable,
+            worldTaskStatusVisible
+        });
+    }, [field.fieldName, field.objectType, canCreate, value, showReplaceTable, worldTaskStatusVisible]);
 
     const showHorizontalActions = !worldTaskStatusVisible;
     const actions: Array<{ key: string; label: string; onClick: () => void; icon?: React.ReactNode }> = [];
@@ -780,6 +816,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
 };
 
 const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onEditInstance }) => {
+    const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ListField]', ...args);
     console.log('Rendering ListField with value:', value);
     const items = Array.isArray(value) ? value : [];
     
@@ -793,12 +830,33 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
     };
 
     const handleSelectionChange = (selected: any[]) => {
+        debug('handleSelectionChange', {
+            fieldName: field.fieldName,
+            selectedCount: selected.length,
+            selected
+        });
         onChange(selected);
     };
 
     const handleRemoveItem = (itemId: string) => {
+        debug('handleRemoveItem', {
+            fieldName: field.fieldName,
+            itemId,
+            previousCount: items.length
+        });
         onChange(items.filter(item => item.id !== itemId));
     };
+
+    React.useEffect(() => {
+        debug('render-state', {
+            fieldName: field.fieldName,
+            objectType: field.objectType,
+            isObjectList,
+            itemCount: items.length,
+            value,
+            error
+        });
+    }, [field.fieldName, field.objectType, isObjectList, items.length, value, error]);
 
     if (!isObjectList) {
         const addItem = () => onChange([...items, '']);

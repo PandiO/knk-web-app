@@ -134,7 +134,7 @@ function resolveJoinEntityMapping(args: {
     joinEntityType: string;
     parentEntityTypeName: string;
     joinEntityMetadataMap?: Record<string, EntityMetadataDto>;
-}): { relatedEntityType: string; relatedEntityIdField: string } {
+}): { relatedEntityType: string; relatedEntityIdField: string; parentRelationshipFields: string[] } {
     const { joinEntityType, parentEntityTypeName, joinEntityMetadataMap } = args;
     const joinMetadata = joinEntityMetadataMap?.[joinEntityType];
 
@@ -159,7 +159,15 @@ function resolveJoinEntityMapping(args: {
         throw new Error(`Unable to resolve the join entity foreign key field for ${joinEntityType}. Expected ${expectedField}.`);
     }
 
-    return { relatedEntityType: relatedNav.relatedEntityType, relatedEntityIdField };
+    const parentRelationshipFields = joinMetadata.fields
+        .filter(f => f.isRelatedEntity && f.relatedEntityType === parentEntityTypeName)
+        .map(f => f.fieldName);
+
+    return {
+        relatedEntityType: relatedNav.relatedEntityType,
+        relatedEntityIdField,
+        parentRelationshipFields
+    };
 }
 
 function normalizeManyToManyRelationshipField(args: {
@@ -179,7 +187,7 @@ function normalizeManyToManyRelationshipField(args: {
         throw new Error(`Join entity type is missing for ${fieldName}. Please update the form configuration.`);
     }
 
-    const { relatedEntityIdField } = resolveJoinEntityMapping({
+    const { relatedEntityIdField, parentRelationshipFields } = resolveJoinEntityMapping({
         joinEntityType: step.joinEntityType,
         parentEntityTypeName,
         joinEntityMetadataMap
@@ -204,8 +212,17 @@ function normalizeManyToManyRelationshipField(args: {
 
         const { relatedEntity, relatedEntityId: _relatedEntityId, __childProgressId, ...rest } = typedEntry;
 
+        const cleaned = { ...rest };
+        parentRelationshipFields.forEach(parentField => {
+            Object.keys(cleaned).forEach(key => {
+                if (key.toLowerCase() === parentField.toLowerCase()) {
+                    delete cleaned[key];
+                }
+            });
+        });
+
         return {
-            ...rest,
+            ...cleaned,
             [relatedEntityIdField]: relatedEntityId
         };
     });

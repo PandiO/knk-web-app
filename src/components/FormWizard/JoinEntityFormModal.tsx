@@ -7,6 +7,7 @@ interface JoinEntityFormModalProps {
     open: boolean;
     entityTypeName: string;
     formConfigurationId: string;
+    initialFieldValues?: Record<string, unknown>;
     parentProgressId?: string;
     userId: string;
     existingProgressId?: string;
@@ -18,15 +19,36 @@ export const JoinEntityFormModal: React.FC<JoinEntityFormModalProps> = ({
     open,
     entityTypeName,
     formConfigurationId,
+    initialFieldValues,
     parentProgressId,
     userId,
     existingProgressId,
     onComplete,
     onClose
 }) => {
+    const debug = (...args: unknown[]) => console.log('[JOIN_MODAL_DEBUG]', ...args);
+
+    React.useEffect(() => {
+        debug('props:update', {
+            open,
+            entityTypeName,
+            formConfigurationId,
+            hasInitialFieldValues: !!initialFieldValues,
+            initialFieldValueKeys: initialFieldValues ? Object.keys(initialFieldValues) : [],
+            parentProgressId,
+            existingProgressId
+        });
+    }, [open, entityTypeName, formConfigurationId, initialFieldValues, parentProgressId, existingProgressId]);
+
     if (!open) return null;
 
     const hasRequiredConfig = !!entityTypeName && !!formConfigurationId;
+    debug('render:open', {
+        hasRequiredConfig,
+        entityTypeName,
+        formConfigurationId,
+        initialFieldValues
+    });
 
     return (
         <>
@@ -52,10 +74,17 @@ export const JoinEntityFormModal: React.FC<JoinEntityFormModalProps> = ({
                             <FormWizard
                                 entityName={entityTypeName}
                                 formConfigurationId={formConfigurationId}
+                                initialFieldValues={initialFieldValues}
                                 userId={userId}
                                 existingProgressId={existingProgressId}
                                 parentProgressId={parentProgressId}
-                                onComplete={onComplete}
+                                onComplete={(data, progress) => {
+                                    debug('onComplete:from-child-wizard', {
+                                        data,
+                                        progress
+                                    });
+                                    onComplete(data, progress);
+                                }}
                             />
                         ) : (
                             <div className="text-center py-12">
