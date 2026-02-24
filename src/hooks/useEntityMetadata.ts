@@ -4,6 +4,52 @@ import { entityTypeConfigurationClient } from '../apiClients/entityTypeConfigura
 import { EntityMetadataDto, MergedEntityMetadata, EntityTypeConfigurationDto } from '../types/dtos/metadata/MetadataModels';
 import { fieldValidationRuleClient } from '../apiClients/fieldValidationRuleClient';
 import { logging } from '../utils';
+import { useAuth } from '../contexts/AuthContext';
+
+type MetadataBundle = {
+  baseMetadata: EntityMetadataDto[];
+  configurations: EntityTypeConfigurationDto[];
+  mergedMetadata: MergedEntityMetadata[];
+};
+
+let metadataBundleCache: MetadataBundle | null = null;
+let metadataBundlePromise: Promise<MetadataBundle> | null = null;
+
+const fetchMetadataBundle = async (forceRefresh: boolean = false): Promise<MetadataBundle> => {
+  if (forceRefresh) {
+    metadataBundleCache = null;
+  }
+
+  if (metadataBundleCache) {
+    return metadataBundleCache;
+  }
+
+  if (metadataBundlePromise) {
+    return metadataBundlePromise;
+  }
+
+  metadataBundlePromise = (async () => {
+    const [baseMetaData, configs] = await Promise.all([
+      metadataClient.getAllEntityMetadata(),
+      entityTypeConfigurationClient.getAll(),
+    ]);
+
+    const bundle: MetadataBundle = {
+      baseMetadata: baseMetaData,
+      configurations: configs,
+      mergedMetadata: mergeMetadata(baseMetaData, configs),
+    };
+
+    metadataBundleCache = bundle;
+    return bundle;
+  })();
+
+  try {
+    return await metadataBundlePromise;
+  } finally {
+    metadataBundlePromise = null;
+  }
+};
 
 /**
  * Metadata about a form field including validation rules and entity context.
@@ -77,6 +123,7 @@ export interface EnrichedFormContextType {
  * ));
  */
 export function useEntityMetadata() {
+  const { isLoggedIn, isLoading: authLoading } = useAuth();
   const [allMergedMetadata, setAllMergedMetadata] = useState<MergedEntityMetadata[]>([]);
   const [baseMetadata, setBaseMetadata] = useState<EntityMetadataDto[]>([]);
   const [configurations, setConfigurations] = useState<EntityTypeConfigurationDto[]>([]);
@@ -86,22 +133,23 @@ export function useEntityMetadata() {
   const logger = { info: console.log, error: console.error, warn: console.warn }; // Simple logger
 
   const loadMetadata = useCallback(async () => {
+    if (!isLoggedIn) {
+      setBaseMetadata([]);
+      setConfigurations([]);
+      setAllMergedMetadata([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
+      const bundle = await fetchMetadataBundle();
 
-      // Load base metadata and configurations in parallel
-      const [baseMetaData, configs] = await Promise.all([
-        metadataClient.getAllEntityMetadata(),
-        entityTypeConfigurationClient.getAll(),
-      ]);
-
-      setBaseMetadata(baseMetaData);
-      setConfigurations(configs);
-
-      // Merge and set
-      const merged = mergeMetadata(baseMetaData, configs);
-      setAllMergedMetadata(merged);
+      setBaseMetadata(bundle.baseMetadata);
+      setConfigurations(bundle.configurations);
+      setAllMergedMetadata(bundle.mergedMetadata);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to load metadata';
       setError(errorMsg);
@@ -109,12 +157,27 @@ export function useEntityMetadata() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isLoggedIn]);
 
   // Load metadata and configurations on mount
   useEffect(() => {
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
+    if (!isLoggedIn) {
+      metadataBundleCache = null;
+      setLoading(false);
+      setBaseMetadata([]);
+      setConfigurations([]);
+      setAllMergedMetadata([]);
+      setError(null);
+      return;
+    }
+
     void loadMetadata();
-  }, [loadMetadata]);
+  }, [authLoading, isLoggedIn, loadMetadata]);
 
   /**
    * Get merged metadata for a specific entity by name.
@@ -138,8 +201,25 @@ export function useEntityMetadata() {
    * Refresh all metadata (useful when admin updates configuration)
    */
   const refresh = useCallback(async () => {
-    await loadMetadata();
-  }, [loadMetadata]);
+    if (!isLoggedIn) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const bundle = await fetchMetadataBundle(true);
+      setBaseMetadata(bundle.baseMetadata);
+      setConfigurations(bundle.configurations);
+      setAllMergedMetadata(bundle.mergedMetadata);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load metadata';
+      setError(errorMsg);
+      console.error('Failed to refresh entity metadata:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [isLoggedIn]);
 
   /**
    * Create a new entity type configuration

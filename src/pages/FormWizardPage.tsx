@@ -4,7 +4,6 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { displayConfigClient } from '../apiClients/displayConfigClient';
 import { formConfigClient } from '../apiClients/formConfigClient';
 import { formSubmissionClient } from '../apiClients/formSubmissionClient';
-import { metadataClient } from '../apiClients/metadataClient';
 import { FeedbackModal } from '../components/FeedbackModal';
 import { DisplayConfigurationTable } from '../components/FormWizard/DisplayConfigurationTable';
 import { EntityMetadataNavigator } from '../components/FormWizard/EntityMetadataNavigator';
@@ -16,7 +15,6 @@ import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
 import { logging } from '../utils';
 import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../types/dtos/forms/FormModels';
 import { DisplayConfigurationDto } from '../types/dtos/displayConfig/DisplayModels';
-import { EntityMetadataDto } from '../types/dtos/metadata/MetadataModels';
 import { useEntityMetadata } from '../hooks/useEntityMetadata';
 import { getCreateFunctionForEntity, getFetchByIdFunctionForEntity, getUpdateFunctionForEntity } from '../utils/entityApiMapping';
 
@@ -67,7 +65,6 @@ export const FormWizardPage: React.FC<Props> = ({
     const [wizardConfig, setWizardConfig] = useState<FormConfigurationDto | null>(null);
     const [wizardProgressId, setWizardProgressId] = useState<string | undefined>(undefined);
     const [workflowSessionId, setWorkflowSessionId] = useState<number | undefined>(undefined);
-    const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto[]>([]);
     const [autoOpenForm, setAutoOpenForm] = useState(false); // removed: old auto-open flag logic
 
     type FeedbackState = {
@@ -103,22 +100,8 @@ export const FormWizardPage: React.FC<Props> = ({
 
     const userId = '1'; // TODO: Get from auth context
 
-    // Load all metadata to ensure entity navigation includes all configurable entity types
-    useEffect(() => {
-        const loadMetadata = async () => {
-            try {
-                const metadata = await metadataClient.getAllEntityMetadata();
-                setEntityMetadata(metadata);
-            } catch (error) {
-                console.error('Failed to load entity metadata:', error);
-                setEntityMetadata([]);
-            }
-        };
-        void loadMetadata();
-    }, []);
-
     // Load merged metadata for UI context and selection display
-    const { allMergedMetadata, loading: metadataLoading } = useEntityMetadata();
+    const { allMergedMetadata, baseMetadata, loading: metadataLoading } = useEntityMetadata();
 
     const selectedEntityMetadata = useMemo(() => {
         if (!selectedTypeName) {
@@ -126,11 +109,11 @@ export const FormWizardPage: React.FC<Props> = ({
         }
 
         return (
-            entityMetadata.find(meta => meta.entityName.toLowerCase() === selectedTypeName.toLowerCase()) ||
+            baseMetadata.find(meta => meta.entityName.toLowerCase() === selectedTypeName.toLowerCase()) ||
             allMergedMetadata.find(meta => meta.entityName.toLowerCase() === selectedTypeName.toLowerCase()) ||
             null
         );
-    }, [entityMetadata, allMergedMetadata, selectedTypeName]);
+    }, [baseMetadata, allMergedMetadata, selectedTypeName]);
 
     // Main effect: Handle the four use cases
     useEffect(() => {
@@ -681,7 +664,7 @@ export const FormWizardPage: React.FC<Props> = ({
             <div className="dashboard-parent">
                 <div className='dashboard-sidebar'>
                     <ObjectTypeExplorer
-                        entityMetadata={entityMetadata}
+                        entityMetadata={baseMetadata}
                         onSelect={handleSelectEntity}
                         selectedId={selectedTypeName}
                     />

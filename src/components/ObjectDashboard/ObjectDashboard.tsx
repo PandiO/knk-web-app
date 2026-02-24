@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Pencil, Trash2 } from 'lucide-react';
 import ObjectTypeExplorer from '../ObjectTypeExplorer';
@@ -7,13 +7,36 @@ import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 import './ObjectDashboard.css';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 import { FeedbackModal } from '../FeedbackModal';
+import { useEntityMetadata } from '../../hooks/useEntityMetadata';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
 
 const ObjectDashboard = ({ objectTypes }: Props) => {
     const navigate = useNavigate();
-    const [selectedType, setSelectedType] = useState<string>('structure');
+    const [selectedType, setSelectedType] = useState<string>('');
+    const { baseMetadata, loading: metadataLoading } = useEntityMetadata();
+    const hasMetadata = baseMetadata.length > 0;
+
+    useEffect(() => {
+        if (hasMetadata) {
+            const selectedExists = baseMetadata.some(
+                metadata => metadata.entityName.toLowerCase() === selectedType.toLowerCase()
+            );
+
+            if (!selectedExists && baseMetadata[0]?.entityName) {
+                setSelectedType(baseMetadata[0].entityName);
+            }
+            return;
+        }
+
+        const selectedExists = objectTypes.some(
+            objectType => objectType.id.toLowerCase() === selectedType.toLowerCase()
+        );
+        if (!selectedExists && objectTypes[0]?.id) {
+            setSelectedType(objectTypes[0].id);
+        }
+    }, [hasMetadata, baseMetadata, objectTypes, selectedType]);
 
     // const fetchObjects = ({ type }: { type: string }) => {
     //     let list: any = [];
@@ -129,14 +152,19 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
             <div className="dashboard-sidebar">
                 <ObjectTypeExplorer
                     items={objectTypes}
+                    entityMetadata={baseMetadata}
                     onSelect={(type) => setSelectedType(type)}
+                    selectedId={selectedType}
                 />
             </div>
             <div className="dashboard-content">
                 <div>
                     <h2 className="text-3xl font-bold text-gray-900 mb-8">
-                        {objectTypes.find(ot => ot.id === selectedType)?.label || 'Items'}
+                        {baseMetadata.find(metadata => metadata.entityName.toLowerCase() === selectedType.toLowerCase())?.displayName || objectTypes.find(objectType => objectType.id.toLowerCase() === selectedType.toLowerCase())?.label || 'Items'}
                     </h2>
+                    {metadataLoading && (
+                        <div className="mb-4 text-sm text-gray-500">Loading entity metadata...</div>
+                    )}
                     <FeedbackModal
                         open={modalOpen}
                         title={modalTitle}
@@ -148,51 +176,53 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                         secondaryLabel={modalSecondaryLabel}
                         onClose={() => setModalOpen(false)}
                     />
-                    <PagedEntityTable
-                        entityTypeName={selectedType}
-                        columns={columnDefinitionsRegistry[selectedType]?.default || defaultColumnDefinitions.default}
-                        initialQuery={{ page: 1, pageSize: 10 }}
-                        onRowClick={(row) => handleView(selectedType, row)}
-                        refreshKey={refreshKey}
-                        rowActions={[
-                            (row) => (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleView(selectedType, row);
-                                    }}
-                                    className="p-2 text-gray-400 hover:text-gray-600"
-                                    title="View"
-                                >
-                                    <Eye className="h-4 w-4" />
-                                </button>
-                            ),
-                            (row) => (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEdit(selectedType, row);
-                                    }}
-                                    className="p-2 text-gray-400 hover:text-gray-600"
-                                    title="Edit"
-                                >
-                                    <Pencil className="h-4 w-4" />
-                                </button>
-                            ),
-                            (row) => (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDelete(selectedType, row);
-                                    }}
-                                    className="p-2 text-gray-400 hover:text-red-600"
-                                    title="Delete"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            )
-                        ]}
-                    />
+                    {selectedType && (
+                        <PagedEntityTable
+                            entityTypeName={selectedType}
+                            columns={columnDefinitionsRegistry[selectedType]?.default || defaultColumnDefinitions.default}
+                            initialQuery={{ page: 1, pageSize: 10 }}
+                            onRowClick={(row) => handleView(selectedType, row)}
+                            refreshKey={refreshKey}
+                            rowActions={[
+                                (row) => (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleView(selectedType, row);
+                                        }}
+                                        className="p-2 text-gray-400 hover:text-gray-600"
+                                        title="View"
+                                    >
+                                        <Eye className="h-4 w-4" />
+                                    </button>
+                                ),
+                                (row) => (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEdit(selectedType, row);
+                                        }}
+                                        className="p-2 text-gray-400 hover:text-gray-600"
+                                        title="Edit"
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </button>
+                                ),
+                                (row) => (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDelete(selectedType, row);
+                                        }}
+                                        className="p-2 text-gray-400 hover:text-red-600"
+                                        title="Delete"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                )
+                            ]}
+                        />
+                    )}
                 </div>
             </div>
         </div>
