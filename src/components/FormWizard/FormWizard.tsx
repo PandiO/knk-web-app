@@ -23,6 +23,14 @@ import { StepProgressReadDto } from '../../types/dtos/workflow/WorkflowDtos';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { buildPlaceholderContext } from '../../utils/placeholderExtraction';
+import {
+    ProjectionOverwritePolicy,
+    ProjectionSourceContext,
+    applyProjectionTransform,
+    getValueByPath,
+    isEffectivelyEmpty,
+    parseValueProjection
+} from '../../utils/forms/valueProjection';
 
 interface FormWizardProps {
     entityName: string;
@@ -78,6 +86,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const [worldTaskStatusVisibility, setWorldTaskStatusVisibility] = useState<Record<string, boolean>>({});
     const validationTimersRef = useRef<Record<number, number>>({});
     const initialValuesAppliedRef = useRef(false);
+    const fieldProvenanceRef = useRef<Record<string, 'manual' | 'projected'>>({});
 
     type SaveFeedbackState = {
         open: boolean;
@@ -840,6 +849,128 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         triggerFieldValidation(field.field, value, allStepsData, false);
     };
 
+    const applyFieldValueProjection = (
+        changedFieldName: string,
+        changedValue: unknown,
+        baseAllData: AllStepsData
+    ): { allData: AllStepsData; currentData: StepData; projectedTargets: string[] } => {
+        if (!config || !currentStep) {
+            return {
+                allData: baseAllData,
+                currentData: baseAllData[currentStepIndex] || currentStepData,
+                projectedTargets: []
+            };
+        }
+
+        const sourceField = currentStep.fields.find(f => f.fieldName.toLowerCase() === changedFieldName.toLowerCase());
+        const projection = sourceField ? parseValueProjection(sourceField.settingsJson) : null;
+
+        if (!projection?.enabled || projection.mappings.length === 0) {
+            return {
+                allData: baseAllData,
+                currentData: baseAllData[currentStepIndex] || currentStepData,
+                projectedTargets: []
+            };
+        }
+
+        const normalizedFormData = flattenAllStepsData(config, baseAllData);
+        const sourceRoot = Array.isArray(changedValue) ? changedValue[0] : changedValue;
+        const nextAllData: AllStepsData = { ...baseAllData };
+        const projectedTargets: string[] = [];
+
+        const getFieldLocation = (targetFieldName: string): { stepIndex: number; field: FormFieldDto } | null => {
+            for (let i = 0; i < config.steps.length; i++) {
+                const step = config.steps[i];
+                const field = step.fields.find(f => f.fieldName.toLowerCase() === targetFieldName.toLowerCase());
+                if (field) {
+                    return { stepIndex: i, field };
+                }
+            }
+            return null;
+        };
+
+        const shouldApply = (
+            policy: ProjectionOverwritePolicy,
+            existingValue: unknown,
+            targetFieldName: string
+        ): boolean => {
+            if (policy === 'never') return false;
+            if (policy === 'always') return true;
+            if (policy === 'if-empty') return isEffectivelyEmpty(existingValue);
+
+            const provenance = fieldProvenanceRef.current[targetFieldName.toLowerCase()];
+            return isEffectivelyEmpty(existingValue) || provenance === 'projected';
+        };
+
+        const resolveSourceValue = (mapping: {
+            source: string;
+            sourceContext?: ProjectionSourceContext;
+            constantValue?: unknown;
+        }): unknown => {
+            if (mapping.source.startsWith('$form.')) {
+                return getValueByPath(normalizedFormData, mapping.source);
+            }
+
+            if (mapping.source.startsWith('$value.')) {
+                return getValueByPath(sourceRoot, mapping.source);
+            }
+
+            if (mapping.source.startsWith('$const.')) {
+                return mapping.source.replace(/^\$const\./i, '');
+            }
+
+            const sourceContext = mapping.sourceContext || 'changedField';
+            if (sourceContext === 'constant') {
+                return mapping.constantValue;
+            }
+
+            if (sourceContext === 'form') {
+                return getValueByPath(normalizedFormData, mapping.source);
+            }
+
+            return getValueByPath(sourceRoot, mapping.source);
+        };
+
+        projection.mappings.forEach(mapping => {
+            if (!mapping.target || mapping.target.toLowerCase() === changedFieldName.toLowerCase()) {
+                return;
+            }
+
+            const location = getFieldLocation(mapping.target);
+            if (!location) return;
+
+            const stepData = { ...(nextAllData[location.stepIndex] || {}) };
+            const existingValue = stepData[location.field.fieldName];
+
+            const overwritePolicy = mapping.overwritePolicy
+                || projection.defaultOverwritePolicy
+                || 'if-empty';
+
+            if (!shouldApply(overwritePolicy, existingValue, location.field.fieldName)) {
+                return;
+            }
+
+            const rawSourceValue = resolveSourceValue(mapping);
+            const transformedValue = applyProjectionTransform(rawSourceValue, mapping.transform);
+            const shouldClear = mapping.clearOnNull ?? projection.clearOnNull ?? false;
+
+            if ((transformedValue === null || transformedValue === undefined) && !shouldClear) {
+                return;
+            }
+
+            stepData[location.field.fieldName] = transformedValue ?? null;
+            nextAllData[location.stepIndex] = stepData;
+            projectedTargets.push(location.field.fieldName);
+            fieldProvenanceRef.current[location.field.fieldName.toLowerCase()] = 'projected';
+        });
+
+        return {
+            allData: nextAllData,
+            currentData: nextAllData[currentStepIndex] || currentStepData,
+            projectedTargets
+        };
+    };
+
     const handleFieldChange = (fieldName: string, value: unknown) => {
         if (!currentStep) return;
 
@@ -854,28 +985,44 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         const normalizedCurrent = normalizeStepData(currentStep, mergedCurrent);
         const updatedAllData: AllStepsData = { ...allStepsData, [currentStepIndex]: normalizedCurrent };
 
-        setCurrentStepData(mergedCurrent);
-        setAllStepsData(updatedAllData);
+        fieldProvenanceRef.current[fieldName.toLowerCase()] = 'manual';
+
+        const projectionResult = applyFieldValueProjection(fieldName, value, updatedAllData);
+
+        setCurrentStepData(projectionResult.currentData);
+        setAllStepsData(projectionResult.allData);
         debug('handleFieldChange:updated-state', {
-            mergedCurrent,
-            updatedAllDataForStep: updatedAllData[currentStepIndex]
+            mergedCurrent: projectionResult.currentData,
+            updatedAllDataForStep: projectionResult.allData[currentStepIndex],
+            projectedTargets: projectionResult.projectedTargets
         });
 
-        if (errors[fieldName]) {
+        if (errors[fieldName] || projectionResult.projectedTargets.some(target => !!errors[target])) {
             setErrors(prev => {
                 const newErrors = { ...prev };
                 delete newErrors[fieldName];
+                projectionResult.projectedTargets.forEach(target => delete newErrors[target]);
                 return newErrors;
             });
         }
 
         const field = currentStep.fields.find(f => f.fieldName === fieldName);
         if (field) {
-            triggerFieldValidation(field, value, updatedAllData, true);
+            triggerFieldValidation(field, value, projectionResult.allData, true);
             if (field.id) {
-                revalidateDependents(Number(field.id), updatedAllData);
+                revalidateDependents(Number(field.id), projectionResult.allData);
             }
         }
+
+        projectionResult.projectedTargets.forEach(targetFieldName => {
+            const targetField = currentStep.fields.find(f => f.fieldName.toLowerCase() === targetFieldName.toLowerCase());
+            if (!targetField) return;
+            const projectedValue = projectionResult.allData[currentStepIndex]?.[targetField.fieldName];
+            triggerFieldValidation(targetField, projectedValue, projectionResult.allData, true);
+            if (targetField.id) {
+                revalidateDependents(Number(targetField.id), projectionResult.allData);
+            }
+        });
     };
 
     // added: open child form modal for creating new object

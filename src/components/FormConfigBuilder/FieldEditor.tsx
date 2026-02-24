@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ShieldAlert, ShieldCheck, X } from 'lucide-react';
+import { Plus, ShieldAlert, ShieldCheck, Trash2, X } from 'lucide-react';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
 import { FieldMetadataDto, EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
@@ -9,6 +9,15 @@ import { ValidationRuleBuilder } from './ValidationRuleBuilder';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { CreateFieldValidationRuleDto, FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { FeedbackModal } from '../FeedbackModal';
+import {
+    PROJECTION_OVERWRITE_POLICIES,
+    PROJECTION_TRANSFORMS,
+    ProjectionOverwritePolicy,
+    ProjectionSourceContext,
+    ProjectionTransform,
+    ValueProjectionMapping,
+    parseValueProjection
+} from '../../utils/forms/valueProjection';
 
 interface Props {
     field: FormFieldDto;
@@ -56,6 +65,11 @@ export const FieldEditor: React.FC<Props> = ({
         'Custom'
     ];
 
+    const [projectionEnabled, setProjectionEnabled] = useState<boolean>(false);
+    const [projectionDefaultOverwritePolicy, setProjectionDefaultOverwritePolicy] = useState<ProjectionOverwritePolicy>('if-empty');
+    const [projectionClearOnNull, setProjectionClearOnNull] = useState<boolean>(false);
+    const [projectionMappings, setProjectionMappings] = useState<ValueProjectionMapping[]>([]);
+
     const [validationRules, setValidationRules] = useState<FieldValidationRuleDto[]>([]);
     const [rulesLoading, setRulesLoading] = useState<boolean>(false);
     const [showRuleBuilder, setShowRuleBuilder] = useState<boolean>(false);
@@ -66,6 +80,11 @@ export const FieldEditor: React.FC<Props> = ({
     const entityMetadataMap = React.useMemo(() => {
         return new Map(entityMetadata.map(meta => [meta.entityName, meta]));
     }, [entityMetadata]);
+
+    useEffect(() => {
+        setField(initialField);
+        setCollectionElementType(initialField.elementType || FieldType.String);
+    }, [initialField]);
 
     useEffect(() => {
         const loadMetadata = async () => {
@@ -82,13 +101,18 @@ export const FieldEditor: React.FC<Props> = ({
     // Parse existing settingsJson and initialize world-task state
     useEffect(() => {
         try {
-            const current = field.settingsJson ? JSON.parse(field.settingsJson) : {};
+            const current = initialField.settingsJson ? JSON.parse(initialField.settingsJson) : {};
             const wt = current?.worldTask || {};
             const mtc = current?.['minecraft-text-color'] || {};
+            const projection = parseValueProjection(initialField.settingsJson);
             setWorldTaskEnabled(!!wt.enabled);
             setMinecraftTextColorEnabled(!!mtc.enabled);
             const taskType = typeof wt.taskType === 'string' ? wt.taskType : '';
             setWorldTaskType(taskType);
+            setProjectionEnabled(!!projection?.enabled);
+            setProjectionDefaultOverwritePolicy(projection?.defaultOverwritePolicy || 'if-empty');
+            setProjectionClearOnNull(!!projection?.clearOnNull);
+            setProjectionMappings(projection?.mappings || []);
             // If task type is not in predefined list, set it as custom
             if (taskType && !PREDEFINED_TASK_TYPES.includes(taskType)) {
                 setWorldTaskType('Custom');
@@ -99,9 +123,61 @@ export const FieldEditor: React.FC<Props> = ({
             setWorldTaskType('');
             setCustomTaskType('');
             setMinecraftTextColorEnabled(false);
+            setProjectionEnabled(false);
+            setProjectionDefaultOverwritePolicy('if-empty');
+            setProjectionClearOnNull(false);
+            setProjectionMappings([]);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initialField.id]);
+    }, [initialField]);
+
+    useEffect(() => {
+        const isEnchantmentDisplayNameScenario =
+            (entityTypeName || '').toLowerCase() === 'enchantmentdefinition' &&
+            (field.fieldName || '').toLowerCase() === 'baseenchantmentref';
+
+        const persistedProjection = parseValueProjection(field.settingsJson);
+        const hasPersistedMappings = (persistedProjection?.mappings?.length || 0) > 0;
+
+        const canConfigureProjectionLocal = [
+            FieldType.Object,
+            FieldType.HybridMinecraftMaterialRefPicker,
+            FieldType.HybridMinecraftEnchantmentRefPicker
+        ].includes(field.fieldType);
+
+        const availableTargetFieldsLocal = Array.from(
+            new Set(
+                (allFields.length > 0 ? allFields.map(item => item.fieldName) : metadataFields.map(item => item.fieldName))
+                    .filter(Boolean)
+            )
+        );
+
+        if (!isEnchantmentDisplayNameScenario) return;
+        if (!canConfigureProjectionLocal) return;
+    if (hasPersistedMappings) return;
+        if (projectionMappings.length > 0) return;
+
+        const hasDisplayNameTarget = availableTargetFieldsLocal.some(name => name.toLowerCase() === 'displayname');
+        if (!hasDisplayNameTarget) return;
+
+        setProjectionEnabled(true);
+        setProjectionDefaultOverwritePolicy('if-empty');
+        setProjectionMappings([
+            {
+                sourceContext: 'changedField',
+                source: 'displayName',
+                target: 'DisplayName',
+                transform: 'none'
+            }
+        ]);
+    }, [
+        entityTypeName,
+        field.fieldName,
+        field.fieldType,
+        projectionMappings.length,
+        field.settingsJson,
+        allFields,
+        metadataFields
+    ]);
 
     useEffect(() => {
         setPlaceholderIsDefault(initialField.defaultValue !== undefined && initialField.defaultValue !== null);
@@ -207,6 +283,29 @@ export const FieldEditor: React.FC<Props> = ({
             ...(taskTypeToPersist ? { taskType: taskTypeToPersist } : {})
         };
         const mergedSettings: any = { ...baseSettings, worldTask: mergedWorldTask };
+
+        if (projectionEnabled) {
+            const validMappings = projectionMappings.filter(mapping => {
+                const hasTarget = typeof mapping.target === 'string' && mapping.target.trim().length > 0;
+                const hasSource = mapping.sourceContext === 'constant'
+                    ? mapping.constantValue !== undefined && mapping.constantValue !== null
+                    : typeof mapping.source === 'string' && mapping.source.trim().length > 0;
+                return hasTarget && hasSource;
+            });
+
+            if (validMappings.length > 0) {
+                mergedSettings.valueProjection = {
+                    enabled: true,
+                    defaultOverwritePolicy: projectionDefaultOverwritePolicy,
+                    clearOnNull: projectionClearOnNull,
+                    mappings: validMappings
+                };
+            } else {
+                delete mergedSettings.valueProjection;
+            }
+        } else {
+            delete mergedSettings.valueProjection;
+        }
 
         if (field.fieldType === FieldType.String && minecraftTextColorEnabled) {
             mergedSettings['minecraft-text-color'] = {
@@ -399,6 +498,235 @@ export const FieldEditor: React.FC<Props> = ({
         if (isCollectionType(newType)) {
             setCollectionElementType(FieldType.String);
         }
+    };
+
+    const canConfigureProjection = [
+        FieldType.Object,
+        FieldType.HybridMinecraftMaterialRefPicker,
+        FieldType.HybridMinecraftEnchantmentRefPicker
+    ].includes(field.fieldType);
+
+    const availableTargetFields = React.useMemo(() => {
+        const source = allFields.length > 0
+            ? allFields.map(item => item.fieldName)
+            : metadataFields.map(item => item.fieldName);
+
+        return Array.from(new Set(source.filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    }, [allFields, metadataFields]);
+
+    const sourceValueSuggestions = React.useMemo(() => {
+        const generic = ['id', 'name', 'displayName', 'label', 'key', 'maxLevel'];
+        const objectMetaFields = field.objectType
+            ? entityMetadataMap.get(field.objectType)?.fields.map(meta => meta.fieldName) || []
+            : [];
+        return Array.from(new Set([...generic, ...objectMetaFields])).sort((a, b) => a.localeCompare(b));
+    }, [entityMetadataMap, field.objectType]);
+
+    const updateProjectionMapping = (index: number, patch: Partial<ValueProjectionMapping>) => {
+        setProjectionMappings(prev => prev.map((mapping, i) => i === index ? ({ ...mapping, ...patch }) : mapping));
+    };
+
+    const addProjectionMapping = () => {
+        setProjectionMappings(prev => ([
+            ...prev,
+            {
+                sourceContext: 'changedField',
+                source: '',
+                target: '',
+                overwritePolicy: undefined,
+                transform: 'none'
+            }
+        ]));
+    };
+
+    const removeProjectionMapping = (index: number) => {
+        setProjectionMappings(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const renderProjectionBuilder = () => {
+        if (!canConfigureProjection) return null;
+
+        const selfTargetWarning = projectionMappings.some(mapping => mapping.target.toLowerCase() === field.fieldName.toLowerCase() && mapping.target.length > 0);
+
+        return (
+            <div className="mt-4 p-3 rounded-md border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700">Auto-fill Value Projection</label>
+                    <input
+                        type="checkbox"
+                        checked={projectionEnabled}
+                        onChange={e => setProjectionEnabled(e.target.checked)}
+                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                </div>
+
+                <p className="text-xs text-gray-500">
+                    When this field value changes, copy source properties into other form fields.
+                </p>
+
+                {projectionEnabled && (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Default overwrite behavior</label>
+                                <select
+                                    value={projectionDefaultOverwritePolicy}
+                                    onChange={e => setProjectionDefaultOverwritePolicy(e.target.value as ProjectionOverwritePolicy)}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                >
+                                    {PROJECTION_OVERWRITE_POLICIES.map(policy => (
+                                        <option key={policy} value={policy}>{policy}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex items-end">
+                                <label className="flex items-center text-xs text-gray-700 gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={projectionClearOnNull}
+                                        onChange={e => setProjectionClearOnNull(e.target.checked)}
+                                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                    />
+                                    Clear target if source is null/undefined
+                                </label>
+                            </div>
+                        </div>
+
+                        {selfTargetWarning && (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2 text-xs text-yellow-800">
+                                One or more mappings target this same field. This is usually a misconfiguration.
+                            </div>
+                        )}
+
+                        <div className="space-y-2">
+                            {projectionMappings.length === 0 && (
+                                <p className="text-xs text-gray-500 italic">No mappings configured yet.</p>
+                            )}
+
+                            {projectionMappings.map((mapping, index) => (
+                                <div key={`${mapping.target}-${index}`} className="border border-gray-200 rounded-md p-3 bg-gray-50 space-y-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Source Context</label>
+                                            <select
+                                                value={mapping.sourceContext || 'changedField'}
+                                                onChange={e => updateProjectionMapping(index, { sourceContext: e.target.value as ProjectionSourceContext })}
+                                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                            >
+                                                <option value="changedField">Changed field value</option>
+                                                <option value="form">Current form data</option>
+                                                <option value="constant">Constant</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Target Field</label>
+                                            <select
+                                                value={mapping.target}
+                                                onChange={e => updateProjectionMapping(index, { target: e.target.value })}
+                                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                            >
+                                                <option value="">Select target field...</option>
+                                                {availableTargetFields.map(targetField => (
+                                                    <option key={targetField} value={targetField}>{targetField}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                {mapping.sourceContext === 'constant' ? 'Constant Value' : 'Source Path'}
+                                            </label>
+                                            {mapping.sourceContext === 'constant' ? (
+                                                <input
+                                                    type="text"
+                                                    value={mapping.constantValue == null ? '' : String(mapping.constantValue)}
+                                                    onChange={e => updateProjectionMapping(index, { source: '$const.inline', constantValue: e.target.value })}
+                                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                                    placeholder="e.g. true, 5, custom text"
+                                                />
+                                            ) : (
+                                                <>
+                                                    <input
+                                                        list={`projection-source-${index}`}
+                                                        type="text"
+                                                        value={mapping.source}
+                                                        onChange={e => updateProjectionMapping(index, { source: e.target.value })}
+                                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                                        placeholder={mapping.sourceContext === 'form' ? 'e.g. DisplayName or base.value' : 'e.g. displayName'}
+                                                    />
+                                                    <datalist id={`projection-source-${index}`}>
+                                                        {sourceValueSuggestions.map(suggestion => (
+                                                            <option key={suggestion} value={suggestion} />
+                                                        ))}
+                                                    </datalist>
+                                                </>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Transform</label>
+                                            <select
+                                                value={mapping.transform || 'none'}
+                                                onChange={e => updateProjectionMapping(index, { transform: e.target.value as ProjectionTransform })}
+                                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                            >
+                                                {PROJECTION_TRANSFORMS.map(transform => (
+                                                    <option key={transform} value={transform}>{transform}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Overwrite policy (optional override)</label>
+                                            <select
+                                                value={mapping.overwritePolicy || ''}
+                                                onChange={e => updateProjectionMapping(index, { overwritePolicy: (e.target.value || undefined) as ProjectionOverwritePolicy | undefined })}
+                                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                            >
+                                                <option value="">Use default ({projectionDefaultOverwritePolicy})</option>
+                                                {PROJECTION_OVERWRITE_POLICIES.map(policy => (
+                                                    <option key={policy} value={policy}>{policy}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <label className="flex items-center text-xs text-gray-700 gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!mapping.clearOnNull}
+                                                    onChange={e => updateProjectionMapping(index, { clearOnNull: e.target.checked })}
+                                                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                                />
+                                                Clear on null (rule)
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeProjectionMapping(index)}
+                                                className="text-red-600 hover:text-red-800"
+                                                title="Remove mapping"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={addProjectionMapping}
+                            className="btn-secondary text-sm"
+                        >
+                            <Plus className="h-4 w-4 mr-1" /> Add Mapping
+                        </button>
+                    </>
+                )}
+            </div>
+        );
     };
 
     return (
@@ -720,6 +1048,8 @@ export const FieldEditor: React.FC<Props> = ({
                             </p>
                         </div>
                     </div>
+
+                    {renderProjectionBuilder()}
 
                     <div className="flex items-center space-x-6">
                         <div className="flex items-center">

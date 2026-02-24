@@ -14,6 +14,7 @@ import { SortableStepItem } from './SortableStepItem';
 import { FeedbackModal } from '../FeedbackModal';
 import { ReusableStepSelector } from './ReusableStepSelector';
 import { ConfigurationHealthPanel } from './ConfigurationHealthPanel';
+import { detectProjectionCycles } from '../../utils/forms/valueProjection';
 
 export const FormConfigBuilder: React.FC = () => {
     const { id } = useParams<{ id?: string }>();
@@ -365,6 +366,20 @@ export const FormConfigBuilder: React.FC = () => {
             }
         }
 
+        const projectionCycles = detectProjectionCycles(
+            allFieldsInConfiguration
+                .filter(field => !!field.fieldName)
+                .map(field => ({
+                    fieldName: field.fieldName,
+                    settingsJson: field.settingsJson
+                }))
+        );
+
+        if (projectionCycles.length > 0) {
+            setError(`Value projection contains circular mappings: ${projectionCycles.join(' | ')}. Remove the loop before saving.`);
+            return false;
+        }
+
         return true;
     };
 
@@ -601,6 +616,13 @@ export const FormConfigBuilder: React.FC = () => {
                                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                                 placeholder="Optional description of this form configuration"
                             />
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                            <p className="text-xs text-blue-800">
+                                Configure <span className="font-semibold">Auto-fill Value Projection</span> per field inside the Step Field Editor.
+                                Projection rules can copy selected object values (for example from hybrid pickers) into other form fields,
+                                and save-time validation blocks circular mappings automatically.
+                            </p>
                         </div>
                         <div className="flex items-center">
                             <input
