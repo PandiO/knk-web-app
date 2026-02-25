@@ -11,6 +11,7 @@ export interface EnchantmentDefinitionDto {
     maxLevel?: number;
     baseEnchantmentRef?: MinecraftEnchantmentRefDto;
     defaultForBlueprints?: ItemBlueprintNavDto[];
+    abilityDefinition?: AbilityDefinitionDto;
 }
 
 export interface EnchantmentDefinitionCreateDto {
@@ -21,6 +22,7 @@ export interface EnchantmentDefinitionCreateDto {
     maxLevel?: number;
     minecraftEnchantmentRefId?: number;
     enchantmentNamespaceKey?: string; // For hybrid picker
+    abilityDefinition?: AbilityDefinitionUpsertDto;
 }
 
 export interface EnchantmentDefinitionUpdateDto {
@@ -31,6 +33,7 @@ export interface EnchantmentDefinitionUpdateDto {
     isCustom: boolean;
     minecraftEnchantmentRefId?: number;
     enchantmentNamespaceKey?: string;
+    abilityDefinition?: AbilityDefinitionUpsertDto;
 }
 
 export interface EnchantmentDefinitionListDto {
@@ -58,4 +61,18 @@ export interface MinecraftEnchantmentRefNavDto {
     displayName?: string;
     maxLevel?: number;
     iconUrl?: string;
+}
+
+export interface AbilityDefinitionDto {
+    id?: number;
+    enchantmentDefinitionId: number;
+    abilityKey: string;
+    runtimeConfigJson?: string;
+    futureUserAssignmentContract?: string;
+}
+
+export interface AbilityDefinitionUpsertDto {
+    abilityKey: string;
+    runtimeConfigJson?: string;
+    futureUserAssignmentContract?: string;
 }
