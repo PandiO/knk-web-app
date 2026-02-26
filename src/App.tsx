@@ -19,6 +19,7 @@ import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useEntityMetadata } from './hooks/useEntityMetadata';
 
 function AppContent() {
   var result: any[] = [];
@@ -85,6 +86,21 @@ function AppContent() {
   }, []);
 
   const { isLoggedIn } = useAuth();
+  const { baseMetadata, configurations } = useEntityMetadata();
+
+  const entityMetadataWithDefaults = React.useMemo(() => {
+    const configByEntity = new Map(
+      configurations.map(cfg => [cfg.entityTypeName.toLowerCase(), cfg])
+    );
+
+    return baseMetadata.map(meta => {
+      const config = configByEntity.get(meta.entityName.toLowerCase());
+      return {
+        ...meta,
+        defaultTableColumns: config?.defaultTableColumns ?? meta.defaultTableColumns
+      };
+    });
+  }, [baseMetadata, configurations]);
 
   return (
     <Router>
@@ -110,19 +126,19 @@ function AppContent() {
               {/* changed: Use Case 3 - Browse forms (no auto-open) */}
               <Route path="/forms" element={
                 <ProtectedRoute>
-                  <FormWizardPage entityTypeName='' objectTypes={objectTypes} autoOpenDefaultForm={false} />
+                  <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
                 </ProtectedRoute>
               } />
               {/* changed: Use Case 2 - Browse entity forms (no auto-open) */}
               <Route path="/forms/:entityName" element={
                 <ProtectedRoute>
-                  <FormWizardPage entityTypeName='' objectTypes={objectTypes} autoOpenDefaultForm={false} />
+                  <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
                 </ProtectedRoute>
               } />
               {/* changed: Use Case 1 - Edit entity (no auto-open, loads default for edit) */}
               <Route path="/forms/:entityName/edit/:entityId" element={
                 <ProtectedRoute>
-                  <FormWizardPage entityTypeName='' objectTypes={objectTypes} autoOpenDefaultForm={false} />
+                  <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
                 </ProtectedRoute>
               } />
               <Route path="/admin/form-configurations" element={

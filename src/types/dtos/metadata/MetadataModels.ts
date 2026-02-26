@@ -21,6 +21,7 @@ export interface EntityMetadataDto {
   displayName: string;
   fields: FieldMetadataDto[];
   properties?: EntityPropertyDto[];
+  defaultTableColumns?: string[];
 }
 
 /**
@@ -35,6 +36,7 @@ export interface EntityTypeConfigurationDto {
   displayColor?: string | null;
   sortOrder: number;
   isVisible: boolean;
+  defaultTableColumns?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -44,11 +46,12 @@ export interface EntityTypeConfigurationDto {
  */
 export interface EntityTypeConfigurationCreateDto {
   entityTypeName: string;
-  iconKey: string;
+  iconKey?: string | null;
   customIconUrl?: string | null;
-  displayColor: string;
+  displayColor?: string | null;
   sortOrder: number;
   isVisible: boolean;
+  defaultTableColumns?: string[];
 }
 
 /**
@@ -56,11 +59,13 @@ export interface EntityTypeConfigurationCreateDto {
  */
 export interface EntityTypeConfigurationUpdateDto {
   id: string;
-  iconKey: string;
+  entityTypeName: string;
+  iconKey?: string | null;
   customIconUrl?: string | null;
-  displayColor: string;
+  displayColor?: string | null;
   sortOrder: number;
   isVisible: boolean;
+  defaultTableColumns?: string[];
 }
 
 // Alias for consistency

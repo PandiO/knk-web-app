@@ -1,5 +1,8 @@
-import { Loader2 } from 'lucide-react';
+import { GripVertical, Loader2, Trash2 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { displayConfigClient } from '../apiClients/displayConfigClient';
 import { formConfigClient } from '../apiClients/formConfigClient';
@@ -12,6 +15,8 @@ import { FormWizard } from '../components/FormWizard/FormWizard';
 import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
 import { workflowClient } from '../apiClients/workflowClient';
 import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
+import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../config/objectConfigs';
+import { EntityMetadataDto } from '../types/dtos/metadata/MetadataModels';
 import { logging } from '../utils';
 import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../types/dtos/forms/FormModels';
 import { DisplayConfigurationDto } from '../types/dtos/displayConfig/DisplayModels';
@@ -23,6 +28,7 @@ type Props = {
     entityTypeName: string; 
     objectTypes: ObjectType[]; 
     entityId?: string;
+    entityMetadataFromApp?: EntityMetadataDto[];
     // added: explicit prop to control auto-opening of default form
     autoOpenDefaultForm?: boolean;
 };
@@ -32,6 +38,7 @@ export const FormWizardPage: React.FC<Props> = ({
     entityTypeName: typeName, 
     objectTypes, 
     entityId: propsEntityId,
+    entityMetadataFromApp,
     autoOpenDefaultForm = false 
 }: Props) => {
     const navigate = useNavigate();
@@ -66,6 +73,15 @@ export const FormWizardPage: React.FC<Props> = ({
     const [wizardProgressId, setWizardProgressId] = useState<string | undefined>(undefined);
     const [workflowSessionId, setWorkflowSessionId] = useState<number | undefined>(undefined);
     const [autoOpenForm, setAutoOpenForm] = useState(false); // removed: old auto-open flag logic
+    const [columnDraft, setColumnDraft] = useState<string[]>([]);
+    const [savingColumns, setSavingColumns] = useState(false);
+
+    const columnSensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     type FeedbackState = {
         open: boolean;
@@ -101,7 +117,21 @@ export const FormWizardPage: React.FC<Props> = ({
     const userId = '1'; // TODO: Get from auth context
 
     // Load merged metadata for UI context and selection display
-    const { allMergedMetadata, baseMetadata, loading: metadataLoading } = useEntityMetadata();
+    const {
+        allMergedMetadata,
+        baseMetadata,
+        configurations,
+        loading: metadataLoading,
+        createConfiguration,
+        updateConfiguration,
+        refresh,
+    } = useEntityMetadata();
+
+    const resolvedBaseMetadata = useMemo(() => {
+        return (entityMetadataFromApp && entityMetadataFromApp.length > 0)
+            ? entityMetadataFromApp
+            : baseMetadata;
+    }, [entityMetadataFromApp, baseMetadata]);
 
     const selectedEntityMetadata = useMemo(() => {
         if (!selectedTypeName) {
@@ -109,11 +139,62 @@ export const FormWizardPage: React.FC<Props> = ({
         }
 
         return (
-            baseMetadata.find(meta => meta.entityName.toLowerCase() === selectedTypeName.toLowerCase()) ||
+            resolvedBaseMetadata.find(meta => meta.entityName.toLowerCase() === selectedTypeName.toLowerCase()) ||
             allMergedMetadata.find(meta => meta.entityName.toLowerCase() === selectedTypeName.toLowerCase()) ||
             null
         );
-    }, [baseMetadata, allMergedMetadata, selectedTypeName]);
+    }, [resolvedBaseMetadata, allMergedMetadata, selectedTypeName]);
+
+    const configuredColumns = useMemo(() => {
+        return selectedEntityMetadata?.defaultTableColumns ?? [];
+    }, [selectedEntityMetadata]);
+
+    const availableColumns = useMemo(() => {
+        if (!selectedTypeName) {
+            return [] as Array<{ key: string; label: string }>;
+        }
+
+        const normalizedType = selectedTypeName.toLowerCase();
+        const registryColumns = (
+            columnDefinitionsRegistry[normalizedType]?.default ||
+            defaultColumnDefinitions.default
+        ).map(column => ({ key: column.key, label: column.label }));
+
+        const metadataColumns = [
+            ...(selectedEntityMetadata?.fields || []).map(field => ({ key: field.fieldName, label: toLabel(field.fieldName) })),
+            ...(selectedEntityMetadata?.properties || []).map(prop => ({ key: prop.name, label: toLabel(prop.name) })),
+        ];
+
+        const merged = [...registryColumns, ...metadataColumns];
+        const unique = new Map<string, { key: string; label: string }>();
+        merged.forEach(column => {
+            const normalized = column.key.toLowerCase();
+            if (!unique.has(normalized)) {
+                unique.set(normalized, column);
+            }
+        });
+
+        return Array.from(unique.values());
+    }, [selectedTypeName, selectedEntityMetadata]);
+
+    useEffect(() => {
+        if (!selectedTypeName) {
+            setColumnDraft([]);
+            return;
+        }
+
+        if (configuredColumns.length > 0) {
+            setColumnDraft(applyNameDisplayNameGuard(configuredColumns, selectedEntityMetadata));
+            return;
+        }
+
+        const normalizedType = selectedTypeName.toLowerCase();
+        const fallback = (
+            columnDefinitionsRegistry[normalizedType]?.default ||
+            defaultColumnDefinitions.default
+        ).map(column => column.key);
+        setColumnDraft(applyNameDisplayNameGuard(fallback, selectedEntityMetadata));
+    }, [selectedTypeName, configuredColumns, selectedEntityMetadata]);
 
     // Main effect: Handle the four use cases
     useEffect(() => {
@@ -546,6 +627,105 @@ export const FormWizardPage: React.FC<Props> = ({
         navigate(`/admin/display-configurations/new?entity=${encodeURIComponent(selectedTypeName)}&default=true`);
     };
 
+    const handleToggleColumn = (columnKey: string) => {
+        setColumnDraft(prev => {
+            const exists = prev.some(key => key.toLowerCase() === columnKey.toLowerCase());
+            if (exists) {
+                return prev.filter(key => key.toLowerCase() !== columnKey.toLowerCase());
+            }
+
+            return [...prev, columnKey];
+        });
+    };
+
+    const handleColumnDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (!over || active.id === over.id) {
+            return;
+        }
+
+        setColumnDraft(prev => {
+            const oldIndex = prev.findIndex(key => key === active.id);
+            const newIndex = prev.findIndex(key => key === over.id);
+
+            if (oldIndex === -1 || newIndex === -1) {
+                return prev;
+            }
+
+            return arrayMove(prev, oldIndex, newIndex);
+        });
+    };
+
+    const handleSaveDefaultColumns = async () => {
+        if (!selectedTypeName) {
+            return;
+        }
+
+        const cleanedColumns = columnDraft
+            .map(key => key.trim())
+            .filter(Boolean)
+            .filter((key, index, array) => array.findIndex(entry => entry.toLowerCase() === key.toLowerCase()) === index);
+
+        const guardedColumns = applyNameDisplayNameGuard(cleanedColumns, selectedEntityMetadata);
+
+        if (guardedColumns.length === 0) {
+            showFeedback({
+                title: 'No columns selected',
+                message: 'Select at least one column before saving.',
+                status: 'info',
+                onContinue: undefined,
+                autoCloseMs: 2500,
+            });
+            return;
+        }
+
+        try {
+            setSavingColumns(true);
+
+            const existingConfiguration = configurations.find(
+                cfg => cfg.entityTypeName.toLowerCase() === selectedTypeName.toLowerCase()
+            );
+
+            if (existingConfiguration) {
+                await updateConfiguration({
+                    ...existingConfiguration,
+                    defaultTableColumns: guardedColumns,
+                });
+            } else {
+                await createConfiguration({
+                    entityTypeName: selectedTypeName,
+                    iconKey: null,
+                    customIconUrl: null,
+                    displayColor: null,
+                    sortOrder: 0,
+                    isVisible: true,
+                    defaultTableColumns: guardedColumns,
+                });
+            }
+
+            await refresh();
+            showFeedback({
+                title: 'Columns saved',
+                message: 'Default table columns have been updated for this entity.',
+                status: 'success',
+                onContinue: undefined,
+                autoCloseMs: 3000,
+            });
+        } catch (error) {
+            console.error('Failed to save default table columns:', error);
+            logging.errorHandler.next('ErrorMessage.EntityTypeConfiguration.SaveFailed');
+            showFeedback({
+                title: 'Save failed',
+                message: 'Unable to save default table columns. Please try again.',
+                status: 'error',
+                onContinue: undefined,
+            });
+        } finally {
+            setSavingColumns(false);
+        }
+    };
+
     // Handler: Complete wizard
     const handleComplete = async (data: any, progress?: FormSubmissionProgressDto) => {
         try {
@@ -664,7 +844,7 @@ export const FormWizardPage: React.FC<Props> = ({
             <div className="dashboard-parent">
                 <div className='dashboard-sidebar'>
                     <ObjectTypeExplorer
-                        entityMetadata={baseMetadata}
+                        entityMetadata={resolvedBaseMetadata}
                         onSelect={handleSelectEntity}
                         selectedId={selectedTypeName}
                     />
@@ -689,6 +869,73 @@ export const FormWizardPage: React.FC<Props> = ({
                     <div className="mb-4">
                         <EntityMetadataNavigator metadata={selectedEntityMetadata} />
                     </div>
+
+                    {selectedTypeName && !showWizard && (
+                        <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-base font-semibold text-gray-900">Default Table Columns</h3>
+                                    <p className="text-sm text-gray-600">Configure which columns are shown first in entity tables and related pickers.</p>
+                                </div>
+                                <button
+                                    onClick={handleSaveDefaultColumns}
+                                    disabled={savingColumns || columnDraft.length === 0}
+                                    className="btn-primary text-sm disabled:opacity-60"
+                                >
+                                    {savingColumns ? 'Saving...' : 'Save Columns'}
+                                </button>
+                            </div>
+
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Selected order</p>
+                                {columnDraft.length === 0 ? (
+                                    <p className="text-sm text-gray-500">No columns selected.</p>
+                                ) : (
+                                    <DndContext
+                                        sensors={columnSensors}
+                                        collisionDetection={closestCenter}
+                                        onDragEnd={handleColumnDragEnd}
+                                    >
+                                        <SortableContext
+                                            items={columnDraft}
+                                            strategy={verticalListSortingStrategy}
+                                        >
+                                            <div className="space-y-2">
+                                                {columnDraft.map(key => (
+                                                    <SortableColumnItem
+                                                        key={key}
+                                                        columnKey={key}
+                                                        label={toLabel(key)}
+                                                        onRemove={() => handleToggleColumn(key)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </SortableContext>
+                                    </DndContext>
+                                )}
+                            </div>
+
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Available columns</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {availableColumns.map(option => {
+                                        const checked = columnDraft.some(key => key.toLowerCase() === option.key.toLowerCase());
+                                        return (
+                                            <label key={option.key} className="flex items-center gap-2 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-700">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={() => handleToggleColumn(option.key)}
+                                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                />
+                                                <span>{option.label}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Notification bar */}
                     {(showNoConfigs || showNoDefault || showTooManyDefaults) && (
@@ -799,4 +1046,85 @@ export const FormWizardPage: React.FC<Props> = ({
         </>
     );
 };
+
+function toLabel(value: string): string {
+    if (!value) {
+        return '';
+    }
+
+    return value
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/[_-]/g, ' ')
+        .replace(/^./, char => char.toUpperCase())
+        .trim();
+}
+
+function applyNameDisplayNameGuard(columns: string[], metadata: any): string[] {
+    const fieldNames = new Set(
+        [
+            ...((metadata?.fields || []).map((field: any) => String(field.fieldName || '').toLowerCase())),
+            ...((metadata?.properties || []).map((property: any) => String(property.name || '').toLowerCase())),
+        ].filter(Boolean)
+    );
+
+    const hasNameField = fieldNames.has('name');
+    const hasDisplayNameField = fieldNames.has('displayname');
+
+    if (!hasNameField && hasDisplayNameField) {
+        return columns.map(key => key.toLowerCase() === 'name' ? 'displayName' : key);
+    }
+
+    return columns;
+}
+
+interface SortableColumnItemProps {
+    columnKey: string;
+    label: string;
+    onRemove: () => void;
+}
+
+function SortableColumnItem({ columnKey, label, onRemove }: SortableColumnItemProps) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: columnKey });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className="flex items-center justify-between border border-gray-200 rounded-md px-3 py-2 bg-gray-50"
+        >
+            <div className="flex items-center gap-2">
+                <button
+                    type="button"
+                    {...attributes}
+                    {...listeners}
+                    className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
+                    aria-label={`Reorder ${label}`}
+                >
+                    <GripVertical className="h-4 w-4" />
+                </button>
+                <span className="text-sm text-gray-800">{label}</span>
+            </div>
+
+            <button
+                type="button"
+                onClick={onRemove}
+                className="p-1 text-gray-400 hover:text-red-600"
+                aria-label={`Remove ${label}`}
+            >
+                <Trash2 className="h-4 w-4" />
+            </button>
+        </div>
+    );
+}
 

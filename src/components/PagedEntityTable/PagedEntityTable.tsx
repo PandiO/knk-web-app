@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, Loader2, ChevronLeft, ChevronRight, Check, CheckCircle, PlusCircle } from 'lucide-react';
 import { PagedQueryDto, PagedResultDto } from '../../types/dtos/common/PagedQuery';
 import { getSearchFunctionForEntity } from '../../utils/entityApiMapping';
@@ -8,6 +8,7 @@ import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRe
 import { minecraftBlockRefClient } from '../../apiClients/minecraftBlockRefClient';
 import { minecraftEnchantmentRefClient } from '../../apiClients/minecraftEnchantmentRefClient';
 import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
+import { useEntityMetadata } from '../../hooks/useEntityMetadata';
 
 /**
  * Configuration for row selection behavior in the table.
@@ -57,7 +58,7 @@ export interface PagedEntityTableProps<T> {
      * Each column includes the data key, label, sortability, and optional custom renderer.
      * See ColumnDefinition type for full options.
      */
-    columns: ColumnDefinition<T>[];
+    columns?: ColumnDefinition<T>[];
     
     /** 
      * Initial query parameters for the table.
@@ -141,7 +142,7 @@ export interface PagedEntityTableProps<T> {
 
 export function PagedEntityTable<T extends Record<string, any>>({
     entityTypeName,
-    columns,
+    columns = [],
     initialQuery = {},
     onRowClick,
     rowActions = [],
@@ -153,6 +154,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
     showSelectionBanner = true,
     refreshKey
 }: PagedEntityTableProps<T>) {
+    const { baseMetadata, allMergedMetadata } = useEntityMetadata();
+
     const [query, setQuery] = useState<PagedQueryDto>({
         page: 1,
         pageSize: 10,
@@ -178,6 +181,79 @@ export function PagedEntityTable<T extends Record<string, any>>({
     const [creatingKey, setCreatingKey] = useState<string | null>(null);
     const [isHybridMode, setIsHybridMode] = useState(false);
     const [isAutoCreateMode, setIsAutoCreateMode] = useState(false);
+
+    const fallbackColumns = useMemo<ColumnDefinition<T>[]>(() => {
+        if (columns.length > 0) {
+            return columns;
+        }
+
+        return [
+            { key: 'id', label: 'ID', sortable: true },
+            { key: 'name', label: 'Name', sortable: true }
+        ];
+    }, [columns]);
+
+    const configuredColumnKeys = useMemo(() => {
+        const normalized = entityTypeName.toLowerCase();
+        const fromBase = baseMetadata.find(m => m.entityName.toLowerCase() === normalized)?.defaultTableColumns;
+        if (fromBase && fromBase.length > 0) {
+            return fromBase;
+        }
+
+        return allMergedMetadata.find(m => m.entityName.toLowerCase() === normalized)?.defaultTableColumns;
+    }, [entityTypeName, baseMetadata, allMergedMetadata]);
+
+    const entityFieldKeySet = useMemo(() => {
+        const normalized = entityTypeName.toLowerCase();
+        const fromBase = baseMetadata.find(m => m.entityName.toLowerCase() === normalized);
+        const fromMerged = allMergedMetadata.find(m => m.entityName.toLowerCase() === normalized);
+        const source = fromBase || fromMerged;
+
+        const fieldKeys = (source?.fields || []).map(field => field.fieldName.toLowerCase());
+        const propertyKeys = (source?.properties || []).map(property => property.name.toLowerCase());
+
+        return new Set([...fieldKeys, ...propertyKeys]);
+    }, [entityTypeName, baseMetadata, allMergedMetadata]);
+
+    const guardedColumnKeys = useMemo(() => {
+        const baseKeys = (configuredColumnKeys && configuredColumnKeys.length > 0)
+            ? configuredColumnKeys
+            : fallbackColumns.map(column => column.key);
+
+        const hasNameField = entityFieldKeySet.has('name');
+        const hasDisplayNameField = entityFieldKeySet.has('displayname');
+
+        if (!hasNameField && hasDisplayNameField) {
+            return baseKeys.map(key => key.toLowerCase() === 'name' ? 'displayName' : key);
+        }
+
+        return baseKeys;
+    }, [configuredColumnKeys, fallbackColumns, entityFieldKeySet]);
+
+    const effectiveColumns = useMemo(() => {
+        const columnMap = new Map(fallbackColumns.map(column => [column.key.toLowerCase(), column]));
+
+        const mapped = guardedColumnKeys
+            .map(key => {
+                const existing = columnMap.get(key.toLowerCase());
+                if (existing) {
+                    return existing;
+                }
+
+                return {
+                    key,
+                    label: key
+                        .replace(/([A-Z])/g, ' $1')
+                        .replace(/[_-]/g, ' ')
+                        .replace(/^./, c => c.toUpperCase())
+                        .trim(),
+                    sortable: true
+                } as ColumnDefinition<T>;
+            })
+            .filter((column, index, source) => source.findIndex(c => c.key.toLowerCase() === column.key.toLowerCase()) === index);
+
+        return mapped.length > 0 ? mapped : fallbackColumns;
+    }, [guardedColumnKeys, fallbackColumns]);
 
     // Debounced search effect
     useEffect(() => {
@@ -568,7 +644,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                         <thead className="bg-slate-50">
                             <tr>
                                 {/* changed: removed checkbox column header since we show check icon in row */}
-                                {columns.map(column => (
+                                {effectiveColumns.map(column => (
                                     <th
                                         key={column.key}
                                         scope="col"
@@ -593,7 +669,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                         <tbody className="divide-y divide-gray-200">
                             {data.items.length === 0 ? (
                                 <tr>
-                                    <td colSpan={columns.length + (rowActions.length > 0 ? 1 : 0)} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={effectiveColumns.length + (rowActions.length > 0 ? 1 : 0)} className="px-6 py-12 text-center text-gray-500">
                                         No results found
                                     </td>
                                 </tr>
@@ -616,7 +692,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                                     : 'hover:bg-slate-50 border-l-4 border-transparent'
                                             } ${selectionConfig.mode !== 'none' || onRowClick ? 'cursor-pointer' : ''}`}
                                         >
-                                            {columns.map((column, colIndex) => (
+                                            {effectiveColumns.map((column, colIndex) => (
                                                 <td key={column.key} className={`px-6 py-4 whitespace-nowrap text-sm ${
                                                     selected ? 'text-gray-900 font-medium' : 'text-gray-500'
                                                 }`}>
