@@ -139,11 +139,11 @@ export const FormWizardPage: React.FC<Props> = ({
         }
 
         return (
-            resolvedBaseMetadata.find(meta => meta.entityName.toLowerCase() === selectedTypeName.toLowerCase()) ||
             allMergedMetadata.find(meta => meta.entityName.toLowerCase() === selectedTypeName.toLowerCase()) ||
+            resolvedBaseMetadata.find(meta => meta.entityName.toLowerCase() === selectedTypeName.toLowerCase()) ||
             null
         );
-    }, [resolvedBaseMetadata, allMergedMetadata, selectedTypeName]);
+    }, [allMergedMetadata, resolvedBaseMetadata, selectedTypeName]);
 
     const configuredColumns = useMemo(() => {
         return selectedEntityMetadata?.defaultTableColumns ?? [];
@@ -177,6 +177,29 @@ export const FormWizardPage: React.FC<Props> = ({
         return Array.from(unique.values());
     }, [selectedTypeName, selectedEntityMetadata]);
 
+    const canonicalizeColumnKeys = React.useCallback((columns: string[]): string[] => {
+        if (columns.length === 0) {
+            return [];
+        }
+
+        const availableByLower = new Map<string, string>();
+        availableColumns.forEach(column => {
+            availableByLower.set(column.key.toLowerCase(), column.key);
+        });
+
+        return columns
+            .map(key => {
+                const normalized = key.trim();
+                if (!normalized) {
+                    return '';
+                }
+
+                return availableByLower.get(normalized.toLowerCase()) || normalized;
+            })
+            .filter(Boolean)
+            .filter((key, index, array) => array.findIndex(entry => entry.toLowerCase() === key.toLowerCase()) === index);
+    }, [availableColumns]);
+
     useEffect(() => {
         if (!selectedTypeName) {
             setColumnDraft([]);
@@ -184,7 +207,8 @@ export const FormWizardPage: React.FC<Props> = ({
         }
 
         if (configuredColumns.length > 0) {
-            setColumnDraft(applyNameDisplayNameGuard(configuredColumns, selectedEntityMetadata));
+            const guarded = applyNameDisplayNameGuard(configuredColumns, selectedEntityMetadata);
+            setColumnDraft(canonicalizeColumnKeys(guarded));
             return;
         }
 
@@ -193,8 +217,9 @@ export const FormWizardPage: React.FC<Props> = ({
             columnDefinitionsRegistry[normalizedType]?.default ||
             defaultColumnDefinitions.default
         ).map(column => column.key);
-        setColumnDraft(applyNameDisplayNameGuard(fallback, selectedEntityMetadata));
-    }, [selectedTypeName, configuredColumns, selectedEntityMetadata]);
+        const guardedFallback = applyNameDisplayNameGuard(fallback, selectedEntityMetadata);
+        setColumnDraft(canonicalizeColumnKeys(guardedFallback));
+    }, [selectedTypeName, configuredColumns, selectedEntityMetadata, canonicalizeColumnKeys]);
 
     // Main effect: Handle the four use cases
     useEffect(() => {
@@ -634,7 +659,7 @@ export const FormWizardPage: React.FC<Props> = ({
                 return prev.filter(key => key.toLowerCase() !== columnKey.toLowerCase());
             }
 
-            return [...prev, columnKey];
+            return canonicalizeColumnKeys([...prev, columnKey]);
         });
     };
 
@@ -668,8 +693,9 @@ export const FormWizardPage: React.FC<Props> = ({
             .filter((key, index, array) => array.findIndex(entry => entry.toLowerCase() === key.toLowerCase()) === index);
 
         const guardedColumns = applyNameDisplayNameGuard(cleanedColumns, selectedEntityMetadata);
+        const normalizedColumns = canonicalizeColumnKeys(guardedColumns);
 
-        if (guardedColumns.length === 0) {
+        if (normalizedColumns.length === 0) {
             showFeedback({
                 title: 'No columns selected',
                 message: 'Select at least one column before saving.',
@@ -690,7 +716,7 @@ export const FormWizardPage: React.FC<Props> = ({
             if (existingConfiguration) {
                 await updateConfiguration({
                     ...existingConfiguration,
-                    defaultTableColumns: guardedColumns,
+                    defaultTableColumns: normalizedColumns,
                 });
             } else {
                 await createConfiguration({
@@ -700,7 +726,7 @@ export const FormWizardPage: React.FC<Props> = ({
                     displayColor: null,
                     sortOrder: 0,
                     isVisible: true,
-                    defaultTableColumns: guardedColumns,
+                    defaultTableColumns: normalizedColumns,
                 });
             }
 

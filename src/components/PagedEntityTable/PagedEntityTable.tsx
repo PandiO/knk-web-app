@@ -347,12 +347,44 @@ export function PagedEntityTable<T extends Record<string, any>>({
         return query.sortDescending ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />;
     };
 
+    const getValueByKeyPath = (source: any, keyPath: string): any => {
+        if (!source || !keyPath) {
+            return undefined;
+        }
+
+        const segments = keyPath.split('.').filter(Boolean);
+        let current: any = source;
+
+        for (const segment of segments) {
+            if (current == null || typeof current !== 'object') {
+                return undefined;
+            }
+
+            if (Object.prototype.hasOwnProperty.call(current, segment)) {
+                current = current[segment];
+                continue;
+            }
+
+            const matchedKey = Object.keys(current).find(
+                key => key.toLowerCase() === segment.toLowerCase()
+            );
+
+            if (!matchedKey) {
+                return undefined;
+            }
+
+            current = current[matchedKey];
+        }
+
+        return current;
+    };
+
     const renderCellValue = (row: T, column: ColumnDefinition<T>) => {
         if (column.render) {
             return column.render(row);
         }
 
-        const value = row[column.key];
+        const value = getValueByKeyPath(row, column.key);
 
         if (value === null || value === undefined) {
             return <span className="text-gray-400">-</span>;
