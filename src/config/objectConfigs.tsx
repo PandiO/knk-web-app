@@ -1,5 +1,6 @@
 import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Shield } from 'lucide-react';
 import type { ColumnDefinition, FormField, ObjectConfig } from '../types/common';
+import { parseCoordinateInput } from '../utils/gateCoordinates';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
   default: [
@@ -522,7 +523,11 @@ const GateStructureConfig: ObjectConfig = {
       name: 'anchorPoint',
       label: 'Anchor Point (JSON)',
       type: 'text',
-      required: false
+      required: false,
+      validation: (value) => {
+        if (!value) return;
+        if (!parseCoordinateInput(value)) return 'Anchor point must be JSON with x, y, z values';
+      }
     },
     geometryWidth: {
       name: 'geometryWidth',
