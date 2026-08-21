@@ -16,6 +16,7 @@ import { FormConfigListPage } from './pages/FormConfigListPage';
 import { DisplayWizardPage } from './pages/DisplayWizardPage';
 import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayConfigBuilder';
 import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
+import { GameSettingsPage } from './pages/admin/GameSettingsPage';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -170,6 +171,11 @@ function AppContent() {
               <Route path="/admin/display-configurations/edit/:id" element={
                 <ProtectedRoute>
                   <DisplayConfigBuilder />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/game-settings" element={
+                <ProtectedRoute>
+                  <GameSettingsPage />
                 </ProtectedRoute>
               } />
               {/* DisplayWizard routes */}
