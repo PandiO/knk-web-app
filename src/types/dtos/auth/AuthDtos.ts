@@ -29,6 +29,26 @@ export interface AuthRefreshResponseDto {
   expiresIn: number;
 }
 
+export interface ForgotPasswordRequestDto {
+  email: string;
+}
+
+export interface ForgotPasswordResponseDto {
+  message: string;
+  debugResetToken?: string;
+  debugResetUrl?: string;
+}
+
+export interface ResetPasswordRequestDto {
+  token: string;
+  newPassword: string;
+  passwordConfirmation: string;
+}
+
+export interface ResetPasswordResponseDto {
+  message: string;
+}
+
 export interface AuthValidateTokenRequestDto {
   token: string;
 }

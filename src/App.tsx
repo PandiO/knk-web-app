@@ -18,7 +18,7 @@ import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayC
 import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import { GameSettingsPage } from './pages/admin/GameSettingsPage';
 import React from 'react';
-import { RegisterPage, RegisterSuccessPage, LoginPage } from './pages/auth';
+import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useEntityMetadata } from './hooks/useEntityMetadata';
 
@@ -114,6 +114,8 @@ function AppContent() {
               <Route path="/auth/register" element={<RegisterPage />} />
               <Route path="/auth/register/success" element={<RegisterSuccessPage />} />
               <Route path="/auth/login" element={<LoginPage />} />
+              <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
               <Route path="/account" element={
                 <ProtectedRoute>
                   <AccountManagementPage />

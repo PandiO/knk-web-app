@@ -74,7 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       // Try to refresh the session using refresh token (if available)
       // This may fail if no refresh token exists (e.g., right after registration)
-      const ok = await authService.refreshSession();
+      await authService.refreshSession();
       
       // Whether refreshSession succeeds or not, try to fetch current user
       // This works as long as we have a valid access token

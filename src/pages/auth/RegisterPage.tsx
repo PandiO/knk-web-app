@@ -1,18 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RegisterForm } from '../../components/auth/RegisterForm';
-import { ErrorView } from '../../components/ErrorView';
-import { ErrorColor } from '../../utils';
-import { useAuth } from '../../contexts/AuthContext';
-
-import { LinkCodeResponseDto } from '../../types/dtos/auth/AuthDtos';
 
 export const RegisterPage: React.FC = () => {
     const navigate = useNavigate();
-    const { isLoggedIn } = useAuth();
-    const [error, setError] = React.useState<string | null>(null);
 
-    const handleSuccess = (linkCode?: LinkCodeResponseDto) => {
+    const handleSuccess = () => {
         // Wait briefly for the feedback modal to be dismissed, then navigate
         // User is already authenticated from the register() and refresh() calls
         setTimeout(() => {
@@ -31,12 +24,6 @@ export const RegisterPage: React.FC = () => {
                         Start your Knights & Kings journey by setting up your web account and linking your Minecraft username.
                     </p>
                 </div>
-
-                {error && (
-                    <div className="mb-4" role="alert">
-                        <ErrorView content={error} color={ErrorColor.Red} />
-                    </div>
-                )}
 
                 <RegisterForm
                     onRegistrationSuccess={handleSuccess}

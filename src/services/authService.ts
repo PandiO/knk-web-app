@@ -1,8 +1,14 @@
 import { authClient } from "../apiClients/authClient";
-import { STORAGE_KEYS, REMEMBER_ME_DURATION_MS } from "../utils/authConstants";
+import { REMEMBER_ME_DURATION_MS } from "../utils/authConstants";
 import { tokenService } from "../utils/tokenService";
-import { UserDto, UserUpdateDto, UserCreateDto } from "../types/dtos/auth/UserDtos";
-import { LoginRequestDto, RegisterRequestDto, AuthRefreshResponseDto } from "../types/dtos/auth/AuthDtos";
+import { UserDto, UserUpdateDto } from "../types/dtos/auth/UserDtos";
+import {
+  LoginRequestDto,
+  RegisterRequestDto,
+  AuthRefreshResponseDto,
+  ForgotPasswordResponseDto,
+  ResetPasswordResponseDto,
+} from "../types/dtos/auth/AuthDtos";
 
 class AuthService {
   async login(req: LoginRequestDto): Promise<UserDto> {
@@ -68,6 +74,14 @@ class AuthService {
   async updateUser(data: UserUpdateDto): Promise<UserDto> {
     const user = await authClient.updateUser(data);
     return user;
+  }
+
+  async requestPasswordReset(email: string): Promise<ForgotPasswordResponseDto> {
+    return await authClient.forgotPassword({ email });
+  }
+
+  async resetPassword(token: string, newPassword: string, passwordConfirmation: string): Promise<ResetPasswordResponseDto> {
+    return await authClient.resetPassword({ token, newPassword, passwordConfirmation });
   }
 
   // Auto-login logic

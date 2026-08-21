@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { FeedbackModal } from '../FeedbackModal';
 import { ERROR_MESSAGES } from '../../utils/authConstants';
@@ -257,9 +257,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
         <p id="remember-help" className="text-xs text-gray-500">
           Keeps you logged in for 30 days
         </p>
-        <a href="#" className="text-sm text-primary hover:text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary rounded px-2 py-1">
+        <Link to="/auth/forgot-password" className="text-sm text-primary hover:text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary rounded px-2 py-1">
           Forgot password?
-        </a>
+        </Link>
       </div>
 
       <button

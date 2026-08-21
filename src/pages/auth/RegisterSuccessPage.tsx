@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle, Server, Gamepad2, Link as LinkIcon } from 'lucide-react';
+import { CheckCircle, Gamepad2, Link as LinkIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LinkCodeResponseDto } from '../../types/dtos/auth/AuthDtos';
 

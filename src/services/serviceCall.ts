@@ -5,7 +5,7 @@ import { tokenService } from "../utils/tokenService";
 
 export class ServiceCall {
 
-    invokeService(args: InvokeServiceArgs) {
+    invokeService(_args: InvokeServiceArgs) {
         
     }
 
@@ -43,7 +43,7 @@ export class ServiceCall {
             args.httpMethod = HttpMethod.Get;
         }
 
-        if (args.httpMethod == HttpMethod.Get) {
+        if (args.httpMethod === HttpMethod.Get) {
             if (args.requestData) {
                 try {
                     const queryString = Object.keys(args.requestData).map(key => `${encodeURIComponent(key)}=${encodeURIComponent(args.requestData[key])}`).join('&');
@@ -52,7 +52,7 @@ export class ServiceCall {
                     console.log((ex as any).ErrorMessage);
                 }
             }
-        } else if (args.httpMethod == HttpMethod.Delete) {} else{
+        } else if (args.httpMethod === HttpMethod.Delete) {} else{
             requestParams = {
                 method: args.httpMethod,
                 credentials: 'include', // Include cookies for cross-origin requests (needed for refresh token)

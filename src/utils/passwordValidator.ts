@@ -33,7 +33,7 @@ export function calculatePasswordStrength(password: string): PasswordStrength {
   const hasLowercase = /[a-z]/.test(password);
   const hasUppercase = /[A-Z]/.test(password);
   const hasNumbers = /[0-9]/.test(password);
-  const hasSymbols = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  const hasSymbols = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
 
   if (hasLowercase && hasUppercase) {
     score += 1; // Mixed case

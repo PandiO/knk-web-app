@@ -5,12 +5,15 @@ import {
   AuthLoginResponseDto,
   AuthRefreshResponseDto,
   RegisterRequestDto,
-  PasswordChangeDto,
+  ForgotPasswordRequestDto,
+  ForgotPasswordResponseDto,
+  ResetPasswordRequestDto,
+  ResetPasswordResponseDto,
   LinkCodeResponseDto,
   AccountMergeDto,
   LinkMinecraftAccountDto,
 } from "../types/dtos/auth/AuthDtos";
-import { UserDto, UserCreateDto, UserUpdateDto } from "../types/dtos/auth/UserDtos";
+import { UserDto, UserUpdateDto } from "../types/dtos/auth/UserDtos";
 
 export class AuthClient extends ObjectManager {
   private static instance: AuthClient;
@@ -47,6 +50,14 @@ export class AuthClient extends ObjectManager {
 
   me(): Promise<UserDto> {
     return this.invokeServiceCall(null, "me", Controllers.Auth, HttpMethod.Get);
+  }
+
+  forgotPassword(data: ForgotPasswordRequestDto): Promise<ForgotPasswordResponseDto> {
+    return this.invokeServiceCall(data, "forgot-password", Controllers.Auth, HttpMethod.Post);
+  }
+
+  resetPassword(data: ResetPasswordRequestDto): Promise<ResetPasswordResponseDto> {
+    return this.invokeServiceCall(data, "reset-password", Controllers.Auth, HttpMethod.Post);
   }
 
   mergeAccounts(data: AccountMergeDto): Promise<UserDto> {

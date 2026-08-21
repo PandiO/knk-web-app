@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Upload } from 'lucide-react';
 import { Slideshow } from '../components/Slideshow';
 import { ImageUploadModal } from '../components/ImageUploadModal';
 import { useAuth } from '../contexts/AuthContext';
