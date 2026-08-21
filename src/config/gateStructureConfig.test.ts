@@ -14,6 +14,25 @@ describe('GateStructureConfig', () => {
     ]);
   });
 
+  it('defines tile entity and health display selectors', () => {
+    const tileEntityPolicyField = gateConfig.fields.tileEntityPolicy;
+    expect(tileEntityPolicyField.type).toBe('select');
+    expect(tileEntityPolicyField.options?.map(option => option.value)).toEqual([
+      'NONE',
+      'DECORATIVE_ONLY',
+      'ALL'
+    ]);
+
+    const healthDisplayModeField = gateConfig.fields.healthDisplayMode;
+    expect(healthDisplayModeField.type).toBe('select');
+    expect(healthDisplayModeField.options?.map(option => option.value)).toEqual([
+      'ALWAYS',
+      'DAMAGED_ONLY',
+      'NEVER',
+      'SIEGE_ONLY'
+    ]);
+  });
+
   it('validates numeric fields', () => {
     expect(gateConfig.fields.domainId.validation?.(0)).toBe('Domain ID must be a positive number');
     expect(gateConfig.fields.districtId.validation?.(0)).toBe('District ID must be a positive number');
@@ -22,10 +41,12 @@ describe('GateStructureConfig', () => {
     expect(gateConfig.fields.healthMax.validation?.(0)).toBe('Health must be greater than 0');
   });
 
-  it('validates anchor point JSON when provided', () => {
-    expect(gateConfig.fields.anchorPoint.validation?.('{"x":0,"y":64,"z":0}')).toBeUndefined();
-    expect(gateConfig.fields.anchorPoint.validation?.('{invalid')).toBe(
-      'Anchor point must be JSON with x, y, z values'
-    );
+  it('uses location object fields for gate coordinate references', () => {
+    expect(gateConfig.fields.anchorPoint.type).toBe('object');
+    expect(gateConfig.fields.referencePoint1.type).toBe('object');
+    expect(gateConfig.fields.referencePoint2.type).toBe('object');
+    expect(gateConfig.fields.hingeAxis.type).toBe('object');
+    expect(gateConfig.fields.leftDoorSeedBlock.type).toBe('object');
+    expect(gateConfig.fields.rightDoorSeedBlock.type).toBe('object');
   });
 });

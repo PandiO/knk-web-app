@@ -1,6 +1,5 @@
 import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Shield } from 'lucide-react';
 import type { ColumnDefinition, FormField, ObjectConfig } from '../types/common';
-import { parseCoordinateInput } from '../utils/gateCoordinates';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
   default: [
@@ -521,13 +520,24 @@ const GateStructureConfig: ObjectConfig = {
     },
     anchorPoint: {
       name: 'anchorPoint',
-      label: 'Anchor Point (JSON)',
-      type: 'text',
+      label: 'Anchor Point',
+      type: 'object',
       required: false,
-      validation: (value) => {
-        if (!value) return;
-        if (!parseCoordinateInput(value)) return 'Anchor point must be JSON with x, y, z values';
-      }
+      objectConfig: locationConfig
+    },
+    referencePoint1: {
+      name: 'referencePoint1',
+      label: 'Reference Point 1',
+      type: 'object',
+      required: false,
+      objectConfig: locationConfig
+    },
+    referencePoint2: {
+      name: 'referencePoint2',
+      label: 'Reference Point 2',
+      type: 'object',
+      required: false,
+      objectConfig: locationConfig
     },
     geometryWidth: {
       name: 'geometryWidth',
@@ -565,6 +575,45 @@ const GateStructureConfig: ObjectConfig = {
         if (!value || value < 1 || value > 5) return 'Tick rate must be between 1 and 5';
       }
     },
+    tileEntityPolicy: {
+      name: 'tileEntityPolicy',
+      label: 'Tile Entity Policy',
+      type: 'select',
+      required: false,
+      options: [
+        { label: 'None', value: 'NONE' },
+        { label: 'Decorative Only', value: 'DECORATIVE_ONLY' },
+        { label: 'All', value: 'ALL' },
+      ]
+    },
+    hingeAxis: {
+      name: 'hingeAxis',
+      label: 'Hinge Axis Location',
+      type: 'object',
+      required: false,
+      objectConfig: locationConfig
+    },
+    leftDoorSeedBlock: {
+      name: 'leftDoorSeedBlock',
+      label: 'Left Door Seed Block',
+      type: 'object',
+      required: false,
+      objectConfig: locationConfig
+    },
+    rightDoorSeedBlock: {
+      name: 'rightDoorSeedBlock',
+      label: 'Right Door Seed Block',
+      type: 'object',
+      required: false,
+      objectConfig: locationConfig
+    },
+    guardSpawnLocations: {
+      name: 'guardSpawnLocations',
+      label: 'Guard Spawn Locations',
+      type: 'array',
+      required: false,
+      objectConfig: locationConfig
+    },
     healthMax: {
       name: 'healthMax',
       label: 'Max Health',
@@ -573,6 +622,18 @@ const GateStructureConfig: ObjectConfig = {
       validation: (value) => {
         if (!value || value <= 0) return 'Health must be greater than 0';
       }
+    },
+    healthDisplayMode: {
+      name: 'healthDisplayMode',
+      label: 'Health Display Mode',
+      type: 'select',
+      required: false,
+      options: [
+        { label: 'Always', value: 'ALWAYS' },
+        { label: 'Damaged Only', value: 'DAMAGED_ONLY' },
+        { label: 'Never', value: 'NEVER' },
+        { label: 'Siege Only', value: 'SIEGE_ONLY' },
+      ]
     },
     isInvincible: {
       name: 'isInvincible',

@@ -1,5 +1,6 @@
 import { MinecraftMaterialRefDto } from '../minecraftMaterialRef/MinecraftMaterialRefDto';
 import { GateBlockSnapshotDto } from './GateBlockSnapshotDto';
+import { LocationDto } from '../locations/LocationModels';
 
 export type GateType = 'SLIDING' | 'TRAP' | 'DRAWBRIDGE' | 'DOUBLE_DOORS';
 export type GeometryDefinitionMode = 'PLANE_GRID' | 'FLOOD_FILL';
@@ -13,7 +14,8 @@ export type FaceDirection =
   | 'south-west'
   | 'west'
   | 'north-west';
-export type TileEntityPolicy = 'DECORATIVE_ONLY' | 'CONTAINER_SAFE';
+export type HealthDisplayMode = 'ALWAYS' | 'DAMAGED_ONLY' | 'NEVER' | 'SIEGE_ONLY';
+export type TileEntityPolicy = 'NONE' | 'DECORATIVE_ONLY' | 'ALL';
 
 export interface GateStructureDto {
   id?: number;
@@ -47,9 +49,12 @@ export interface GateStructureDto {
   animationDurationTicks?: number;
   animationTickRate?: number;
 
-  anchorPoint?: string;
-  referencePoint1?: string;
-  referencePoint2?: string;
+  anchorPointId?: number | null;
+  anchorPoint?: LocationDto | null;
+  referencePoint1Id?: number | null;
+  referencePoint1?: LocationDto | null;
+  referencePoint2Id?: number | null;
+  referencePoint2?: LocationDto | null;
   geometryWidth?: number;
   geometryHeight?: number;
   geometryDepth?: number;
@@ -65,21 +70,25 @@ export interface GateStructureDto {
   tileEntityPolicy?: TileEntityPolicy;
 
   rotationMaxAngleDegrees?: number;
-  hingeAxis?: string;
-  leftDoorSeedBlock?: string;
-  rightDoorSeedBlock?: string;
+  hingeAxisId?: number | null;
+  hingeAxis?: LocationDto | null;
+  leftDoorSeedBlockId?: number | null;
+  leftDoorSeedBlock?: LocationDto | null;
+  rightDoorSeedBlockId?: number | null;
+  rightDoorSeedBlock?: LocationDto | null;
   mirrorRotation?: boolean;
 
   allowPassThrough?: boolean;
   passThroughDurationSeconds?: number;
   passThroughConditionsJson?: string;
 
-  guardSpawnLocationsJson?: string;
+  guardSpawnLocationIds?: number[];
+  guardSpawnLocations?: LocationDto[];
   guardCount?: number;
   guardNpcTemplateId?: number | null;
 
   showHealthDisplay?: boolean;
-  healthDisplayMode?: string;
+  healthDisplayMode?: HealthDisplayMode;
   healthDisplayYOffset?: number;
 
   isOverridable?: boolean;
@@ -134,9 +143,12 @@ export interface GateStructureCreateDto {
   motionType?: MotionType;
   faceDirection?: FaceDirection;
 
-  anchorPoint?: string;
-  referencePoint1?: string;
-  referencePoint2?: string;
+  anchorPointId?: number | null;
+  anchorPoint?: LocationDto | null;
+  referencePoint1Id?: number | null;
+  referencePoint1?: LocationDto | null;
+  referencePoint2Id?: number | null;
+  referencePoint2?: LocationDto | null;
   geometryWidth?: number;
   geometryHeight?: number;
   geometryDepth?: number;
@@ -155,10 +167,20 @@ export interface GateStructureCreateDto {
   tileEntityPolicy?: TileEntityPolicy;
 
   rotationMaxAngleDegrees?: number;
-  hingeAxis?: string;
-  leftDoorSeedBlock?: string;
-  rightDoorSeedBlock?: string;
+  hingeAxisId?: number | null;
+  hingeAxis?: LocationDto | null;
+  leftDoorSeedBlockId?: number | null;
+  leftDoorSeedBlock?: LocationDto | null;
+  rightDoorSeedBlockId?: number | null;
+  rightDoorSeedBlock?: LocationDto | null;
   mirrorRotation?: boolean;
+
+  guardSpawnLocationIds?: number[];
+  guardSpawnLocations?: LocationDto[];
+
+  showHealthDisplay?: boolean;
+  healthDisplayMode?: HealthDisplayMode;
+  healthDisplayYOffset?: number;
 
   healthMax?: number;
   isInvincible?: boolean;
