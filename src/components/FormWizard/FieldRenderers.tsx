@@ -232,29 +232,48 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
 const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onBlur }) => {
     const minecraftTextColorEnabled = parseMinecraftTextColorEnabled(field.settingsJson);
     const textValue = typeof value === 'string' ? value : '';
+    const enumValues = getEnumValues(field);
 
     return (
         <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor={field.fieldName} className="block text-sm font-medium text-gray-700 mb-1">
                 {field.label}
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
             {field.description && (
                 <p className="text-xs text-gray-500 mb-2">{field.description}</p>
             )}
-            <textarea
-                value={textValue}
-                onChange={e => onChange(e.target.value)}
-                onBlur={onBlur}
-                placeholder={field.placeholder}
-                disabled={field.isReadOnly}
-                rows={3}
-                className={`block w-full rounded-md shadow-sm sm:text-sm ${
-                    error
-                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                        : 'border-gray-300 focus:border-primary focus:ring-primary'
-                } ${field.isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-            />
+            {enumValues.length > 0 ? (
+                <select
+                    id={field.fieldName}
+                    value={textValue}
+                    onChange={e => onChange(e.target.value)}
+                    onBlur={onBlur}
+                    disabled={field.isReadOnly}
+                    className={`block w-full rounded-md shadow-sm sm:text-sm ${
+                        error
+                            ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                            : 'border-gray-300 focus:border-primary focus:ring-primary'
+                    } ${field.isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                >
+                    <option value="">Select {field.label}</option>
+                    {enumValues.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+            ) : (
+                <textarea
+                    value={textValue}
+                    onChange={e => onChange(e.target.value)}
+                    onBlur={onBlur}
+                    placeholder={field.placeholder}
+                    disabled={field.isReadOnly}
+                    rows={3}
+                    className={`block w-full rounded-md shadow-sm sm:text-sm ${
+                        error
+                            ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                            : 'border-gray-300 focus:border-primary focus:ring-primary'
+                    } ${field.isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                />
+            )}
             {minecraftTextColorEnabled && (
                 <>
                     <p className="mt-1 text-xs text-blue-700">
@@ -465,7 +484,7 @@ const IntegerField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
 
     return (
         <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor={field.fieldName} className="block text-sm font-medium text-gray-700 mb-1">
                 {field.label}
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
@@ -576,17 +595,17 @@ const DateTimeField: React.FC<FieldRendererProps> = ({ field, value, onChange, e
 );
 
 const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onBlur }) => {
-    // Parse enum values from defaultValue or placeholder
-    const enumValues = (field.defaultValue || field.placeholder || '').split(',').map(v => v.trim()).filter(Boolean);
+    const enumValues = getEnumValues(field);
 
     return (
         <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor={field.fieldName} className="block text-sm font-medium text-gray-700 mb-1">
                 {field.label}
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
             {field.description && <p className="text-xs text-gray-500 mb-2">{field.description}</p>}
             <select
+                id={field.fieldName}
                 value={value || ''}
                 onChange={e => onChange(e.target.value)}
                 onBlur={onBlur}
@@ -605,6 +624,22 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         </div>
     );
+};
+
+const getEnumValues = (field: FormFieldDto): string[] => {
+    if (field.settingsJson) {
+        try {
+            const settings = JSON.parse(field.settingsJson) as { enumValues?: unknown };
+            if (Array.isArray(settings.enumValues)) {
+                return settings.enumValues.filter((value): value is string => typeof value === 'string' && value.length > 0);
+            }
+        } catch {
+            // Existing configurations can omit or contain non-JSON settings.
+        }
+    }
+
+    // Backwards compatibility for configurations that stored options in defaultValue or placeholder.
+    return (field.defaultValue || field.placeholder || '').split(',').map(v => v.trim()).filter(Boolean);
 };
 
 const ObjectField: React.FC<FieldRendererProps> = ({
@@ -693,7 +728,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
 
     actions.push({
         key: 'replace',
-        label: 'Replace instance',
+        label: value ? 'Replace instance' : 'Select instance',
         onClick: () => setShowReplaceTable(prev => !prev),
         icon: <RefreshCw className="h-4 w-4" />
     });
@@ -791,7 +826,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                             className="btn-secondary whitespace-nowrap inline-flex items-center gap-1"
                         >
                             <RefreshCw className="h-4 w-4" />
-                            Replace instance
+                            {value ? 'Replace instance' : 'Select instance'}
                         </button>
                     </div>
                 </div>
