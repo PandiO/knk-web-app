@@ -14,6 +14,9 @@ import { formConfigClient } from '../../apiClients/formConfigClient';
 import { metadataClient } from '../../apiClients/metadataClient';
 import { logging } from '../../utils';
 import { getManyToManyStepIssues } from '../../utils/forms/manyToManyStepValidation';
+import { DisplayConditionBuilder } from './DisplayConditionBuilder';
+import { fieldsBeforeField, fieldsBeforeStep } from '../../utils/forms/displayConditionSources';
+import { DisplayConditionTargetType } from '../../utils/enums';
 
 interface Props {
     step: FormStepDto;
@@ -24,6 +27,8 @@ interface Props {
     allConfigurationFields?: FormFieldDto[];
     onRulesChanged?: () => void;
     entityTypeName?: string;
+    formConfiguration?: FormConfigurationDto;
+    stepIndex?: number;
 }
 
 export const StepEditor: React.FC<Props> = ({
@@ -34,7 +39,9 @@ export const StepEditor: React.FC<Props> = ({
     metadataFields = [],
     allConfigurationFields,
     onRulesChanged,
-    entityTypeName
+    entityTypeName,
+    formConfiguration,
+    stepIndex = 0
 }) => {
     const [editingField, setEditingField] = useState<{ field: FormFieldDto; index: number } | null>(null);
     const [showFieldSelector, setShowFieldSelector] = useState(false);
@@ -307,7 +314,9 @@ export const StepEditor: React.FC<Props> = ({
             order: f.order,
             validations: f.validations.map(v => ({ ...v, id: undefined, formFieldId: undefined }))
         })),
-        conditions: template.conditions.map(c => ({ ...c, id: undefined, formStepId: undefined }))
+        conditions: template.conditions.map(c => ({ ...c, id: undefined, formStepId: undefined })),
+        // Conditions point at fields of the source configuration, which do not exist here.
+        displayConditionGroups: []
     });
 
     const handleAddChildStepFromTemplate = (template: FormStepDto, mode: ReuseLinkMode) => {
@@ -551,6 +560,17 @@ export const StepEditor: React.FC<Props> = ({
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                     />
                 </div>
+
+                {formConfiguration && (
+                    <DisplayConditionBuilder
+                        targetLabel={`Step "${step.stepName || 'Untitled'}"`}
+                        targetType={DisplayConditionTargetType.FormStep}
+                        groups={step.displayConditionGroups || []}
+                        availableSourceFields={fieldsBeforeStep(formConfiguration, stepIndex)}
+                        metadataFields={metadataFields}
+                        onChange={groups => onUpdate({ ...step, displayConditionGroups: groups })}
+                    />
+                )}
 
                 <div className="flex items-center">
                     <input
@@ -922,6 +942,11 @@ export const StepEditor: React.FC<Props> = ({
                     allFields={allConfigurationFields || step.fields}
                     onRulesChanged={onRulesChanged}
                     entityTypeName={entityTypeName}
+                    displayConditionSources={
+                        formConfiguration
+                            ? fieldsBeforeField(formConfiguration, stepIndex, editingField.field.fieldGuid)
+                            : []
+                    }
                 />
             )}
 

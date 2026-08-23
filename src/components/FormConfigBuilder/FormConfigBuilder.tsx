@@ -210,7 +210,9 @@ export const FormConfigBuilder: React.FC = () => {
         hasCompatibilityIssues: false,
         stepLevelIssues: undefined,
         fields: step.fields.map(f => cloneField(f)),
-        conditions: step.conditions.map(c => ({ ...c, id: undefined, formStepId: undefined }))
+        conditions: step.conditions.map(c => ({ ...c, id: undefined, formStepId: undefined })),
+        // Conditions point at fields of the source configuration, which do not exist here.
+        displayConditionGroups: []
     });
 
     const cloneField = (field: FormFieldDto): FormFieldDto => ({
@@ -221,7 +223,8 @@ export const FormConfigBuilder: React.FC = () => {
         isLinkedToSource: false,
         hasCompatibilityIssues: false,
         compatibilityIssues: undefined,
-        validations: field.validations.map(v => ({ ...v, id: undefined, formFieldId: undefined }))
+        validations: field.validations.map(v => ({ ...v, id: undefined, formFieldId: undefined })),
+        displayConditionGroups: []
     });
 
     const handleAddNewStep = () => {
@@ -715,6 +718,8 @@ export const FormConfigBuilder: React.FC = () => {
                                 allConfigurationFields={allFieldsInConfiguration}
                                 onRulesChanged={handleRulesChanged}
                                 entityTypeName={config.entityTypeName}
+                                formConfiguration={config}
+                                stepIndex={selectedStepIndex}
                             />
                         ) : (
                             <div className="bg-white shadow-sm rounded-lg p-12 text-center text-gray-500">

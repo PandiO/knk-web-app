@@ -152,10 +152,26 @@ export enum ConditionOperator {
     Equals = 'Equals',
     NotEquals = 'NotEquals',
     GreaterThan = 'GreaterThan',
+    GreaterOrEqual = 'GreaterOrEqual',
     LessThan = 'LessThan',
+    LessOrEqual = 'LessOrEqual',
+    In = 'In',
+    NotIn = 'NotIn',
+    And = 'And',
+    Or = 'Or',
     Contains = 'Contains',
     IsEmpty = 'IsEmpty',
     IsNotEmpty = 'IsNotEmpty'
+}
+
+export enum DisplayConditionLogic {
+    And = 'And',
+    Or = 'Or'
+}
+
+export enum DisplayConditionTargetType {
+    FormStep = 'FormStep',
+    FormField = 'FormField'
 }
 
 export enum DisplayConfigurationOperation {

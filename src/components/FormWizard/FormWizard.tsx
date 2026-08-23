@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Save, Check, AlertCircle } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, FormFieldDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
@@ -12,6 +12,13 @@ import { logging } from '../../utils';
 import { getFetchByIdFunctionForEntity } from '../../utils/entityApiMapping';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
 import { normalizeFormSubmission } from '../../utils/forms/normalizeFormSubmission';
+import {
+    FormVisibility,
+    nearestVisibleStepIndex,
+    nextVisibleStepIndex,
+    previousVisibleStepIndex,
+    reconcileVisibility
+} from '../../utils/forms/formVisibility';
 import { metadataClient } from '../../apiClients/metadataClient';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { FeedbackModal } from '../FeedbackModal';
@@ -71,6 +78,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [currentStepData, setCurrentStepData] = useState<StepData>({});
     const [allStepsData, setAllStepsData] = useState<AllStepsData>({});
+    // Values belonging to steps/fields that display conditions currently hide. Kept so the user
+    // gets their input back when the branch becomes relevant again, never part of the payload.
+    const [hiddenStash, setHiddenStash] = useState<AllStepsData>({});
     const [errors, setErrors] = useState<{ [fieldName: string]: string }>({});
     const [progressId, setProgressId] = useState<string | undefined>(existingProgressId);
     const [loading, setLoading] = useState(true);
@@ -196,10 +206,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     };
 
     // Helpers to enforce full field shape per step and flatten for DTO
-    const normalizeStepData = (step: FormStepDto, data: StepData | undefined): StepData => {
+    const normalizeStepData = (step: FormStepDto, data: StepData | undefined, visibleFieldNames?: Set<string>): StepData => {
         const result: StepData = {};
         getOrderedFields(step)
             .forEach(field => {
+                // Skip hidden fields so normalization never resurrects them as null and
+                // overwrites the value parked in the stash.
+                if (visibleFieldNames && !visibleFieldNames.has(field.fieldName)) return;
                 const hasValue = data && Object.prototype.hasOwnProperty.call(data, field.fieldName);
                 const value = hasValue ? (data as StepData)[field.fieldName] : (field.defaultValue ?? null);
                 result[field.fieldName] = value;
@@ -818,6 +831,40 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const currentStep = config?.steps[currentStepIndex];
     const orderedFields = getOrderedFields(currentStep);
 
+    // The user is still typing in the current step, so overlay it before evaluating visibility.
+    const effectiveAllStepsData = useMemo<AllStepsData>(() => ({
+        ...allStepsData,
+        [currentStepIndex]: { ...(allStepsData[currentStepIndex] || {}), ...currentStepData }
+    }), [allStepsData, currentStepData, currentStepIndex]);
+
+    const visibility = useMemo<FormVisibility>(() => {
+        if (!config) return { visibleStepIndices: [], visibleFieldNames: {}, visibleValues: {} };
+        return reconcileVisibility(config, effectiveAllStepsData, hiddenStash).visibility;
+    }, [config, effectiveAllStepsData, hiddenStash]);
+
+    const visibleFieldNamesForCurrentStep = visibility.visibleFieldNames[currentStepIndex] ?? new Set<string>();
+    const visibleOrderedFields = orderedFields.filter(f => visibleFieldNamesForCurrentStep.has(f.fieldName));
+    const isLastVisibleStep =
+        visibility.visibleStepIndices.length > 0 &&
+        visibility.visibleStepIndices[visibility.visibleStepIndices.length - 1] === currentStepIndex;
+
+    // A change elsewhere can hide the step the user is standing on; fall back to the nearest one.
+    useEffect(() => {
+        if (!config || visibility.visibleStepIndices.length === 0) return;
+        if (visibility.visibleStepIndices.includes(currentStepIndex)) return;
+
+        const target = nearestVisibleStepIndex(visibility, currentStepIndex);
+        setCurrentStepIndex(target);
+        setCurrentStepData(normalizeStepData(
+            config.steps[target],
+            allStepsData[target] || {},
+            visibility.visibleFieldNames[target]
+        ));
+        setErrors({});
+        setValidationResults({});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visibility, currentStepIndex, config]);
+
     const computeStepKey = (step: FormStepDto, index: number): string => {
         const key = step.stepName?.trim();
         return key && key.length > 0 ? key : `step-${index + 1}`;
@@ -989,8 +1036,19 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
         const projectionResult = applyFieldValueProjection(fieldName, value, updatedAllData);
 
-        setCurrentStepData(projectionResult.currentData);
-        setAllStepsData(projectionResult.allData);
+        // Re-evaluate display conditions: anything that just became hidden moves to the stash,
+        // anything that just became visible gets its stashed value back.
+        const reconciled = reconcileVisibility(config!, projectionResult.allData, hiddenStash);
+        const visibleNow = reconciled.visibility.visibleFieldNames[currentStepIndex] ?? new Set<string>();
+
+        setCurrentStepData(
+            Object.fromEntries(
+                Object.entries(reconciled.allStepsData[currentStepIndex] || projectionResult.currentData)
+                    .filter(([key]) => visibleNow.has(key) || !currentStep.fields.some(f => f.fieldName === key))
+            )
+        );
+        setAllStepsData(reconciled.allStepsData);
+        setHiddenStash(reconciled.hiddenStash);
         debug('handleFieldChange:updated-state', {
             mergedCurrent: projectionResult.currentData,
             updatedAllDataForStep: projectionResult.allData[currentStepIndex],
@@ -1427,6 +1485,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         let isValid = true;
 
         orderedFields.forEach(field => {
+            // Hidden fields are not part of the submission, so they must not block progress.
+            if (!visibleFieldNamesForCurrentStep.has(field.fieldName)) return;
+
             // Check dependency conditions
             if (field.dependencyConditionJson) {
                 const conditionMet = ConditionEvaluator.evaluateConditions(
@@ -1565,8 +1626,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         }
 
         // Ensure current step includes all fields
-        const normalizedCurrent = normalizeStepData(currentStep!, currentStepData);
-        const updatedAllData = { ...allStepsData, [currentStepIndex]: normalizedCurrent };
+        const normalizedCurrent = normalizeStepData(currentStep!, currentStepData, visibleFieldNamesForCurrentStep);
+        const reconciled = reconcileVisibility(config!, { ...allStepsData, [currentStepIndex]: normalizedCurrent }, hiddenStash);
+        const updatedAllData = reconciled.allStepsData;
 
         const validationResultsForStep = await runValidationsForStep(currentStep!, updatedAllData, currentStepIndex);
         const hasBlockingValidation = validationResultsForStep.some(r => !r.result.isValid && r.result.isBlocking);
@@ -1576,21 +1638,27 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         }
 
         setAllStepsData(updatedAllData);
+        setHiddenStash(reconciled.hiddenStash);
 
-        if (currentStepIndex < config!.steps.length - 1) {
+        const nextIndex = nextVisibleStepIndex(reconciled.visibility, currentStepIndex);
+
+        if (nextIndex !== null) {
             const saved = await saveProgress(FormSubmissionStatus.InProgress);
             if (!saved) return;
 
             // Advance and initialize next step data to defaults/nulls
             setCurrentStepIndex(prev => {
-                const nextIndex = prev + 1;
                 // notify workflow about step advancement (complete current step)
                 try {
                     const stepKey = computeStepKey(currentStep!, prev);
                     onStepAdvanced?.({ from: prev, to: nextIndex, stepKey });
                     setCompletedSteps(prevSet => new Set<number>([...Array.from(prevSet), prev]));
                 } catch {}
-                setCurrentStepData(normalizeStepData(config!.steps[nextIndex], updatedAllData[nextIndex] || {}));
+                setCurrentStepData(normalizeStepData(
+                    config!.steps[nextIndex],
+                    updatedAllData[nextIndex] || {},
+                    reconciled.visibility.visibleFieldNames[nextIndex]
+                ));
                 setErrors({});
                 // CRITICAL: Clear validation results when advancing to prevent contamination from previous steps
                 setValidationResults({});
@@ -1600,8 +1668,16 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             const saved = await saveProgress(FormSubmissionStatus.Completed);
             if (!saved) return;
 
-            // Flatten to get all field values
-            const normalizedAll = normalizeAllStepsData(config!, updatedAllData);
+            // Flatten to get all field values. Hidden steps and fields were already dropped by
+            // reconcileVisibility, so a toggled-away branch can never reach the entity.
+            const normalizedAll: AllStepsData = {};
+            reconciled.visibility.visibleStepIndices.forEach(stepIndex => {
+                normalizedAll[stepIndex] = normalizeStepData(
+                    config!.steps[stepIndex],
+                    updatedAllData[stepIndex],
+                    reconciled.visibility.visibleFieldNames[stepIndex]
+                );
+            });
             const flattenedDto = flattenAllStepsData(config!, normalizedAll);
 
             // changed: normalize the form data before sending to API
@@ -1646,19 +1722,24 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     };
 
     const handlePrevious = () => {
-        if (currentStepIndex > 0) {
-            setError(null);
-            // Persist normalized current step before going back
-            setAllStepsData(prev => ({ ...prev, [currentStepIndex]: normalizeStepData(currentStep!, currentStepData) }));
-            setCurrentStepIndex(prev => {
-                const previousIndex = prev - 1;
-                setCurrentStepData(normalizeStepData(config!.steps[previousIndex], allStepsData[previousIndex] || {}));
-                setErrors({});
-                // CRITICAL: Clear validation results when retreating to prevent contamination from previous steps
-                setValidationResults({});
-                return previousIndex;
-            });
-        }
+        const previousIndex = previousVisibleStepIndex(visibility, currentStepIndex);
+        if (previousIndex === null) return;
+
+        setError(null);
+        // Persist normalized current step before going back
+        setAllStepsData(prev => ({
+            ...prev,
+            [currentStepIndex]: normalizeStepData(currentStep!, currentStepData, visibleFieldNamesForCurrentStep)
+        }));
+        setCurrentStepData(normalizeStepData(
+            config!.steps[previousIndex],
+            allStepsData[previousIndex] || {},
+            visibility.visibleFieldNames[previousIndex]
+        ));
+        setErrors({});
+        // CRITICAL: Clear validation results when retreating to prevent contamination from previous steps
+        setValidationResults({});
+        setCurrentStepIndex(previousIndex);
     };
 
     // changed: add explicit save draft handler
@@ -1706,28 +1787,32 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
                 {/* Progress Indicator */}
                 <div className="flex items-center justify-center mx-auto mb-6 w-full max-w-3xl px-2 md:px-4 gap-3 md:gap-4">
-                    {config.steps.map((step, index) => (
-                        <div key={step.id} className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-                            <div
-                                className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                                    (index < currentStepIndex || completedSteps.has(index))
-                                        ? 'bg-green-500 text-white'
-                                        : index === currentStepIndex
-                                        ? 'bg-primary text-white'
-                                        : 'bg-gray-200 text-gray-600'
-                                }`}
-                            >
-                                {(index < currentStepIndex || completedSteps.has(index)) ? <Check className="h-4 w-4 md:h-5 md:w-5" /> : index + 1}
-                            </div>
-                            {index < config.steps.length - 1 && (
+                    {visibility.visibleStepIndices.map((stepIndex, position) => {
+                        const step = config.steps[stepIndex];
+                        const isDone = stepIndex < currentStepIndex || completedSteps.has(stepIndex);
+                        return (
+                            <div key={step.id ?? stepIndex} className="flex items-center gap-2 md:gap-3 flex-shrink-0">
                                 <div
-                                    className={`h-1 w-10 md:w-16 rounded-full transition-colors flex-shrink-0 ${
-                                        (index < currentStepIndex || completedSteps.has(index)) ? 'bg-green-500' : 'bg-gray-200'
+                                    className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
+                                        isDone
+                                            ? 'bg-green-500 text-white'
+                                            : stepIndex === currentStepIndex
+                                            ? 'bg-primary text-white'
+                                            : 'bg-gray-200 text-gray-600'
                                     }`}
-                                />
-                            )}
-                        </div>
-                    ))}
+                                >
+                                    {isDone ? <Check className="h-4 w-4 md:h-5 md:w-5" /> : position + 1}
+                                </div>
+                                {position < visibility.visibleStepIndices.length - 1 && (
+                                    <div
+                                        className={`h-1 w-10 md:w-16 rounded-full transition-colors flex-shrink-0 ${
+                                            isDone ? 'bg-green-500' : 'bg-gray-200'
+                                        }`}
+                                    />
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
 
                 {/* Title and Description */}
@@ -1745,7 +1830,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 <div className="flex flex-col md:flex-row gap-3 md:gap-2 justify-between items-center">
                     <button
                         onClick={handlePrevious}
-                        disabled={currentStepIndex === 0}
+                        disabled={previousVisibleStepIndex(visibility, currentStepIndex) === null}
                         className="w-full md:w-auto btn-secondary disabled:opacity-50 flex items-center justify-center"
                     >
                         <ChevronLeft className="h-5 w-5 mr-2" />
@@ -1770,7 +1855,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         ) : (
                             <ChevronRight className="h-5 w-5 mr-2" />
                         )}
-                        {saving ? 'Submitting...' : currentStepIndex === config.steps.length - 1 ? 'Submit' : 'Next'}
+                        {saving ? 'Submitting...' : isLastVisibleStep ? 'Submit' : 'Next'}
                     </button>
                 </div>
             </div>
@@ -1794,7 +1879,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     />
                 ) : (
                     /* Standard Field-Based Step */
-                    orderedFields.map(field => {
+                    visibleOrderedFields.map(field => {
                         const shouldShow = !field.dependencyConditionJson ||
                             ConditionEvaluator.evaluateConditions(
                                 field.dependencyConditionJson,
@@ -1851,7 +1936,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         const matchesInheritedFieldName =
                             !!fieldName && field.fieldName.toLowerCase() === fieldName.toLowerCase();
 
-                        const isFirstOrderedField = orderedFields.length > 0 && orderedFields[0].id === field.id;
+                        const isFirstOrderedField = visibleOrderedFields.length > 0 && visibleOrderedFields[0].id === field.id;
 
                         const worldTaskEnabled = fieldWorldTaskEnabled || (canInheritWorldTask && (matchesInheritedFieldName || isFirstOrderedField));
                         const taskType = fieldTaskType || (canInheritWorldTask ? worldTaskHint : undefined);

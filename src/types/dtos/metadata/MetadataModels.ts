@@ -6,6 +6,9 @@ export interface FieldMetadataDto {
   relatedEntityType?: string | null;
   hasDefaultValue: boolean;
   defaultValue?: string | null;
+  isEnum?: boolean;
+  enumTypeName?: string | null;
+  enumValues?: string[] | null;
 }
 
 export interface EntityPropertyDto {

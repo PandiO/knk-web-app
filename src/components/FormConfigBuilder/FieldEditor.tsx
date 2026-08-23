@@ -18,6 +18,9 @@ import {
     ValueProjectionMapping,
     parseValueProjection
 } from '../../utils/forms/valueProjection';
+import { DisplayConditionBuilder } from './DisplayConditionBuilder';
+import { SourceFieldOption } from '../../utils/forms/displayConditionSources';
+import { DisplayConditionTargetType } from '../../utils/enums';
 
 interface Props {
     field: FormFieldDto;
@@ -27,6 +30,8 @@ interface Props {
     allFields?: FormFieldDto[];
     onRulesChanged?: () => void;
     entityTypeName?: string;
+    /** Fields that come earlier in the form and may therefore drive this field's visibility. */
+    displayConditionSources?: SourceFieldOption[];
 }
 
 export const FieldEditor: React.FC<Props> = ({
@@ -36,7 +41,8 @@ export const FieldEditor: React.FC<Props> = ({
     metadataFields = [],
     allFields = [],
     onRulesChanged,
-    entityTypeName
+    entityTypeName,
+    displayConditionSources = []
 }) => {
     const [field, setField] = useState<FormFieldDto>(initialField);
     const [collectionElementType, setCollectionElementType] = useState<FieldType>(
@@ -1114,6 +1120,17 @@ export const FieldEditor: React.FC<Props> = ({
                             />
                         </div>
                     )}
+
+                    <div className="border-t border-gray-200 pt-4 space-y-3">
+                        <DisplayConditionBuilder
+                            targetLabel={`Field "${field.label || field.fieldName || 'Untitled'}"`}
+                            targetType={DisplayConditionTargetType.FormField}
+                            groups={field.displayConditionGroups || []}
+                            availableSourceFields={displayConditionSources}
+                            metadataFields={metadataFields}
+                            onChange={groups => setField({ ...field, displayConditionGroups: groups })}
+                        />
+                    </div>
 
                     <div className="border-t border-gray-200 pt-4 space-y-3">
                         {renderValidationRules()}

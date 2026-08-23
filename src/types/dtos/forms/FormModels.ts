@@ -1,4 +1,33 @@
-import { FieldType, ValidationType, FormSubmissionStatus, ConditionOperator } from '../../../enums';
+import { FieldType, ValidationType, FormSubmissionStatus, ConditionOperator, DisplayConditionLogic, DisplayConditionTargetType } from '../../../enums';
+
+/**
+ * One comparison against the value of an earlier field.
+ * `valueJson` is JSON-encoded: a scalar for most operators, an array for In/NotIn.
+ */
+export interface DisplayConditionDto {
+    id?: string;
+    displayConditionGroupId?: string;
+    sourceFormFieldId?: string;
+    sourceFieldGuid: string;
+    operator: ConditionOperator;
+    valueJson: string;
+    order: number;
+}
+
+/**
+ * Conditions inside a group are combined with `innerLogic`; consecutive groups of the
+ * same target are folded left-to-right with each group's `combineWithPreviousLogic`.
+ * No groups means always visible.
+ */
+export interface DisplayConditionGroupDto {
+    id?: string;
+    targetType: DisplayConditionTargetType;
+    innerLogic: DisplayConditionLogic;
+    combineWithPreviousLogic: DisplayConditionLogic;
+    order: number;
+    isActive: boolean;
+    conditions: DisplayConditionDto[];
+}
 
 export interface FieldValidationDto {
     id?: string;
@@ -68,6 +97,8 @@ export interface FormFieldDto {
     maxSelection?: number;
     // added: whether user can create new instances on-the-fly for Object/List fields
     canCreate?: boolean;
+    enumType?: string;
+    displayConditionGroups?: DisplayConditionGroupDto[];
 }
 
 export interface FormStepDto {
@@ -91,6 +122,7 @@ export interface FormStepDto {
     childFormSteps: FormStepDto[];
     fields: FormFieldDto[];
     conditions: StepConditionDto[];
+    displayConditionGroups?: DisplayConditionGroupDto[];
 }
 
 export interface FormConfigurationDto {
