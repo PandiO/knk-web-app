@@ -32,9 +32,17 @@ export const ForgotPasswordPage: React.FC = () => {
         setDevResetUrl(response.debugResetUrl);
       }
       setSubmitted(true);
-    } catch {
-      // Keep response generic to avoid account enumeration leakage in UI.
-      setSubmitted(true);
+    } catch (err: any) {
+      // The API always returns 200 with a generic message here, whether or not the
+      // account exists, to avoid account enumeration. Reaching this catch means the
+      // request itself failed (network/TLS error, timeout, or server error) - the
+      // email was NOT sent, so we must not show the success state.
+      const status = err?.status;
+      const message =
+        status && status >= 400 && status < 500
+          ? err?.response?.message || 'Please enter a valid email address and try again.'
+          : 'We could not reach the server to send the reset email. Please check your connection and try again.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
