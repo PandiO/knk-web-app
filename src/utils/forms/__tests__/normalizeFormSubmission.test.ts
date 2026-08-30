@@ -198,3 +198,56 @@ describe('normalizeFormSubmission (world task locations)', () => {
         expect(normalized.AnchorPoint).toBeUndefined();
     });
 });
+
+describe('normalizeFormSubmission (scalar API types)', () => {
+    const createField = (fieldName: string, fieldType: FieldType): FormFieldDto => ({
+        fieldName,
+        label: fieldName,
+        fieldType,
+        isRequired: false,
+        isReadOnly: false,
+        order: 0,
+        isReusable: false,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        validations: []
+    });
+
+    const config: FormConfigurationDto = {
+        entityTypeName: 'GateStructure',
+        configurationName: 'Gate Structure',
+        isDefault: true,
+        isActive: true,
+        steps: [{
+            stepName: 'Gate settings',
+            title: 'Gate settings',
+            order: 0,
+            fields: [
+                createField('IsActive', FieldType.Boolean),
+                createField('ScanMaxBlocks', FieldType.Integer),
+                createField('ContinuousDamageMultiplier', FieldType.Decimal),
+                createField('RegionClosedId', FieldType.String)
+            ]
+        } as FormStepDto]
+    };
+
+    it('converts persisted scalar strings to JSON primitives before API submission', () => {
+        const normalized = normalizeFormSubmission({
+            entityTypeName: 'GateStructure',
+            formConfiguration: config,
+            rawFormValue: {
+                IsActive: 'false',
+                ScanMaxBlocks: '500',
+                ContinuousDamageMultiplier: '1.5',
+                RegionClosedId: null
+            }
+        });
+
+        expect(normalized).toMatchObject({
+            IsActive: false,
+            ScanMaxBlocks: 500,
+            ContinuousDamageMultiplier: 1.5,
+            RegionClosedId: null
+        });
+    });
+});

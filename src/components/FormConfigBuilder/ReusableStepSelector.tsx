@@ -22,7 +22,6 @@ export const ReusableStepSelector: React.FC<Props> = ({
     const filteredSteps = reusableSteps.filter(step => {
         const matchesSearch = 
             step.stepName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            step.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (step.description || '').toLowerCase().includes(searchTerm.toLowerCase());
         
         return matchesSearch;
@@ -83,8 +82,7 @@ export const ReusableStepSelector: React.FC<Props> = ({
                                 >
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1">
-                                            <h4 className="font-medium text-gray-900">{step.title}</h4>
-                                            <p className="text-sm text-gray-600 mt-1">{step.stepName}</p>
+                                            <h4 className="font-medium text-gray-900">{step.stepName}</h4>
                                             {step.description && (
                                                 <p className="text-sm text-gray-500 mt-2">{step.description}</p>
                                             )}

@@ -130,6 +130,30 @@ function getCaseInsensitiveValue(obj: Record<string, unknown>, key: string): unk
     return match ? obj[match] : undefined;
 }
 
+function normalizeScalarValue(field: FormFieldDto, rawValue: any): any {
+    if (rawValue === null || rawValue === undefined || typeof rawValue !== 'string') {
+        return rawValue;
+    }
+
+    if (field.fieldType === FieldType.Boolean) {
+        if (rawValue.toLowerCase() === 'true') return true;
+        if (rawValue.toLowerCase() === 'false') return false;
+        return rawValue;
+    }
+
+    if (field.fieldType === FieldType.Integer || field.fieldType === FieldType.Decimal) {
+        if (rawValue.trim() === '') return null;
+
+        const numericValue = Number(rawValue);
+        if (Number.isFinite(numericValue) &&
+            (field.fieldType !== FieldType.Integer || Number.isInteger(numericValue))) {
+            return numericValue;
+        }
+    }
+
+    return rawValue;
+}
+
 function resolveJoinEntityMapping(args: {
     joinEntityType: string;
     parentEntityTypeName: string;
@@ -284,8 +308,7 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
         const isRelationship = isRelationshipField(field, entityMetadata);
         
         if (!isRelationship) {
-            // Simple scalar field - copy as-is
-            normalized[fieldName] = rawValue;
+            normalized[fieldName] = normalizeScalarValue(field, rawValue);
             return;
         }
         
