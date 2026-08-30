@@ -3,7 +3,7 @@ import { worldTaskClient } from '../../apiClients/worldTaskClient';
 import { WorldTaskReadDto } from '../../types/dtos/workflow/WorkflowDtos';
 import { FormFieldDto, FormConfigurationDto } from '../../types/dtos/forms/FormModels';
 import { FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, MapPin } from 'lucide-react';
 import { useEnrichedFormContext } from '../../hooks/useEnrichedFormContext';
 
 interface WorldBoundFieldRendererProps {
@@ -45,6 +45,11 @@ const getNormalizedStatus = (status?: string): string => (status || '').toLowerC
 
 const hasExtractedValue = (value: unknown): boolean => value !== null && value !== undefined;
 
+export interface WorldTaskResultDetail {
+    label: string;
+    value: string;
+}
+
 const getOutputValueByKey = (output: Record<string, any>, key: string): any => {
     if (Object.prototype.hasOwnProperty.call(output, key)) {
         return output[key];
@@ -52,6 +57,110 @@ const getOutputValueByKey = (output: Record<string, any>, key: string): any => {
 
     const matchedKey = Object.keys(output).find(existingKey => existingKey.toLowerCase() === key.toLowerCase());
     return matchedKey ? output[matchedKey] : undefined;
+};
+
+const formatDecimal = (value: unknown): string => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue.toFixed(2) : String(value);
+};
+
+const formatResultLabel = (key: string): string =>
+    key
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/^./, character => character.toUpperCase());
+
+const formatResultValue = (value: unknown): string => {
+    if (typeof value === 'object') {
+        return JSON.stringify(value);
+    }
+
+    return String(value);
+};
+
+export function getWorldTaskResultDetails(task: WorldTaskReadDto, taskType: string): WorldTaskResultDetail[] {
+    if (!task.outputJson) return [];
+
+    try {
+        const parsedOutput = JSON.parse(task.outputJson);
+        const output = parsedOutput && typeof parsedOutput === 'object'
+            ? parsedOutput as Record<string, any>
+            : {};
+
+        if (isLocationTask(taskType, task.taskType) &&
+            output.x !== undefined && output.y !== undefined && output.z !== undefined) {
+            const details: WorldTaskResultDetail[] = [];
+            const name = getOutputValueByKey(output, 'name');
+            const world = getOutputValueByKey(output, 'world') ?? getOutputValueByKey(output, 'worldName');
+
+            if (hasExtractedValue(name)) {
+                details.push({ label: 'Name', value: String(name) });
+            }
+            details.push({
+                label: 'Position',
+                value: `(${formatDecimal(output.x)}, ${formatDecimal(output.y)}, ${formatDecimal(output.z)})`
+            });
+            if (output.yaw !== undefined || output.pitch !== undefined) {
+                details.push({
+                    label: 'Rotation',
+                    value: `yaw=${formatDecimal(output.yaw ?? 0)}, pitch=${formatDecimal(output.pitch ?? 0)}`
+                });
+            }
+            if (hasExtractedValue(world)) {
+                details.push({ label: 'World', value: String(world) });
+            }
+
+            return details;
+        }
+
+        const regionId = getOutputValueByKey(output, 'regionId');
+        if (hasExtractedValue(regionId)) {
+            const details: WorldTaskResultDetail[] = [
+                { label: 'Region ID', value: String(regionId) }
+            ];
+            const world = getOutputValueByKey(output, 'worldName') ?? getOutputValueByKey(output, 'world');
+            const parentRegionId = getOutputValueByKey(output, 'parentRegionId');
+
+            if (hasExtractedValue(world)) {
+                details.push({ label: 'World', value: String(world) });
+            }
+            if (hasExtractedValue(parentRegionId)) {
+                details.push({ label: 'Parent region', value: String(parentRegionId) });
+            }
+
+            return details;
+        }
+
+        const hiddenKeys = new Set(['fieldname', 'capturedat', 'createdat']);
+        return Object.entries(output)
+            .filter(([key, resultValue]) => !hiddenKeys.has(key.toLowerCase()) && hasExtractedValue(resultValue))
+            .map(([key, resultValue]) => ({
+                label: formatResultLabel(key),
+                value: formatResultValue(resultValue)
+            }));
+    } catch {
+        return [];
+    }
+}
+
+export const WorldTaskResultDetails: React.FC<{ details: WorldTaskResultDetail[] }> = ({ details }) => {
+    if (details.length === 0) return null;
+
+    return (
+        <div className="mt-3 border-t border-green-200 pt-3">
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-green-900">
+                <MapPin className="h-4 w-4" aria-hidden="true" />
+                <span>Minecraft result</span>
+            </div>
+            <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
+                {details.map(detail => (
+                    <React.Fragment key={detail.label}>
+                        <dt className="font-medium text-green-700">{detail.label}</dt>
+                        <dd className="min-w-0 break-words font-mono text-green-950">{detail.value}</dd>
+                    </React.Fragment>
+                ))}
+            </dl>
+        </div>
+    );
 };
 
 /**
@@ -71,7 +180,7 @@ function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
             // Extract raw location data and convert to location object
             if (output.x !== undefined && output.y !== undefined && output.z !== undefined) {
                 const locationObject = {
-                    name: 'Location',
+                    name: output.name ?? 'Location',
                     x: output.x,
                     y: output.y,
                     z: output.z,
@@ -120,6 +229,10 @@ function isLocationTask(taskType: string, actualTaskType?: string): boolean {
     return types.some(t => t.includes('location') || t.includes('capture'));
 }
 
+export function shouldShowWorldTaskResultDetails(task: WorldTaskReadDto, taskType: string): boolean {
+    return !isLocationTask(taskType, task.taskType);
+}
+
 export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = ({
     field,
     value,
@@ -145,7 +258,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const [isLoading, setIsLoading] = useState(false);
     const [extractionSucceeded, setExtractionSucceeded] = useState(false);
     const [extractionError, setExtractionError] = useState<string | null>(null);
-    const [copiedCodeId, setCopiedCodeId] = useState<number | null>(null);
+    const [copiedText, setCopiedText] = useState<string | null>(null);
     const onChangeRef = useRef(onChange);
     const onTaskCompletedRef = useRef(onTaskCompleted);
     
@@ -306,13 +419,13 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         }
     };
 
-    const handleCopyCode = async (code: string, taskId: number) => {
+    const handleCopyText = async (text: string) => {
         try {
-            await navigator.clipboard.writeText(code);
-            setCopiedCodeId(taskId);
-            setTimeout(() => setCopiedCodeId(null), 2000);
+            await navigator.clipboard.writeText(text);
+            setCopiedText(text);
+            setTimeout(() => setCopiedText(null), 2000);
         } catch (error) {
-            console.error('Failed to copy code:', error);
+            console.error('Failed to copy text:', error);
         }
     };
 
@@ -324,6 +437,12 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     };
 
     const taskStatus = getNormalizedStatus(task?.status);
+    const resultDetails = task && taskStatus === 'completed'
+        ? getWorldTaskResultDetails(task, task.taskType || taskType)
+        : [];
+    const showResultDetails = task
+        ? shouldShowWorldTaskResultDetails(task, taskType)
+        : false;
 
     const hasVisibleStatusBanner =
         (!!task && taskStatus === 'pending' && !!task.linkCode) ||
@@ -362,11 +481,11 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                                         {task.linkCode}
                                     </code>
                                     <button
-                                        onClick={() => handleCopyCode(task.linkCode!, task.id)}
+                                        onClick={() => handleCopyText(task.linkCode!)}
                                         className="p-2 hover:bg-yellow-100 rounded transition-colors"
                                         title="Copy claim code"
                                     >
-                                        {copiedCodeId === task.id ? (
+                                        {copiedText === task.linkCode ? (
                                             <Check className="h-5 w-5 text-green-600" />
                                         ) : (
                                             <Copy className="h-5 w-5 text-gray-600 hover:text-gray-900" />
@@ -376,9 +495,22 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                             </div>
                             <div className="bg-gray-800 p-3 rounded-md">
                                 <p className="text-xs text-gray-400 mb-1">In Minecraft, type:</p>
-                                <code className="text-sm font-mono text-green-400">
-                                    /knk task claim {task.linkCode}
-                                </code>
+                                <div className="flex items-center justify-between gap-2">
+                                    <code className="min-w-0 break-all text-sm font-mono text-green-400">
+                                        /knk task-claim {task.linkCode}
+                                    </code>
+                                    <button
+                                        onClick={() => handleCopyText(`/knk task-claim ${task.linkCode}`)}
+                                        className="shrink-0 p-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded transition-colors"
+                                        title="Copy Minecraft command"
+                                    >
+                                        {copiedText === `/knk task-claim ${task.linkCode}` ? (
+                                            <Check className="h-5 w-5 text-green-400" />
+                                        ) : (
+                                            <Copy className="h-5 w-5" />
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                             <p className="text-xs text-yellow-700 mt-2">
                                 💡 This code links your web session to your in-game actions
@@ -421,6 +553,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     <p className="text-sm font-medium text-green-800">
                         ✅ Task completed! Field has been auto-populated with the result.
                     </p>
+                    {showResultDetails && <WorldTaskResultDetails details={resultDetails} />}
                     <button
                         onClick={handleRunAgain}
                         className="mt-2 text-xs px-2 py-1 bg-green-200 text-green-800 rounded hover:bg-green-300"

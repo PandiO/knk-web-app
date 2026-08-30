@@ -135,3 +135,66 @@ describe('normalizeFormSubmission (many-to-many join entries)', () => {
         ).toThrow('missing a related entity selection');
     });
 });
+
+describe('normalizeFormSubmission (world task locations)', () => {
+    const locationField: FormFieldDto = {
+        fieldName: 'AnchorPointId',
+        label: 'Anchor point',
+        fieldType: FieldType.Object,
+        objectType: 'Location',
+        isRequired: true,
+        isReadOnly: false,
+        order: 0,
+        isReusable: false,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        validations: []
+    };
+
+    const config: FormConfigurationDto = {
+        entityTypeName: 'GateStructure',
+        configurationName: 'Gate Structure',
+        isDefault: true,
+        isActive: true,
+        steps: [{
+            stepName: 'Geometry: Plane Grid',
+            title: 'Geometry: Plane Grid',
+            order: 0,
+            fields: [locationField]
+        } as FormStepDto]
+    };
+
+    it('maps an ID-less captured Location to the embedded navigation property', () => {
+        const capturedLocation = {
+            name: 'Location',
+            x: 1422.7,
+            y: 85,
+            z: -521.59,
+            yaw: -171.78,
+            pitch: 89.85,
+            World: 'world_KNK-DEV'
+        };
+
+        const normalized = normalizeFormSubmission({
+            entityTypeName: 'GateStructure',
+            formConfiguration: config,
+            rawFormValue: { AnchorPointId: capturedLocation },
+            entityMetadata: []
+        });
+
+        expect(normalized.AnchorPoint).toEqual(capturedLocation);
+        expect(normalized.AnchorPointId).toBeUndefined();
+    });
+
+    it('keeps a persisted Location as a foreign key ID', () => {
+        const normalized = normalizeFormSubmission({
+            entityTypeName: 'GateStructure',
+            formConfiguration: config,
+            rawFormValue: { AnchorPointId: { id: 42, name: 'Existing location' } },
+            entityMetadata: []
+        });
+
+        expect(normalized.AnchorPointId).toBe(42);
+        expect(normalized.AnchorPoint).toBeUndefined();
+    });
+});

@@ -133,6 +133,41 @@ describe('WorldBoundFieldRenderer - Phase 7 E2E Tests', () => {
             expect(container).toBeInTheDocument();
             expect(useEnrichedFormContextModule.useEnrichedFormContext).toHaveBeenCalled();
         });
+
+        it('should display and copy the complete Minecraft claim command', async () => {
+            (useEnrichedFormContextModule.useEnrichedFormContext as jest.Mock).mockReturnValue(mockFormContextValue);
+            (worldTaskClientModule.worldTaskClient.create as jest.Mock).mockResolvedValue({
+                id: 1,
+                status: 'Pending',
+                linkCode: 'K953ET'
+            });
+            const writeText = jest.fn().mockResolvedValue(undefined);
+            Object.defineProperty(navigator, 'clipboard', {
+                configurable: true,
+                value: { writeText }
+            });
+
+            render(
+                <WorldBoundFieldRenderer
+                    field={mockField}
+                    value={null}
+                    onChange={jest.fn()}
+                    taskType="RegionCreate"
+                    workflowSessionId={1}
+                    formConfiguration={mockFormConfiguration}
+                />
+            );
+
+            fireEvent.click(screen.getByText(/Send to Minecraft/i));
+
+            expect(await screen.findByText('/knk task-claim K953ET')).toBeVisible();
+            fireEvent.click(screen.getByTitle('Copy Minecraft command'));
+
+            await waitFor(() => {
+                expect(writeText).toHaveBeenCalledWith('/knk task-claim K953ET');
+            });
+            expect(screen.getByTitle('Copy claim code')).toBeVisible();
+        });
     });
 
     // ============================================================================

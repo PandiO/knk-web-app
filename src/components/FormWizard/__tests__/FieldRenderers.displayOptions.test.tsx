@@ -89,4 +89,34 @@ describe('FieldRenderer display options', () => {
 
         expect(screen.getAllByRole('button', { name: /replace instance/i }).length).toBeGreaterThan(0);
     });
+
+    it('renders location details restored from saved form progress without an empty ID', () => {
+        const restoredValue = JSON.parse(JSON.stringify({
+            name: 'Location',
+            x: 1422.7,
+            y: 85,
+            z: -521.59,
+            yaw: -171.78,
+            pitch: 89.85,
+            World: 'world_KNK-DEV'
+        }));
+
+        render(
+            <FieldRenderer
+                field={baseField({
+                    fieldName: 'anchorPointId',
+                    label: 'Anchor point',
+                    fieldType: FieldType.Object,
+                    objectType: 'Location'
+                })}
+                value={restoredValue}
+                onChange={jest.fn()}
+            />
+        );
+
+        expect(screen.getByText('(1422.70, 85.00, -521.59)')).toBeVisible();
+        expect(screen.getByText('yaw=-171.78, pitch=89.85')).toBeVisible();
+        expect(screen.getByText('world_KNK-DEV')).toBeVisible();
+        expect(screen.queryByText(/^ID:/)).not.toBeInTheDocument();
+    });
 });

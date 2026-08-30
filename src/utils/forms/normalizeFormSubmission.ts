@@ -311,6 +311,10 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
             
             // Check if this looks like a foreign key field (ends with 'Id')
             if (key.endsWith('Id')) {
+                const navigationKey = key.slice(0, -2);
+                if (Object.prototype.hasOwnProperty.call(normalized, navigationKey)) {
+                    return;
+                }
                 if (typeof value === 'object' && value !== null) {
                     // Extract the ID from the object
                     normalized[key] = extractId(value);
@@ -342,7 +346,7 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
  * @param normalized - The normalized payload being built
  */
 function handleSingleObjectRelationship(
-    _field: FormFieldDto,
+    field: FormFieldDto,
     fieldName: string,
     rawValue: any,
     normalized: Record<string, any>
@@ -350,6 +354,16 @@ function handleSingleObjectRelationship(
     // Determine if this field is already a foreign key field (ends with "Id")
     const isForeignKeyField = fieldName.endsWith('Id');
     const extractedId = extractId(rawValue);
+
+    if (extractedId === null &&
+        field.objectType?.toLowerCase() === 'location' &&
+        rawValue &&
+        typeof rawValue === 'object' &&
+        !Array.isArray(rawValue)) {
+        const navigationFieldName = isForeignKeyField ? fieldName.slice(0, -2) : fieldName;
+        normalized[navigationFieldName] = rawValue;
+        return;
+    }
     
     if (isForeignKeyField) {
         // Field is already the foreign key (e.g., parentCategoryId)

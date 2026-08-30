@@ -642,6 +642,45 @@ const getEnumValues = (field: FormFieldDto): string[] => {
     return (field.defaultValue || field.placeholder || '').split(',').map(v => v.trim()).filter(Boolean);
 };
 
+const getObjectValue = (value: Record<string, any>, key: string): any => {
+    const matchedKey = Object.keys(value).find(existingKey => existingKey.toLowerCase() === key.toLowerCase());
+    return matchedKey ? value[matchedKey] : undefined;
+};
+
+const formatLocationNumber = (value: unknown): string => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue.toFixed(2) : String(value);
+};
+
+const getLocationDetails = (value: any): Array<{ label: string; value: string }> => {
+    if (!value || typeof value !== 'object') return [];
+
+    const x = getObjectValue(value, 'x');
+    const y = getObjectValue(value, 'y');
+    const z = getObjectValue(value, 'z');
+    if (x === undefined || y === undefined || z === undefined) return [];
+
+    const details = [{
+        label: 'Position',
+        value: `(${formatLocationNumber(x)}, ${formatLocationNumber(y)}, ${formatLocationNumber(z)})`
+    }];
+    const yaw = getObjectValue(value, 'yaw');
+    const pitch = getObjectValue(value, 'pitch');
+    const world = getObjectValue(value, 'world') ?? getObjectValue(value, 'worldName');
+
+    if (yaw !== undefined || pitch !== undefined) {
+        details.push({
+            label: 'Rotation',
+            value: `yaw=${formatLocationNumber(yaw ?? 0)}, pitch=${formatLocationNumber(pitch ?? 0)}`
+        });
+    }
+    if (world !== undefined && world !== null) {
+        details.push({ label: 'World', value: String(world) });
+    }
+
+    return details;
+};
+
 const ObjectField: React.FC<FieldRendererProps> = ({
     field,
     value,
@@ -655,6 +694,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ObjectField]', ...args);
     const canCreate = field.canCreate !== false; // default true if not specified
     const [showReplaceTable, setShowReplaceTable] = React.useState(false);
+    const locationDetails = getLocationDetails(value);
 
     React.useEffect(() => {
         if (value) {
@@ -754,7 +794,19 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                             <p className="text-sm font-medium text-green-900">
                                 {value.name || value.Name || 'Selected Item'}
                             </p>
-                            <p className="text-xs text-green-600">ID: {value.id}</p>
+                            {(value.id !== undefined && value.id !== null) && (
+                                <p className="text-xs text-green-600">ID: {value.id}</p>
+                            )}
+                            {locationDetails.length > 0 && (
+                                <dl className="mt-2 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+                                    {locationDetails.map(detail => (
+                                        <React.Fragment key={detail.label}>
+                                            <dt className="font-medium text-green-700">{detail.label}</dt>
+                                            <dd className="min-w-0 break-words font-mono text-green-950">{detail.value}</dd>
+                                        </React.Fragment>
+                                    ))}
+                                </dl>
+                            )}
                         </div>
                     </div>
                     <button
