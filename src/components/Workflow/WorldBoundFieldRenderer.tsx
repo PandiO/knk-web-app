@@ -261,6 +261,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const [copiedText, setCopiedText] = useState<string | null>(null);
     const onChangeRef = useRef(onChange);
     const onTaskCompletedRef = useRef(onTaskCompleted);
+    const isReadOnlyRef = useRef(!!field.isReadOnly);
     
     // Keep polling interval stable across parent re-renders
     const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -273,6 +274,10 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         onTaskCompletedRef.current = onTaskCompleted;
     }, [onTaskCompleted]);
 
+    useEffect(() => {
+        isReadOnlyRef.current = !!field.isReadOnly;
+    }, [field.isReadOnly]);
+
     // Phase 7: Use enriched form context for dependency resolution
     // NOTE: Hook must be called unconditionally per React rules
     const formContext = useEnrichedFormContext(formConfiguration || {} as any);
@@ -280,7 +285,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     // Poll task status when taskId is set
     useEffect(() => {
         // Don't start polling when task is not active or already completed locally
-        if (!taskId || extractionSucceeded) {
+        if (field.isReadOnly || !taskId || extractionSucceeded) {
             return;
         }
 
@@ -304,7 +309,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     // Use the task's actual taskType for extraction (not the prop)
                     const extractedValue = extractTaskResult(updated, updated.taskType || taskType);
                     
-                    if (hasExtractedValue(extractedValue)) {
+                    if (hasExtractedValue(extractedValue) && !isReadOnlyRef.current) {
                         // Update field value
                         onChangeRef.current(extractedValue);
                         setExtractionSucceeded(true);
@@ -350,9 +355,11 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             clearInterval(pollInterval);
             pollingIntervalRef.current = null;
         };
-    }, [taskId, extractionSucceeded, taskType]);
+    }, [taskId, extractionSucceeded, taskType, field.isReadOnly]);
 
     const handleCreateInMinecraft = async () => {
+        if (isReadOnlyRef.current) return;
+
         setIsLoading(true);
         try {
             // Phase 5.2: Build input JSON with pre-resolved placeholders
@@ -554,12 +561,14 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                         ✅ Task completed! Field has been auto-populated with the result.
                     </p>
                     {showResultDetails && <WorldTaskResultDetails details={resultDetails} />}
-                    <button
-                        onClick={handleRunAgain}
-                        className="mt-2 text-xs px-2 py-1 bg-green-200 text-green-800 rounded hover:bg-green-300"
-                    >
-                        Capture again
-                    </button>
+                    {!field.isReadOnly && (
+                        <button
+                            onClick={handleRunAgain}
+                            className="mt-2 text-xs px-2 py-1 bg-green-200 text-green-800 rounded hover:bg-green-300"
+                        >
+                            Capture again
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -584,21 +593,23 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     {task.errorMessage && (
                         <p className="text-xs text-red-700 mt-1">{task.errorMessage}</p>
                     )}
-                    <button
-                        onClick={() => {
-                            setTaskId(null);
-                            setTask(null);
-                            setExtractionError(null);
-                        }}
-                        className="mt-2 text-xs px-2 py-1 bg-red-200 text-red-800 rounded hover:bg-red-300"
-                    >
-                        Try Again
-                    </button>
+                    {!field.isReadOnly && (
+                        <button
+                            onClick={() => {
+                                setTaskId(null);
+                                setTask(null);
+                                setExtractionError(null);
+                            }}
+                            className="mt-2 text-xs px-2 py-1 bg-red-200 text-red-800 rounded hover:bg-red-300"
+                        >
+                            Try Again
+                        </button>
+                    )}
                 </div>
             )}
 
             {/* Button to create in Minecraft */}
-            {allowCreate && !taskId && (
+            {allowCreate && !field.isReadOnly && !taskId && (
                 <button
                     id={actionButtonId}
                     onClick={handleCreateInMinecraft}
@@ -613,6 +624,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             {allowExisting && !taskId && (
                 <select
                     onChange={e => onChange(e.target.value || null)}
+                    disabled={field.isReadOnly}
                     className="block w-full mt-2 border-gray-300 rounded-md"
                 >
                     <option value="">Or select existing region...</option>

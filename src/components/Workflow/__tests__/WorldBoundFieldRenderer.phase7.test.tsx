@@ -134,6 +134,24 @@ describe('WorldBoundFieldRenderer - Phase 7 E2E Tests', () => {
             expect(useEnrichedFormContextModule.useEnrichedFormContext).toHaveBeenCalled();
         });
 
+        it('does not allow a WorldTask to start for a read-only field', () => {
+            (useEnrichedFormContextModule.useEnrichedFormContext as jest.Mock).mockReturnValue(mockFormContextValue);
+
+            render(
+                <WorldBoundFieldRenderer
+                    field={{ ...mockField, isReadOnly: true }}
+                    value={null}
+                    onChange={jest.fn()}
+                    taskType="RegionCreate"
+                    workflowSessionId={1}
+                    formConfiguration={mockFormConfiguration}
+                />
+            );
+
+            expect(screen.queryByRole('button', { name: /send to minecraft/i })).not.toBeInTheDocument();
+            expect(worldTaskClientModule.worldTaskClient.create).not.toHaveBeenCalled();
+        });
+
         it('should display and copy the complete Minecraft claim command', async () => {
             (useEnrichedFormContextModule.useEnrichedFormContext as jest.Mock).mockReturnValue(mockFormContextValue);
             (worldTaskClientModule.worldTaskClient.create as jest.Mock).mockResolvedValue({

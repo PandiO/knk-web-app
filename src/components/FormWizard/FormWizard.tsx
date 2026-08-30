@@ -38,6 +38,7 @@ import {
     isEffectivelyEmpty,
     parseValueProjection
 } from '../../utils/forms/valueProjection';
+import { deriveGateGeometryStepData, isDerivedGateGeometryField } from '../../utils/forms/gateGeometry';
 
 interface FormWizardProps {
     entityName: string;
@@ -636,15 +637,26 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     parsedAll,
                     progress.childProgresses || []
                 );
+                const normalizedAll = normalizeAllStepsData(fetchedCfg, mergedAll);
+                const derivedAll = Object.fromEntries(
+                    Object.entries(normalizedAll).map(([stepIndex, stepData]) => [
+                        stepIndex,
+                        deriveGateGeometryStepData(progress.entityTypeName || entityName, stepData)
+                    ])
+                ) as AllStepsData;
 
                 // Ensure all fields present with null/defaults
+                setCurrentStepIndex(progress.currentStepIndex);
                 setCurrentStepData(
-                    normalizeStepData(
-                        fetchedCfg.steps[progress.currentStepIndex],
-                        mergedAll[progress.currentStepIndex] || parsedCurrent
+                    deriveGateGeometryStepData(
+                        progress.entityTypeName || entityName,
+                        normalizeStepData(
+                            fetchedCfg.steps[progress.currentStepIndex],
+                            mergedAll[progress.currentStepIndex] || parsedCurrent
+                        )
                     )
                 );
-                setAllStepsData(normalizeAllStepsData(fetchedCfg, mergedAll));
+                setAllStepsData(derivedAll);
                 debug('loadConfiguration:restored-state', {
                     currentStepIndex: progress.currentStepIndex,
                     parsedCurrent,
@@ -1029,7 +1041,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         });
 
         const mergedCurrent = { ...currentStepData, [fieldName]: value };
-        const normalizedCurrent = normalizeStepData(currentStep, mergedCurrent);
+        const normalizedCurrent = deriveGateGeometryStepData(
+            entityName,
+            normalizeStepData(currentStep, mergedCurrent)
+        );
         const updatedAllData: AllStepsData = { ...allStepsData, [currentStepIndex]: normalizedCurrent };
 
         fieldProvenanceRef.current[fieldName.toLowerCase()] = 'manual';
@@ -1962,7 +1977,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         }
 
                         const fieldId = field.id ? Number(field.id) : null;
-                        const canRenderWorldTaskPanel = worldTaskEnabled && workflowSessionId != null && !!taskType;
+                        const renderedField = isDerivedGateGeometryField(entityName, field.fieldName, currentStepData)
+                            ? { ...field, isReadOnly: true }
+                            : field;
+                        const canRenderWorldTaskPanel = worldTaskEnabled
+                            && workflowSessionId != null
+                            && !!taskType
+                            && !renderedField.isReadOnly;
                         const worldTaskActionButtonId = `worldtask-action-${currentStepIndex}-${field.fieldName}`;
                         const worldTaskStatusVisibleForField = worldTaskStatusVisibility[worldTaskActionButtonId] || false;
                         const hasFieldError = !!errors[field.fieldName];
@@ -1973,7 +1994,6 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         const fieldValidationRules = fieldId ? (validationRules[fieldId] || []) : [];
                         const flatFormValues = config ? flattenAllStepsData(config, allStepsData) : {};
                         const canRetryValidation = !!fieldId && fieldValidationRules.length > 0;
-
                         const handleRetryValidation = () => {
                             if (!fieldId) return;
 
@@ -2011,7 +2031,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         return (
                             <div key={`${field.id ?? field.fieldName}-composed`} className={fieldContainerClass}>
                                 <FieldRenderer
-                                    field={field}
+                                    field={renderedField}
                                     value={currentStepData[field.fieldName]}
                                     onChange={value => handleFieldChange(field.fieldName, value)}
                                     error={errors[field.fieldName]}
@@ -2032,7 +2052,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
                                 {canRenderWorldTaskPanel && (
                                     <WorldBoundFieldRenderer
-                                        field={field}
+                                        field={renderedField}
                                         value={currentStepData[field.fieldName]}
                                         onChange={(value: any) => handleFieldChange(field.fieldName, value)}
                                         taskType={taskType!}

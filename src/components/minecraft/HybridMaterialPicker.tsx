@@ -10,6 +10,7 @@ interface HybridMaterialPickerProps {
     required?: boolean;
     error?: string;
     categoryFilter?: string;
+    disabled?: boolean;
     multiSelect?: boolean;
 }
 
@@ -21,6 +22,7 @@ export const HybridMaterialPicker: React.FC<HybridMaterialPickerProps> = ({
     required = false,
     error,
     categoryFilter,
+    disabled = false,
     multiSelect = false
 }) => {
     const selectionConfig: SelectionConfig = {
@@ -46,6 +48,8 @@ export const HybridMaterialPicker: React.FC<HybridMaterialPickerProps> = ({
     }, [value]);
 
     const handleSelectionChange = (selected: any[]) => {
+        if (disabled) return;
+
         if (multiSelect) {
             // Return full objects array
             onChange(selected);
@@ -56,7 +60,7 @@ export const HybridMaterialPicker: React.FC<HybridMaterialPickerProps> = ({
     };
 
     return (
-        <div className="space-y-2">
+        <div className={`space-y-2 ${disabled ? 'pointer-events-none' : ''}`} aria-disabled={disabled}>
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     {label}

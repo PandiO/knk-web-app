@@ -23,6 +23,7 @@ export const HybridEnchantmentPicker: React.FC<HybridEnchantmentPickerProps> = (
     required = false,
     error,
     categoryFilter,
+    disabled = false,
     multiSelect = false
 }) => {
     const selectionConfig: SelectionConfig = {
@@ -48,6 +49,8 @@ export const HybridEnchantmentPicker: React.FC<HybridEnchantmentPickerProps> = (
     }, [value]);
 
     const handleSelectionChange = (selected: any[]) => {
+        if (disabled) return;
+
         if (multiSelect) {
             // Return full objects array
             onChange(selected);
@@ -58,7 +61,7 @@ export const HybridEnchantmentPicker: React.FC<HybridEnchantmentPickerProps> = (
     };
 
     return (
-        <div className="space-y-2">
+        <div className={`space-y-2 ${disabled ? 'pointer-events-none' : ''}`} aria-disabled={disabled}>
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     {label}

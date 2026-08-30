@@ -43,6 +43,15 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     // Note: allStepsData, currentStepIndex, errors are available in props but currently unused
 }) => {
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG]', ...args);
+    const guardedOnChange = (newValue: any) => {
+        if (!field.isReadOnly) {
+            onChange(newValue);
+        }
+    };
+    const guardedOnBlur = field.isReadOnly ? undefined : onBlur;
+    const mutableCreateAction = field.isReadOnly ? undefined : onCreateNew;
+    const mutableEditAction = field.isReadOnly ? undefined : onEditInstance;
+    const mutableWorldTaskAction = field.isReadOnly ? undefined : onWorldTaskAction;
 
     React.useEffect(() => {
         debug('render', {
@@ -57,49 +66,53 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     }, [field.fieldName, field.fieldType, field.objectType, value, error, validationPending, validationResult]);
 
     const withFeedback = (content: React.ReactNode) => (
-        <div className="space-y-1">
+        <fieldset
+            disabled={field.isReadOnly}
+            aria-disabled={field.isReadOnly}
+            className={`min-w-0 space-y-1 ${field.isReadOnly ? 'pointer-events-none' : ''}`}
+        >
             {content}
             <ValidationFeedback
                 validationResult={validationResult}
                 pending={validationPending}
-                onRetryValidation={onRetryValidation}
+                onRetryValidation={field.isReadOnly ? undefined : onRetryValidation}
             />
-        </div>
+        </fieldset>
     );
 
     switch (field.fieldType) {
         case FieldType.String:
             return withFeedback(
-                <StringField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />
+                <StringField field={field} value={value} onChange={guardedOnChange} error={error} onBlur={guardedOnBlur} />
             );
         case FieldType.Integer:
             return withFeedback(
-                <IntegerField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />
+                <IntegerField field={field} value={value} onChange={guardedOnChange} error={error} onBlur={guardedOnBlur} />
             );
         case FieldType.Decimal:
             return withFeedback(
-                <DecimalField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />
+                <DecimalField field={field} value={value} onChange={guardedOnChange} error={error} onBlur={guardedOnBlur} />
             );
         case FieldType.Boolean:
-            return withFeedback(<BooleanField field={field} value={value} onChange={onChange} error={error} />);
+            return withFeedback(<BooleanField field={field} value={value} onChange={guardedOnChange} error={error} />);
         case FieldType.DateTime:
             return withFeedback(
-                <DateTimeField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />
+                <DateTimeField field={field} value={value} onChange={guardedOnChange} error={error} onBlur={guardedOnBlur} />
             );
         case FieldType.Enum:
             return withFeedback(
-                <EnumField field={field} value={value} onChange={onChange} error={error} onBlur={onBlur} />
+                <EnumField field={field} value={value} onChange={guardedOnChange} error={error} onBlur={guardedOnBlur} />
             );
         case FieldType.Object:
             return withFeedback(
                 <ObjectField
                     field={field}
                     value={value}
-                    onChange={onChange}
+                    onChange={guardedOnChange}
                     error={error}
-                    onCreateNew={onCreateNew}
-                    onEditInstance={onEditInstance}
-                    onWorldTaskAction={onWorldTaskAction}
+                    onCreateNew={mutableCreateAction}
+                    onEditInstance={mutableEditAction}
+                    onWorldTaskAction={mutableWorldTaskAction}
                     worldTaskStatusVisible={worldTaskStatusVisible}
                 />
             );
@@ -108,9 +121,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                 <ListField
                     field={field}
                     value={value}
-                    onChange={onChange}
+                    onChange={guardedOnChange}
                     error={error}
-                    onEditInstance={onEditInstance}
+                    onEditInstance={mutableEditAction}
                 />
             );
         case FieldType.HybridMinecraftMaterialRefPicker: {
@@ -120,11 +133,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     label={field.label}
                     description={field.description}
                     value={value}
-                    onChange={onChange}
+                    onChange={guardedOnChange}
                     required={field.isRequired}
                     error={error}
                     categoryFilter={settings.categoryFilter}
                     multiSelect={settings.multiSelect}
+                    disabled={field.isReadOnly}
                 />
             );
         }
@@ -135,11 +149,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     label={field.label}
                     description={field.description}
                     value={value}
-                    onChange={onChange}
+                    onChange={guardedOnChange}
                     required={field.isRequired}
                     error={error}
                     categoryFilter={settings.categoryFilter}
                     placeholder={field.placeholder}
+                    disabled={field.isReadOnly}
                 />
             );
         }
@@ -766,12 +781,14 @@ const ObjectField: React.FC<FieldRendererProps> = ({
         });
     }
 
-    actions.push({
-        key: 'replace',
-        label: value ? 'Replace instance' : 'Select instance',
-        onClick: () => setShowReplaceTable(prev => !prev),
-        icon: <RefreshCw className="h-4 w-4" />
-    });
+    if (!field.isReadOnly) {
+        actions.push({
+            key: 'replace',
+            label: value ? 'Replace instance' : 'Select instance',
+            onClick: () => setShowReplaceTable(prev => !prev),
+            icon: <RefreshCw className="h-4 w-4" />
+        });
+    }
 
     return (
         <div>
@@ -809,18 +826,20 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                             )}
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={handleRemoveSelection}
-                        className="text-red-600 hover:text-red-800 hover:bg-red-100 rounded-full p-1"
-                        title="Remove selection"
-                    >
-                        <X className="h-4 w-4" />
-                    </button>
+                    {!field.isReadOnly && (
+                        <button
+                            type="button"
+                            onClick={handleRemoveSelection}
+                            className="text-red-600 hover:text-red-800 hover:bg-red-100 rounded-full p-1"
+                            title="Remove selection"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    )}
                 </div>
             )}
 
-            <div className="space-y-2">
+            {!field.isReadOnly && <div className="space-y-2">
                 <div className="self-start">
                     <details className="relative sm:hidden">
                         <summary className="btn-secondary whitespace-nowrap cursor-pointer list-none">
@@ -896,7 +915,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                         />
                     </div>
                 )}
-            </div>
+            </div>}
             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         </div>
     );
@@ -992,6 +1011,7 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                             <button
                                 type="button"
                                 onClick={() => removeItem(index)}
+                                disabled={field.isReadOnly}
                                 className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md"
                             >
                                 <Minus className="h-4 w-4" />
@@ -1001,6 +1021,7 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                     <button
                         type="button"
                         onClick={addItem}
+                        disabled={field.isReadOnly}
                         className="btn-secondary w-full"
                     >
                         <Plus className="h-4 w-4 mr-2" />
@@ -1051,14 +1072,16 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                                                 <p className="text-xs text-green-600">ID: {item.id}</p>
                                             </div>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemoveItem(item.id)}
-                                            className="text-green-600 hover:text-green-800 hover:bg-green-100 rounded-full p-1 flex-shrink-0"
-                                            title="Remove from selection"
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </button>
+                                        {!field.isReadOnly && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveItem(item.id)}
+                                                className="text-green-600 hover:text-green-800 hover:bg-green-100 rounded-full p-1 flex-shrink-0"
+                                                title="Remove from selection"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        )}
                                         {onEditInstance && (
                                             <button
                                                 type="button"
@@ -1074,7 +1097,7 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                         </div>
                     )}
 
-                    <div className="border border-gray-200 rounded-md p-4">
+                    {!field.isReadOnly && <div className="border border-gray-200 rounded-md p-4">
                         <PagedEntityTable
                             entityTypeName={field.objectType}
                             columns={columnDefinitionsRegistry[field.objectType]?.default || defaultColumnDefinitions.default}
@@ -1085,7 +1108,7 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                             showSearchBar={true}
                             showSelectionBanner={false}
                         />
-                    </div>
+                    </div>}
                 </>
             )}
             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}

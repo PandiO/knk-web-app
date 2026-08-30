@@ -119,4 +119,28 @@ describe('FieldRenderer display options', () => {
         expect(screen.getByText('world_KNK-DEV')).toBeVisible();
         expect(screen.queryByText(/^ID:/)).not.toBeInTheDocument();
     });
+
+    it('does not expose mutating object actions for a read-only field', () => {
+        const onChange = jest.fn();
+
+        render(
+            <FieldRenderer
+                field={baseField({
+                    fieldName: 'regionClosedId',
+                    label: 'Closed Region Id',
+                    fieldType: FieldType.Object,
+                    objectType: 'Location',
+                    isReadOnly: true
+                })}
+                value={{ id: 42, name: 'gate_closed' }}
+                onChange={onChange}
+                onCreateNew={jest.fn()}
+                onEditInstance={jest.fn()}
+                onWorldTaskAction={jest.fn()}
+            />
+        );
+
+        expect(screen.queryByRole('button')).not.toBeInTheDocument();
+        expect(onChange).not.toHaveBeenCalled();
+    });
 });
