@@ -8,6 +8,7 @@ import { HybridMaterialPicker } from '../minecraft/HybridMaterialPicker';
 import { HybridEnchantmentPicker } from '../minecraft/HybridEnchantmentPicker';
 import { ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { interpolatePlaceholders } from '../../utils/placeholderInterpolation';
+import { isHeadlessTaskType } from '../Workflow/WorldBoundFieldRenderer';
 
 interface FieldRendererProps {
     field: FormFieldDto;
@@ -124,6 +125,8 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     onChange={guardedOnChange}
                     error={error}
                     onEditInstance={mutableEditAction}
+                    onWorldTaskAction={mutableWorldTaskAction}
+                    worldTaskStatusVisible={worldTaskStatusVisible}
                 />
             );
         case FieldType.HybridMinecraftMaterialRefPicker: {
@@ -160,6 +163,17 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
         }
         default:
             return <div className="text-sm text-gray-500">Unsupported field type: {field.fieldType}</div>;
+    }
+};
+
+const parseWorldTaskTaskType = (settingsJson?: string): string | undefined => {
+    if (!settingsJson) return undefined;
+    try {
+        const parsed = JSON.parse(settingsJson);
+        return parsed?.worldTask?.taskType;
+    } catch (err) {
+        console.warn('Failed to parse worldTask settingsJson', err);
+        return undefined;
     }
 };
 
@@ -921,13 +935,29 @@ const ObjectField: React.FC<FieldRendererProps> = ({
     );
 };
 
-const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onEditInstance }) => {
+const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onEditInstance, onWorldTaskAction }) => {
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ListField]', ...args);
     console.log('Rendering ListField with value:', value);
     const items = Array.isArray(value) ? value : [];
     
     const listElementType = field.elementType || FieldType.String;
     const isObjectList = field.objectType != null;
+
+    const hasItems = items.length > 0;
+    const worldTaskLabel = isHeadlessTaskType(parseWorldTaskTaskType(field.settingsJson))
+        ? (hasItems ? 'Re-scan in Minecraft' : 'Scan in Minecraft')
+        : (hasItems ? 'Replace via Minecraft' : 'Send to Minecraft');
+
+    const worldTaskButton = onWorldTaskAction ? (
+        <button
+            type="button"
+            onClick={onWorldTaskAction}
+            className="btn-secondary whitespace-nowrap inline-flex items-center gap-1"
+        >
+            <Gamepad2 className="h-4 w-4" />
+            {worldTaskLabel}
+        </button>
+    ) : null;
 
     const selectionConfig: SelectionConfig = {
         mode: 'multiple',
@@ -1027,6 +1057,7 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                         <Plus className="h-4 w-4 mr-2" />
                         Add Item
                     </button>
+                    {worldTaskButton}
                 </div>
                 {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
             </div>
@@ -1095,6 +1126,10 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                                 ))}
                             </div>
                         </div>
+                    )}
+
+                    {!field.isReadOnly && worldTaskButton && (
+                        <div className="mb-3">{worldTaskButton}</div>
                     )}
 
                     {!field.isReadOnly && <div className="border border-gray-200 rounded-md p-4">
