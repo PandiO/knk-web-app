@@ -83,7 +83,18 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
     }, [validationType, initialRule]);
 
     useEffect(() => {
+        const defaultValidationType = 'LocationInsideRegion';
+        const template = CONFIG_TEMPLATES[defaultValidationType];
+
+        setValidationType(initialRule?.validationType || defaultValidationType);
+        setDependsOnFieldId(initialRule?.dependsOnFieldId || '');
         setDependencyPath(initialRule?.dependencyPath || '');
+        setConfigJson(initialRule?.configJson || JSON.stringify(template.config, null, 2));
+        setErrorMessage(initialRule?.errorMessage || template.error);
+        setSuccessMessage(initialRule?.successMessage || template.success || '');
+        setIsBlocking(initialRule?.isBlocking ?? true);
+        setRequiresDependencyFilled(initialRule?.requiresDependencyFilled ?? false);
+        setJsonError(null);
         setPathValidationResult(null);
         setPathError(null);
     }, [initialRule]);

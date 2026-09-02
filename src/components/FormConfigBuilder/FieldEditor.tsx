@@ -7,7 +7,7 @@ import { metadataClient } from '../../apiClients/metadataClient';
 import { mapFieldType } from '../../utils/fieldTypeMapper';
 import { ValidationRuleBuilder } from './ValidationRuleBuilder';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
-import { CreateFieldValidationRuleDto, FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { CreateFieldValidationRuleDto, FieldValidationRuleDto, UpdateFieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { FeedbackModal } from '../FeedbackModal';
 import {
     PROJECTION_OVERWRITE_POLICIES,
@@ -80,6 +80,7 @@ export const FieldEditor: React.FC<Props> = ({
     const [validationRules, setValidationRules] = useState<FieldValidationRuleDto[]>([]);
     const [rulesLoading, setRulesLoading] = useState<boolean>(false);
     const [showRuleBuilder, setShowRuleBuilder] = useState<boolean>(false);
+    const [editingRule, setEditingRule] = useState<FieldValidationRuleDto | undefined>(undefined);
     const [rulesError, setRulesError] = useState<string | null>(null);
     type RuleFeedbackState = { open: boolean; title: string; message: string; status: 'success' | 'error' | 'info' };
     const [ruleFeedback, setRuleFeedback] = useState<RuleFeedbackState>({ open: false, title: '', message: '', status: 'info' });
@@ -362,6 +363,7 @@ export const FieldEditor: React.FC<Props> = ({
             await fieldValidationRuleClient.create(rule);
             await loadValidationRules();
             setShowRuleBuilder(false);
+            setEditingRule(undefined);
             setRuleFeedback({
                 open: true,
                 title: 'Validation rule added',
@@ -377,11 +379,49 @@ export const FieldEditor: React.FC<Props> = ({
         }
     };
 
+    const handleUpdateRule = async (rule: CreateFieldValidationRuleDto) => {
+        if (!editingRule) return;
+        const payload: UpdateFieldValidationRuleDto = {
+            validationType: rule.validationType,
+            dependsOnFieldId: rule.dependsOnFieldId,
+            dependencyPath: rule.dependencyPath,
+            configJson: rule.configJson,
+            errorMessage: rule.errorMessage,
+            successMessage: rule.successMessage,
+            isBlocking: rule.isBlocking,
+            requiresDependencyFilled: rule.requiresDependencyFilled
+        };
+
+        try {
+            setRulesError(null);
+            await fieldValidationRuleClient.update(editingRule.id, payload);
+            await loadValidationRules();
+            setShowRuleBuilder(false);
+            setEditingRule(undefined);
+            setRuleFeedback({
+                open: true,
+                title: 'Validation rule updated',
+                message: 'Rule saved successfully.',
+                status: 'success'
+            });
+            onRulesChanged?.();
+        } catch (err: any) {
+            console.error('Failed to update validation rule:', err);
+            const msg = err?.response?.data?.message || err?.message || 'Failed to update validation rule';
+            setRulesError(msg);
+            setRuleFeedback({ open: true, title: 'Update rule failed', message: msg, status: 'error' });
+        }
+    };
+
     const handleDeleteRule = async (ruleId: number) => {
         if (!window.confirm('Delete this validation rule?')) return;
         try {
             await fieldValidationRuleClient.delete(ruleId);
             await loadValidationRules();
+            if (editingRule?.id === ruleId) {
+                setShowRuleBuilder(false);
+                setEditingRule(undefined);
+            }
             setRuleFeedback({ open: true, title: 'Validation rule removed', message: 'Rule deleted successfully.', status: 'success' });
             onRulesChanged?.();
         } catch (err: any) {
@@ -419,7 +459,10 @@ export const FieldEditor: React.FC<Props> = ({
                     </div>
                     <button
                         className="btn-secondary text-sm"
-                        onClick={() => setShowRuleBuilder(true)}
+                        onClick={() => {
+                            setEditingRule(undefined);
+                            setShowRuleBuilder(true);
+                        }}
                         disabled={!canManageRules}
                     >
                         + Add Rule
@@ -473,12 +516,23 @@ export const FieldEditor: React.FC<Props> = ({
                                         </p>
                                     )}
                                 </div>
-                                <button
-                                    onClick={() => handleDeleteRule(rule.id)}
-                                    className="text-red-600 hover:text-red-800 text-sm ml-3"
-                                >
-                                    Delete
-                                </button>
+                                <div className="flex items-center gap-3 ml-3">
+                                    <button
+                                        onClick={() => {
+                                            setEditingRule(rule);
+                                            setShowRuleBuilder(true);
+                                        }}
+                                        className="text-blue-600 hover:text-blue-800 text-sm"
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteRule(rule.id)}
+                                        className="text-red-600 hover:text-red-800 text-sm"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -491,8 +545,12 @@ export const FieldEditor: React.FC<Props> = ({
                             availableFields={allFields}
                             entityTypeName={entityTypeName || ''}
                             entityMetadata={entityMetadataMap}
-                            onSave={handleAddRule}
-                            onCancel={() => setShowRuleBuilder(false)}
+                            onSave={editingRule ? handleUpdateRule : handleAddRule}
+                            onCancel={() => {
+                                setShowRuleBuilder(false);
+                                setEditingRule(undefined);
+                            }}
+                            initialRule={editingRule}
                         />
                     </div>
                 )}
