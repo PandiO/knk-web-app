@@ -16,6 +16,8 @@ interface WorldBoundFieldRendererProps {
     workflowSessionId: number;
     stepNumber?: number;
     stepKey?: string;
+    /** ID of the entity being edited by this wizard, if it has already been saved. Required for headless tasks that operate on an existing row (e.g. GateBlockScan). */
+    entityId?: string | number;
     preResolvedPlaceholders?: Record<string, string>; // Phase 5.2: Pre-resolved placeholders from validation rules
     formConfiguration?: FormConfigurationDto; // Phase 7: Form configuration for dependency resolution context
     validationRules?: FieldValidationRuleDto[]; // Phase 7: Validation rules for current field
@@ -107,6 +109,18 @@ export function getWorldTaskResultDetails(task: WorldTaskReadDto, taskType: stri
             ? parsedOutput as Record<string, any>
             : {};
 
+        if (isGateBlockScanTask(taskType, task.taskType) && output.status !== undefined) {
+            const details: WorldTaskResultDetail[] = [
+                { label: 'Status', value: String(output.status) },
+                { label: 'Blocks scanned', value: String(output.blockCount ?? 0) }
+            ];
+            const warningCount = Array.isArray(output.warnings) ? output.warnings.length : 0;
+            if (warningCount > 0) {
+                details.push({ label: 'Warnings', value: String(warningCount) });
+            }
+            return details;
+        }
+
         if (isLocationTask(taskType, task.taskType) &&
             output.x !== undefined && output.y !== undefined && output.z !== undefined) {
             const details: WorldTaskResultDetail[] = [];
@@ -195,7 +209,17 @@ function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
     try {
         const parsedOutput = JSON.parse(task.outputJson);
         const output = parsedOutput && typeof parsedOutput === 'object' ? parsedOutput as Record<string, any> : {};
-        
+
+        // GateBlockScan: snapshots are already persisted server-side; the field only needs a
+        // small summary so "already scanned" state survives a saved/resumed draft.
+        if (isGateBlockScanTask(taskType, task.taskType) && output.status !== undefined) {
+            return {
+                status: output.status,
+                blockCount: output.blockCount ?? 0,
+                scannedAt: new Date().toISOString()
+            };
+        }
+
         // Special handling for Location tasks
         if (isLocationTask(taskType, task.taskType)) {
             // Extract raw location data and convert to location object
@@ -250,6 +274,10 @@ function isLocationTask(taskType: string, actualTaskType?: string): boolean {
     return types.some(t => t.includes('location') || t.includes('capture'));
 }
 
+function isGateBlockScanTask(taskType: string, actualTaskType?: string): boolean {
+    return taskType === 'GateBlockScan' || actualTaskType === 'GateBlockScan';
+}
+
 export function shouldShowWorldTaskResultDetails(task: WorldTaskReadDto, taskType: string): boolean {
     return !isLocationTask(taskType, task.taskType);
 }
@@ -264,6 +292,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     workflowSessionId,
     stepNumber,
     stepKey,
+    entityId,
     preResolvedPlaceholders,
     formConfiguration,
     validationRules,
@@ -381,8 +410,29 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const handleCreateInMinecraft = async () => {
         if (isReadOnlyRef.current) return;
 
+        const isGateBlockScan = taskType === 'GateBlockScan';
+        if (isGateBlockScan && !entityId) {
+            console.warn('Cannot start GateBlockScan: entity has not been saved yet, no gateStructureId available.');
+            return;
+        }
+
         setIsLoading(true);
         try {
+            if (isGateBlockScan) {
+                const created = await worldTaskClient.create({
+                    workflowSessionId,
+                    stepNumber,
+                    stepKey: stepKey || field.formStepId || 'unknown',
+                    fieldName: field.fieldName,
+                    taskType,
+                    inputJson: JSON.stringify({ gateStructureId: Number(entityId) }),
+                });
+
+                setTask(created);
+                setTaskId(created.id);
+                return;
+            }
+
             // Phase 5.2: Build input JSON with pre-resolved placeholders
             // Phase 7: Include enriched form context with resolved dependencies
             const inputData: any = {
@@ -466,6 +516,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
     const taskStatus = getNormalizedStatus(task?.status);
     const isHeadless = isHeadlessTaskType(taskType, task?.taskType);
+    const gateScanBlocked = taskType === 'GateBlockScan' && !entityId;
     const scanWarnings = task && taskStatus === 'completed' ? getScanWarnings(task) : [];
     const resultDetails = task && taskStatus === 'completed'
         ? getWorldTaskResultDetails(task, task.taskType || taskType)
@@ -651,8 +702,22 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 </div>
             )}
 
+            {/* Cached scan summary from a previous run (survives saved/resumed drafts) */}
+            {!task && !taskId && taskType === 'GateBlockScan' && value?.status && (
+                <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                    <p className="text-sm text-gray-700">
+                        Previously scanned: <strong>{value.blockCount ?? 0} blocks</strong> ({value.status})
+                    </p>
+                </div>
+            )}
+
             {/* Button to create in Minecraft */}
-            {allowCreate && !field.isReadOnly && !taskId && (
+            {gateScanBlocked && !field.isReadOnly && !taskId && (
+                <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2">
+                    Save the gate first; scanning needs an existing gate ID.
+                </p>
+            )}
+            {allowCreate && !field.isReadOnly && !taskId && !gateScanBlocked && (
                 <button
                     id={actionButtonId}
                     onClick={handleCreateInMinecraft}

@@ -2059,6 +2059,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                         workflowSessionId={workflowSessionId!}
                                         stepNumber={currentStepIndex}
                                         stepKey={stepKey}
+                                        entityId={entityId}
                                         formConfiguration={config}
                                         validationRules={fieldValidationRules}
                                         currentFormValues={flatFormValues}
