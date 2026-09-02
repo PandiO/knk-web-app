@@ -237,13 +237,15 @@ export const FieldEditor: React.FC<Props> = ({
     const handleFieldNameChange = (selectedFieldName: string) => {
         const metaField = metadataFields.find(mf => mf.fieldName === selectedFieldName);
         if (metaField) {
-            const hasMetadataDefault = metaField.hasDefaultValue && metaField.defaultValue !== undefined && metaField.defaultValue !== null;
+            const mappedFieldType = mapFieldType(metaField.fieldType);
+            // Collection defaults (e.g. "new Collection()") are informational only, not a submittable value.
+            const hasMetadataDefault = metaField.hasDefaultValue && metaField.defaultValue !== undefined && metaField.defaultValue !== null && !isCollectionType(mappedFieldType);
             setPlaceholderIsDefault(hasMetadataDefault);
             setField(prev => ({
                 ...prev,
                 fieldName: metaField.fieldName,
                 label: metaField.fieldName, // auto-populate label
-                fieldType: mapFieldType(metaField.fieldType), // auto-populate type
+                fieldType: mappedFieldType, // auto-populate type
                 // optionally set objectType if it's a related entity
                 objectType: metaField.isRelatedEntity ? metaField.relatedEntityType || undefined : undefined,
                 // automatically set Required checkbox based on field nullability: non-nullable fields are required

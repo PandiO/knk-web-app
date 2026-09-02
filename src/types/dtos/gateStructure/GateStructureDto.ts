@@ -58,6 +58,8 @@ export interface GateStructureDto {
   geometryWidth?: number;
   geometryHeight?: number;
   geometryDepth?: number;
+  motionDistanceBlocks?: number;
+  clipToGeometryBounds?: boolean;
 
   seedBlocks?: string;
   scanMaxBlocks?: number;
@@ -152,6 +154,8 @@ export interface GateStructureCreateDto {
   geometryWidth?: number;
   geometryHeight?: number;
   geometryDepth?: number;
+  motionDistanceBlocks?: number;
+  clipToGeometryBounds?: boolean;
 
   seedBlocks?: string;
   scanMaxBlocks?: number;

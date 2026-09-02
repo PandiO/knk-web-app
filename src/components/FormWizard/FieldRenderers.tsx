@@ -9,70 +9,6 @@ import { HybridEnchantmentPicker } from '../minecraft/HybridEnchantmentPicker';
 import { ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { interpolatePlaceholders } from '../../utils/placeholderInterpolation';
 import { isHeadlessTaskType } from '../Workflow/WorldBoundFieldRenderer';
-import { displayConfigClient } from '../../apiClients/displayConfigClient';
-import { DisplayFieldDto } from '../../types/dtos/displayConfig/DisplayModels';
-
-/** Flattens a display configuration's sections/subSections into an ordered list of fields. */
-const flattenDisplayFields = (sections: { fields: DisplayFieldDto[]; subSections: any[] }[]): DisplayFieldDto[] => {
-    const result: DisplayFieldDto[] = [];
-    const visit = (section: { fields: DisplayFieldDto[]; subSections: any[] }) => {
-        result.push(...section.fields.filter(f => !!f.fieldName));
-        (section.subSections || []).forEach(visit);
-    };
-    sections.forEach(visit);
-    return result;
-};
-
-// Module-level cache: an entity's default display columns rarely change within a session.
-const defaultDisplayFieldsCache = new Map<string, DisplayFieldDto[]>();
-const defaultDisplayFieldsInFlight = new Map<string, Promise<DisplayFieldDto[]>>();
-
-/**
- * Fetches the entity type's configured default DisplayConfiguration and returns its fields
- * (flattened, in order), so ObjectField can show the same columns admins configured for tables
- * instead of a hardcoded name/id summary. Falls back to an empty list on failure.
- */
-const useDefaultDisplayFields = (entityTypeName?: string): DisplayFieldDto[] => {
-    const [fields, setFields] = React.useState<DisplayFieldDto[]>(
-        entityTypeName ? defaultDisplayFieldsCache.get(entityTypeName) || [] : []
-    );
-
-    React.useEffect(() => {
-        if (!entityTypeName) {
-            setFields([]);
-            return;
-        }
-
-        const cached = defaultDisplayFieldsCache.get(entityTypeName);
-        if (cached) {
-            setFields(cached);
-            return;
-        }
-
-        let cancelled = false;
-        let request = defaultDisplayFieldsInFlight.get(entityTypeName);
-        if (!request) {
-            request = displayConfigClient.getDefaultByEntityType(entityTypeName)
-                .then(config => flattenDisplayFields(config.sections || []))
-                .catch(() => [] as DisplayFieldDto[]);
-            defaultDisplayFieldsInFlight.set(entityTypeName, request);
-        }
-
-        request.then(resolvedFields => {
-            defaultDisplayFieldsCache.set(entityTypeName, resolvedFields);
-            defaultDisplayFieldsInFlight.delete(entityTypeName);
-            if (!cancelled) {
-                setFields(resolvedFields);
-            }
-        });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [entityTypeName]);
-
-    return fields;
-};
 
 interface FieldRendererProps {
     field: FormFieldDto;
@@ -84,7 +20,6 @@ interface FieldRendererProps {
     onEditInstance?: (instance: any, index?: number) => void;
     onWorldTaskAction?: () => void;
     worldTaskStatusVisible?: boolean;
-    hideCollectionAddItem?: boolean;
     allStepsData?: { [stepIndex: number]: any }; // optional: for dependency evaluation
     currentStepIndex?: number; // optional: for context
     errors?: { [fieldName: string]: string }; // optional: error map
@@ -103,7 +38,6 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     onEditInstance,
     onWorldTaskAction,
     worldTaskStatusVisible,
-    hideCollectionAddItem,
     validationResult,
     validationPending,
     onRetryValidation
@@ -181,7 +115,6 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     onEditInstance={mutableEditAction}
                     onWorldTaskAction={mutableWorldTaskAction}
                     worldTaskStatusVisible={worldTaskStatusVisible}
-                    hideCollectionAddItem={hideCollectionAddItem}
                 />
             );
         case FieldType.List:
@@ -194,7 +127,6 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     onEditInstance={mutableEditAction}
                     onWorldTaskAction={mutableWorldTaskAction}
                     worldTaskStatusVisible={worldTaskStatusVisible}
-                    hideCollectionAddItem={hideCollectionAddItem}
                 />
             );
         case FieldType.HybridMinecraftMaterialRefPicker: {
@@ -778,24 +710,6 @@ const getLocationDetails = (value: any): Array<{ label: string; value: string }>
     return details;
 };
 
-/** Builds the entity's configured default table columns into label/value pairs for the value at hand. */
-const getConfiguredDisplayDetails = (
-    value: any,
-    displayFields: DisplayFieldDto[]
-): Array<{ label: string; value: string }> => {
-    if (!value || typeof value !== 'object' || displayFields.length === 0) return [];
-
-    return displayFields
-        .filter(field => field.fieldName && field.fieldName.toLowerCase() !== 'id')
-        .map(field => {
-            const rawValue = getObjectValue(value, field.fieldName!);
-            if (rawValue === undefined || rawValue === null || rawValue === '') return null;
-            const formatted = typeof rawValue === 'number' ? formatLocationNumber(rawValue) : String(rawValue);
-            return { label: field.label || field.fieldName!, value: formatted };
-        })
-        .filter((detail): detail is { label: string; value: string } => detail !== null);
-};
-
 const ObjectField: React.FC<FieldRendererProps> = ({
     field,
     value,
@@ -809,11 +723,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ObjectField]', ...args);
     const canCreate = field.canCreate !== false; // default true if not specified
     const [showReplaceTable, setShowReplaceTable] = React.useState(false);
-    const configuredDisplayFields = useDefaultDisplayFields(field.objectType);
-    const configuredDetails = getConfiguredDisplayDetails(value, configuredDisplayFields);
-    // Fall back to the generic Location shape when the entity has no configured display columns.
-    const locationDetails = configuredDetails.length > 0 ? [] : getLocationDetails(value);
-    const summaryDetails = configuredDetails.length > 0 ? configuredDetails : locationDetails;
+    const locationDetails = getLocationDetails(value);
 
     React.useEffect(() => {
         if (value) {
@@ -918,9 +828,9 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                             {(value.id !== undefined && value.id !== null) && (
                                 <p className="text-xs text-green-600">ID: {value.id}</p>
                             )}
-                            {summaryDetails.length > 0 && (
+                            {locationDetails.length > 0 && (
                                 <dl className="mt-2 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-                                    {summaryDetails.map(detail => (
+                                    {locationDetails.map(detail => (
                                         <React.Fragment key={detail.label}>
                                             <dt className="font-medium text-green-700">{detail.label}</dt>
                                             <dd className="min-w-0 break-words font-mono text-green-950">{detail.value}</dd>
@@ -1025,15 +935,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
     );
 };
 
-const ListField: React.FC<FieldRendererProps> = ({
-    field,
-    value,
-    onChange,
-    error,
-    onEditInstance,
-    onWorldTaskAction,
-    hideCollectionAddItem
-}) => {
+const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onEditInstance, onWorldTaskAction }) => {
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ListField]', ...args);
     console.log('Rendering ListField with value:', value);
     const items = Array.isArray(value) ? value : [];
@@ -1146,17 +1048,15 @@ const ListField: React.FC<FieldRendererProps> = ({
                             </button>
                         </div>
                     ))}
-                    {!hideCollectionAddItem && (
-                        <button
-                            type="button"
-                            onClick={addItem}
-                            disabled={field.isReadOnly}
-                            className="btn-secondary w-full"
-                        >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Item
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        onClick={addItem}
+                        disabled={field.isReadOnly}
+                        className="btn-secondary w-full"
+                    >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Item
+                    </button>
                     {worldTaskButton}
                 </div>
                 {error && <p className="mt-1 text-sm text-red-600">{error}</p>}

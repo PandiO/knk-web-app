@@ -215,7 +215,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 // overwrites the value parked in the stash.
                 if (visibleFieldNames && !visibleFieldNames.has(field.fieldName)) return;
                 const hasValue = data && Object.prototype.hasOwnProperty.call(data, field.fieldName);
-                const value = hasValue ? (data as StepData)[field.fieldName] : (field.defaultValue ?? null);
+                // List fields store a display-only default (e.g. "new Collection()") in metadata,
+                // never a literal submittable value, so fall back to null instead.
+                const fallback = field.fieldType === FieldType.List ? null : (field.defaultValue ?? null);
+                const value = hasValue ? (data as StepData)[field.fieldName] : fallback;
                 result[field.fieldName] = value;
             });
         return result;
@@ -336,7 +339,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         cfg.steps.forEach((step, idx) => {
             getOrderedFields(step).forEach(field => {
                 const val = stepsData?.[idx]?.[field.fieldName];
-                flat[field.fieldName] = val ?? field.defaultValue ?? null;
+                // List fields store a display-only default (e.g. "new Collection()") in metadata,
+                // never a literal submittable value, so fall back to null instead.
+                const fallback = field.fieldType === FieldType.List ? null : (field.defaultValue ?? null);
+                flat[field.fieldName] = val ?? fallback;
             });
         });
         return flat;
