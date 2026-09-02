@@ -813,6 +813,28 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         });
     }, [currentStepIndex, config, allStepsData, preResolvedPlaceholders, resolvePlaceholdersForField]);
 
+    /**
+     * Object-type fields (e.g. AnchorPointId) are configured under the FK field name, but the
+     * entity DTO only exposes the raw FK integer under that name; the populated navigation
+     * object (with id/name/x/y/z, etc.) lives under the property with the "Id" suffix stripped
+     * (e.g. AnchorPoint). Without this, ObjectField only ever sees the bare number and can't
+     * render the related entity's name/id.
+     */
+    const resolveObjectFieldValueForEdit = (
+        entityData: Record<string, unknown>,
+        field: FormFieldDto,
+        rawValue: unknown
+    ): unknown => {
+        if (field.fieldType === FieldType.Object && rawValue !== null && (typeof rawValue !== 'object') && /Id$/.test(field.fieldName)) {
+            const navPropertyName = field.fieldName.slice(0, -2);
+            const navValue = findValueByFieldName(entityData, navPropertyName);
+            if (navValue && typeof navValue === 'object') {
+                return navValue;
+            }
+        }
+        return rawValue !== undefined ? rawValue : (field.defaultValue ?? null);
+    };
+
     // changed: simplified using utility function
     const loadExistingEntityData = async (entityTypeName: string, id: string, cfg: FormConfigurationDto) => {
         try {
@@ -824,7 +846,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 getOrderedFields(step).forEach(field => {
                     // Use utility function for case-insensitive lookup
                     const value = findValueByFieldName(entityData, field.fieldName);
-                    stepData[field.fieldName] = value !== undefined ? value : (field.defaultValue ?? null);
+                    stepData[field.fieldName] = resolveObjectFieldValueForEdit(entityData, field, value);
                 });
                 populatedStepsData[stepIndex] = stepData;
             });
@@ -2045,6 +2067,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                         }
                                         : undefined}
                                     worldTaskStatusVisible={worldTaskStatusVisibleForField}
+                                    hideCollectionAddItem={fieldWorldTaskEnabled && !!fieldTaskType}
                                     validationResult={field.id ? validationResults[Number(field.id)] : undefined}
                                     validationPending={field.id ? validationLoading[Number(field.id)] : false}
                                     onRetryValidation={canRetryValidation ? handleRetryValidation : undefined}

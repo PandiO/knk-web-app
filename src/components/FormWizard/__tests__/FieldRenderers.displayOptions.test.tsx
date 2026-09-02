@@ -143,4 +143,22 @@ describe('FieldRenderer display options', () => {
         expect(screen.queryByRole('button')).not.toBeInTheDocument();
         expect(onChange).not.toHaveBeenCalled();
     });
+
+    it('hides Add Item when a collection is populated by a WorldTask', () => {
+        render(
+            <FieldRenderer
+                field={baseField({
+                    fieldName: 'gateAnimationScan',
+                    label: 'Gate Animation scan',
+                    fieldType: FieldType.List,
+                    elementType: FieldType.String
+                })}
+                value={[]}
+                onChange={jest.fn()}
+                hideCollectionAddItem
+            />
+        );
+
+        expect(screen.queryByRole('button', { name: /add item/i })).not.toBeInTheDocument();
+    });
 });

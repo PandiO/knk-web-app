@@ -20,6 +20,7 @@ interface FieldRendererProps {
     onEditInstance?: (instance: any, index?: number) => void;
     onWorldTaskAction?: () => void;
     worldTaskStatusVisible?: boolean;
+    hideCollectionAddItem?: boolean;
     allStepsData?: { [stepIndex: number]: any }; // optional: for dependency evaluation
     currentStepIndex?: number; // optional: for context
     errors?: { [fieldName: string]: string }; // optional: error map
@@ -38,6 +39,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     onEditInstance,
     onWorldTaskAction,
     worldTaskStatusVisible,
+    hideCollectionAddItem,
     validationResult,
     validationPending,
     onRetryValidation
@@ -115,6 +117,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     onEditInstance={mutableEditAction}
                     onWorldTaskAction={mutableWorldTaskAction}
                     worldTaskStatusVisible={worldTaskStatusVisible}
+                    hideCollectionAddItem={hideCollectionAddItem}
                 />
             );
         case FieldType.List:
@@ -127,6 +130,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     onEditInstance={mutableEditAction}
                     onWorldTaskAction={mutableWorldTaskAction}
                     worldTaskStatusVisible={worldTaskStatusVisible}
+                    hideCollectionAddItem={hideCollectionAddItem}
                 />
             );
         case FieldType.HybridMinecraftMaterialRefPicker: {
@@ -935,7 +939,15 @@ const ObjectField: React.FC<FieldRendererProps> = ({
     );
 };
 
-const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onEditInstance, onWorldTaskAction }) => {
+const ListField: React.FC<FieldRendererProps> = ({
+    field,
+    value,
+    onChange,
+    error,
+    onEditInstance,
+    onWorldTaskAction,
+    hideCollectionAddItem
+}) => {
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ListField]', ...args);
     console.log('Rendering ListField with value:', value);
     const items = Array.isArray(value) ? value : [];
@@ -1048,15 +1060,17 @@ const ListField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                             </button>
                         </div>
                     ))}
-                    <button
-                        type="button"
-                        onClick={addItem}
-                        disabled={field.isReadOnly}
-                        className="btn-secondary w-full"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Item
-                    </button>
+                    {!hideCollectionAddItem && (
+                        <button
+                            type="button"
+                            onClick={addItem}
+                            disabled={field.isReadOnly}
+                            className="btn-secondary w-full"
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Item
+                        </button>
+                    )}
                     {worldTaskButton}
                 </div>
                 {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
