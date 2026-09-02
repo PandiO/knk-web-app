@@ -45,6 +45,27 @@ const getNormalizedStatus = (status?: string): string => (status || '').toLowerC
 
 const hasExtractedValue = (value: unknown): boolean => value !== null && value !== undefined;
 
+/**
+ * Task types that are executed by the plugin without a player and therefore never
+ * produce a claim code. The webapp shows scan progress instead of a "send to Minecraft" prompt.
+ */
+const HEADLESS_TASK_TYPES = ['GateBlockScan'];
+
+export function isHeadlessTaskType(taskType?: string, actualTaskType?: string): boolean {
+    return HEADLESS_TASK_TYPES.includes(taskType || '') || HEADLESS_TASK_TYPES.includes(actualTaskType || '');
+}
+
+function getScanWarnings(task: WorldTaskReadDto): string[] {
+    if (!task.outputJson) return [];
+    try {
+        const parsed = JSON.parse(task.outputJson);
+        const warnings = parsed?.warnings;
+        return Array.isArray(warnings) ? warnings.filter((entry): entry is string => typeof entry === 'string') : [];
+    } catch {
+        return [];
+    }
+}
+
 export interface WorldTaskResultDetail {
     label: string;
     value: string;
@@ -444,6 +465,8 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     };
 
     const taskStatus = getNormalizedStatus(task?.status);
+    const isHeadless = isHeadlessTaskType(taskType, task?.taskType);
+    const scanWarnings = task && taskStatus === 'completed' ? getScanWarnings(task) : [];
     const resultDetails = task && taskStatus === 'completed'
         ? getWorldTaskResultDetails(task, task.taskType || taskType)
         : [];
@@ -452,7 +475,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         : false;
 
     const hasVisibleStatusBanner =
-        (!!task && taskStatus === 'pending' && !!task.linkCode) ||
+        (!!task && taskStatus === 'pending' && (!!task.linkCode || isHeadless)) ||
         (!!task && (taskStatus === 'inprogress' || taskStatus === 'accepted')) ||
         (!!task && taskStatus === 'completed' && !extractionSucceeded && !extractionError) ||
         (!!task && taskStatus === 'completed' && extractionSucceeded) ||
@@ -472,8 +495,8 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 </label>
             )}
 
-            {/* Prominent claim code display for Pending tasks */}
-            {task && taskStatus === 'pending' && task.linkCode && (
+            {/* Prominent claim code display for Pending tasks (player-driven only) */}
+            {task && taskStatus === 'pending' && task.linkCode && !isHeadless && (
                 <div className="mb-4 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg shadow-sm">
                     <div className="flex items-start">
                         <span className="text-3xl mr-3">🎮</span>
@@ -527,6 +550,19 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 </div>
             )}
 
+            {/* Progress indicator for headless (no-player) tasks, e.g. GateBlockScan */}
+            {task && taskStatus === 'pending' && isHeadless && (
+                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="flex items-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" aria-hidden="true" />
+                        <p className="text-sm font-medium text-blue-800">Scanning in progress on the server…</p>
+                    </div>
+                    <p className="text-xs text-blue-600 mt-1">
+                        No in-game action is needed; this runs automatically and may take a moment for large areas.
+                    </p>
+                </div>
+            )}
+
             {/* Task in-progress state with claim info */}
             {task && (taskStatus === 'inprogress' || taskStatus === 'accepted') && (
                 <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
@@ -561,6 +597,13 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                         ✅ Task completed! Field has been auto-populated with the result.
                     </p>
                     {showResultDetails && <WorldTaskResultDetails details={resultDetails} />}
+                    {scanWarnings.length > 0 && (
+                        <ul className="mt-2 list-disc pl-5 text-xs text-yellow-800">
+                            {scanWarnings.map((warning, index) => (
+                                <li key={index}>{warning}</li>
+                            ))}
+                        </ul>
+                    )}
                     {!field.isReadOnly && (
                         <button
                             onClick={handleRunAgain}
@@ -616,7 +659,9 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     disabled={isLoading}
                     className={hidePrimaryActionButton ? 'hidden' : 'px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400'}
                 >
-                    {isLoading ? 'Creating task...' : value ? 'Replace via Minecraft' : 'Send to Minecraft'}
+                    {isHeadlessTaskType(taskType)
+                        ? (isLoading ? 'Starting scan...' : (value ? 'Re-scan' : 'Start scan'))
+                        : (isLoading ? 'Creating task...' : (value ? 'Replace via Minecraft' : 'Send to Minecraft'))}
                 </button>
             )}
 

@@ -68,6 +68,7 @@ export const FieldEditor: React.FC<Props> = ({
         'VerifyPlacement',
         'VerifyResource',
         'VerifyBoundary',
+        'GateBlockScan',
         'Custom'
     ];
 
@@ -1052,6 +1053,11 @@ export const FieldEditor: React.FC<Props> = ({
                             <p className="mt-1 text-xs text-gray-500">
                                 When enabled, the form shows a "Send to Minecraft" action and tracks this task.
                             </p>
+                            {worldTaskType === 'GateBlockScan' && (
+                                <p className="mt-1 text-xs text-blue-600">
+                                    Runs automatically on the server; no player needs to be online.
+                                </p>
+                            )}
                         </div>
                     </div>
 
