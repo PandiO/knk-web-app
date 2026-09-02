@@ -8,42 +8,66 @@ import { MinecraftMaterialRefClient } from '../apiClients/minecraftMaterialRefCl
 import { ItemBlueprintClient } from '../apiClients/itemBlueprintClient';
 import { EnchantmentDefinitionClient } from '../apiClients/enchantmentDefinitionClient';
 import { GateStructureClient } from '../apiClients/gateStructureClient';
-import { PagedQueryDto, PagedResultDto } from './domain/dto/common/PagedQuery';
+import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
 import { LocationClient } from '../apiClients/locationClient';
 import { MinecraftEnchantmentRefClient } from '../apiClients/minecraftEnchantmentRefClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
+
+// The API contract expects `pageNumber`, while the app-side query object uses `page`.
+function toApiPagedQuery(query: PagedQueryDto): PagedQueryDto {
+    return { ...query, pageNumber: query.page } as PagedQueryDto;
+}
+
+function normalizePagedResult<T>(result: any, query: PagedQueryDto): PagedResultDto<T> {
+    const totalCount = result?.totalCount ?? 0;
+    const pageSize = result?.pageSize ?? query.pageSize;
+
+    return {
+        items: result?.items ?? [],
+        totalCount,
+        page: result?.page ?? result?.pageNumber ?? query.page,
+        pageSize,
+        totalPages: pageSize > 0 ? Math.ceil(totalCount / pageSize) : 0
+    };
+}
+
+function withPagedQueryMapping<T>(
+    search: (query: PagedQueryDto) => Promise<any>
+): EntitySearchFunction<T> {
+    return async (query) => normalizePagedResult<T>(await search(toApiPagedQuery(query)), query);
+}
 
 export function getSearchFunctionForEntity(entityTypeName: string): EntitySearchFunction {
     const normalized = entityTypeName.toLowerCase();
     
     switch (normalized) {
         case 'category':
-            return (query) => CategoryClient.getInstance().searchPaged(query);
+            return withPagedQueryMapping((query) => CategoryClient.getInstance().searchPaged(query));
         case 'street':
-            return (query) => StreetClient.getInstance().searchPaged(query);
+            return withPagedQueryMapping((query) => StreetClient.getInstance().searchPaged(query));
         case 'town':
-            return (query) => TownClient.getInstance().searchPaged(query);
+            return withPagedQueryMapping((query) => TownClient.getInstance().searchPaged(query));
         case 'district':
-            return (query) => DistrictClient.getInstance().searchPaged(query);
+            return withPagedQueryMapping((query) => DistrictClient.getInstance().searchPaged(query));
         case 'structure':
-            return (query) => StructureClient.getInstance().searchPaged(query);
+            return withPagedQueryMapping((query) => StructureClient.getInstance().searchPaged(query));
         case 'gatestructure':
-            return (query) => GateStructureClient.getInstance().searchPaged(query);
+            return withPagedQueryMapping((query) => GateStructureClient.getInstance().searchPaged(query));
         case 'user':
             return () => Promise.reject(new Error('User search not implemented'));
         case 'location':
-            return (query) => LocationClient.getInstance().searchPaged(query);
+            return withPagedQueryMapping((query) => LocationClient.getInstance().searchPaged(query));
         case 'itemblueprint':
-            return (query) => ItemBlueprintClient.getInstance().searchPaged(query);
+            return withPagedQueryMapping((query) => ItemBlueprintClient.getInstance().searchPaged(query));
         case 'enchantmentdefinition':
-            return (query) => EnchantmentDefinitionClient.getInstance().searchPaged(query);
+            return withPagedQueryMapping((query) => EnchantmentDefinitionClient.getInstance().searchPaged(query));
         case 'minecraftblockref':
-            return (query) => MinecraftBlockRefClient.getInstance().searchPaged(query);
+            return withPagedQueryMapping((query) => MinecraftBlockRefClient.getInstance().searchPaged(query));
         case 'minecraftmaterialref':
-            return (query) => MinecraftMaterialRefClient.getInstance().searchPaged(query);
+            return withPagedQueryMapping((query) => MinecraftMaterialRefClient.getInstance().searchPaged(query));
         case 'minecraftenchantmentref':
-            return (query) => MinecraftEnchantmentRefClient.getInstance().searchPaged(query);
+            return withPagedQueryMapping((query) => MinecraftEnchantmentRefClient.getInstance().searchPaged(query));
         default:
             throw new Error(`No search function registered for entity type: ${entityTypeName}`);
     }
