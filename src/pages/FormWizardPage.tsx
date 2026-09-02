@@ -1,4 +1,4 @@
-import { GripVertical, Loader2, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical, Loader2, Trash2 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -75,6 +75,9 @@ export const FormWizardPage: React.FC<Props> = ({
     const [autoOpenForm, setAutoOpenForm] = useState(false); // removed: old auto-open flag logic
     const [columnDraft, setColumnDraft] = useState<string[]>([]);
     const [savingColumns, setSavingColumns] = useState(false);
+    const [showDefaultColumns, setShowDefaultColumns] = useState(() => {
+        return window.localStorage.getItem('formWizard.showDefaultColumns') === 'true';
+    });
 
     const columnSensors = useSensors(
         useSensor(PointerSensor),
@@ -220,6 +223,10 @@ export const FormWizardPage: React.FC<Props> = ({
         const guardedFallback = applyNameDisplayNameGuard(fallback, selectedEntityMetadata);
         setColumnDraft(canonicalizeColumnKeys(guardedFallback));
     }, [selectedTypeName, configuredColumns, selectedEntityMetadata, canonicalizeColumnKeys]);
+
+    useEffect(() => {
+        window.localStorage.setItem('formWizard.showDefaultColumns', String(showDefaultColumns));
+    }, [showDefaultColumns]);
 
     // Main effect: Handle the four use cases
     useEffect(() => {
@@ -899,67 +906,85 @@ export const FormWizardPage: React.FC<Props> = ({
                     {selectedTypeName && !showWizard && (
                         <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-4">
                             <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-base font-semibold text-gray-900">Default Table Columns</h3>
-                                    <p className="text-sm text-gray-600">Configure which columns are shown first in entity tables and related pickers.</p>
-                                </div>
                                 <button
-                                    onClick={handleSaveDefaultColumns}
-                                    disabled={savingColumns || columnDraft.length === 0}
-                                    className="btn-primary text-sm disabled:opacity-60"
+                                    type="button"
+                                    onClick={() => setShowDefaultColumns(previous => !previous)}
+                                    className="flex min-w-0 items-center gap-2 text-left"
+                                    aria-expanded={showDefaultColumns}
+                                    aria-controls="default-table-columns-content"
                                 >
-                                    {savingColumns ? 'Saving...' : 'Save Columns'}
+                                    {showDefaultColumns ? (
+                                        <ChevronDown className="h-5 w-5 shrink-0 text-gray-500" aria-hidden="true" />
+                                    ) : (
+                                        <ChevronRight className="h-5 w-5 shrink-0 text-gray-500" aria-hidden="true" />
+                                    )}
+                                    <h3 className="text-base font-semibold text-gray-900">Default Table Columns</h3>
                                 </button>
                             </div>
 
-                            <div>
-                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Selected order</p>
-                                {columnDraft.length === 0 ? (
-                                    <p className="text-sm text-gray-500">No columns selected.</p>
-                                ) : (
-                                    <DndContext
-                                        sensors={columnSensors}
-                                        collisionDetection={closestCenter}
-                                        onDragEnd={handleColumnDragEnd}
-                                    >
-                                        <SortableContext
-                                            items={columnDraft}
-                                            strategy={verticalListSortingStrategy}
+                            {showDefaultColumns && (
+                                <div id="default-table-columns-content" className="space-y-4">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <p className="text-sm text-gray-600">Configure which columns are shown first in entity tables and related pickers.</p>
+                                        <button
+                                            onClick={handleSaveDefaultColumns}
+                                            disabled={savingColumns || columnDraft.length === 0}
+                                            className="btn-primary shrink-0 text-sm disabled:opacity-60"
                                         >
-                                            <div className="space-y-2">
-                                                {columnDraft.map(key => (
-                                                    <SortableColumnItem
-                                                        key={key}
-                                                        columnKey={key}
-                                                        label={toLabel(key)}
-                                                        onRemove={() => handleToggleColumn(key)}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </SortableContext>
-                                    </DndContext>
-                                )}
-                            </div>
+                                            {savingColumns ? 'Saving...' : 'Save Columns'}
+                                        </button>
+                                    </div>
 
-                            <div>
-                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Available columns</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                    {availableColumns.map(option => {
-                                        const checked = columnDraft.some(key => key.toLowerCase() === option.key.toLowerCase());
-                                        return (
-                                            <label key={option.key} className="flex items-center gap-2 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-700">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={checked}
-                                                    onChange={() => handleToggleColumn(option.key)}
-                                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                                />
-                                                <span>{option.label}</span>
-                                            </label>
-                                        );
-                                    })}
+                                    <div>
+                                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Selected order</p>
+                                        {columnDraft.length === 0 ? (
+                                            <p className="text-sm text-gray-500">No columns selected.</p>
+                                        ) : (
+                                            <DndContext
+                                                sensors={columnSensors}
+                                                collisionDetection={closestCenter}
+                                                onDragEnd={handleColumnDragEnd}
+                                            >
+                                                <SortableContext
+                                                    items={columnDraft}
+                                                    strategy={verticalListSortingStrategy}
+                                                >
+                                                    <div className="space-y-2">
+                                                        {columnDraft.map(key => (
+                                                            <SortableColumnItem
+                                                                key={key}
+                                                                columnKey={key}
+                                                                label={toLabel(key)}
+                                                                onRemove={() => handleToggleColumn(key)}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </SortableContext>
+                                            </DndContext>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Available columns</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            {availableColumns.map(option => {
+                                                const checked = columnDraft.some(key => key.toLowerCase() === option.key.toLowerCase());
+                                                return (
+                                                    <label key={option.key} className="flex items-center gap-2 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-700">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            onChange={() => handleToggleColumn(option.key)}
+                                                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                        />
+                                                        <span>{option.label}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     )}
 
