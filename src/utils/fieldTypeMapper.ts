@@ -34,6 +34,9 @@ export function mapFieldType(backendType: string): FieldType {
         // Collection types
         'list': FieldType.List,
         'collection': FieldType.List,
+
+        // Enum types
+        'enum': FieldType.Enum,
     };
     const normalized = backendType.toLowerCase();
     return typeMap[normalized] || FieldType.Object;

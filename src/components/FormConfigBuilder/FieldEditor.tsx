@@ -241,6 +241,21 @@ export const FieldEditor: React.FC<Props> = ({
             // Collection defaults (e.g. "new Collection()") are informational only, not a submittable value.
             const hasMetadataDefault = metaField.hasDefaultValue && metaField.defaultValue !== undefined && metaField.defaultValue !== null && !isCollectionType(mappedFieldType);
             setPlaceholderIsDefault(hasMetadataDefault);
+
+            // Enum fields render their <select> options from settingsJson.enumValues (see
+            // FieldRenderers.tsx getEnumValues) - there's no separate UI to populate that list,
+            // so seed it straight from the entity metadata's enum values on pick.
+            let settingsJsonUpdate: string | undefined;
+            if (mappedFieldType === FieldType.Enum && metaField.enumValues && metaField.enumValues.length > 0) {
+                let baseSettings: any = {};
+                try {
+                    baseSettings = field.settingsJson ? JSON.parse(field.settingsJson) : {};
+                } catch {
+                    baseSettings = {};
+                }
+                settingsJsonUpdate = JSON.stringify({ ...baseSettings, enumValues: metaField.enumValues });
+            }
+
             setField(prev => ({
                 ...prev,
                 fieldName: metaField.fieldName,
@@ -252,7 +267,8 @@ export const FieldEditor: React.FC<Props> = ({
                 isRequired: !metaField.isNullable,
                 // if metadata has default value, use defaultValue mode and auto-fill it
                 defaultValue: hasMetadataDefault ? (metaField.defaultValue ?? undefined) : prev.defaultValue,
-                placeholder: hasMetadataDefault ? undefined : prev.placeholder
+                placeholder: hasMetadataDefault ? undefined : prev.placeholder,
+                ...(settingsJsonUpdate !== undefined ? { settingsJson: settingsJsonUpdate } : {})
             }));
         } else {
             setField(prev => ({ ...prev, fieldName: selectedFieldName }));
