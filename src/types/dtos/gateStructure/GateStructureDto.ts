@@ -15,6 +15,7 @@ export type FaceDirection =
   | 'west'
   | 'north-west';
 export type HealthDisplayMode = 'ALWAYS' | 'DAMAGED_ONLY' | 'NEVER' | 'SIEGE_ONLY';
+export type GateInfoDisplayMode = 'ALWAYS' | 'NEVER' | 'SIEGE_ONLY';
 export type TileEntityPolicy = 'NONE' | 'DECORATIVE_ONLY' | 'ALL';
 
 export interface GateStructureDto {
@@ -92,6 +93,8 @@ export interface GateStructureDto {
   showHealthDisplay?: boolean;
   healthDisplayMode?: HealthDisplayMode;
   healthDisplayYOffset?: number;
+  gateNameDisplayMode?: GateInfoDisplayMode;
+  statusDisplayMode?: GateInfoDisplayMode;
 
   isOverridable?: boolean;
   animateDuringSiege?: boolean;
@@ -185,6 +188,8 @@ export interface GateStructureCreateDto {
   showHealthDisplay?: boolean;
   healthDisplayMode?: HealthDisplayMode;
   healthDisplayYOffset?: number;
+  gateNameDisplayMode?: GateInfoDisplayMode;
+  statusDisplayMode?: GateInfoDisplayMode;
 
   healthMax?: number;
   isInvincible?: boolean;

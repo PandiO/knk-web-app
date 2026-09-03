@@ -623,6 +623,12 @@ const GateStructureConfig: ObjectConfig = {
         if (!value || value <= 0) return 'Health must be greater than 0';
       }
     },
+    showHealthDisplay: {
+      name: 'showHealthDisplay',
+      label: 'Show Health Display',
+      type: 'boolean',
+      required: false
+    },
     healthDisplayMode: {
       name: 'healthDisplayMode',
       label: 'Health Display Mode',
@@ -631,6 +637,34 @@ const GateStructureConfig: ObjectConfig = {
       options: [
         { label: 'Always', value: 'ALWAYS' },
         { label: 'Damaged Only', value: 'DAMAGED_ONLY' },
+        { label: 'Never', value: 'NEVER' },
+        { label: 'Siege Only', value: 'SIEGE_ONLY' },
+      ]
+    },
+    healthDisplayYOffset: {
+      name: 'healthDisplayYOffset',
+      label: 'Health Display Y Offset',
+      type: 'number',
+      required: false
+    },
+    gateNameDisplayMode: {
+      name: 'gateNameDisplayMode',
+      label: 'Gate Name Display Mode',
+      type: 'select',
+      required: false,
+      options: [
+        { label: 'Always', value: 'ALWAYS' },
+        { label: 'Never', value: 'NEVER' },
+        { label: 'Siege Only', value: 'SIEGE_ONLY' },
+      ]
+    },
+    statusDisplayMode: {
+      name: 'statusDisplayMode',
+      label: 'Status Display Mode',
+      type: 'select',
+      required: false,
+      options: [
+        { label: 'Always', value: 'ALWAYS' },
         { label: 'Never', value: 'NEVER' },
         { label: 'Siege Only', value: 'SIEGE_ONLY' },
       ]
