@@ -55,6 +55,8 @@ export interface ValidationMetadataDto {
     executedAt: string;
     dependencyFieldName?: string;
     dependencyValue?: any;
+    /** Set when the check couldn't be completed due to a system problem (e.g. "PluginUnreachable") rather than a genuine validation failure. */
+    failureReason?: string;
 }
 
 export interface ValidationResultDto {

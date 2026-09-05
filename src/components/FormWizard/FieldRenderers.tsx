@@ -1,7 +1,7 @@
 import React from 'react';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
-import { Calendar, Plus, Minus, X, CheckCircle2, AlertTriangle, Loader2, Info, Pencil, Gamepad2, RefreshCw } from 'lucide-react';
+import { Calendar, Plus, Minus, X, CheckCircle2, AlertTriangle, Loader2, Info, Pencil, Gamepad2, RefreshCw, WifiOff } from 'lucide-react';
 import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 import { HybridMaterialPicker } from '../minecraft/HybridMaterialPicker';
@@ -305,6 +305,26 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
             <div className="flex items-center justify-between text-xs text-green-700">
                 <div className="flex items-center">
                     <CheckCircle2 className="h-4 w-4 mr-1" /> {message}
+                </div>
+                {retryButton}
+            </div>
+        );
+    }
+
+    // The check itself could not run (e.g. the Minecraft server/plugin is offline) rather than
+    // the value genuinely failing a business rule — call this out distinctly so it isn't mistaken
+    // for "this value is invalid".
+    if (validationResult.metadata?.failureReason) {
+        return (
+            <div className="flex items-start justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
+                <div className="flex items-start">
+                    <WifiOff className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0 text-amber-600" />
+                    <div>
+                        <p className="text-xs font-semibold text-amber-800">Validation could not be completed</p>
+                        <p className="mt-0.5 text-xs text-amber-700">
+                            {message || 'This check requires the Minecraft server and plugin to be running, but they could not be reached.'}
+                        </p>
+                    </div>
                 </div>
                 {retryButton}
             </div>
