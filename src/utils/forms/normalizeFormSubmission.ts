@@ -299,6 +299,15 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
             return;
         }
         
+        // A List field whose value isn't an array is still holding its untouched form default -
+        // for collection-typed properties the backend metadata reports a sentinel display string
+        // (e.g. "new Collection()", see MetadataService.DetectDefaultValueFromConstructor) purely
+        // to tell the form builder "this field can be optional", never a real submittable value.
+        // Sending it through verbatim crashes JSON deserialization of the whole request body.
+        if (field.fieldType === FieldType.List && !Array.isArray(rawValue)) {
+            return;
+        }
+
         // Special handling for hybrid Minecraft material/block picker
         if (field.fieldType === FieldType.HybridMinecraftMaterialRefPicker) {
             handleHybridMaterialField(field, fieldName, rawValue, normalized);
