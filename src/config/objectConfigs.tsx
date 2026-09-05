@@ -697,6 +697,21 @@ const GateStructureConfig: ObjectConfig = {
         if (value && value < 1) return 'Respawn rate must be at least 1 second';
       }
     },
+    allowPassThrough: {
+      name: 'allowPassThrough',
+      label: 'Allow Pass-Through',
+      type: 'boolean',
+      required: false
+    },
+    passThroughDurationSeconds: {
+      name: 'passThroughDurationSeconds',
+      label: 'Pass-Through Duration (seconds)',
+      type: 'number',
+      required: false,
+      validation: (value) => {
+        if (value && value < 1) return 'Pass-through duration must be at least 1 second';
+      }
+    },
   }
 };
 
