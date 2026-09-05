@@ -88,7 +88,7 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
         case 'structure':
             return (id) => StructureClient.getInstance().getById(Number(id));
         case 'gatestructure':
-            return (id) => GateStructureClient.getInstance().getById(Number(id));
+            return (id) => GateStructureClient.getInstance().getById(Number(id), true);
         case 'location':
             return (id) => LocationClient.getInstance().getById(Number(id));
         case 'itemblueprint':

@@ -647,6 +647,13 @@ const GateStructureConfig: ObjectConfig = {
       type: 'number',
       required: false
     },
+    infoDisplayLocation: {
+      name: 'infoDisplayLocation',
+      label: 'Info Display Location',
+      type: 'object',
+      required: false,
+      objectConfig: locationConfig
+    },
     gateNameDisplayMode: {
       name: 'gateNameDisplayMode',
       label: 'Gate Name Display Mode',

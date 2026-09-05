@@ -93,6 +93,8 @@ export interface GateStructureDto {
   showHealthDisplay?: boolean;
   healthDisplayMode?: HealthDisplayMode;
   healthDisplayYOffset?: number;
+  infoDisplayLocationId?: number | null;
+  infoDisplayLocation?: LocationDto | null;
   gateNameDisplayMode?: GateInfoDisplayMode;
   statusDisplayMode?: GateInfoDisplayMode;
 

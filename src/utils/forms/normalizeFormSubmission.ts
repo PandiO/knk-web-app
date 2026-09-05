@@ -98,6 +98,17 @@ function extractId(value: any): any {
     return value;
 }
 
+/**
+ * True when a raw Location value carries its own coordinate data (x/y/z), as opposed to a bare
+ * {id, name}-only projection (e.g. a row picked from the "Select instance" table, which only
+ * carries whatever columns that table displays). Used to tell "the user edited/created this
+ * Location's own fields" apart from "the user just referenced an existing one unchanged".
+ */
+function hasLocationCoordinates(value: Record<string, unknown>): boolean {
+    const keys = Object.keys(value).map(key => key.toLowerCase());
+    return keys.includes('x') && keys.includes('y') && keys.includes('z');
+}
+
 /** Extract id / namespaceKey for hybrid material/block picker values */
 function extractHybridIdentifiers(value: any): { id?: any; namespaceKey?: string } {
     if (value === null || value === undefined) return {};
@@ -376,18 +387,26 @@ function handleSingleObjectRelationship(
 ): void {
     // Determine if this field is already a foreign key field (ends with "Id")
     const isForeignKeyField = fieldName.endsWith('Id');
-    const extractedId = extractId(rawValue);
 
-    if (extractedId === null &&
-        field.objectType?.toLowerCase() === 'location' &&
+    // Location fields are edited value objects, not pure references: when the raw value actually
+    // carries coordinate data (created or edited via the location form, not just picked as a bare
+    // {id, name} row from "Select instance"), submit the full nested object - including its `id`
+    // when present - so edits to x/y/z etc. actually persist. Collapsing to just the id here (as
+    // the generic relationship handling below does) would silently discard those edits - the
+    // backend's ResolveLocationReferenceAsync already knows how to create (no id) vs. update (id
+    // present) vs. plain-reference a Location from this.
+    if (field.objectType?.toLowerCase() === 'location' &&
         rawValue &&
         typeof rawValue === 'object' &&
-        !Array.isArray(rawValue)) {
+        !Array.isArray(rawValue) &&
+        hasLocationCoordinates(rawValue)) {
         const navigationFieldName = isForeignKeyField ? fieldName.slice(0, -2) : fieldName;
         normalized[navigationFieldName] = rawValue;
         return;
     }
-    
+
+    const extractedId = extractId(rawValue);
+
     if (isForeignKeyField) {
         // Field is already the foreign key (e.g., parentCategoryId)
         // Only add to normalized if we successfully extracted an ID

@@ -197,6 +197,31 @@ describe('normalizeFormSubmission (world task locations)', () => {
         expect(normalized.AnchorPointId).toBe(42);
         expect(normalized.AnchorPoint).toBeUndefined();
     });
+
+    it('submits the full object (with its existing id) when an already-persisted Location was edited', () => {
+        // Regression test: editing an existing Location's own fields (e.g. via "Edit instance")
+        // used to collapse to just AnchorPointId, silently discarding the edited coordinates.
+        const editedLocation = {
+            id: 33,
+            name: 'Location',
+            x: 1421.5,
+            y: 91,
+            z: -521.5,
+            yaw: 0,
+            pitch: 0,
+            world: 'world_KNK-DEV'
+        };
+
+        const normalized = normalizeFormSubmission({
+            entityTypeName: 'GateStructure',
+            formConfiguration: config,
+            rawFormValue: { AnchorPointId: editedLocation },
+            entityMetadata: []
+        });
+
+        expect(normalized.AnchorPoint).toEqual(editedLocation);
+        expect(normalized.AnchorPointId).toBeUndefined();
+    });
 });
 
 describe('normalizeFormSubmission (scalar API types)', () => {
