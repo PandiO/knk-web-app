@@ -11,6 +11,7 @@ import { GateStructureClient } from '../apiClients/gateStructureClient';
 import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
 import { LocationClient } from '../apiClients/locationClient';
 import { MinecraftEnchantmentRefClient } from '../apiClients/minecraftEnchantmentRefClient';
+import { UserClient } from '../apiClients/userClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -55,7 +56,7 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
         case 'gatestructure':
             return withPagedQueryMapping((query) => GateStructureClient.getInstance().searchPaged(query));
         case 'user':
-            return () => Promise.reject(new Error('User search not implemented'));
+            return withPagedQueryMapping((query) => UserClient.getInstance().searchPaged(query));
         case 'location':
             return withPagedQueryMapping((query) => LocationClient.getInstance().searchPaged(query));
         case 'itemblueprint':
@@ -100,7 +101,7 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
         case 'minecraftmaterialref':
             return (id) => MinecraftMaterialRefClient.getInstance().getById(Number(id));
         case 'user':
-            return () => Promise.reject(new Error('User fetchById not implemented'));
+            return (id) => UserClient.getInstance().getById(Number(id));
         default:
             throw new Error(`No fetchById function registered for entity type: ${entityTypeName}`);
     }
@@ -135,7 +136,7 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
         case 'minecraftenchantmentref':
             return (entity) => MinecraftEnchantmentRefClient.getInstance().update(entity);
         case 'user':
-            return () => Promise.reject(new Error('User update not implemented'));
+            return (entity) => UserClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -168,7 +169,7 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
         case 'minecraftmaterialref':
             return (id) => MinecraftMaterialRefClient.getInstance().delete(Number(id));
         case 'user':
-            return () => Promise.reject(new Error('User delete not implemented'));
+            return (id) => UserClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -203,7 +204,7 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
         case 'minecraftenchantmentref':
             return (entity) => MinecraftEnchantmentRefClient.getInstance().create(entity);
         case 'user':
-            return () => Promise.reject(new Error('User create not implemented'));
+            return (entity) => UserClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }

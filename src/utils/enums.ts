@@ -282,3 +282,12 @@ export enum EnchantmentDefinitionOperation {
     SearchPaged = 'search'
 }
 
+export enum UsersOperation {
+    GetAll = '',
+    GetById = '',
+    Create = '',
+    Update = '',
+    Delete = '',
+    SearchPaged = 'search'
+}
+

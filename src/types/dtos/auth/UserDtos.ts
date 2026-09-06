@@ -37,3 +37,15 @@ export interface UserUpdateDto {
   newPassword?: string;
   currentPassword?: string; // required if newPassword is provided
 }
+
+// Row shape returned by POST /api/users/search (PagedResultDto<UserListDto>)
+export interface UserListDto {
+  id?: number;
+  username: string;
+  uuid?: string | null;
+  email?: string | null;
+  coins: number;
+  gems: number;
+  experiencePoints: number;
+  isActive: boolean;
+}
