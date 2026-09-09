@@ -39,6 +39,7 @@ import {
     parseValueProjection
 } from '../../utils/forms/valueProjection';
 import { deriveGateGeometryStepData, isDerivedGateGeometryField } from '../../utils/forms/gateGeometry';
+import { withLiveEnumOptions } from '../../utils/forms/enumFieldMetadata';
 
 interface FormWizardProps {
     entityName: string;
@@ -1999,9 +2000,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         }
 
                         const fieldId = field.id ? Number(field.id) : null;
-                        const renderedField = isDerivedGateGeometryField(entityName, field.fieldName, currentStepData)
+                        const geometryDerivedField = isDerivedGateGeometryField(entityName, field.fieldName, currentStepData)
                             ? { ...field, isReadOnly: true }
                             : field;
+                        const renderedField = withLiveEnumOptions(geometryDerivedField, entityMetadata?.fields);
                         const canRenderWorldTaskPanel = worldTaskEnabled
                             && workflowSessionId != null
                             && !!taskType

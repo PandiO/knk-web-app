@@ -9,9 +9,24 @@ describe('gate geometry derivation', () => {
             GeometryDepth: 3
         });
 
-        expect(result.GeometryWidth).toBe(6);
+        // (3,0,4) has gcd 1, i.e. one lattice hop (2 blocks inclusive) - not the Euclidean
+        // distance of 5 blocks a naive sqrt(3^2+4^2) calculation would suggest.
+        expect(result.GeometryWidth).toBe(2);
         expect(result.GeometryHeight).toBe(7);
         expect(result.GeometryDepth).toBe(3);
+    });
+
+    it('calculates the correct span for a 45-degree diagonal reference point', () => {
+        // Regression test for GateStructure 14: a (3,0,-3) diagonal delta is 3 lattice hops
+        // (4 blocks inclusive), not sqrt(18) ~= 4.24 rounded to 4 (5 blocks) under the old
+        // Euclidean-distance calculation, which caused the scan to swallow an extra block
+        // one step past the real structure.
+        const result = deriveGateGeometryStepData('GateStructure', {
+            AnchorPointId: { x: 1375, y: 44, z: -585, World: 'world' },
+            ReferencePoint1Id: { x: 1378, y: 44, z: -588, World: 'world' }
+        });
+
+        expect(result.GeometryWidth).toBe(4);
     });
 
     it('supports case-insensitive coordinates and JSON-restored locations', () => {

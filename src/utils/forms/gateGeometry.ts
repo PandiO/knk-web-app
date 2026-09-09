@@ -47,6 +47,17 @@ const parseLocation = (value: unknown): Coordinates | null => {
     };
 };
 
+const gcd = (a: number, b: number): number => {
+    let x = Math.abs(a);
+    let y = Math.abs(b);
+    while (y !== 0) {
+        const t = y;
+        y = x % y;
+        x = t;
+    }
+    return x;
+};
+
 const calculateInclusiveBlockSpan = (fromValue: unknown, toValue: unknown): number | null => {
     const from = parseLocation(fromValue);
     const to = parseLocation(toValue);
@@ -54,13 +65,18 @@ const calculateInclusiveBlockSpan = (fromValue: unknown, toValue: unknown): numb
     if (!from || !to) return null;
     if (from.world && to.world && from.world.toLowerCase() !== to.world.toLowerCase()) return null;
 
-    const distance = Math.sqrt(
-        Math.pow(to.x - from.x, 2)
-        + Math.pow(to.y - from.y, 2)
-        + Math.pow(to.z - from.z, 2)
-    );
+    // Number of lattice hops between the two points, mirroring the plugin's
+    // VectorMath.primitiveLatticeStep (gcd of the integer delta). Euclidean distance
+    // overcounts a diagonal span by a factor of sqrt(2) - e.g. a (3,0,3) diagonal delta
+    // is 3 hops apart (4 blocks inclusive), not sqrt(18) ~= 4.24 rounded to 4 (5 blocks),
+    // which is what caused GateStructure 14's scan to swallow an extra, unrelated block.
+    const dx = Math.round(to.x - from.x);
+    const dy = Math.round(to.y - from.y);
+    const dz = Math.round(to.z - from.z);
 
-    return Math.round(distance) + 1;
+    const hops = gcd(gcd(dx, dy), dz);
+
+    return hops + 1;
 };
 
 export const deriveGateGeometryStepData = (
