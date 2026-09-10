@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import {
     getWorldTaskResultDetails,
+    isHeadlessTaskType,
     shouldShowWorldTaskResultDetails,
     WorldTaskResultDetails
 } from '../WorldBoundFieldRenderer';
@@ -82,6 +83,30 @@ describe('WorldBoundFieldRenderer result details', () => {
             { label: 'Parent region', value: 'district_1000006' }
         ]);
     });
+
+    it.each(['GateBlockScan', 'GateOpenedBlockScan'])(
+        'shows scan status/block-count/warning details for %s, its sibling open-scan task',
+        (taskType) => {
+            const task = createCompletedTask(taskType, {
+                status: 'Warning',
+                blockCount: 64,
+                warnings: ['1 cell(s) were skipped because their chunk was not loaded.']
+            });
+
+            expect(getWorldTaskResultDetails(task, taskType)).toEqual([
+                { label: 'Status', value: 'Warning' },
+                { label: 'Blocks scanned', value: '64' },
+                { label: 'Warnings', value: '1' }
+            ]);
+        }
+    );
+
+    it.each(['GateBlockScan', 'GateOpenedBlockScan'])(
+        'treats %s as a headless (no-player) task type',
+        (taskType) => {
+            expect(isHeadlessTaskType(taskType)).toBe(true);
+        }
+    );
 
     it('shows meaningful fields for unknown future task types', () => {
         const task = createCompletedTask('VerifyStructure', {

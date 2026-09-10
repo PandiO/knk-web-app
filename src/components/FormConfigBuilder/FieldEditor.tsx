@@ -69,6 +69,7 @@ export const FieldEditor: React.FC<Props> = ({
         'VerifyResource',
         'VerifyBoundary',
         'GateBlockScan',
+        'GateOpenedBlockScan',
         'Custom'
     ];
 
@@ -1129,9 +1130,15 @@ export const FieldEditor: React.FC<Props> = ({
                             <p className="mt-1 text-xs text-gray-500">
                                 When enabled, the form shows a "Send to Minecraft" action and tracks this task.
                             </p>
-                            {worldTaskType === 'GateBlockScan' && (
+                            {(worldTaskType === 'GateBlockScan' || worldTaskType === 'GateOpenedBlockScan') && (
                                 <p className="mt-1 text-xs text-blue-600">
                                     Runs automatically on the server; no player needs to be online.
+                                    {worldTaskType === 'GateOpenedBlockScan' && (
+                                        <> Scans the gate's separately-built open state (from its
+                                        Open Anchor Point) instead of its closed one - only fill
+                                        this in if you want to override the automatic open
+                                        animation with a custom scanned shape.</>
+                                    )}
                                 </p>
                             )}
                         </div>

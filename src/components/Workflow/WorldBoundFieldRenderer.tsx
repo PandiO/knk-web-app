@@ -48,10 +48,19 @@ const getNormalizedStatus = (status?: string): string => (status || '').toLowerC
 const hasExtractedValue = (value: unknown): boolean => value !== null && value !== undefined;
 
 /**
+ * GateBlockScan and its sibling GateOpenedBlockScan (docs/features/gate-structure-animation/
+ * ROTATION_GAP_FILL_DESIGN.md, Mechanism 2 - scans a gate's separately-built open state instead
+ * of its closed one) share identical scan-progress UI: same output shape (status/blockCount/
+ * warnings), same headless (no-player) execution model. Grouped here so both get the same
+ * treatment everywhere this file branches on "is this a gate block scan task".
+ */
+const GATE_BLOCK_SCAN_TASK_TYPES = ['GateBlockScan', 'GateOpenedBlockScan'];
+
+/**
  * Task types that are executed by the plugin without a player and therefore never
  * produce a claim code. The webapp shows scan progress instead of a "send to Minecraft" prompt.
  */
-const HEADLESS_TASK_TYPES = ['GateBlockScan'];
+const HEADLESS_TASK_TYPES = [...GATE_BLOCK_SCAN_TASK_TYPES];
 
 export function isHeadlessTaskType(taskType?: string, actualTaskType?: string): boolean {
     return HEADLESS_TASK_TYPES.includes(taskType || '') || HEADLESS_TASK_TYPES.includes(actualTaskType || '');
@@ -275,7 +284,7 @@ function isLocationTask(taskType: string, actualTaskType?: string): boolean {
 }
 
 function isGateBlockScanTask(taskType: string, actualTaskType?: string): boolean {
-    return taskType === 'GateBlockScan' || actualTaskType === 'GateBlockScan';
+    return GATE_BLOCK_SCAN_TASK_TYPES.includes(taskType) || GATE_BLOCK_SCAN_TASK_TYPES.includes(actualTaskType || '');
 }
 
 export function shouldShowWorldTaskResultDetails(task: WorldTaskReadDto, taskType: string): boolean {
@@ -410,9 +419,9 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const handleCreateInMinecraft = async () => {
         if (isReadOnlyRef.current) return;
 
-        const isGateBlockScan = taskType === 'GateBlockScan';
+        const isGateBlockScan = GATE_BLOCK_SCAN_TASK_TYPES.includes(taskType);
         if (isGateBlockScan && !entityId) {
-            console.warn('Cannot start GateBlockScan: entity has not been saved yet, no gateStructureId available.');
+            console.warn(`Cannot start ${taskType}: entity has not been saved yet, no gateStructureId available.`);
             return;
         }
 
@@ -516,7 +525,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
     const taskStatus = getNormalizedStatus(task?.status);
     const isHeadless = isHeadlessTaskType(taskType, task?.taskType);
-    const gateScanBlocked = taskType === 'GateBlockScan' && !entityId;
+    const gateScanBlocked = GATE_BLOCK_SCAN_TASK_TYPES.includes(taskType) && !entityId;
     const scanWarnings = task && taskStatus === 'completed' ? getScanWarnings(task) : [];
     const resultDetails = task && taskStatus === 'completed'
         ? getWorldTaskResultDetails(task, task.taskType || taskType)
@@ -703,7 +712,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             )}
 
             {/* Cached scan summary from a previous run (survives saved/resumed drafts) */}
-            {!task && !taskId && taskType === 'GateBlockScan' && value?.status && (
+            {!task && !taskId && GATE_BLOCK_SCAN_TASK_TYPES.includes(taskType) && value?.status && (
                 <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
                     <p className="text-sm text-gray-700">
                         Previously scanned: <strong>{value.blockCount ?? 0} blocks</strong> ({value.status})
