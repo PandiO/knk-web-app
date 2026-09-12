@@ -1,6 +1,6 @@
 export interface GateBlockSnapshotDto {
   id?: number;
-  gateStructureId: number;
+  gateDoorId: number;
   relativeX: number;
   relativeY: number;
   relativeZ: number;

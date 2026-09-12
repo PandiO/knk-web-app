@@ -1,13 +1,12 @@
 import { logging, Controllers, HttpMethod, GateStructuresOperation } from "../utils";
 import { PagedQueryDto, PagedResultDto } from "../types/dtos/common/PagedQuery";
 import {
-    GateStateUpdateDto,
     GateStructureDto,
     GateStructureCreateDto,
     GateStructureUpdateDto,
     GateStructureListDto
 } from "../types/dtos/gateStructure/GateStructureDto";
-import { GateBlockSnapshotCreateDto, GateBlockSnapshotDto } from "../types/dtos/gateStructure/GateBlockSnapshotDto";
+import { GateStructureOverridesUpdateDto } from "../types/dtos/gateStructure/GateStructureOverridesUpdateDto";
 import { ObjectManager } from "./objectManager";
 
 export class GateStructureClient extends ObjectManager {
@@ -46,20 +45,11 @@ export class GateStructureClient extends ObjectManager {
         return this.invokeServiceCall(null, `domain/${domainId}`, Controllers.GateStructures, HttpMethod.Get);
     }
 
-    updateState(id: number, request: GateStateUpdateDto): Promise<void> {
-        return this.invokeServiceCall(request, `${id}/state`, Controllers.GateStructures, HttpMethod.Put);
-    }
-
-    getSnapshots(id: number): Promise<GateBlockSnapshotDto[]> {
-        return this.invokeServiceCall(null, `${id}/snapshots`, Controllers.GateStructures, HttpMethod.Get);
-    }
-
-    addSnapshots(id: number, snapshots: GateBlockSnapshotCreateDto[]): Promise<void> {
-        return this.invokeServiceCall(snapshots, `${id}/snapshots/bulk`, Controllers.GateStructures, HttpMethod.Post);
-    }
-
-    clearSnapshots(id: number): Promise<void> {
-        return this.invokeServiceCall(null, `${id}/snapshots`, Controllers.GateStructures, HttpMethod.Delete);
+    // Decision 5.0-B: sets/clears the structure-level cascading overrides - every overridable
+    // door field that's non-null here wins over each child GateDoor's own value at read time,
+    // with no per-door write needed. See GATESTRUCTURE_QOL_IMPLEMENTATION_PLAN.md item 5.
+    updateOverrides(id: number, request: GateStructureOverridesUpdateDto): Promise<void> {
+        return this.invokeServiceCall(request, `${id}/overrides`, Controllers.GateStructures, HttpMethod.Patch);
     }
 
     searchPaged(queryParams: PagedQueryDto): Promise<PagedResultDto<GateStructureListDto>> {

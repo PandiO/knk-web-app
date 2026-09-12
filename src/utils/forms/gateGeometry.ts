@@ -83,7 +83,10 @@ export const deriveGateGeometryStepData = (
     entityName: string,
     stepData: Record<string, unknown>
 ): Record<string, unknown> => {
-    if (entityName.toLowerCase() !== 'gatestructure') return stepData;
+    // Item 5 (docs/features/gate-structure-animation/GATESTRUCTURE_QOL_IMPLEMENTATION_PLAN.md)
+    // moved AnchorPoint/ReferencePoint1/ReferencePoint2/GeometryWidth/GeometryHeight from
+    // GateStructure onto GateDoor - this utility's entity check follows that move.
+    if (entityName.toLowerCase() !== 'gatedoor') return stepData;
 
     const anchorPoint = getProperty(stepData, 'AnchorPointId');
     const referencePoint1 = getProperty(stepData, 'ReferencePoint1Id');
@@ -105,7 +108,7 @@ export const isDerivedGateGeometryField = (
     fieldName: string,
     stepData: Record<string, unknown>
 ): boolean => {
-    if (entityName.toLowerCase() !== 'gatestructure') return false;
+    if (entityName.toLowerCase() !== 'gatedoor') return false;
 
     const anchorPoint = getProperty(stepData, 'AnchorPointId');
     if (fieldName === 'GeometryWidth') {

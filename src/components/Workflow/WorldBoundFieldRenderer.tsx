@@ -421,20 +421,25 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
         const isGateBlockScan = GATE_BLOCK_SCAN_TASK_TYPES.includes(taskType);
         if (isGateBlockScan && !entityId) {
-            console.warn(`Cannot start ${taskType}: entity has not been saved yet, no gateStructureId available.`);
+            console.warn(`Cannot start ${taskType}: entity has not been saved yet, no gateDoorId available.`);
             return;
         }
 
         setIsLoading(true);
         try {
             if (isGateBlockScan) {
+                // Item 5 (docs/features/gate-structure-animation/
+                // GATESTRUCTURE_QOL_IMPLEMENTATION_PLAN.md) moved BlockSnapshots/
+                // OpenedBlockSnapshots from GateStructure to GateDoor - a scan now targets one
+                // door, not a whole structure, so this field only ever renders inside a GateDoor
+                // form/step and entityId is already that door's own id.
                 const created = await worldTaskClient.create({
                     workflowSessionId,
                     stepNumber,
                     stepKey: stepKey || field.formStepId || 'unknown',
                     fieldName: field.fieldName,
                     taskType,
-                    inputJson: JSON.stringify({ gateStructureId: Number(entityId) }),
+                    inputJson: JSON.stringify({ gateDoorId: Number(entityId) }),
                 });
 
                 setTask(created);

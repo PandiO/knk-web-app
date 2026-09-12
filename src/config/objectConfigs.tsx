@@ -105,16 +105,29 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
   gatestructure: {
     default: [
       ...defaultColumnDefinitions.default,
+      // Item 5 (docs/features/gate-structure-animation/GATESTRUCTURE_QOL_IMPLEMENTATION_PLAN.md)
+      // moved gateType/isOpened/healthCurrent off GateStructure onto GateDoor - a structure can
+      // now have several doors, each with its own value for these, so the list view shows how
+      // many doors it has instead; per-door detail is available on the structure's display page.
+      { key: 'doorCount', label: 'Doors', sortable: false },
+      { key: 'districtName', label: 'District', sortable: false },
+      { key: 'streetName', label: 'Street', sortable: false }
+    ]
+  },
+  gatedoor: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'gateStructureId', label: 'Gate Structure ID', sortable: true },
       { key: 'gateType', label: 'Gate Type', sortable: true },
       {
-        key: 'isOpened',
+        key: 'openedState',
         label: 'Status',
         sortable: true,
         render: (row: any) => (
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            row.isOpened ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-700'
+            row.openedState === 'OPEN' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-700'
           }`}>
-            {row.isOpened ? 'Open' : 'Closed'}
+            {row.openedState ?? 'CLOSED'}
           </span>
         )
       },
@@ -123,9 +136,7 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
         label: 'Health',
         sortable: true,
         render: (row: any) => `${row.healthCurrent ?? 0}/${row.healthMax ?? '-'}`
-      },
-      { key: 'districtName', label: 'District', sortable: false },
-      { key: 'streetName', label: 'Street', sortable: false }
+      }
     ]
   }
 };
@@ -432,6 +443,11 @@ const CategoryConfig: ObjectConfig = {
 // assign self-reference after creation to avoid "used before declaration" errors
 (CategoryConfig.fields as any).parentCategory.objectConfig = CategoryConfig;
 
+// Item 5 (docs/features/gate-structure-animation/GATESTRUCTURE_QOL_IMPLEMENTATION_PLAN.md) moved
+// every per-door field (geometry, animation, health, display, etc. - see GateDoorConfig below)
+// off this config onto the new GateDoorConfig. What's left is structure-level identity and the
+// guard system; the cascading override fields (decision 5.0-B) are set via a dedicated endpoint
+// (GateStructureClient.updateOverrides), not this general create/edit form.
 const GateStructureConfig: ObjectConfig = {
   type: 'gatestructure',
   label: 'Gate',
@@ -444,15 +460,6 @@ const GateStructureConfig: ObjectConfig = {
       label: 'Description',
       type: 'text',
       required: false
-    },
-    domainId: {
-      name: 'domainId',
-      label: 'Domain ID',
-      type: 'number',
-      required: true,
-      validation: (value) => {
-        if (!value || value < 1) return 'Domain ID must be a positive number';
-      }
     },
     districtId: {
       name: 'districtId',
@@ -468,6 +475,37 @@ const GateStructureConfig: ObjectConfig = {
       label: 'Street ID',
       type: 'number',
       required: false
+    },
+    guardSpawnLocations: {
+      name: 'guardSpawnLocations',
+      label: 'Guard Spawn Locations',
+      type: 'array',
+      required: false,
+      objectConfig: locationConfig
+    },
+  }
+};
+
+// New (item 5, decision 5.0-D): minimal generic CRUD for a single door of a GateStructure -
+// "ObjectConfig + generic framework, no custom pages", the same pattern GateStructureConfig
+// itself already used (PHASE_STATUS.md Phase 5). A door is linked to its parent via the plain
+// gateStructureId number field below (matching how GateStructureConfig itself links to its
+// district/street), not a nested object picker.
+const GateDoorConfig: ObjectConfig = {
+  type: 'gatedoor',
+  label: 'Gate Door',
+  icon: <Shield className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    gateStructureId: {
+      name: 'gateStructureId',
+      label: 'Gate Structure ID',
+      type: 'number',
+      required: true,
+      validation: (value) => {
+        if (!value || value < 1) return 'Gate Structure ID must be a positive number';
+      }
     },
     gateType: {
       name: 'gateType',
@@ -498,14 +536,14 @@ const GateStructureConfig: ObjectConfig = {
       type: 'select',
       required: true,
       options: [
-        { label: 'North', value: 'north' },
-        { label: 'North-East', value: 'north-east' },
-        { label: 'East', value: 'east' },
-        { label: 'South-East', value: 'south-east' },
-        { label: 'South', value: 'south' },
-        { label: 'South-West', value: 'south-west' },
-        { label: 'West', value: 'west' },
-        { label: 'North-West', value: 'north-west' },
+        { label: 'North', value: 'NORTH' },
+        { label: 'North-East', value: 'NORTH_EAST' },
+        { label: 'East', value: 'EAST' },
+        { label: 'South-East', value: 'SOUTH_EAST' },
+        { label: 'South', value: 'SOUTH' },
+        { label: 'South-West', value: 'SOUTH_WEST' },
+        { label: 'West', value: 'WEST' },
+        { label: 'North-West', value: 'NORTH_WEST' },
       ]
     },
     geometryDefinitionMode: {
@@ -607,13 +645,6 @@ const GateStructureConfig: ObjectConfig = {
       required: false,
       objectConfig: locationConfig
     },
-    guardSpawnLocations: {
-      name: 'guardSpawnLocations',
-      label: 'Guard Spawn Locations',
-      type: 'array',
-      required: false,
-      objectConfig: locationConfig
-    },
     healthMax: {
       name: 'healthMax',
       label: 'Max Health',
@@ -676,6 +707,19 @@ const GateStructureConfig: ObjectConfig = {
         { label: 'Siege Only', value: 'SIEGE_ONLY' },
       ]
     },
+    // New (decision 5.0-D): gates this door's own name line in the combined structure+door
+    // hover, independent of gateNameDisplayMode (which gates the structure's name line).
+    doorNameDisplayMode: {
+      name: 'doorNameDisplayMode',
+      label: 'Door Name Display Mode',
+      type: 'select',
+      required: false,
+      options: [
+        { label: 'Always', value: 'ALWAYS' },
+        { label: 'Never', value: 'NEVER' },
+        { label: 'Siege Only', value: 'SIEGE_ONLY' },
+      ]
+    },
     isInvincible: {
       name: 'isInvincible',
       label: 'Invincible',
@@ -726,4 +770,5 @@ export const objectConfigs: Record<string, ObjectConfig> = {
   minecraftblockref: minecraftBlockRefConfig,
   minecraftmaterialref: minecraftMaterialRefConfig,
   gatestructure: GateStructureConfig,
+  gatedoor: GateDoorConfig,
 };

@@ -2,7 +2,8 @@ export enum HttpMethod {
     Get = "get",
     Post = "post",
     Delete = "delete",
-    Put = "put"
+    Put = "put",
+    Patch = "patch"
 }
 
 export enum ItemOperation {
@@ -64,6 +65,7 @@ export enum Controllers {
     Items = 'Items',
     Structures = 'Structures',
     GateStructures = 'GateStructures',
+    GateDoors = 'GateDoors',
     Districts = 'Districts',
     Locations = 'Locations',
     Streets = 'Streets',

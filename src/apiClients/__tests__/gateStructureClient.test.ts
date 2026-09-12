@@ -2,11 +2,10 @@ import { GateStructureClient } from '../gateStructureClient';
 import { Controllers, GateStructuresOperation, HttpMethod } from '../../utils';
 import { PagedQueryDto } from '../../types/dtos/common/PagedQuery';
 import {
-  GateStateUpdateDto,
   GateStructureCreateDto,
   GateStructureUpdateDto
 } from '../../types/dtos/gateStructure/GateStructureDto';
-import { GateBlockSnapshotCreateDto } from '../../types/dtos/gateStructure/GateBlockSnapshotDto';
+import { GateStructureOverridesUpdateDto } from '../../types/dtos/gateStructure/GateStructureOverridesUpdateDto';
 
 describe('GateStructureClient', () => {
   const client = GateStructureClient.getInstance();
@@ -50,14 +49,7 @@ describe('GateStructureClient', () => {
   it('update puts gate structure payload', async () => {
     const payload: GateStructureUpdateDto = {
       id: 10,
-      name: 'Main Gate',
-      isActive: true,
-      healthMax: 500,
-      isInvincible: true,
-      canRespawn: true,
-      respawnRateSeconds: 300,
-      animationDurationTicks: 60,
-      animationTickRate: 1
+      name: 'Main Gate'
     };
 
     await client.update(payload);
@@ -74,38 +66,10 @@ describe('GateStructureClient', () => {
     expect(invokeSpy).toHaveBeenCalledWith(null, 'domain/12', Controllers.GateStructures, HttpMethod.Get);
   });
 
-  it('updateState sends state update payload', async () => {
-    const payload: GateStateUpdateDto = { isOpened: true, isDestroyed: false };
-    await client.updateState(9, payload);
-    expect(invokeSpy).toHaveBeenCalledWith(payload, '9/state', Controllers.GateStructures, HttpMethod.Put);
-  });
-
-  it('getSnapshots loads gate snapshots', async () => {
-    await client.getSnapshots(4);
-    expect(invokeSpy).toHaveBeenCalledWith(null, '4/snapshots', Controllers.GateStructures, HttpMethod.Get);
-  });
-
-  it('addSnapshots posts snapshot payloads', async () => {
-    const snapshots: GateBlockSnapshotCreateDto[] = [
-      {
-        relativeX: 0,
-        relativeY: 1,
-        relativeZ: 2,
-        worldX: 100,
-        worldY: 64,
-        worldZ: 200,
-        materialName: 'minecraft:stone',
-        sortOrder: 0
-      }
-    ];
-
-    await client.addSnapshots(4, snapshots);
-    expect(invokeSpy).toHaveBeenCalledWith(snapshots, '4/snapshots/bulk', Controllers.GateStructures, HttpMethod.Post);
-  });
-
-  it('clearSnapshots deletes snapshot records', async () => {
-    await client.clearSnapshots(4);
-    expect(invokeSpy).toHaveBeenCalledWith(null, '4/snapshots', Controllers.GateStructures, HttpMethod.Delete);
+  it('updateOverrides patches the structure-level cascading overrides', async () => {
+    const payload: GateStructureOverridesUpdateDto = { isActiveOverride: true };
+    await client.updateOverrides(9, payload);
+    expect(invokeSpy).toHaveBeenCalledWith(payload, '9/overrides', Controllers.GateStructures, HttpMethod.Patch);
   });
 
   it('searchPaged posts paged query', async () => {

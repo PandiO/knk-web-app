@@ -1,23 +1,27 @@
 import { MinecraftMaterialRefDto } from '../minecraftMaterialRef/MinecraftMaterialRefDto';
-import { GateBlockSnapshotDto } from './GateBlockSnapshotDto';
 import { LocationDto } from '../locations/LocationModels';
+import { GateDoorDto, GateDoorOpenState, HealthDisplayMode, GateInfoDisplayMode } from './GateDoorDto';
 
-export type GateType = 'SLIDING' | 'TRAP' | 'DRAWBRIDGE' | 'DOUBLE_DOORS';
-export type GeometryDefinitionMode = 'PLANE_GRID' | 'FLOOD_FILL';
-export type MotionType = 'VERTICAL' | 'LATERAL' | 'ROTATION';
-export type FaceDirection =
-  | 'north'
-  | 'north-east'
-  | 'east'
-  | 'south-east'
-  | 'south'
-  | 'south-west'
-  | 'west'
-  | 'north-west';
-export type HealthDisplayMode = 'ALWAYS' | 'DAMAGED_ONLY' | 'NEVER' | 'SIEGE_ONLY';
-export type GateInfoDisplayMode = 'ALWAYS' | 'NEVER' | 'SIEGE_ONLY';
-export type TileEntityPolicy = 'NONE' | 'DECORATIVE_ONLY' | 'ALL';
+// Re-exported so existing imports of these shared enum-ish types from GateStructureDto keep
+// working now that their canonical home is GateDoorDto (item 5 moved the fields they describe).
+export type {
+  GateType,
+  GeometryDefinitionMode,
+  MotionType,
+  FaceDirection,
+  HealthDisplayMode,
+  GateInfoDisplayMode,
+  TileEntityPolicy,
+  GateDoorOpenState
+} from './GateDoorDto';
 
+/**
+ * Item 5 (docs/features/gate-structure-animation/GATESTRUCTURE_QOL_IMPLEMENTATION_PLAN.md) moved
+ * every per-door field (geometry, animation, health, block snapshots, etc. - see GateDoorDto)
+ * off this DTO onto the new GateDoorDto, embedded here as gateDoors. What's left is structure-
+ * level identity, the guard/siege systems, and the structure-level cascading override fields
+ * (decision 5.0-B).
+ */
 export interface GateStructureDto {
   id?: number;
   name: string;
@@ -30,88 +34,41 @@ export interface GateStructureDto {
   streetId: number;
   districtId: number;
   houseNumber: number;
-
-  isActive?: boolean;
-  canRespawn?: boolean;
-  isDestroyed?: boolean;
-  isInvincible?: boolean;
-  isOpened?: boolean;
-  healthCurrent?: number;
-  healthMax?: number;
-  faceDirection?: FaceDirection;
-  respawnRateSeconds?: number;
   iconMaterialRefId?: number | null;
-  regionClosedId?: string;
-  regionOpenedId?: string;
-
-  gateType?: GateType;
-  geometryDefinitionMode?: GeometryDefinitionMode;
-  motionType?: MotionType;
-  animationDurationTicks?: number;
-  animationTickRate?: number;
-
-  anchorPointId?: number | null;
-  anchorPoint?: LocationDto | null;
-  referencePoint1Id?: number | null;
-  referencePoint1?: LocationDto | null;
-  referencePoint2Id?: number | null;
-  referencePoint2?: LocationDto | null;
-  geometryWidth?: number;
-  geometryHeight?: number;
-  geometryDepth?: number;
-  motionDistanceBlocks?: number;
-  clipToGeometryBounds?: boolean;
-
-  seedBlocks?: string;
-  scanMaxBlocks?: number;
-  scanMaxRadius?: number;
-  scanMaterialWhitelist?: string;
-  scanMaterialBlacklist?: string;
-  scanPlaneConstraint?: boolean;
-
-  fallbackMaterialRefId?: number | null;
-  tileEntityPolicy?: TileEntityPolicy;
-
-  rotationMaxAngleDegrees?: number;
-  hingeAxisId?: number | null;
-  hingeAxis?: LocationDto | null;
-  leftDoorSeedBlockId?: number | null;
-  leftDoorSeedBlock?: LocationDto | null;
-  rightDoorSeedBlockId?: number | null;
-  rightDoorSeedBlock?: LocationDto | null;
-  mirrorRotation?: boolean;
-
-  allowPassThrough?: boolean;
-  passThroughDurationSeconds?: number;
-  passThroughConditionsJson?: string;
 
   guardSpawnLocationIds?: number[];
   guardSpawnLocations?: LocationDto[];
   guardCount?: number;
   guardNpcTemplateId?: number | null;
 
-  showHealthDisplay?: boolean;
-  healthDisplayMode?: HealthDisplayMode;
-  healthDisplayYOffset?: number;
-  infoDisplayLocationId?: number | null;
-  infoDisplayLocation?: LocationDto | null;
-  gateNameDisplayMode?: GateInfoDisplayMode;
-  statusDisplayMode?: GateInfoDisplayMode;
-
   isOverridable?: boolean;
   animateDuringSiege?: boolean;
   currentSiegeId?: number | null;
   isSiegeObjective?: boolean;
 
-  allowContinuousDamage?: boolean;
-  continuousDamageMultiplier?: number;
-  continuousDamageDurationSeconds?: number;
+  // === Structure-level cascading overrides (decision 5.0-B) ===
+  // Null/absent means "no override, each door uses its own value". Set/cleared via a dedicated
+  // overrides endpoint, not this general read/write DTO.
+  isActiveOverride?: boolean | null;
+  canRespawnOverride?: boolean | null;
+  isDestroyedOverride?: boolean | null;
+  isInvincibleOverride?: boolean | null;
+  openedStateOverride?: GateDoorOpenState | null;
+  allowPassThroughOverride?: boolean | null;
+  passThroughDurationSecondsOverride?: number | null;
+  showHealthDisplayOverride?: boolean | null;
+  healthDisplayModeOverride?: HealthDisplayMode | null;
+  healthDisplayYOffsetOverride?: number | null;
+  gateNameDisplayModeOverride?: GateInfoDisplayMode | null;
+  statusDisplayModeOverride?: GateInfoDisplayMode | null;
+  allowContinuousDamageOverride?: boolean | null;
+  continuousDamageMultiplierOverride?: number | null;
 
-  blockSnapshots?: GateBlockSnapshotDto[];
+  gateDoors?: GateDoorDto[];
+
   street?: GateStructureStreetNavDto;
   district?: GateStructureDistrictNavDto;
   iconMaterialRef?: MinecraftMaterialRefDto;
-  fallbackMaterialRef?: MinecraftMaterialRefDto;
 }
 
 export interface GateStructureListDto {
@@ -124,13 +81,11 @@ export interface GateStructureListDto {
   streetName?: string;
   districtId: number;
   districtName?: string;
-  isActive: boolean;
-  healthCurrent: number;
-  healthMax?: number;
-  isDestroyed: boolean;
-  isOpened?: boolean;
-  gateType?: GateType;
-  faceDirection?: FaceDirection;
+  // Per-door fields (isActive, gateType, healthCurrent, etc.) no longer have a single
+  // well-defined structure-level value now that a structure can have multiple doors - see
+  // GATESTRUCTURE_QOL_IMPLEMENTATION_PLAN.md item 5. doorCount replaces them here; per-door
+  // detail is available via GET /api/GateStructures/{id} -> gateDoors.
+  doorCount: number;
 }
 
 export interface GateStructureCreateDto {
@@ -145,81 +100,20 @@ export interface GateStructureCreateDto {
   houseNumber: number;
   iconMaterialRefId?: number | null;
 
-  gateType?: GateType;
-  geometryDefinitionMode?: GeometryDefinitionMode;
-  motionType?: MotionType;
-  faceDirection?: FaceDirection;
-
-  anchorPointId?: number | null;
-  anchorPoint?: LocationDto | null;
-  referencePoint1Id?: number | null;
-  referencePoint1?: LocationDto | null;
-  referencePoint2Id?: number | null;
-  referencePoint2?: LocationDto | null;
-  geometryWidth?: number;
-  geometryHeight?: number;
-  geometryDepth?: number;
-  motionDistanceBlocks?: number;
-  clipToGeometryBounds?: boolean;
-
-  seedBlocks?: string;
-  scanMaxBlocks?: number;
-  scanMaxRadius?: number;
-  scanMaterialWhitelist?: string;
-  scanMaterialBlacklist?: string;
-  scanPlaneConstraint?: boolean;
-
-  animationDurationTicks?: number;
-  animationTickRate?: number;
-
-  fallbackMaterialRefId?: number | null;
-  tileEntityPolicy?: TileEntityPolicy;
-
-  rotationMaxAngleDegrees?: number;
-  hingeAxisId?: number | null;
-  hingeAxis?: LocationDto | null;
-  leftDoorSeedBlockId?: number | null;
-  leftDoorSeedBlock?: LocationDto | null;
-  rightDoorSeedBlockId?: number | null;
-  rightDoorSeedBlock?: LocationDto | null;
-  mirrorRotation?: boolean;
-
   guardSpawnLocationIds?: number[];
   guardSpawnLocations?: LocationDto[];
+  guardCount?: number;
+  guardNpcTemplateId?: number | null;
 
-  showHealthDisplay?: boolean;
-  healthDisplayMode?: HealthDisplayMode;
-  healthDisplayYOffset?: number;
-  gateNameDisplayMode?: GateInfoDisplayMode;
-  statusDisplayMode?: GateInfoDisplayMode;
-
-  healthMax?: number;
-  isInvincible?: boolean;
-  canRespawn?: boolean;
-  respawnRateSeconds?: number;
-
-  regionClosedId?: string;
-  regionOpenedId?: string;
+  isOverridable?: boolean;
+  animateDuringSiege?: boolean;
+  isSiegeObjective?: boolean;
 }
 
 export interface GateStructureUpdateDto {
   id: number;
   name: string;
   description?: string;
-  isActive: boolean;
-  healthMax: number;
-  isInvincible: boolean;
-  canRespawn: boolean;
-  respawnRateSeconds: number;
-  animationDurationTicks: number;
-  animationTickRate: number;
-  regionClosedId?: string;
-  regionOpenedId?: string;
-}
-
-export interface GateStateUpdateDto {
-  isOpened: boolean;
-  isDestroyed: boolean;
 }
 
 export interface GateStructureStreetNavDto {

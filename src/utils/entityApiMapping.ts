@@ -8,6 +8,7 @@ import { MinecraftMaterialRefClient } from '../apiClients/minecraftMaterialRefCl
 import { ItemBlueprintClient } from '../apiClients/itemBlueprintClient';
 import { EnchantmentDefinitionClient } from '../apiClients/enchantmentDefinitionClient';
 import { GateStructureClient } from '../apiClients/gateStructureClient';
+import { GateDoorClient } from '../apiClients/gateDoorClient';
 import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
 import { LocationClient } from '../apiClients/locationClient';
 import { MinecraftEnchantmentRefClient } from '../apiClients/minecraftEnchantmentRefClient';
@@ -55,6 +56,11 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => StructureClient.getInstance().searchPaged(query));
         case 'gatestructure':
             return withPagedQueryMapping((query) => GateStructureClient.getInstance().searchPaged(query));
+        // 'gatedoor' deliberately has no case here: the backend only exposes doors scoped under
+        // their parent structure (GET /api/GateStructures/{id}/doors) or singly by id - there is
+        // no flat/paged "all doors" endpoint to search, since a door is always created/edited in
+        // the context of one GateStructure. Direct-by-id create/edit/view (registered below)
+        // still work; only the generic paged-dashboard listing for 'gatedoor' is unavailable.
         case 'user':
             return withPagedQueryMapping((query) => UserClient.getInstance().searchPaged(query));
         case 'location':
@@ -90,6 +96,8 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => StructureClient.getInstance().getById(Number(id));
         case 'gatestructure':
             return (id) => GateStructureClient.getInstance().getById(Number(id), true);
+        case 'gatedoor':
+            return (id) => GateDoorClient.getInstance().getById(Number(id), true);
         case 'location':
             return (id) => LocationClient.getInstance().getById(Number(id));
         case 'itemblueprint':
@@ -123,6 +131,8 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => StructureClient.getInstance().update(entity);
         case 'gatestructure':
             return (entity) => GateStructureClient.getInstance().update(entity);
+        case 'gatedoor':
+            return (entity) => GateDoorClient.getInstance().update(entity);
         case 'location':
             return (entity) => LocationClient.getInstance().update(entity);
         case 'itemblueprint':
@@ -158,6 +168,8 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => StructureClient.getInstance().delete(Number(id));
         case 'gatestructure':
             return (id) => GateStructureClient.getInstance().delete(Number(id));
+        case 'gatedoor':
+            return (id) => GateDoorClient.getInstance().delete(Number(id));
         case 'location':
             return (id) => LocationClient.getInstance().delete(Number(id));
         case 'itemblueprint':
@@ -191,6 +203,8 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => StructureClient.getInstance().create(entity);
         case 'gatestructure':
             return (entity) => GateStructureClient.getInstance().create(entity);
+        case 'gatedoor':
+            return (entity) => GateDoorClient.getInstance().create(entity);
         case 'location':
             return (entity) => LocationClient.getInstance().create(entity);
         case 'itemblueprint':
