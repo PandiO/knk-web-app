@@ -1,6 +1,7 @@
 import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../enums';
 import { EntityMetadataDto, FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
+import { isHeadlessTaskType } from '../../components/Workflow/WorldBoundFieldRenderer';
 
 /**
  * Arguments for normalizing form submission data.
@@ -139,6 +140,28 @@ function getManyToManyStepMap(formConfiguration: FormConfigurationDto): Record<s
 function getCaseInsensitiveValue(obj: Record<string, unknown>, key: string): unknown {
     const match = Object.keys(obj).find(k => k.toLowerCase() === key.toLowerCase());
     return match ? obj[match] : undefined;
+}
+
+/**
+ * True for a field rendered by WorldBoundFieldRenderer with a headless world-task type
+ * (e.g. GateBlockScan/GateOpenedBlockScan). Such fields hold a UI-only progress summary
+ * ({status, blockCount, scannedAt}) once a scan completes - the actual scan results are
+ * already persisted server-side by the world task, and the summary shape can't deserialize
+ * into the entity's real (list-typed) field on the backend. Detected generically via the
+ * field's worldTask settings rather than by field name, so any current or future field using
+ * this renderer is covered automatically.
+ */
+function isWorldTaskScanSummaryField(field: FormFieldDto): boolean {
+    if (!field.settingsJson) return false;
+
+    try {
+        const parsed = JSON.parse(field.settingsJson);
+        const worldTask = parsed?.worldTask;
+        if (!worldTask?.enabled) return false;
+        return isHeadlessTaskType(worldTask.taskType);
+    } catch {
+        return false;
+    }
 }
 
 function normalizeScalarValue(field: FormFieldDto, rawValue: any): any {
@@ -280,25 +303,34 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
     const { formConfiguration, rawFormValue, entityMetadata, joinEntityMetadataMap } = args;
     
     const normalized: Record<string, any> = {};
-    
+    const worldTaskScanSummaryFieldNames = new Set<string>();
+
     // Collect all fields from all steps
     const allFields: FormFieldDto[] = [];
     formConfiguration.steps.forEach(step => {
         allFields.push(...step.fields);
     });
-    
+
     const manyToManyStepMap = getManyToManyStepMap(formConfiguration);
 
     // Process each field in the configuration
     allFields.forEach(field => {
         const fieldName = field.fieldName;
         const rawValue = rawFormValue[fieldName];
-        
+
         // Skip if no value provided
         if (rawValue === undefined) {
             return;
         }
-        
+
+        // Headless world-task scan summary fields (see isWorldTaskScanSummaryField) never belong
+        // in the submitted payload - the backend already ignores/rejects them - so drop them here,
+        // and record the name so the "copy anything left over" pass below doesn't add it back.
+        if (isWorldTaskScanSummaryField(field)) {
+            worldTaskScanSummaryFieldNames.add(fieldName);
+            return;
+        }
+
         // A List field whose value isn't an array is still holding its untouched form default -
         // for collection-typed properties the backend metadata reports a sentinel display string
         // (e.g. "new Collection()", see MetadataService.DetectDefaultValueFromConstructor) purely
@@ -349,6 +381,9 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
     // (e.g., id for updates, or other backend-generated fields)
     // IMPORTANT: Extract IDs from any objects to handle foreign key fields
     Object.keys(rawFormValue).forEach(key => {
+        if (worldTaskScanSummaryFieldNames.has(key)) {
+            return;
+        }
         if (!(key in normalized)) {
             const value = rawFormValue[key];
             

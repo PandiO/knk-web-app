@@ -224,6 +224,101 @@ describe('normalizeFormSubmission (world task locations)', () => {
     });
 });
 
+describe('normalizeFormSubmission (world task scan summary fields)', () => {
+    const worldTaskSettingsJson = (taskType: string) =>
+        JSON.stringify({ worldTask: { enabled: true, taskType } });
+
+    const openedBlockSnapshotsField: FormFieldDto = {
+        fieldName: 'openedBlockSnapshots',
+        label: 'Opened block snapshots',
+        fieldType: FieldType.List,
+        objectType: 'GateOpenedBlockSnapshot',
+        settingsJson: worldTaskSettingsJson('GateOpenedBlockScan'),
+        isRequired: false,
+        isReadOnly: false,
+        order: 0,
+        isReusable: false,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        validations: []
+    };
+
+    const blockSnapshotsField: FormFieldDto = {
+        fieldName: 'blockSnapshots',
+        label: 'Block snapshots',
+        fieldType: FieldType.List,
+        objectType: 'GateBlockSnapshot',
+        settingsJson: worldTaskSettingsJson('GateBlockScan'),
+        isRequired: false,
+        isReadOnly: false,
+        order: 0,
+        isReusable: false,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        validations: []
+    };
+
+    // A non-headless world-task field (e.g. a location capture) - should NOT be stripped,
+    // since its extracted value (a real location object) is legitimate submittable data.
+    const anchorPointField: FormFieldDto = {
+        fieldName: 'AnchorPointId',
+        label: 'Anchor point',
+        fieldType: FieldType.Object,
+        objectType: 'Location',
+        settingsJson: worldTaskSettingsJson('LocationCapture'),
+        isRequired: false,
+        isReadOnly: false,
+        order: 0,
+        isReusable: false,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        validations: []
+    };
+
+    const config: FormConfigurationDto = {
+        entityTypeName: 'GateStructure',
+        configurationName: 'Gate Structure',
+        isDefault: true,
+        isActive: true,
+        steps: [{
+            stepName: 'Block scans',
+            title: 'Block scans',
+            order: 0,
+            fields: [openedBlockSnapshotsField, blockSnapshotsField, anchorPointField]
+        } as FormStepDto]
+    };
+
+    it('strips the UI-only scan summary object for both blockSnapshots and openedBlockSnapshots', () => {
+        const normalized = normalizeFormSubmission({
+            entityTypeName: 'GateStructure',
+            formConfiguration: config,
+            rawFormValue: {
+                openedBlockSnapshots: { status: 'Success', blockCount: 32, scannedAt: '2026-09-10T21:46:22.380Z' },
+                blockSnapshots: { status: 'Success', blockCount: 12, scannedAt: '2026-09-10T21:46:22.380Z' },
+                AnchorPointId: { id: 42, name: 'Existing location' }
+            }
+        });
+
+        expect(normalized.openedBlockSnapshots).toBeUndefined();
+        expect(normalized.blockSnapshots).toBeUndefined();
+        expect(normalized.AnchorPointId).toBe(42);
+    });
+
+    it('does not choke when the scan field was never populated (still a draft default)', () => {
+        const normalized = normalizeFormSubmission({
+            entityTypeName: 'GateStructure',
+            formConfiguration: config,
+            rawFormValue: {
+                AnchorPointId: { id: 42, name: 'Existing location' }
+            }
+        });
+
+        expect(normalized.openedBlockSnapshots).toBeUndefined();
+        expect(normalized.blockSnapshots).toBeUndefined();
+        expect(normalized.AnchorPointId).toBe(42);
+    });
+});
+
 describe('normalizeFormSubmission (scalar API types)', () => {
     const createField = (fieldName: string, fieldType: FieldType): FormFieldDto => ({
         fieldName,
