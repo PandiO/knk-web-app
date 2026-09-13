@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { FormConfigurationDto, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
+import { workflowClient } from '../../apiClients/workflowClient';
 import { FormWizard } from './FormWizard';
 import { FeedbackModal } from '../FeedbackModal';
 import { FieldType } from '../../utils/enums';
@@ -101,6 +102,49 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
         };
     }, [open, entityTypeName, worldTaskHint]);
 
+    // `workflowSessionId` (the prop) is only ever supplied when THIS child form was opened
+    // because the parent's own field is itself world-task-enabled (see FormWizard.handleOpenChildForm's
+    // worldTaskHint) - reusing the parent's session in that narrow case. For every other reason a
+    // child form gets opened (e.g. "Create New" on a plain Object/List field), no session gets
+    // passed down at all, which breaks any world-task-enabled field *inside* the child's own form
+    // (e.g. GateDoor's AnchorPoint "Send to Minecraft" button never renders - canRenderWorldTaskPanel
+    // requires a non-null workflowSessionId). Mirrors FormWizardPage's own session creation so the
+    // nested wizard is just as capable as a top-level one.
+    const [ownWorkflowSessionId, setOwnWorkflowSessionId] = useState<number | undefined>(undefined);
+
+    useEffect(() => {
+        if (!open || workflowSessionId != null || !defaultConfig) {
+            if (!open) setOwnWorkflowSessionId(undefined);
+            return;
+        }
+
+        let cancelled = false;
+
+        const createOwnSession = async () => {
+            try {
+                const cfgIdNum = defaultConfig.id ? parseInt(String(defaultConfig.id), 10) : undefined;
+                const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
+                const session = await workflowClient.createSession({
+                    userId: parseInt(userId, 10) || 0,
+                    formConfigurationId: cfgIdNum,
+                    entityTypeName,
+                    entityId: entityIdNum
+                });
+                if (!cancelled) setOwnWorkflowSessionId(session.id);
+            } catch (err) {
+                if (!cancelled) setOwnWorkflowSessionId(undefined);
+            }
+        };
+
+        void createOwnSession();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [open, workflowSessionId, defaultConfig, entityTypeName, entityId, userId]);
+
+    const effectiveWorkflowSessionId = workflowSessionId ?? ownWorkflowSessionId;
+
     const handleChildComplete = (data: any, progress?: FormSubmissionProgressDto) => {
         onComplete(data, progress);
         onClose();
@@ -170,7 +214,7 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                                 parentProgressId={parentProgressId}
                                 fieldName={fieldName}
                                 currentStepIndex={currentStepIndex}
-                                workflowSessionId={worldTaskHint ? workflowSessionId : undefined}
+                                workflowSessionId={effectiveWorkflowSessionId}
                                 worldTaskHint={worldTaskHint}
                                 initialFieldValues={initialFieldValues}
                             />
