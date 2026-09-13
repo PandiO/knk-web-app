@@ -126,8 +126,8 @@ describe('FieldRenderer display options', () => {
         render(
             <FieldRenderer
                 field={baseField({
-                    fieldName: 'regionClosedId',
-                    label: 'Closed Region Id',
+                    fieldName: 'hingeAxisId',
+                    label: 'Hinge Axis',
                     fieldType: FieldType.Object,
                     objectType: 'Location',
                     isReadOnly: true

@@ -3,7 +3,7 @@ import { GateBlockSnapshotDto } from './GateBlockSnapshotDto';
 import { LocationDto } from '../locations/LocationModels';
 
 export type GateType = 'SLIDING' | 'TRAP' | 'DRAWBRIDGE' | 'DOUBLE_DOORS';
-export type GeometryDefinitionMode = 'PLANE_GRID' | 'FLOOD_FILL';
+export type GeometryDefinitionMode = 'PLANE_GRID' | 'FLOOD_FILL' | 'REGION';
 export type MotionType = 'VERTICAL' | 'LATERAL' | 'ROTATION';
 export type FaceDirection =
   | 'NORTH'
@@ -82,8 +82,8 @@ export interface GateDoorDto {
   rightDoorSeedBlock?: LocationDto | null;
   mirrorRotation?: boolean;
 
-  regionClosedId?: string;
-  regionOpenedId?: string;
+  closedRegionData?: string;
+  openedRegionData?: string;
 
   allowPassThrough?: boolean;
   passThroughDurationSeconds?: number;

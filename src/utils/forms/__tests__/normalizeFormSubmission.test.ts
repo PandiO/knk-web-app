@@ -346,7 +346,7 @@ describe('normalizeFormSubmission (scalar API types)', () => {
                 createField('IsActive', FieldType.Boolean),
                 createField('ScanMaxBlocks', FieldType.Integer),
                 createField('ContinuousDamageMultiplier', FieldType.Decimal),
-                createField('RegionClosedId', FieldType.String)
+                createField('ClosedRegionData', FieldType.String)
             ]
         } as FormStepDto]
     };
@@ -359,7 +359,7 @@ describe('normalizeFormSubmission (scalar API types)', () => {
                 IsActive: 'false',
                 ScanMaxBlocks: '500',
                 ContinuousDamageMultiplier: '1.5',
-                RegionClosedId: null
+                ClosedRegionData: null
             }
         });
 
@@ -367,7 +367,7 @@ describe('normalizeFormSubmission (scalar API types)', () => {
             IsActive: false,
             ScanMaxBlocks: 500,
             ContinuousDamageMultiplier: 1.5,
-            RegionClosedId: null
+            ClosedRegionData: null
         });
     });
 });
