@@ -37,6 +37,16 @@ describe('GateDoorClient', () => {
     expect(invokeSpy).toHaveBeenCalledWith(payload, '14/doors', Controllers.GateStructures, HttpMethod.Post);
   });
 
+  it('create resolves the structure id case-insensitively (dynamic FormWizard submits PascalCase field names)', async () => {
+    // The dynamic FormConfiguration-driven wizard submits fields keyed by their authored
+    // FormField.fieldName (PascalCase, e.g. "GateStructureId"), not GateDoorDto's own declared
+    // camelCase - regression test for the "POST /api/GateStructures/undefined/doors" bug.
+    const payload = { GateStructureId: 14, Name: 'Drawbridge' } as unknown as GateDoorDto;
+
+    await client.create(payload);
+    expect(invokeSpy).toHaveBeenCalledWith(payload, '14/doors', Controllers.GateStructures, HttpMethod.Post);
+  });
+
   it('update puts the door payload by its own id', async () => {
     const payload: GateDoorDto = { id: 140, gateStructureId: 14, name: 'Drawbridge' };
 

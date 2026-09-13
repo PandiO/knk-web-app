@@ -7,6 +7,7 @@ import {
 } from "../types/dtos/gateStructure/GateDoorDto";
 import { GateBlockSnapshotCreateDto, GateBlockSnapshotDto } from "../types/dtos/gateStructure/GateBlockSnapshotDto";
 import { ObjectManager } from "./objectManager";
+import { findValueByFieldName } from "../utils/fieldNameMapper";
 
 // GateDoorClient - introduced by item 5's multi-door support (see
 // docs/features/gate-structure-animation/GATESTRUCTURE_QOL_IMPLEMENTATION_PLAN.md). Listing and
@@ -33,7 +34,15 @@ export class GateDoorClient extends ObjectManager {
     }
 
     create(data: GateDoorDto): Promise<GateDoorDto> {
-        return this.invokeServiceCall(data, `${data.gateStructureId}/doors`, Controllers.GateStructures, HttpMethod.Post);
+        // Case-insensitive lookup: the dynamic FormConfiguration-driven wizard submits fields
+        // keyed by their authored FormField.fieldName (PascalCase, e.g. "GateStructureId"),
+        // while GateDoorDto (matching the API's own camelCase wire format) declares
+        // "gateStructureId". Every other client just forwards its payload straight through and
+        // lets the backend's case-insensitive JSON binding sort it out server-side - this is the
+        // only client that needs to read a field out of the payload on the frontend itself, to
+        // build the nested URL.
+        const gateStructureId = findValueByFieldName(data as unknown as Record<string, unknown>, 'gateStructureId');
+        return this.invokeServiceCall(data, `${gateStructureId}/doors`, Controllers.GateStructures, HttpMethod.Post);
     }
 
     update(data: GateDoorDto): Promise<void> {
