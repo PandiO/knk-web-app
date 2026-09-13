@@ -2,6 +2,7 @@ import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../../types/dto
 import { FieldType } from '../enums';
 import { EntityMetadataDto, FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { isHeadlessTaskType } from '../../components/Workflow/WorldBoundFieldRenderer';
+import { toBooleanFieldValue } from './booleanFieldValue';
 
 /**
  * Arguments for normalizing form submission data.
@@ -170,9 +171,7 @@ function normalizeScalarValue(field: FormFieldDto, rawValue: any): any {
     }
 
     if (field.fieldType === FieldType.Boolean) {
-        if (rawValue.toLowerCase() === 'true') return true;
-        if (rawValue.toLowerCase() === 'false') return false;
-        return rawValue;
+        return toBooleanFieldValue(rawValue);
     }
 
     if (field.fieldType === FieldType.Integer || field.fieldType === FieldType.Decimal) {

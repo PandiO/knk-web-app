@@ -13,6 +13,7 @@ import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { DisplayFieldDto } from '../../types/dtos/displayConfig/DisplayModels';
 import { useRelationshipDrafts, RelationshipDraft } from '../../hooks/useRelationshipDrafts';
 import { RelationshipDraftCard } from './RelationshipDraftCard';
+import { toBooleanFieldValue } from '../../utils/forms/booleanFieldValue';
 
 /** Flattens a display configuration's sections/subSections into an ordered list of fields. */
 const flattenDisplayFields = (sections: { fields: DisplayFieldDto[]; subSections: any[] }[]): DisplayFieldDto[] => {
@@ -707,7 +708,7 @@ const BooleanField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
         <input
             type="checkbox"
             id={field.fieldName}
-            checked={!!value}
+            checked={toBooleanFieldValue(value)}
             onChange={e => onChange(e.target.checked)}
             disabled={field.isReadOnly}
             className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
