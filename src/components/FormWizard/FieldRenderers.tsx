@@ -11,6 +11,8 @@ import { interpolatePlaceholders } from '../../utils/placeholderInterpolation';
 import { isHeadlessTaskType } from '../Workflow/WorldBoundFieldRenderer';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { DisplayFieldDto } from '../../types/dtos/displayConfig/DisplayModels';
+import { useRelationshipDrafts, RelationshipDraft } from '../../hooks/useRelationshipDrafts';
+import { RelationshipDraftCard } from './RelationshipDraftCard';
 
 /** Flattens a display configuration's sections/subSections into an ordered list of fields. */
 const flattenDisplayFields = (sections: { fields: DisplayFieldDto[]; subSections: any[] }[]): DisplayFieldDto[] => {
@@ -86,6 +88,12 @@ interface FieldRendererProps {
     worldTaskStatusVisible?: boolean;
     hideCollectionAddItem?: boolean;
     parentEntityIsSaved?: boolean; // whether the entity being edited has a real id yet (gates "Create New" on owned-child-collection List fields)
+    // Identity of the entity currently being edited (e.g. "GateStructure" + its own id) - used by
+    // owned-child-collection List fields to look up and show that parent's in-progress/paused
+    // child drafts (e.g. GateDoor drafts) alongside its already-saved children.
+    parentEntityTypeName?: string;
+    parentEntityId?: string;
+    onContinueDraft?: (draft: RelationshipDraft) => void;
     allStepsData?: { [stepIndex: number]: any }; // optional: for dependency evaluation
     currentStepIndex?: number; // optional: for context
     errors?: { [fieldName: string]: string }; // optional: error map
@@ -106,6 +114,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     worldTaskStatusVisible,
     hideCollectionAddItem,
     parentEntityIsSaved,
+    parentEntityTypeName,
+    parentEntityId,
+    onContinueDraft,
     validationResult,
     validationPending,
     onRetryValidation
@@ -199,6 +210,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     worldTaskStatusVisible={worldTaskStatusVisible}
                     hideCollectionAddItem={hideCollectionAddItem}
                     parentEntityIsSaved={parentEntityIsSaved}
+                    parentEntityTypeName={parentEntityTypeName}
+                    parentEntityId={parentEntityId}
+                    onContinueDraft={onContinueDraft}
                 />
             );
         case FieldType.HybridMinecraftMaterialRefPicker: {
@@ -1075,16 +1089,25 @@ const ListField: React.FC<FieldRendererProps> = ({
     onEditInstance,
     onWorldTaskAction,
     hideCollectionAddItem,
-    parentEntityIsSaved
+    parentEntityIsSaved,
+    parentEntityTypeName,
+    parentEntityId,
+    onContinueDraft
 }) => {
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ListField]', ...args);
     console.log('Rendering ListField with value:', value);
     const items = Array.isArray(value) ? value : [];
-    
+
     const listElementType = field.elementType || FieldType.String;
     const isObjectList = field.objectType != null;
     const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
     const canCreate = field.canCreate !== false;
+
+    const { drafts } = useRelationshipDrafts(
+        ownedChildCollection ? field.objectType : undefined,
+        ownedChildCollection ? parentEntityTypeName : undefined,
+        ownedChildCollection ? parentEntityId : undefined
+    );
 
     const hasItems = items.length > 0;
     const worldTaskLabel = isHeadlessTaskType(parseWorldTaskTaskType(field.settingsJson))
@@ -1268,6 +1291,23 @@ const ListField: React.FC<FieldRendererProps> = ({
                                             </button>
                                         )}
                                     </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {ownedChildCollection && drafts.length > 0 && (
+                        <div className="mb-3 space-y-2">
+                            <p className="text-xs font-medium text-gray-700">
+                                Drafts in progress ({drafts.length}) - not yet saved:
+                            </p>
+                            <div className="max-h-32 overflow-y-auto space-y-2">
+                                {drafts.map(draft => (
+                                    <RelationshipDraftCard
+                                        key={draft.progressId}
+                                        draft={draft}
+                                        onContinue={onContinueDraft ?? (() => {})}
+                                    />
                                 ))}
                             </div>
                         </div>

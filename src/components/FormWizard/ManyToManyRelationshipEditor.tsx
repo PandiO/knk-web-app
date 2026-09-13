@@ -3,6 +3,8 @@ import { Trash2, AlertTriangle } from 'lucide-react';
 import { FormStepDto, FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldRenderer } from './FieldRenderers';
 import { ChildFormModal } from './ChildFormModal';
+import { RelationshipDraftCard } from './RelationshipDraftCard';
+import { useRelationshipDrafts, RelationshipDraft } from '../../hooks/useRelationshipDrafts';
 import { metadataClient } from '../../apiClients/metadataClient';
 import { getCreateFunctionForEntity, getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
@@ -12,6 +14,7 @@ interface Props {
     value: Record<string, unknown>[]; // Array of join entity instances
     onChange: (value: Record<string, unknown>[]) => void;
     entityName: string; // Parent entity being edited
+    entityId?: string; // Parent entity's own id, once saved - used to look up its join-entry drafts
     joinFormConfigurationId?: string;
     onOpenJoinEntry?: (relationshipIndex: number) => void;
     userId: string;
@@ -32,6 +35,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     value = [],
     onChange,
     entityName,
+    entityId,
     joinFormConfigurationId,
     onOpenJoinEntry,
     userId,
@@ -250,6 +254,40 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
             newIndex,
             newRelationship
         });
+    };
+
+    // Only meaningful when join entries are full nested forms with their own drafts
+    // (joinConfigId set) - the inline childFormSteps mode has no separate submission to draft.
+    const joinConfigIdForDrafts = joinFormConfigurationId ?? step.subConfigurationId;
+    const { drafts } = useRelationshipDrafts(
+        joinConfigIdForDrafts ? step.joinEntityType : undefined,
+        joinConfigIdForDrafts ? entityName : undefined,
+        joinConfigIdForDrafts ? entityId : undefined
+    );
+
+    // Resumes a draft join entry via the same __childProgressId convention
+    // handleOpenJoinEntry already reads off a relationship entry (see FormWizard.tsx) - so no
+    // changes were needed there, only how this placeholder entry gets seeded.
+    const handleContinueDraft = (draft: RelationshipDraft) => {
+        if (!onOpenJoinEntry) {
+            return;
+        }
+
+        const newRelationship: Record<string, unknown> = {
+            id: undefined,
+            __pendingJoinEntry: true,
+            __childProgressId: draft.progressId,
+            ...getDefaultJoinEntityFields()
+        };
+
+        const newIndex = value.length;
+        onChange([...value, newRelationship]);
+
+        window.setTimeout(() => {
+            onOpenJoinEntry(newIndex);
+        }, 0);
+
+        debug('handleContinueDraft', { newIndex, draft });
     };
 
     const handleCreateRelatedEntity = async (createdEntity: Record<string, unknown>) => {
@@ -625,6 +663,22 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                 )}
             </div>
 
+            {drafts.length > 0 && (
+                <div>
+                    <h3 className="text-sm font-medium text-gray-900 mb-3">
+                        Drafts in progress ({drafts.length}) - not yet saved
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {drafts.map(draft => (
+                            <RelationshipDraftCard
+                                key={draft.progressId}
+                                draft={draft}
+                                onContinue={handleContinueDraft}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <ChildFormModal
                 open={showCreateRelatedModal}

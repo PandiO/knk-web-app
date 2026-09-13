@@ -4,12 +4,16 @@ import { formConfigClient } from '../../apiClients/formConfigClient';
 import { workflowClient } from '../../apiClients/workflowClient';
 import { FormWizard } from './FormWizard';
 import { FeedbackModal } from '../FeedbackModal';
-import { FieldType } from '../../utils/enums';
+import { findParentLinkField } from '../../utils/forms/findParentLinkField';
 
 interface ChildFormModalProps {
     open: boolean;
     entityTypeName: string;
     entityId?: string;
+    // Resume an existing draft/in-progress FormSubmissionProgress rather than creating new or
+    // editing a persisted entity - mutually exclusive with entityId. Used by the relationship-
+    // drafts feature's "Continue" action.
+    existingProgressId?: string;
     parentProgressId?: string;
     userId: string;
     fieldName: string;
@@ -20,7 +24,7 @@ interface ChildFormModalProps {
     // created under (e.g. "GateStructure" + its in-progress field values). When the child's own
     // default FormConfiguration has an Object-type field referencing that same parent type (e.g.
     // GateDoor's "GateStructureId"), that field is pre-filled with the snapshot so the admin
-    // doesn't have to re-search for the entity they're already inside. Ignored in edit mode.
+    // doesn't have to re-search for the entity they're already inside. Ignored in edit/resume mode.
     parentEntityTypeName?: string;
     parentEntitySnapshot?: Record<string, unknown>;
     onComplete: (data: any, progress?: FormSubmissionProgressDto) => void;
@@ -31,6 +35,7 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
     open,
     entityTypeName,
     entityId,
+    existingProgressId,
     parentProgressId,
     userId,
     fieldName,
@@ -151,24 +156,20 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
     };
 
     const isEditMode = !!entityId;
+    const isResuming = !!existingProgressId;
 
     // Prefill any field on this child's own form that links back to the parent entity it's being
     // created under (e.g. GateDoor's "GateStructureId" when created from within a GateStructure
-    // form), so the admin doesn't have to re-search for the entity they're already inside.
+    // form), so the admin doesn't have to re-search for the entity they're already inside. Not for
+    // edit mode (a persisted entity already has its own data) or resume mode (a draft already has
+    // whatever it was saved with, including its own link field value).
     const initialFieldValues = useMemo(() => {
-        if (isEditMode || !defaultConfig || !parentEntityTypeName || !parentEntitySnapshot) {
+        if (isEditMode || isResuming || !parentEntitySnapshot) {
             return undefined;
         }
-        for (const step of defaultConfig.steps) {
-            const linkField = step.fields.find(
-                f => f.fieldType === FieldType.Object && f.objectType === parentEntityTypeName
-            );
-            if (linkField) {
-                return { [linkField.fieldName]: parentEntitySnapshot };
-            }
-        }
-        return undefined;
-    }, [isEditMode, defaultConfig, parentEntityTypeName, parentEntitySnapshot]);
+        const linkField = findParentLinkField(defaultConfig, parentEntityTypeName);
+        return linkField ? { [linkField.fieldName]: parentEntitySnapshot } : undefined;
+    }, [isEditMode, isResuming, defaultConfig, parentEntityTypeName, parentEntitySnapshot]);
 
     if (!open) return null;
 
@@ -180,12 +181,14 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                     <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                         <div>
                             <h2 className="text-xl font-bold text-gray-900">
-                                {isEditMode ? `Edit ${entityTypeName}` : `Create New ${entityTypeName}`}
+                                {isEditMode ? `Edit ${entityTypeName}` : isResuming ? `Continue draft ${entityTypeName}` : `Create New ${entityTypeName}`}
                             </h2>
                             <p className="text-sm text-gray-600 mt-1">
                                 {isEditMode
                                     ? `Update the ${entityTypeName} details`
-                                    : `Fill in the form to create a new ${entityTypeName}`}
+                                    : isResuming
+                                        ? `Resume where this draft was left off`
+                                        : `Fill in the form to create a new ${entityTypeName}`}
                             </p>
                         </div>
                         <button
@@ -209,6 +212,7 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                             <FormWizard
                                 entityName={entityTypeName}
                                 entityId={entityId}
+                                existingProgressId={existingProgressId}
                                 userId={userId}
                                 onComplete={handleChildComplete}
                                 parentProgressId={parentProgressId}

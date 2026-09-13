@@ -184,6 +184,7 @@ export interface FormSubmissionProgressSummaryDto {
     formConfigurationId: string;
     formConfigurationName: string;
     userId?: string;
+    createdByUsername?: string;
     entityTypeName?: string;
     entityId?: string;
     parentProgressId?: string;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Save, Check, AlertCircle } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, FormFieldDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
+import { RelationshipDraft } from '../../hooks/useRelationshipDrafts';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { formSubmissionClient } from '../../apiClients/formSubmissionClient';
 import { ConditionEvaluator } from '../../utils/conditionEvaluator';
@@ -120,6 +121,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         entityTypeName: string;
         fieldName: string;
         entityId?: string;
+        existingProgressId?: string;
         listItemIndex?: number;
         worldTaskHint?: string;
         parentEntityTypeName?: string;
@@ -130,6 +132,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         entityTypeName: '',
         fieldName: '',
         entityId: undefined,
+        existingProgressId: undefined,
         listItemIndex: undefined,
         worldTaskHint: undefined,
         parentEntityTypeName: undefined,
@@ -1149,10 +1152,31 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             entityTypeName: field.objectType || '',
             fieldName: field.fieldName,
             entityId: resolvedEntityId,
+            existingProgressId: undefined,
             listItemIndex,
             worldTaskHint: enabled ? taskType : undefined,
             parentEntityTypeName: parentEntitySnapshot ? entityName : undefined,
             parentEntitySnapshot
+        });
+    };
+
+    // Opens a relationship field's draft (an in-progress/paused FormSubmissionProgress that isn't
+    // in the field's own value list yet) for resuming, via ChildFormModal's existingProgressId
+    // mode. Completing it appends to the list the same way a brand-new "Create New" would.
+    const handleContinueDraft = (field: FormFieldDto, draft: RelationshipDraft) => {
+        const listItemIndex = field.fieldType === FieldType.List
+            ? (Array.isArray(currentStepData[field.fieldName]) ? currentStepData[field.fieldName].length : 0)
+            : undefined;
+        setChildFormModal({
+            open: true,
+            entityTypeName: field.objectType || '',
+            fieldName: field.fieldName,
+            entityId: undefined,
+            existingProgressId: draft.progressId,
+            listItemIndex,
+            worldTaskHint: undefined,
+            parentEntityTypeName: undefined,
+            parentEntitySnapshot: undefined
         });
     };
 
@@ -1162,6 +1186,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             ...prev,
             open: false,
             entityId: undefined,
+            existingProgressId: undefined,
             listItemIndex: undefined,
             worldTaskHint: undefined,
             parentEntityTypeName: undefined,
@@ -1930,6 +1955,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         value={currentStepData[currentStep.relatedEntityPropertyName || 'relationships'] || []}
                         onChange={(value) => handleFieldChange(currentStep.relatedEntityPropertyName || 'relationships', value)}
                         entityName={entityName}
+                        entityId={entityId}
                         userId={userId}
                         parentProgressId={progressId}
                         joinFormConfigurationId={currentStep.subConfigurationId}
@@ -2099,6 +2125,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                         : undefined}
                                     worldTaskStatusVisible={worldTaskStatusVisibleForField}
                                     parentEntityIsSaved={!!entityId}
+                                    parentEntityTypeName={entityName}
+                                    parentEntityId={entityId}
+                                    onContinueDraft={(draft) => handleContinueDraft(field, draft)}
                                     hideCollectionAddItem={fieldWorldTaskEnabled && !!fieldTaskType}
                                     validationResult={field.id ? validationResults[Number(field.id)] : undefined}
                                     validationPending={field.id ? validationLoading[Number(field.id)] : false}
@@ -2179,6 +2208,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 open={childFormModal.open}
                 entityTypeName={childFormModal.entityTypeName}
                 entityId={childFormModal.entityId}
+                existingProgressId={childFormModal.existingProgressId}
                 parentProgressId={progressId}
                 userId={userId}
                 fieldName={childFormModal.fieldName}
