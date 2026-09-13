@@ -7,10 +7,10 @@ import { formSubmissionClient } from '../../apiClients/formSubmissionClient';
 import { ConditionEvaluator } from '../../utils/conditionEvaluator';
 import { FormSubmissionStatus } from '../../utils/enums';
 import { FieldType } from '../../utils/enums';
-import { FieldRenderer } from './FieldRenderers';
+import { FieldRenderer, parseListFieldSettings } from './FieldRenderers';
 import { WorldBoundFieldRenderer } from '../Workflow/WorldBoundFieldRenderer';
 import { logging } from '../../utils';
-import { getFetchByIdFunctionForEntity } from '../../utils/entityApiMapping';
+import { getFetchByIdFunctionForEntity, getCreateFunctionForEntity, getUpdateFunctionForEntity } from '../../utils/entityApiMapping';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
 import { normalizeFormSubmission } from '../../utils/forms/normalizeFormSubmission';
 import {
@@ -126,6 +126,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         worldTaskHint?: string;
         parentEntityTypeName?: string;
         parentEntitySnapshot?: Record<string, unknown>;
+        // True for an ownedChildCollection List field (e.g. GateStructure -> GateDoors): the
+        // child entity has its own independent CRUD and the parent's own save ignores the
+        // embedded list entirely, so completing the nested child form must call the child's own
+        // create/update API directly here - nothing else ever persists it. Not set for a plain
+        // Object field's "Create New" (that data rides along in the parent's own payload and is
+        // expected to be processed there, matching how this already worked before this fix).
+        persistIndependently?: boolean;
     };
     const [childFormModal, setChildFormModal] = useState<ChildFormState>({
         open: false,
@@ -136,7 +143,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         listItemIndex: undefined,
         worldTaskHint: undefined,
         parentEntityTypeName: undefined,
-        parentEntitySnapshot: undefined
+        parentEntitySnapshot: undefined,
+        persistIndependently: undefined
     });
 
     type JoinEntryModalState = {
@@ -1147,6 +1155,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             };
         }
 
+        const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
+
         setChildFormModal({
             open: true,
             entityTypeName: field.objectType || '',
@@ -1156,7 +1166,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             listItemIndex,
             worldTaskHint: enabled ? taskType : undefined,
             parentEntityTypeName: parentEntitySnapshot ? entityName : undefined,
-            parentEntitySnapshot
+            parentEntitySnapshot,
+            persistIndependently: ownedChildCollection
         });
     };
 
@@ -1167,6 +1178,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         const listItemIndex = field.fieldType === FieldType.List
             ? (Array.isArray(currentStepData[field.fieldName]) ? currentStepData[field.fieldName].length : 0)
             : undefined;
+        const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
         setChildFormModal({
             open: true,
             entityTypeName: field.objectType || '',
@@ -1176,7 +1188,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             listItemIndex,
             worldTaskHint: undefined,
             parentEntityTypeName: undefined,
-            parentEntitySnapshot: undefined
+            parentEntitySnapshot: undefined,
+            persistIndependently: ownedChildCollection
         });
     };
 
@@ -1190,7 +1203,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             listItemIndex: undefined,
             worldTaskHint: undefined,
             parentEntityTypeName: undefined,
-            parentEntitySnapshot: undefined
+            parentEntitySnapshot: undefined,
+            persistIndependently: undefined
         }));
     };
 
@@ -1222,13 +1236,34 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             // Extract ID from the created entity if it exists
             // The normalizeFormSubmission will handle the conversion from navigation property to foreign key
             // but we want to store the full object in the form state for display purposes
-            const createdEntity = childData;
+            let createdEntity = childData;
 
             console.log(`Child form completed for field: ${fieldName}`, {
                 entityType: childFormModal.entityTypeName,
                 childData: createdEntity,
                 extractedId: createdEntity?.id
             });
+
+            // Owned-child-collection fields (e.g. GateStructure -> GateDoors) are ignored by the
+            // parent's own save on the backend - the child entity has independent CRUD, so nothing
+            // else ever persists it. Every other completion path here only ever updated this
+            // wizard's own local field state, on the (correct, for those cases) assumption that the
+            // parent's own submission would carry the embedded data through - true for entities the
+            // backend actually processes off the parent's payload, false for this one. Without this,
+            // completing a nested GateDoor form showed a success message and closed cleanly, but the
+            // door was never actually written to the database.
+            if (childFormModal.persistIndependently && childFormModal.entityTypeName) {
+                const entityData: Record<string, unknown> = { ...childData, id: childFormModal.entityId ?? undefined };
+                if (childFormModal.entityId) {
+                    const updateFn = getUpdateFunctionForEntity(childFormModal.entityTypeName);
+                    await updateFn(entityData);
+                    createdEntity = entityData;
+                } else {
+                    const createFn = getCreateFunctionForEntity(childFormModal.entityTypeName);
+                    const persisted = await createFn(entityData);
+                    createdEntity = (persisted && typeof persisted === 'object') ? persisted : entityData;
+                }
+            }
 
             // If this is a child form (has parentProgressId), save to childProgresses
             if (!progress?.parentProgressId && parentProgressId && progressId && currentStepIndex !== undefined) {

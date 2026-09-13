@@ -296,7 +296,7 @@ const parseHybridEnchantmentSettings = (settingsJson?: string): { categoryFilter
  * many-to-many pool. For these, the generic "search and select an existing entity" picker doesn't
  * correspond to any real operation, so ListField hides it and only offers Create New/Edit instance.
  */
-const parseListFieldSettings = (settingsJson?: string): { ownedChildCollection: boolean } => {
+export const parseListFieldSettings = (settingsJson?: string): { ownedChildCollection: boolean } => {
     if (!settingsJson) return { ownedChildCollection: false };
     try {
         const parsed = JSON.parse(settingsJson);

@@ -5,6 +5,7 @@ import { formConfigClient } from '../../../apiClients/formConfigClient';
 import { metadataClient } from '../../../apiClients/metadataClient';
 import { formSubmissionClient } from '../../../apiClients/formSubmissionClient';
 import { fieldValidationRuleClient } from '../../../apiClients/fieldValidationRuleClient';
+import { getCreateFunctionForEntity, getUpdateFunctionForEntity } from '../../../utils/entityApiMapping';
 
 jest.mock('../../../apiClients/formConfigClient', () => ({
     formConfigClient: {
@@ -40,7 +41,9 @@ jest.mock('../../../utils/entityApiMapping', () => ({
         id: 14,
         Name: 'Northern Gate',
         GateDoors: []
-    }))
+    })),
+    getCreateFunctionForEntity: jest.fn(),
+    getUpdateFunctionForEntity: jest.fn()
 }));
 
 let mockNextCreatedDoorId = 201;
@@ -76,6 +79,10 @@ describe('FormWizard List+Object "Create New" child form integration', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         (fieldValidationRuleClient.getByFormConfigurationId as jest.Mock).mockResolvedValue([]);
+        (getCreateFunctionForEntity as jest.Mock).mockReturnValue(
+            jest.fn(async (data: Record<string, unknown>) => ({ ...data, id: 999 }))
+        );
+        (getUpdateFunctionForEntity as jest.Mock).mockReturnValue(jest.fn(async () => undefined));
 
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue({
             id: '9',
@@ -164,6 +171,15 @@ describe('FormWizard List+Object "Create New" child form integration', () => {
 
         fireEvent.click(screen.getByTestId('complete-create-door'));
 
+        // Wait for the first async completion (including the new create-API call) to finish and
+        // the modal to close before starting the second one.
+        await waitFor(() => {
+            expect(screen.queryByTestId('complete-create-door')).not.toBeInTheDocument();
+        });
+        await waitFor(() => {
+            expect(screen.getAllByText('New Door')).toHaveLength(1);
+        });
+
         // Complete a second door - if the first append had replaced the field with a bare
         // object instead of an array, this second click would either throw or overwrite it.
         fireEvent.click(screen.getByRole('button', { name: /create new/i }));
@@ -176,5 +192,12 @@ describe('FormWizard List+Object "Create New" child form integration', () => {
             expect(screen.getAllByText('New Door')).toHaveLength(2);
         });
         expect(screen.getAllByRole('button', { name: /edit instance/i })).toHaveLength(2);
+
+        // The actual regression: completing a nested child form for an ownedChildCollection field
+        // must call the entity's own create API - nothing else ever persists it (the backend
+        // ignores GateDoors on GateStructure's own write).
+        expect(getCreateFunctionForEntity).toHaveBeenCalledWith('GateDoor');
+        expect(getCreateFunctionForEntity).toHaveBeenCalledTimes(2);
+        expect(getUpdateFunctionForEntity).not.toHaveBeenCalled();
     });
 });
