@@ -85,6 +85,7 @@ interface FieldRendererProps {
     onWorldTaskAction?: () => void;
     worldTaskStatusVisible?: boolean;
     hideCollectionAddItem?: boolean;
+    parentEntityIsSaved?: boolean; // whether the entity being edited has a real id yet (gates "Create New" on owned-child-collection List fields)
     allStepsData?: { [stepIndex: number]: any }; // optional: for dependency evaluation
     currentStepIndex?: number; // optional: for context
     errors?: { [fieldName: string]: string }; // optional: error map
@@ -104,6 +105,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     onWorldTaskAction,
     worldTaskStatusVisible,
     hideCollectionAddItem,
+    parentEntityIsSaved,
     validationResult,
     validationPending,
     onRetryValidation
@@ -191,10 +193,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     value={value}
                     onChange={guardedOnChange}
                     error={error}
+                    onCreateNew={mutableCreateAction}
                     onEditInstance={mutableEditAction}
                     onWorldTaskAction={mutableWorldTaskAction}
                     worldTaskStatusVisible={worldTaskStatusVisible}
                     hideCollectionAddItem={hideCollectionAddItem}
+                    parentEntityIsSaved={parentEntityIsSaved}
                 />
             );
         case FieldType.HybridMinecraftMaterialRefPicker: {
@@ -269,6 +273,23 @@ const parseHybridEnchantmentSettings = (settingsJson?: string): { categoryFilter
     } catch (err) {
         console.warn('Failed to parse hybrid enchantment settingsJson', err);
         return {};
+    }
+};
+
+/**
+ * A List+Object field marked ownedChildCollection represents a plain one-to-many collection of
+ * entities that only ever belong to this parent (e.g. GateStructure -> GateDoor), not a shared
+ * many-to-many pool. For these, the generic "search and select an existing entity" picker doesn't
+ * correspond to any real operation, so ListField hides it and only offers Create New/Edit instance.
+ */
+const parseListFieldSettings = (settingsJson?: string): { ownedChildCollection: boolean } => {
+    if (!settingsJson) return { ownedChildCollection: false };
+    try {
+        const parsed = JSON.parse(settingsJson);
+        return { ownedChildCollection: !!parsed.ownedChildCollection };
+    } catch (err) {
+        console.warn('Failed to parse list field settingsJson', err);
+        return { ownedChildCollection: false };
     }
 };
 
@@ -1050,9 +1071,11 @@ const ListField: React.FC<FieldRendererProps> = ({
     value,
     onChange,
     error,
+    onCreateNew,
     onEditInstance,
     onWorldTaskAction,
-    hideCollectionAddItem
+    hideCollectionAddItem,
+    parentEntityIsSaved
 }) => {
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ListField]', ...args);
     console.log('Rendering ListField with value:', value);
@@ -1060,6 +1083,8 @@ const ListField: React.FC<FieldRendererProps> = ({
     
     const listElementType = field.elementType || FieldType.String;
     const isObjectList = field.objectType != null;
+    const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
+    const canCreate = field.canCreate !== false;
 
     const hasItems = items.length > 0;
     const worldTaskLabel = isHeadlessTaskType(parseWorldTaskTaskType(field.settingsJson))
@@ -1223,7 +1248,7 @@ const ListField: React.FC<FieldRendererProps> = ({
                                                 <p className="text-xs text-green-600">ID: {item.id}</p>
                                             </div>
                                         </div>
-                                        {!field.isReadOnly && (
+                                        {!field.isReadOnly && !ownedChildCollection && (
                                             <button
                                                 type="button"
                                                 onClick={() => handleRemoveItem(item.id)}
@@ -1252,7 +1277,24 @@ const ListField: React.FC<FieldRendererProps> = ({
                         <div className="mb-3">{worldTaskButton}</div>
                     )}
 
-                    {!field.isReadOnly && <div className="border border-gray-200 rounded-md p-4">
+                    {!field.isReadOnly && onCreateNew && canCreate && (
+                        <div className="mb-3">
+                            <button
+                                type="button"
+                                onClick={onCreateNew}
+                                disabled={ownedChildCollection && parentEntityIsSaved === false}
+                                title={ownedChildCollection && parentEntityIsSaved === false
+                                    ? 'Save this record first before adding items'
+                                    : undefined}
+                                className="btn-secondary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Plus className="h-4 w-4 mr-2 inline" />
+                                Create New
+                            </button>
+                        </div>
+                    )}
+
+                    {!field.isReadOnly && !ownedChildCollection && <div className="border border-gray-200 rounded-md p-4">
                         <PagedEntityTable
                             entityTypeName={field.objectType}
                             columns={columnDefinitionsRegistry[field.objectType]?.default || defaultColumnDefinitions.default}

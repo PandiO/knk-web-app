@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { FormConfigurationDto, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { FormWizard } from './FormWizard';
 import { FeedbackModal } from '../FeedbackModal';
+import { FieldType } from '../../utils/enums';
 
 interface ChildFormModalProps {
     open: boolean;
@@ -14,6 +15,13 @@ interface ChildFormModalProps {
     currentStepIndex: number;
     workflowSessionId?: number;
     worldTaskHint?: string;
+    // The type name and current form-state snapshot of the parent entity this child is being
+    // created under (e.g. "GateStructure" + its in-progress field values). When the child's own
+    // default FormConfiguration has an Object-type field referencing that same parent type (e.g.
+    // GateDoor's "GateStructureId"), that field is pre-filled with the snapshot so the admin
+    // doesn't have to re-search for the entity they're already inside. Ignored in edit mode.
+    parentEntityTypeName?: string;
+    parentEntitySnapshot?: Record<string, unknown>;
     onComplete: (data: any, progress?: FormSubmissionProgressDto) => void;
     onClose: () => void;
 }
@@ -28,6 +36,8 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
     currentStepIndex,
     workflowSessionId,
     worldTaskHint,
+    parentEntityTypeName,
+    parentEntitySnapshot,
     onComplete,
     onClose
 }) => {
@@ -98,6 +108,24 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
 
     const isEditMode = !!entityId;
 
+    // Prefill any field on this child's own form that links back to the parent entity it's being
+    // created under (e.g. GateDoor's "GateStructureId" when created from within a GateStructure
+    // form), so the admin doesn't have to re-search for the entity they're already inside.
+    const initialFieldValues = useMemo(() => {
+        if (isEditMode || !defaultConfig || !parentEntityTypeName || !parentEntitySnapshot) {
+            return undefined;
+        }
+        for (const step of defaultConfig.steps) {
+            const linkField = step.fields.find(
+                f => f.fieldType === FieldType.Object && f.objectType === parentEntityTypeName
+            );
+            if (linkField) {
+                return { [linkField.fieldName]: parentEntitySnapshot };
+            }
+        }
+        return undefined;
+    }, [isEditMode, defaultConfig, parentEntityTypeName, parentEntitySnapshot]);
+
     if (!open) return null;
 
     return (
@@ -144,6 +172,7 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                                 currentStepIndex={currentStepIndex}
                                 workflowSessionId={worldTaskHint ? workflowSessionId : undefined}
                                 worldTaskHint={worldTaskHint}
+                                initialFieldValues={initialFieldValues}
                             />
                         ) : (
                             <div className="text-center py-12">

@@ -122,6 +122,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         entityId?: string;
         listItemIndex?: number;
         worldTaskHint?: string;
+        parentEntityTypeName?: string;
+        parentEntitySnapshot?: Record<string, unknown>;
     };
     const [childFormModal, setChildFormModal] = useState<ChildFormState>({
         open: false,
@@ -129,7 +131,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         fieldName: '',
         entityId: undefined,
         listItemIndex: undefined,
-        worldTaskHint: undefined
+        worldTaskHint: undefined,
+        parentEntityTypeName: undefined,
+        parentEntitySnapshot: undefined
     });
 
     type JoinEntryModalState = {
@@ -1125,13 +1129,30 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const handleOpenChildForm = (field: FormFieldDto, existingInstance?: any, listItemIndex?: number) => {
         const { enabled, taskType } = parseWorldTaskSettings(field.settingsJson);
         const resolvedEntityId = existingInstance?.id != null ? String(existingInstance.id) : undefined;
+
+        // Only relevant when creating a brand-new child (editing an existing instance already has
+        // its own real data, including its own link back to this parent). Mirrors the parent-identity
+        // snapshot handleOpenJoinEntry builds for many-to-many join entries (see there for the shape).
+        let parentEntitySnapshot: Record<string, unknown> | undefined;
+        if (!resolvedEntityId && config && currentStep) {
+            parentEntitySnapshot = {
+                ...flattenAllStepsData(config, {
+                    ...allStepsData,
+                    [currentStepIndex]: normalizeStepData(currentStep, currentStepData)
+                }),
+                id: entityId ?? -1
+            };
+        }
+
         setChildFormModal({
             open: true,
             entityTypeName: field.objectType || '',
             fieldName: field.fieldName,
             entityId: resolvedEntityId,
             listItemIndex,
-            worldTaskHint: enabled ? taskType : undefined
+            worldTaskHint: enabled ? taskType : undefined,
+            parentEntityTypeName: parentEntitySnapshot ? entityName : undefined,
+            parentEntitySnapshot
         });
     };
 
@@ -1142,7 +1163,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             open: false,
             entityId: undefined,
             listItemIndex: undefined,
-            worldTaskHint: undefined
+            worldTaskHint: undefined,
+            parentEntityTypeName: undefined,
+            parentEntitySnapshot: undefined
         }));
     };
 
@@ -2060,7 +2083,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                     onChange={value => handleFieldChange(field.fieldName, value)}
                                     error={errors[field.fieldName]}
                                     onBlur={() => validateField(field)}
-                                    onCreateNew={() => handleOpenChildForm(field)}
+                                    onCreateNew={() => handleOpenChildForm(
+                                        field,
+                                        undefined,
+                                        field.fieldType === FieldType.List
+                                            ? (Array.isArray(currentStepData[field.fieldName]) ? currentStepData[field.fieldName].length : 0)
+                                            : undefined
+                                    )}
                                     onEditInstance={(instance, listIndex) => handleOpenChildForm(field, instance, listIndex)}
                                     onWorldTaskAction={canRenderWorldTaskPanel
                                         ? () => {
@@ -2069,6 +2098,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                         }
                                         : undefined}
                                     worldTaskStatusVisible={worldTaskStatusVisibleForField}
+                                    parentEntityIsSaved={!!entityId}
                                     hideCollectionAddItem={fieldWorldTaskEnabled && !!fieldTaskType}
                                     validationResult={field.id ? validationResults[Number(field.id)] : undefined}
                                     validationPending={field.id ? validationLoading[Number(field.id)] : false}
@@ -2155,6 +2185,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 currentStepIndex={currentStepIndex}
                 workflowSessionId={childFormModal.worldTaskHint ? workflowSessionId : undefined}
                 worldTaskHint={childFormModal.worldTaskHint}
+                parentEntityTypeName={childFormModal.parentEntityTypeName}
+                parentEntitySnapshot={childFormModal.parentEntitySnapshot}
                 onComplete={handleChildFormComplete}
                 onClose={handleCloseChildForm}
             />
