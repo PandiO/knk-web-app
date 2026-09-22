@@ -1,4 +1,5 @@
 import { CategoryClient } from '../apiClients/categoryClient';
+import { DomainClient } from '../apiClients/domainClient';
 import { StructureClient } from '../apiClients/structureClient';
 import { StreetClient } from '../apiClients/streetClient';
 import { TownClient } from '../apiClients/townClient';
@@ -46,6 +47,8 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
     switch (normalized) {
         case 'category':
             return withPagedQueryMapping((query) => CategoryClient.getInstance().searchPaged(query));
+        case 'domain':
+            return withPagedQueryMapping((query) => DomainClient.getInstance().searchPaged(query));
         case 'street':
             return withPagedQueryMapping((query) => StreetClient.getInstance().searchPaged(query));
         case 'town':
@@ -86,6 +89,8 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
     switch (normalized) {
         case 'category':
             return (id) => CategoryClient.getInstance().getById(id);
+        case 'domain':
+            return (id) => DomainClient.getInstance().getById(id);
         case 'street':
             return (id) => StreetClient.getInstance().getById(Number(id));
         case 'town':
@@ -121,6 +126,8 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
     switch (normalized) {
         case 'category':
             return (entity) => CategoryClient.getInstance().update(entity);
+        case 'domain':
+            return (entity) => DomainClient.getInstance().update(entity);
         case 'street':
             return (entity) => StreetClient.getInstance().update(entity);
         case 'town':
@@ -158,6 +165,8 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
     switch (normalized) {
         case 'category':
             return (id) => CategoryClient.getInstance().delete(id as string);
+        case 'domain':
+            return (id) => DomainClient.getInstance().delete(id as string);
         case 'street':
             return (id) => StreetClient.getInstance().delete(Number(id));
         case 'town':
@@ -193,6 +202,8 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
     switch (normalized) {
         case 'category':
             return (entity) => CategoryClient.getInstance().create(entity);
+        case 'domain':
+            return (entity) => DomainClient.getInstance().create(entity);
         case 'street':
             return (entity) => StreetClient.getInstance().create(entity);
         case 'town':
