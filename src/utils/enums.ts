@@ -80,6 +80,8 @@ export enum Controllers {
     EntityTypeConfiguration = 'EntityTypeConfiguration',
     Categories = 'Categories',
     Domains = 'Domains',
+    Grades = 'Grades',
+    Tags = 'Tags',
     ItemBlueprints = 'ItemBlueprints',
     EnchantmentDefinitions = 'EnchantmentDefinitions',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
@@ -241,6 +243,24 @@ export enum CategoryOperation {
 }
 
 export enum DomainOperation {
+    GetAll = '',
+    GetById = '',
+    Create = '',
+    Update = '',
+    Delete = '',
+    SearchPaged = 'search'
+}
+
+export enum GradeOperation {
+    GetAll = '',
+    GetById = '',
+    Create = '',
+    Update = '',
+    Delete = '',
+    SearchPaged = 'search'
+}
+
+export enum TagOperation {
     GetAll = '',
     GetById = '',
     Create = '',

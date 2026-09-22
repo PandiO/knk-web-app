@@ -1503,7 +1503,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             const relatedNavigationField = metadataFields.find(field =>
                 field.isRelatedEntity &&
                 field.relatedEntityType &&
-                field.relatedEntityType !== entityName &&
+                // `entityName` is the raw lowercase :entityName route segment (e.g. "category"), which
+                // never matches metadata's correctly-cased relatedEntityType (e.g. "Category") - compare
+                // against the loaded configuration's real entityTypeName instead (see also the same fix
+                // in the normalizeFormSubmission call above).
+                field.relatedEntityType !== (config.entityTypeName || entityName) &&
                 !field.fieldName.toLowerCase().endsWith('id')
             );
 
@@ -1807,7 +1811,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
             try {
                 normalizedPayload = normalizeFormSubmission({
-                    entityTypeName: entityName,
+                    // config!.entityTypeName is the real, correctly-cased entity type name (e.g.
+                    // "Category") as reflected by MetadataService; `entityName` here is only ever the
+                    // raw lowercase :entityName route segment (e.g. "category"), which breaks exact-case
+                    // comparisons against backend metadata's relatedEntityType (see resolveJoinEntityMapping).
+                    entityTypeName: config!.entityTypeName || entityName,
                     formConfiguration: config!,
                     rawFormValue: flattenedDto,
                     entityMetadata: entityMetadata?.fields || [],

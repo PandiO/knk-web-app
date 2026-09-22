@@ -1,5 +1,7 @@
 import { CategoryClient } from '../apiClients/categoryClient';
 import { DomainClient } from '../apiClients/domainClient';
+import { GradeClient } from '../apiClients/gradeClient';
+import { TagClient } from '../apiClients/tagClient';
 import { StructureClient } from '../apiClients/structureClient';
 import { StreetClient } from '../apiClients/streetClient';
 import { TownClient } from '../apiClients/townClient';
@@ -49,6 +51,10 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => CategoryClient.getInstance().searchPaged(query));
         case 'domain':
             return withPagedQueryMapping((query) => DomainClient.getInstance().searchPaged(query));
+        case 'grade':
+            return withPagedQueryMapping((query) => GradeClient.getInstance().searchPaged(query));
+        case 'tag':
+            return withPagedQueryMapping((query) => TagClient.getInstance().searchPaged(query));
         case 'street':
             return withPagedQueryMapping((query) => StreetClient.getInstance().searchPaged(query));
         case 'town':
@@ -91,6 +97,10 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => CategoryClient.getInstance().getById(id);
         case 'domain':
             return (id) => DomainClient.getInstance().getById(id);
+        case 'grade':
+            return (id) => GradeClient.getInstance().getById(id);
+        case 'tag':
+            return (id) => TagClient.getInstance().getById(id);
         case 'street':
             return (id) => StreetClient.getInstance().getById(Number(id));
         case 'town':
@@ -128,6 +138,10 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => CategoryClient.getInstance().update(entity);
         case 'domain':
             return (entity) => DomainClient.getInstance().update(entity);
+        case 'grade':
+            return (entity) => GradeClient.getInstance().update(entity);
+        case 'tag':
+            return (entity) => TagClient.getInstance().update(entity);
         case 'street':
             return (entity) => StreetClient.getInstance().update(entity);
         case 'town':
@@ -167,6 +181,10 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => CategoryClient.getInstance().delete(id as string);
         case 'domain':
             return (id) => DomainClient.getInstance().delete(id as string);
+        case 'grade':
+            return (id) => GradeClient.getInstance().delete(id as string);
+        case 'tag':
+            return (id) => TagClient.getInstance().delete(id as string);
         case 'street':
             return (id) => StreetClient.getInstance().delete(Number(id));
         case 'town':
@@ -204,6 +222,10 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => CategoryClient.getInstance().create(entity);
         case 'domain':
             return (entity) => DomainClient.getInstance().create(entity);
+        case 'grade':
+            return (entity) => GradeClient.getInstance().create(entity);
+        case 'tag':
+            return (entity) => TagClient.getInstance().create(entity);
         case 'street':
             return (entity) => StreetClient.getInstance().create(entity);
         case 'town':

@@ -1,5 +1,11 @@
 import { MinecraftMaterialRefDto } from "../minecraftMaterialRef/MinecraftMaterialRefDto";
 
+export interface CategoryTagDto {
+    categoryId?: number;
+    tagId: number;
+    tag?: { id: number; name: string };
+}
+
 export interface CategoryDto {
     id?: string;
     name: string;
@@ -8,4 +14,5 @@ export interface CategoryDto {
     iconNamespaceKey?: string;
     parentCategoryId?: string;
     parentCategory?: CategoryDto;
+    tags?: CategoryTagDto[];
 }
