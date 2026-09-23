@@ -1362,23 +1362,27 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         }
 
         const applyResolvedPatch = (choices: Record<string, ScanConflictChoice> | null) => {
-            const useScan = (key: string) => !choices || choices[key] !== 'current';
+            // Named to deliberately avoid a leading "use" - eslint-plugin-react-hooks flags any
+            // identifier matching /^use[A-Z0-9]/ as a Hook by name alone (it can't tell this plain
+            // helper apart from a real one), which turned CRA's dev server into a hard compile
+            // error ("Compiled with problems") despite this never being called during render.
+            const shouldApplyScannedValue = (key: string) => !choices || choices[key] !== 'current';
 
             const patch: Record<string, unknown> = {};
-            if (displayNameField && useScan('displayName')) {
+            if (displayNameField && shouldApplyScannedValue('displayName')) {
                 patch[displayNameField] = scannedDisplayName;
             }
-            if (displayDescriptionField && useScan('displayDescription')) {
+            if (displayDescriptionField && shouldApplyScannedValue('displayDescription')) {
                 patch[displayDescriptionField] = scannedDisplayDescription;
             }
-            if (iconMaterialField && scannedMaterialId != null && useScan('iconMaterial')) {
+            if (iconMaterialField && scannedMaterialId != null && shouldApplyScannedValue('iconMaterial')) {
                 patch[iconMaterialField] = scannedMaterialId;
             }
             if (Object.keys(patch).length > 0) {
                 applyMultipleFieldChanges(patch);
             }
 
-            if (enchantmentStepIndex !== -1 && useScan('defaultEnchantments')) {
+            if (enchantmentStepIndex !== -1 && shouldApplyScannedValue('defaultEnchantments')) {
                 setAllStepsData(prev => ({
                     ...prev,
                     [enchantmentStepIndex]: {
