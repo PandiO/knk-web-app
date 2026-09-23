@@ -43,6 +43,11 @@ const TASK_OUTPUT_FIELD_MAP: Record<string, string> = {
     'WgRegionId': 'regionId', // Field-based naming
 };
 
+// ItemScan's output (docs/specs/items/IMPLEMENTATION_PLAN.md §5.2) has no single mapped field -
+// its material/displayName/lore/enchantments each land on a different ItemBlueprint field, which
+// FormWizard.tsx's onTaskCompleted handles (not this generic map). extractTaskResult below has
+// its own dedicated branch (isItemScanTask), the same pattern GateBlockScan already established.
+
 const getNormalizedStatus = (status?: string): string => (status || '').toLowerCase();
 
 const hasExtractedValue = (value: unknown): boolean => value !== null && value !== undefined;
@@ -56,9 +61,15 @@ const hasExtractedValue = (value: unknown): boolean => value !== null && value !
  */
 const GATE_BLOCK_SCAN_TASK_TYPES = ['GateBlockScan', 'GateOpenedBlockScan'];
 
+const ITEM_SCAN_TASK_TYPE = 'ItemScan';
+
 /**
  * Task types that are executed by the plugin without a player and therefore never
  * produce a claim code. The webapp shows scan progress instead of a "send to Minecraft" prompt.
+ *
+ * ItemScan is deliberately NOT here (docs/specs/items/IMPLEMENTATION_PLAN.md §5.1/§5.3) - it's
+ * player-driven (a specific player must be holding the item at scan time), so it needs the
+ * normal claim-code banner Location/WgRegionId already get, not the headless progress spinner.
  */
 const HEADLESS_TASK_TYPES = [...GATE_BLOCK_SCAN_TASK_TYPES];
 
@@ -123,6 +134,26 @@ export function getWorldTaskResultDetails(task: WorldTaskReadDto, taskType: stri
                 { label: 'Status', value: String(output.status) },
                 { label: 'Blocks scanned', value: String(output.blockCount ?? 0) }
             ];
+            const warningCount = Array.isArray(output.warnings) ? output.warnings.length : 0;
+            if (warningCount > 0) {
+                details.push({ label: 'Warnings', value: String(warningCount) });
+            }
+            return details;
+        }
+
+        if (isItemScanTask(taskType, task.taskType) && output.status !== undefined) {
+            const details: WorldTaskResultDetail[] = [
+                { label: 'Status', value: String(output.status) },
+                { label: 'Material', value: String(output.material ?? 'unknown') }
+            ];
+            if (hasExtractedValue(output.displayName)) {
+                details.push({ label: 'Name', value: String(output.displayName) });
+            }
+            const vanillaCount = Array.isArray(output.vanillaEnchantments) ? output.vanillaEnchantments.length : 0;
+            const customCount = Array.isArray(output.customEnchantments) ? output.customEnchantments.length : 0;
+            if (vanillaCount + customCount > 0) {
+                details.push({ label: 'Enchantments found', value: String(vanillaCount + customCount) });
+            }
             const warningCount = Array.isArray(output.warnings) ? output.warnings.length : 0;
             if (warningCount > 0) {
                 details.push({ label: 'Warnings', value: String(warningCount) });
@@ -229,6 +260,22 @@ function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
             };
         }
 
+        // ItemScan (docs/specs/items/IMPLEMENTATION_PLAN.md §5.2): the raw payload has already
+        // been fanned out onto ItemBlueprint's other fields by FormWizard.tsx's onTaskCompleted
+        // handler (material -> IconMaterialRefId, displayName -> DefaultDisplayName, lore ->
+        // DefaultDisplayDescription, enchantments -> the Default Enchantments M2M step) by the
+        // time that callback fires, using this same task's outputJson independently. This field's
+        // own value is just a compact summary so "already scanned" state survives a saved/resumed
+        // draft and a rescan is visibly distinguishable from a first scan.
+        if (isItemScanTask(taskType, task.taskType) && output.status !== undefined) {
+            return {
+                status: output.status,
+                material: output.material,
+                displayName: output.displayName ?? null,
+                scannedAt: new Date().toISOString()
+            };
+        }
+
         // Special handling for Location tasks
         if (isLocationTask(taskType, task.taskType)) {
             // Extract raw location data and convert to location object
@@ -285,6 +332,10 @@ function isLocationTask(taskType: string, actualTaskType?: string): boolean {
 
 function isGateBlockScanTask(taskType: string, actualTaskType?: string): boolean {
     return GATE_BLOCK_SCAN_TASK_TYPES.includes(taskType) || GATE_BLOCK_SCAN_TASK_TYPES.includes(actualTaskType || '');
+}
+
+function isItemScanTask(taskType: string, actualTaskType?: string): boolean {
+    return taskType === ITEM_SCAN_TASK_TYPE || actualTaskType === ITEM_SCAN_TASK_TYPE;
 }
 
 export function shouldShowWorldTaskResultDetails(task: WorldTaskReadDto, taskType: string): boolean {
@@ -721,6 +772,14 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
                     <p className="text-sm text-gray-700">
                         Previously scanned: <strong>{value.blockCount ?? 0} blocks</strong> ({value.status})
+                    </p>
+                </div>
+            )}
+            {!task && !taskId && taskType === ITEM_SCAN_TASK_TYPE && value?.status && (
+                <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                    <p className="text-sm text-gray-700">
+                        Previously scanned: <strong>{value.material ?? 'unknown item'}</strong>
+                        {value.displayName ? ` "${value.displayName}"` : ''} ({value.status})
                     </p>
                 </div>
             )}

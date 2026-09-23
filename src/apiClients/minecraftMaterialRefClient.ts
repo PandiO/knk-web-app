@@ -7,6 +7,7 @@ import {
     MinecraftMaterialRefUpdateDto,
     MinecraftMaterialRefListDto
 } from '../types/dtos/minecraftMaterialRef/MinecraftMaterialRefDto';
+import { MinecraftHybridMaterialOptionDto } from '../types/dtos/minecraftMaterialRef/MinecraftHybridMaterialOptionDto';
 
 export class MinecraftMaterialRefClient extends ObjectManager {
     private static instance: MinecraftMaterialRefClient;
@@ -27,8 +28,27 @@ export class MinecraftMaterialRefClient extends ObjectManager {
         return this.invokeServiceCall(null, `${id}`, Controllers.MinecraftMaterialRefs, HttpMethod.Get);
     }
 
+    getHybrid(search?: string, category?: string, take?: number): Promise<MinecraftHybridMaterialOptionDto[]> {
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (category) params.append('category', category);
+        if (take) params.append('take', take.toString());
+
+        const endpoint = `hybrid${params.toString() ? '?' + params.toString() : ''}`;
+        return this.invokeServiceCall(null, endpoint, Controllers.MinecraftMaterialRefs, HttpMethod.Get);
+    }
+
     create(data: MinecraftMaterialRefCreateDto): Promise<MinecraftMaterialRefDto> {
         return this.invokeServiceCall(data, MinecraftMaterialRefOperation.Create, Controllers.MinecraftMaterialRefs, HttpMethod.Post);
+    }
+
+    persistFromCatalog(namespaceKey: string, category?: string, legacyName?: string): Promise<MinecraftMaterialRefDto> {
+        return this.invokeServiceCall(
+            { namespaceKey, category, legacyName },
+            'get-or-create',
+            Controllers.MinecraftMaterialRefs,
+            HttpMethod.Post
+        );
     }
 
     update(data: MinecraftMaterialRefUpdateDto & { id: number }): Promise<MinecraftMaterialRefDto> {

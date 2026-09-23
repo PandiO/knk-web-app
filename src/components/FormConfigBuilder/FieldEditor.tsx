@@ -70,6 +70,7 @@ export const FieldEditor: React.FC<Props> = ({
         'VerifyBoundary',
         'GateBlockScan',
         'GateOpenedBlockScan',
+        'ItemScan',
         'Custom'
     ];
 
@@ -1139,6 +1140,14 @@ export const FieldEditor: React.FC<Props> = ({
                                         this in if you want to override the automatic open
                                         animation with a custom scanned shape.</>
                                     )}
+                                </p>
+                            )}
+                            {worldTaskType === 'ItemScan' && (
+                                <p className="mt-1 text-xs text-blue-600">
+                                    Requires a player: hold the item to scan, then claim the
+                                    displayed code in-game (chat command or "/knk itemscan claim
+                                    &lt;code&gt;") to capture its material, name, lore, and
+                                    enchantments.
                                 </p>
                             )}
                         </div>

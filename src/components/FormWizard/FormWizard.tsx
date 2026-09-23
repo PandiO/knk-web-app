@@ -41,6 +41,8 @@ import {
 } from '../../utils/forms/valueProjection';
 import { deriveGateGeometryStepData, isDerivedGateGeometryField } from '../../utils/forms/gateGeometry';
 import { withLiveEnumOptions } from '../../utils/forms/enumFieldMetadata';
+import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
+import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 
 interface FormWizardProps {
     entityName: string;
@@ -1136,6 +1138,135 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         });
     };
 
+    // Batched sibling of handleFieldChange for ItemScan's cross-field auto-fill (docs/specs/
+    // items/IMPLEMENTATION_PLAN.md §5.3) - handleFieldChange reads currentStepData/allStepsData
+    // from this render's closure and isn't safe to call twice in a row without an intervening
+    // re-render (the second call would merge from the same stale snapshot and clobber the
+    // first), so every scanned General Information field is folded into one patch and applied
+    // as a single state update. Deliberately skips handleFieldChange's per-field value-projection
+    // step (applyFieldValueProjection) - no projection rule is expected to target a scanned
+    // field, and this exists for a multi-field patch case handleFieldChange never had to cover.
+    const applyMultipleFieldChanges = (patch: Record<string, unknown>) => {
+        if (!currentStep || Object.keys(patch).length === 0) return;
+
+        const mergedCurrent = { ...currentStepData, ...patch };
+        const normalizedCurrent = deriveGateGeometryStepData(
+            entityName,
+            normalizeStepData(currentStep, mergedCurrent)
+        );
+        const updatedAllData: AllStepsData = { ...allStepsData, [currentStepIndex]: normalizedCurrent };
+
+        Object.keys(patch).forEach(fieldName => {
+            fieldProvenanceRef.current[fieldName.toLowerCase()] = 'manual';
+        });
+
+        const reconciled = reconcileVisibility(config!, updatedAllData, hiddenStash);
+        const visibleNow = reconciled.visibility.visibleFieldNames[currentStepIndex] ?? new Set<string>();
+
+        setCurrentStepData(
+            Object.fromEntries(
+                Object.entries(reconciled.allStepsData[currentStepIndex] || normalizedCurrent)
+                    .filter(([key]) => visibleNow.has(key) || !currentStep.fields.some(f => f.fieldName === key))
+            )
+        );
+        setAllStepsData(reconciled.allStepsData);
+        setHiddenStash(reconciled.hiddenStash);
+    };
+
+    // ItemScan's OutputJson (docs/specs/items/IMPLEMENTATION_PLAN.md §5.2/§5.3) fans out onto
+    // several ItemBlueprint fields at once: material -> a resolved/get-or-created
+    // MinecraftMaterialRef -> IconMaterialRefId, displayName -> DefaultDisplayName, lore ->
+    // DefaultDisplayDescription, plus vanilla/custom enchantment matches pre-selected into the
+    // Default Enchantments M2M step (a different step than wherever the Scan field itself lives
+    // - written via setAllStepsData directly, not handleFieldChange, since that step isn't
+    // necessarily the currently-active one). A rescan overwrites all of this wholesale, by design
+    // (§5.2's explicit non-goal: no selective-field preservation).
+    const applyItemScanResult = async (outputJson: string) => {
+        if (!config || !currentStep) return;
+
+        let output: Record<string, any>;
+        try {
+            output = JSON.parse(outputJson);
+        } catch {
+            console.error('ItemScan: could not parse task outputJson');
+            return;
+        }
+
+        const patch: Record<string, unknown> = {};
+        if (typeof output.displayName === 'string' && output.displayName) {
+            patch.DefaultDisplayName = output.displayName;
+        }
+        if (Array.isArray(output.lore) && output.lore.length > 0) {
+            patch.DefaultDisplayDescription = output.lore.join('\n');
+        }
+
+        if (typeof output.material === 'string' && output.material) {
+            try {
+                const hybridMatches = await minecraftMaterialRefClient.getHybrid(output.material, undefined, 5);
+                const exactMatch = hybridMatches.find(
+                    m => m.namespaceKey.toLowerCase() === output.material.toLowerCase()
+                );
+                const materialRef = await minecraftMaterialRefClient.persistFromCatalog(
+                    output.material,
+                    exactMatch?.category || 'Misc'
+                );
+                if (materialRef?.id != null) {
+                    patch.IconMaterialRefId = materialRef.id;
+                }
+            } catch (error) {
+                console.error('ItemScan: failed to resolve MinecraftMaterialRef for', output.material, error);
+            }
+        }
+
+        if (Object.keys(patch).length > 0) {
+            applyMultipleFieldChanges(patch);
+        }
+
+        const enchantmentStepIndex = config.steps.findIndex(
+            step => step.isManyToManyRelationship && step.relatedEntityPropertyName === 'DefaultEnchantments'
+        );
+        if (enchantmentStepIndex === -1) {
+            return;
+        }
+
+        const scannedEnchantments: Array<{ key: string; level: number }> = [
+            ...(Array.isArray(output.vanillaEnchantments) ? output.vanillaEnchantments : []),
+            ...(Array.isArray(output.customEnchantments) ? output.customEnchantments : [])
+        ].filter((entry): entry is { key: string; level: number } => !!entry && typeof entry.key === 'string');
+
+        const matchedRelationships: Record<string, unknown>[] = [];
+        for (const scanned of scannedEnchantments) {
+            try {
+                const result = await enchantmentDefinitionClient.searchPaged({
+                    page: 1,
+                    pageSize: 10,
+                    searchTerm: scanned.key
+                });
+                const items: Array<{ id?: number; key: string; displayName: string }> = result?.items || [];
+                const exact = items.find(item => item.key?.toLowerCase() === scanned.key.toLowerCase());
+                if (exact?.id != null) {
+                    matchedRelationships.push({
+                        id: undefined,
+                        relatedEntityId: exact.id,
+                        EnchantmentDefinitionId: exact.id,
+                        relatedEntity: exact,
+                        Level: scanned.level ?? 1
+                    });
+                }
+            } catch (error) {
+                console.error('ItemScan: failed to match enchantment', scanned.key, error);
+            }
+        }
+
+        setAllStepsData(prev => ({
+            ...prev,
+            [enchantmentStepIndex]: {
+                ...(prev[enchantmentStepIndex] || {}),
+                DefaultEnchantments: matchedRelationships
+            }
+        }));
+    };
+
     // added: open child form modal for creating new object
     const handleOpenChildForm = (field: FormFieldDto, existingInstance?: any, listItemIndex?: number) => {
         const { enabled, taskType } = parseWorldTaskSettings(field.settingsJson);
@@ -2219,6 +2350,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                             console.log('WorldTask completed:', task, 'Extracted value:', extractedValue);
                                             console.log('Clearing validation result for fieldId:', fieldId);
                                             console.log('Current validation results before clearing:', validationResults);
+                                            if (task?.taskType === 'ItemScan' && task?.outputJson) {
+                                                applyItemScanResult(task.outputJson).catch(error => {
+                                                    console.error('ItemScan: failed to apply scan result to form fields:', error);
+                                                });
+                                            }
                                             if (fieldId) {
                                                 setValidationResults(prev => {
                                                     const updated = { ...prev };
