@@ -1402,22 +1402,29 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         if (joinMetadata) {
             const metadataFields = joinMetadata.fields;
 
+            // `entityName` is the raw lowercase :entityName route segment (e.g. "itemblueprint"),
+            // which never exact-matches backend metadata's correctly-cased relatedEntityType (e.g.
+            // "ItemBlueprint") - see the same fix applied to normalizeFormSubmission's call and
+            // handleJoinEntryComplete's relatedNavigationField lookup, and PHASE_2_FORMCONFIGS.md's
+            // note that this bug class can recur at any entityName-vs-metadata comparison site.
+            const resolvedEntityTypeName = config.entityTypeName || entityName;
+
             const parentIdField = metadataFields.find(field =>
                 field.isRelatedEntity &&
-                field.relatedEntityType === entityName &&
+                field.relatedEntityType === resolvedEntityTypeName &&
                 field.fieldName.toLowerCase().endsWith('id')
             )?.fieldName;
 
             const parentNavigationField = metadataFields.find(field =>
                 field.isRelatedEntity &&
-                field.relatedEntityType === entityName &&
+                field.relatedEntityType === resolvedEntityTypeName &&
                 !field.fieldName.toLowerCase().endsWith('id')
             )?.fieldName;
 
             const relatedNavField = metadataFields.find(field =>
                 field.isRelatedEntity &&
                 field.relatedEntityType &&
-                field.relatedEntityType !== entityName &&
+                field.relatedEntityType !== resolvedEntityTypeName &&
                 !field.fieldName.toLowerCase().endsWith('id')
             );
 
