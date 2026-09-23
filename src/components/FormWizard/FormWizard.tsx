@@ -1139,38 +1139,41 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     };
 
     // Batched sibling of handleFieldChange for ItemScan's cross-field auto-fill (docs/specs/
-    // items/IMPLEMENTATION_PLAN.md §5.3) - handleFieldChange reads currentStepData/allStepsData
-    // from this render's closure and isn't safe to call twice in a row without an intervening
-    // re-render (the second call would merge from the same stale snapshot and clobber the
-    // first), so every scanned General Information field is folded into one patch and applied
-    // as a single state update. Deliberately skips handleFieldChange's per-field value-projection
-    // step (applyFieldValueProjection) - no projection rule is expected to target a scanned
-    // field, and this exists for a multi-field patch case handleFieldChange never had to cover.
+    // items/IMPLEMENTATION_PLAN.md §5.3), called from an async context (applyItemScanResult,
+    // below, awaits real network calls first) - unlike every other handleFieldChange call site,
+    // which fires synchronously from a UI event so the closure it reads currentStepData/
+    // allStepsData/hiddenStash from is never meaningfully stale, real time (and real renders)
+    // pass here first. A first version of this function read that same closure state directly,
+    // the same way handleFieldChange does, and it was confirmed live (a simulated scan against
+    // the real dev API) to silently drop the just-scanned DefaultDisplayName value: the stale
+    // currentStepData/allStepsData snapshot fed into reconcileVisibility produced a *different*
+    // visibleNow set than the one the field's own onChange had already rendered against, and its
+    // field-visibility filter (`visibleNow.has(key) || !currentStep.fields.some(...)`) silently
+    // dropped the freshly-patched key. Fixed by using React's functional setState form for both
+    // calls, so each one merges onto whatever the *actual current* state is when it runs,
+    // regardless of how stale this function's own closure has gone - eliminating the race
+    // entirely rather than trying to out-time it. This does mean skipping handleFieldChange's
+    // reconcileVisibility/applyFieldValueProjection passes for this patch; safe here because none
+    // of ItemScan's target fields (DefaultDisplayName/DefaultDisplayDescription/IconMaterialRefId)
+    // are display-conditional or projection targets in this form.
     const applyMultipleFieldChanges = (patch: Record<string, unknown>) => {
         if (!currentStep || Object.keys(patch).length === 0) return;
-
-        const mergedCurrent = { ...currentStepData, ...patch };
-        const normalizedCurrent = deriveGateGeometryStepData(
-            entityName,
-            normalizeStepData(currentStep, mergedCurrent)
-        );
-        const updatedAllData: AllStepsData = { ...allStepsData, [currentStepIndex]: normalizedCurrent };
 
         Object.keys(patch).forEach(fieldName => {
             fieldProvenanceRef.current[fieldName.toLowerCase()] = 'manual';
         });
 
-        const reconciled = reconcileVisibility(config!, updatedAllData, hiddenStash);
-        const visibleNow = reconciled.visibility.visibleFieldNames[currentStepIndex] ?? new Set<string>();
+        setCurrentStepData(prev => {
+            const merged = { ...prev, ...patch };
+            return deriveGateGeometryStepData(entityName, normalizeStepData(currentStep, merged));
+        });
 
-        setCurrentStepData(
-            Object.fromEntries(
-                Object.entries(reconciled.allStepsData[currentStepIndex] || normalizedCurrent)
-                    .filter(([key]) => visibleNow.has(key) || !currentStep.fields.some(f => f.fieldName === key))
-            )
-        );
-        setAllStepsData(reconciled.allStepsData);
-        setHiddenStash(reconciled.hiddenStash);
+        setAllStepsData(prev => {
+            const prevStepData = prev[currentStepIndex] || {};
+            const merged = { ...prevStepData, ...patch };
+            const normalized = deriveGateGeometryStepData(entityName, normalizeStepData(currentStep, merged));
+            return { ...prev, [currentStepIndex]: normalized };
+        });
     };
 
     // ItemScan's OutputJson (docs/specs/items/IMPLEMENTATION_PLAN.md §5.2/§5.3) fans out onto
@@ -1192,24 +1195,39 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             return;
         }
 
-        // Always set (never conditionally, even to '') - DefaultDisplayName is also the field
-        // the WorldTask panel itself is bound to (see WorldBoundFieldRenderer.tsx's isItemScanTask
-        // branch), so its own onChange already wrote this same value moments ago from the same
-        // synchronous polling-callback tick. applyMultipleFieldChanges below reads currentStepData
-        // from this render's (possibly now-stale) closure, so leaving this field out of the patch
-        // when a scan has no display name would let this stale-closure merge silently revert that
-        // onChange back to whatever DefaultDisplayName held before the scan. DefaultDisplayDescription
-        // has no such race (nothing else writes it) but is still set unconditionally, matching
-        // §5.2's "rescan overwrites wholesale" non-goal - a rescan with no lore this time should
-        // clear a previous scan's description, not leave it stale.
-        const patch: Record<string, unknown> = {
-            DefaultDisplayName: typeof output.displayName === 'string' ? output.displayName : '',
-            DefaultDisplayDescription: Array.isArray(output.lore) && output.lore.length > 0
-                ? output.lore.join('\n')
-                : ''
+        // Resolve each target field's *actual* fieldName from the live step metadata rather than
+        // hardcoding a casing - confirmed live (a simulated scan against the real dev API) that
+        // this General Information step's fields are authored as camelCase ("defaultDisplayName")
+        // while a hardcoded PascalCase patch key ("DefaultDisplayName") silently lands on a
+        // property FieldRenderer never reads, so the field just never updates. DefaultDisplayName
+        // itself appeared to work in that same test, but only because its own onChange (from
+        // WorldBoundFieldRenderer's isItemScanTask extraction) had already set the correctly-cased
+        // key moments earlier - DefaultDisplayDescription/IconMaterialRefId have no such fallback
+        // and silently no-opped. Resolving by name here removes the dependency on either
+        // convention holding.
+        const resolveFieldName = (candidateName: string): string | null => {
+            const match = currentStep!.fields.find(f => f.fieldName.toLowerCase() === candidateName.toLowerCase());
+            return match ? match.fieldName : null;
         };
 
-        if (typeof output.material === 'string' && output.material) {
+        const displayNameField = resolveFieldName('DefaultDisplayName');
+        const displayDescriptionField = resolveFieldName('DefaultDisplayDescription');
+        const iconMaterialField = resolveFieldName('IconMaterialRefId');
+
+        // Always set (never conditionally, even to '') - a rescan overwrites these wholesale by
+        // design (§5.2's "no selective-field preservation" non-goal), so a scan with no display
+        // name/lore this time should clear rather than leave a previous scan's values stale.
+        const patch: Record<string, unknown> = {};
+        if (displayNameField) {
+            patch[displayNameField] = typeof output.displayName === 'string' ? output.displayName : '';
+        }
+        if (displayDescriptionField) {
+            patch[displayDescriptionField] = Array.isArray(output.lore) && output.lore.length > 0
+                ? output.lore.join('\n')
+                : '';
+        }
+
+        if (iconMaterialField && typeof output.material === 'string' && output.material) {
             try {
                 const hybridMatches = await minecraftMaterialRefClient.getHybrid(output.material, undefined, 5);
                 const exactMatch = hybridMatches.find(
@@ -1220,7 +1238,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     exactMatch?.category || 'Misc'
                 );
                 if (materialRef?.id != null) {
-                    patch.IconMaterialRefId = materialRef.id;
+                    patch[iconMaterialField] = materialRef.id;
                 }
             } catch (error) {
                 console.error('ItemScan: failed to resolve MinecraftMaterialRef for', output.material, error);
