@@ -43,6 +43,7 @@ import { deriveGateGeometryStepData, isDerivedGateGeometryField } from '../../ut
 import { withLiveEnumOptions } from '../../utils/forms/enumFieldMetadata';
 import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
 import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
+import { ScanConflictModal, ScanConflictField, ScanConflictChoice } from './ScanConflictModal';
 
 interface FormWizardProps {
     entityName: string;
@@ -102,6 +103,25 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const validationTimersRef = useRef<Record<number, number>>({});
     const initialValuesAppliedRef = useRef(false);
     const fieldProvenanceRef = useRef<Record<string, 'manual' | 'projected'>>({});
+
+    // Kept in sync on every render so ItemScan's applyItemScanResult (an async function that
+    // awaits real network calls, so the render whose closure it started in may be long gone by
+    // the time it needs "the current value") can read genuinely current state instead of whatever
+    // was true when it started - see applyMultipleFieldChanges' own javadoc for the class of bug
+    // this avoids.
+    const currentStepDataRef = useRef(currentStepData);
+    const allStepsDataRef = useRef(allStepsData);
+    useEffect(() => { currentStepDataRef.current = currentStepData; }, [currentStepData]);
+    useEffect(() => { allStepsDataRef.current = allStepsData; }, [allStepsData]);
+
+    // ItemScan conflict confirmation (developer-requested, 2026-09-23 live-testing feedback):
+    // when a scan would overwrite a field that's already filled in, pause and ask which value to
+    // keep instead of silently overwriting. See ScanConflictModal and applyItemScanResult below.
+    const [scanConflictState, setScanConflictState] = useState<{
+        fields: ScanConflictField[];
+        resolve: (choices: Record<string, ScanConflictChoice>) => void;
+        cancel: () => void;
+    } | null>(null);
 
     type SaveFeedbackState = {
         open: boolean;
@@ -1182,8 +1202,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     // DefaultDisplayDescription, plus vanilla/custom enchantment matches pre-selected into the
     // Default Enchantments M2M step (a different step than wherever the Scan field itself lives
     // - written via setAllStepsData directly, not handleFieldChange, since that step isn't
-    // necessarily the currently-active one). A rescan overwrites all of this wholesale, by design
-    // (§5.2's explicit non-goal: no selective-field preservation).
+    // necessarily the currently-active one). A rescan overwrites all of this wholesale by design
+    // for fields that were empty (§5.2's explicit non-goal: no selective-field preservation) - but
+    // per developer feedback (2026-09-23 live testing), a field that already has a value pauses
+    // for a per-field keep/overwrite confirmation via ScanConflictModal instead of silently
+    // overwriting it.
     const applyItemScanResult = async (outputJson: string) => {
         if (!config || !currentStep) return;
 
@@ -1199,12 +1222,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         // hardcoding a casing - confirmed live (a simulated scan against the real dev API) that
         // this General Information step's fields are authored as camelCase ("defaultDisplayName")
         // while a hardcoded PascalCase patch key ("DefaultDisplayName") silently lands on a
-        // property FieldRenderer never reads, so the field just never updates. DefaultDisplayName
-        // itself appeared to work in that same test, but only because its own onChange (from
-        // WorldBoundFieldRenderer's isItemScanTask extraction) had already set the correctly-cased
-        // key moments earlier - DefaultDisplayDescription/IconMaterialRefId have no such fallback
-        // and silently no-opped. Resolving by name here removes the dependency on either
-        // convention holding.
+        // property FieldRenderer never reads, so the field just never updates. Resolving by name
+        // here removes the dependency on either convention holding.
         const resolveFieldName = (candidateName: string): string | null => {
             const match = currentStep!.fields.find(f => f.fieldName.toLowerCase() === candidateName.toLowerCase());
             return match ? match.fieldName : null;
@@ -1213,20 +1232,15 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         const displayNameField = resolveFieldName('DefaultDisplayName');
         const displayDescriptionField = resolveFieldName('DefaultDisplayDescription');
         const iconMaterialField = resolveFieldName('IconMaterialRefId');
+        const genInfoStepIndex = currentStepIndex;
 
-        // Always set (never conditionally, even to '') - a rescan overwrites these wholesale by
-        // design (§5.2's "no selective-field preservation" non-goal), so a scan with no display
-        // name/lore this time should clear rather than leave a previous scan's values stale.
-        const patch: Record<string, unknown> = {};
-        if (displayNameField) {
-            patch[displayNameField] = typeof output.displayName === 'string' ? output.displayName : '';
-        }
-        if (displayDescriptionField) {
-            patch[displayDescriptionField] = Array.isArray(output.lore) && output.lore.length > 0
-                ? output.lore.join('\n')
-                : '';
-        }
+        const scannedDisplayName = typeof output.displayName === 'string' ? output.displayName : '';
+        const scannedDisplayDescription = Array.isArray(output.lore) && output.lore.length > 0
+            ? output.lore.join('\n')
+            : '';
 
+        let scannedMaterialId: number | undefined;
+        let scannedMaterialLabel = '';
         if (iconMaterialField && typeof output.material === 'string' && output.material) {
             try {
                 const hybridMatches = await minecraftMaterialRefClient.getHybrid(output.material, undefined, 5);
@@ -1238,23 +1252,17 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     exactMatch?.category || 'Misc'
                 );
                 if (materialRef?.id != null) {
-                    patch[iconMaterialField] = materialRef.id;
+                    scannedMaterialId = materialRef.id;
+                    scannedMaterialLabel = materialRef.namespaceKey || output.material;
                 }
             } catch (error) {
                 console.error('ItemScan: failed to resolve MinecraftMaterialRef for', output.material, error);
             }
         }
 
-        if (Object.keys(patch).length > 0) {
-            applyMultipleFieldChanges(patch);
-        }
-
         const enchantmentStepIndex = config.steps.findIndex(
             step => step.isManyToManyRelationship && step.relatedEntityPropertyName === 'DefaultEnchantments'
         );
-        if (enchantmentStepIndex === -1) {
-            return;
-        }
 
         const scannedEnchantments: Array<{ key: string; level: number }> = [
             ...(Array.isArray(output.vanillaEnchantments) ? output.vanillaEnchantments : []),
@@ -1262,36 +1270,141 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         ].filter((entry): entry is { key: string; level: number } => !!entry && typeof entry.key === 'string');
 
         const matchedRelationships: Record<string, unknown>[] = [];
-        for (const scanned of scannedEnchantments) {
-            try {
-                const result = await enchantmentDefinitionClient.searchPaged({
-                    page: 1,
-                    pageSize: 10,
-                    searchTerm: scanned.key
-                });
-                const items: Array<{ id?: number; key: string; displayName: string }> = result?.items || [];
-                const exact = items.find(item => item.key?.toLowerCase() === scanned.key.toLowerCase());
-                if (exact?.id != null) {
-                    matchedRelationships.push({
-                        id: undefined,
-                        relatedEntityId: exact.id,
-                        EnchantmentDefinitionId: exact.id,
-                        relatedEntity: exact,
-                        Level: scanned.level ?? 1
+        if (enchantmentStepIndex !== -1) {
+            for (const scanned of scannedEnchantments) {
+                try {
+                    const result = await enchantmentDefinitionClient.searchPaged({
+                        page: 1,
+                        pageSize: 10,
+                        searchTerm: scanned.key
                     });
+                    const items: Array<{ id?: number; key: string; displayName: string }> = result?.items || [];
+                    const exact = items.find(item => item.key?.toLowerCase() === scanned.key.toLowerCase());
+                    if (exact?.id != null) {
+                        matchedRelationships.push({
+                            id: undefined,
+                            relatedEntityId: exact.id,
+                            EnchantmentDefinitionId: exact.id,
+                            relatedEntity: exact,
+                            Level: scanned.level ?? 1
+                        });
+                    }
+                } catch (error) {
+                    console.error('ItemScan: failed to match enchantment', scanned.key, error);
                 }
-            } catch (error) {
-                console.error('ItemScan: failed to match enchantment', scanned.key, error);
             }
         }
 
-        setAllStepsData(prev => ({
-            ...prev,
-            [enchantmentStepIndex]: {
-                ...(prev[enchantmentStepIndex] || {}),
-                DefaultEnchantments: matchedRelationships
+        // Conflict detection reads live state via the refs above, not this function's own
+        // (potentially long-stale, given the awaits above) closure - "already filled" per the
+        // developer's own framing, not "differs from the scanned value", so a coincidental match
+        // still prompts.
+        const describeValue = (value: unknown): string => {
+            if (value === null || value === undefined || value === '') return '(empty)';
+            if (typeof value === 'object') {
+                const obj = value as Record<string, unknown>;
+                return String(obj.namespaceKey ?? obj.displayName ?? obj.name ?? obj.id ?? JSON.stringify(obj));
             }
-        }));
+            return String(value);
+        };
+
+        const liveGenInfoData = allStepsDataRef.current[genInfoStepIndex] || {};
+        const liveEnchantmentsData = enchantmentStepIndex !== -1 ? (allStepsDataRef.current[enchantmentStepIndex] || {}) : {};
+        const isFilled = (value: unknown) => value !== null && value !== undefined && value !== '';
+
+        const conflicts: ScanConflictField[] = [];
+
+        if (displayNameField && isFilled(liveGenInfoData[displayNameField])) {
+            conflicts.push({
+                key: 'displayName',
+                label: 'Default Display Name',
+                currentValueLabel: describeValue(liveGenInfoData[displayNameField]),
+                scannedValueLabel: describeValue(scannedDisplayName)
+            });
+        }
+
+        if (displayDescriptionField && isFilled(liveGenInfoData[displayDescriptionField])) {
+            conflicts.push({
+                key: 'displayDescription',
+                label: 'Default Display Description',
+                currentValueLabel: describeValue(liveGenInfoData[displayDescriptionField]),
+                scannedValueLabel: describeValue(scannedDisplayDescription)
+            });
+        }
+
+        if (iconMaterialField && scannedMaterialId != null && isFilled(liveGenInfoData[iconMaterialField])) {
+            conflicts.push({
+                key: 'iconMaterial',
+                label: 'Icon Material',
+                currentValueLabel: describeValue(liveGenInfoData[iconMaterialField]),
+                scannedValueLabel: scannedMaterialLabel
+            });
+        }
+
+        if (enchantmentStepIndex !== -1) {
+            const currentEnchantments = Array.isArray(liveEnchantmentsData.DefaultEnchantments)
+                ? liveEnchantmentsData.DefaultEnchantments as Record<string, unknown>[]
+                : [];
+            if (currentEnchantments.length > 0) {
+                const nameOf = (r: Record<string, unknown>) => {
+                    const related = r.relatedEntity as Record<string, unknown> | undefined;
+                    return String(related?.displayName ?? related?.key ?? 'unknown');
+                };
+                conflicts.push({
+                    key: 'defaultEnchantments',
+                    label: `Default Enchantments (${currentEnchantments.length} existing)`,
+                    currentValueLabel: currentEnchantments.map(nameOf).join(', '),
+                    scannedValueLabel: matchedRelationships.length > 0
+                        ? matchedRelationships.map(nameOf).join(', ')
+                        : '(no matches found)'
+                });
+            }
+        }
+
+        const applyResolvedPatch = (choices: Record<string, ScanConflictChoice> | null) => {
+            const useScan = (key: string) => !choices || choices[key] !== 'current';
+
+            const patch: Record<string, unknown> = {};
+            if (displayNameField && useScan('displayName')) {
+                patch[displayNameField] = scannedDisplayName;
+            }
+            if (displayDescriptionField && useScan('displayDescription')) {
+                patch[displayDescriptionField] = scannedDisplayDescription;
+            }
+            if (iconMaterialField && scannedMaterialId != null && useScan('iconMaterial')) {
+                patch[iconMaterialField] = scannedMaterialId;
+            }
+            if (Object.keys(patch).length > 0) {
+                applyMultipleFieldChanges(patch);
+            }
+
+            if (enchantmentStepIndex !== -1 && useScan('defaultEnchantments')) {
+                setAllStepsData(prev => ({
+                    ...prev,
+                    [enchantmentStepIndex]: {
+                        ...(prev[enchantmentStepIndex] || {}),
+                        DefaultEnchantments: matchedRelationships
+                    }
+                }));
+            }
+        };
+
+        if (conflicts.length === 0) {
+            applyResolvedPatch(null);
+            return;
+        }
+
+        const choices = await new Promise<Record<string, ScanConflictChoice> | null>(resolve => {
+            setScanConflictState({
+                fields: conflicts,
+                resolve: picked => { setScanConflictState(null); resolve(picked); },
+                cancel: () => { setScanConflictState(null); resolve(null); }
+            });
+        });
+
+        if (choices) {
+            applyResolvedPatch(choices);
+        }
     };
 
     // added: open child form modal for creating new object
@@ -2444,6 +2557,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 existingProgressId={joinEntryModal.existingProgressId}
                 onComplete={handleJoinEntryComplete}
                 onClose={handleCloseJoinEntryModal}
+            />
+
+            <ScanConflictModal
+                open={!!scanConflictState}
+                fields={scanConflictState?.fields || []}
+                onResolve={choices => scanConflictState?.resolve(choices)}
+                onCancel={() => scanConflictState?.cancel()}
             />
         </div>
     );
