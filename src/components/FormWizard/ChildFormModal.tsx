@@ -27,7 +27,7 @@ interface ChildFormModalProps {
     // doesn't have to re-search for the entity they're already inside. Ignored in edit/resume mode.
     parentEntityTypeName?: string;
     parentEntitySnapshot?: Record<string, unknown>;
-    onComplete: (data: any, progress?: FormSubmissionProgressDto) => void;
+    onComplete: (data: any, progress?: FormSubmissionProgressDto) => void | Promise<void>;
     onClose: () => void;
 }
 
@@ -150,9 +150,28 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
 
     const effectiveWorkflowSessionId = workflowSessionId ?? ownWorkflowSessionId;
 
-    const handleChildComplete = (data: any, progress?: FormSubmissionProgressDto) => {
-        onComplete(data, progress);
-        onClose();
+    const [completing, setCompleting] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+
+    // Found live (2026-09-23): this used to call onComplete without awaiting it, so a genuine
+    // save failure inside it (e.g. a foreign key constraint violation from a bad pre-filled
+    // value - see findParentLinkField's own fix for the specific bug this surfaced) still closed
+    // the modal immediately, as if the save had succeeded. The child's data - and any explanation
+    // of what went wrong - was simply gone. Now awaits it and keeps the modal open (and the
+    // admin's in-progress data intact) on failure, showing the real error via its own feedback
+    // state - kept separate from the config-loading error above, since that one closes the whole
+    // modal on dismiss (no usable form exists yet) while this one must not.
+    const handleChildComplete = async (data: any, progress?: FormSubmissionProgressDto) => {
+        setCompleting(true);
+        try {
+            await onComplete(data, progress);
+            onClose();
+        } catch (err: any) {
+            const message = err?.response?.data?.message || err?.message || `Failed to save ${entityTypeName}. Please try again.`;
+            setSaveError(message);
+        } finally {
+            setCompleting(false);
+        }
     };
 
     const isEditMode = !!entityId;
@@ -193,8 +212,10 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                         </div>
                         <button
                             onClick={onClose}
-                            className="text-gray-500 hover:text-gray-700 text-2xl"
+                            disabled={completing}
+                            className="text-gray-500 hover:text-gray-700 text-2xl disabled:opacity-40 disabled:cursor-not-allowed"
                             aria-label="Close"
+                            title={completing ? 'Saving…' : 'Close'}
                         >
                             ×
                         </button>
@@ -240,6 +261,14 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                     setShowErrorFeedback(false);
                     onClose();
                 }}
+            />
+
+            <FeedbackModal
+                open={!!saveError}
+                title="Save Failed"
+                message={saveError || `Failed to save ${entityTypeName}.`}
+                status="error"
+                onClose={() => setSaveError(null)}
             />
         </>
     );

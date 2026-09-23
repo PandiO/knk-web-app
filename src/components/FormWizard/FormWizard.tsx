@@ -1618,6 +1618,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         } catch (error) {
             console.error('Failed to complete child form:', error);
             logging.errorHandler.next('ErrorMessage.FormSubmission.ChildFormFailed');
+            // Rethrow (found live, 2026-09-23): ChildFormModal's own onComplete call wasn't
+            // awaited, so swallowing this here meant a real persist failure (e.g. a foreign key
+            // constraint violation) still closed the modal as if it had succeeded - the field
+            // never got the value, with nothing telling the admin why. Letting it propagate lets
+            // ChildFormModal keep the modal open and show the real error instead.
+            throw error;
         }
     };
 
