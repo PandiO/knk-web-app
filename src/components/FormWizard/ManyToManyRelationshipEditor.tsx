@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2, AlertTriangle } from 'lucide-react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { FormStepDto, FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldRenderer } from './FieldRenderers';
 import { ChildFormModal } from './ChildFormModal';
 import { RelationshipDraftCard } from './RelationshipDraftCard';
+import { SortableRelationshipCard } from './SortableRelationshipCard';
 import { useRelationshipDrafts, RelationshipDraft } from '../../hooks/useRelationshipDrafts';
 import { metadataClient } from '../../apiClients/metadataClient';
 import { getCreateFunctionForEntity, getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
+
+const SEQUENCE_NUMBER_FIELD = 'SequenceNumber';
+let dndKeyCounter = 0;
+const nextDndKey = () => `m2m-${Date.now()}-${dndKeyCounter++}`;
 
 interface Props {
     step: FormStepDto;
@@ -57,6 +64,58 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     const [relationshipErrors, setRelationshipErrors] = useState<Record<number, Record<string, string>>>({});
     const [missingEntityWarnings, setMissingEntityWarnings] = useState<Record<number, string>>({});
     const [showCreateRelatedModal, setShowCreateRelatedModal] = useState(false);
+
+    // Draggable reordering (developer request, 2026-09-23): a step whose join entity carries a
+    // SequenceNumber field (currently just ItemBlueprintOrigin) gets a drag-to-reorder UI - same
+    // @dnd-kit interaction FormConfigBuilder/SortableStepItem already uses for ordering FormStep
+    // instances - instead of a manually-typed sequence number in the join-entry sub-form. The live
+    // ItemBlueprintOrigin FormConfiguration's own SequenceNumber field was removed (data change)
+    // so nothing asks for it there anymore; this component is now the sole source of truth for it.
+    const hasSequenceNumberField = joinEntityScalarFields.some(
+        f => f.fieldName.toLowerCase() === SEQUENCE_NUMBER_FIELD.toLowerCase()
+    );
+    const dndSensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    // Every relationship needs a stable id for @dnd-kit that survives reordering (array index
+    // doesn't - it's exactly what changes on reorder). relatedEntityId can't be used either: the
+    // plan's own design allows the same Domain to legitimately appear twice in one item's Origin
+    // history. Backfills a synthetic key once per item and leaves it alone after that.
+    useEffect(() => {
+        if (value.some(r => !r.__dndKey)) {
+            onChange(value.map(r => (r.__dndKey ? r : { ...r, __dndKey: nextDndKey() })));
+        }
+    }, [value, onChange]);
+
+    // Keeps SequenceNumber in sync with array position after every add/remove/reorder, for
+    // whichever step actually has that field (see hasSequenceNumberField above) - self-corrects
+    // regardless of which entry point changed the array (picker selection, "Create New Join
+    // Entry", draft resume, drag reorder, or removal), so there's one place this logic lives
+    // rather than needing to be threaded through every mutation site individually.
+    useEffect(() => {
+        if (!hasSequenceNumberField) return;
+        if (value.some((r, i) => r[SEQUENCE_NUMBER_FIELD] !== i)) {
+            onChange(value.map((r, i) => ({ ...r, [SEQUENCE_NUMBER_FIELD]: i })));
+        }
+    }, [value, hasSequenceNumberField, onChange]);
+
+    const handleReorderDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        const oldIndex = value.findIndex(r => r.__dndKey === active.id);
+        const newIndex = value.findIndex(r => r.__dndKey === over.id);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const reordered = arrayMove(value, oldIndex, newIndex).map((r, i) => ({
+            ...r,
+            [SEQUENCE_NUMBER_FIELD]: i
+        }));
+        onChange(reordered);
+        debug('handleReorderDragEnd', { oldIndex, newIndex, reordered });
+    };
 
     const getRelatedEntityIdField = (relatedType: string, fieldNames: string[]): string | null => {
         const expectedField = `${relatedType}Id`;
@@ -643,62 +702,96 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                         No relationships selected yet. Use “Create New Join Entry” to add one.
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {value.map((relationship, index) => {
-                            const hasMissingEntity = missingEntityWarnings[index];
-                            const hasFieldErrors = relationshipErrors[index] && Object.keys(relationshipErrors[index]).length > 0;
-                            const cardBorderClass = hasMissingEntity ? 'border-red-300' : hasFieldErrors ? 'border-yellow-300' : 'border-gray-200';
-                            
-                            return (
-                                <div
-                                    key={index}
-                                    className={`bg-white border ${cardBorderClass} rounded-lg shadow-sm p-4`}
-                                >
-                                    {hasMissingEntity && (
-                                        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-md flex items-start">
-                                            <AlertTriangle className="h-4 w-4 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
-                                            <div className="flex-1">
-                                                <p className="text-xs text-red-700 font-medium">Missing Entity</p>
-                                                <p className="text-xs text-red-600 mt-1">{missingEntityWarnings[index]}</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="flex-1">
-                                            <h4 className="text-sm font-medium text-gray-900">
-                                                {(relationship.relatedEntity as { name?: string; displayName?: string })?.name || 
-                                                 (relationship.relatedEntity as { name?: string; displayName?: string })?.displayName || 
-                                                 `Relationship #${index + 1}`}
-                                            </h4>
-                                            {(relationship.relatedEntity as { description?: string })?.description && (
-                                                <p className="text-xs text-gray-500 mt-1">
-                                                    {(relationship.relatedEntity as { description?: string }).description}
-                                                </p>
-                                            )}
-                                        </div>
-                                        {joinConfigId && onOpenJoinEntry && (
-                                            <button
-                                                onClick={() => onOpenJoinEntry(index)}
-                                                className="mr-2 text-xs font-medium text-primary hover:text-primary-dark"
-                                                type="button"
-                                            >
-                                                Edit Join Entry
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={() => handleRemoveRelationship(index)}
-                                            className="p-1 text-gray-400 hover:text-red-600 flex-shrink-0"
-                                            title="Remove relationship"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
-                                    </div>
+                    <>
+                        {hasSequenceNumberField && (
+                            <p className="text-xs text-gray-500 mb-2">
+                                Drag cards to reorder - {SEQUENCE_NUMBER_FIELD} is set automatically from position (0 = first/oldest).
+                            </p>
+                        )}
+                        {(() => {
+                            const renderCard = (relationship: Record<string, unknown>, index: number) => {
+                                const hasMissingEntity = missingEntityWarnings[index];
+                                const hasFieldErrors = relationshipErrors[index] && Object.keys(relationshipErrors[index]).length > 0;
+                                const cardBorderClass = hasMissingEntity ? 'border-red-300' : hasFieldErrors ? 'border-yellow-300' : 'border-gray-200';
 
-                                    {renderJoinEntityFields(relationship, index)}
-                                </div>
+                                return (
+                                    <div
+                                        className={`bg-white border ${cardBorderClass} rounded-lg shadow-sm p-4`}
+                                    >
+                                        {hasMissingEntity && (
+                                            <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-md flex items-start">
+                                                <AlertTriangle className="h-4 w-4 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                                                <div className="flex-1">
+                                                    <p className="text-xs text-red-700 font-medium">Missing Entity</p>
+                                                    <p className="text-xs text-red-600 mt-1">{missingEntityWarnings[index]}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className="flex-1">
+                                                <h4 className="text-sm font-medium text-gray-900">
+                                                    {(relationship.relatedEntity as { name?: string; displayName?: string })?.name ||
+                                                     (relationship.relatedEntity as { name?: string; displayName?: string })?.displayName ||
+                                                     `Relationship #${index + 1}`}
+                                                </h4>
+                                                {(relationship.relatedEntity as { description?: string })?.description && (
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        {(relationship.relatedEntity as { description?: string }).description}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            {joinConfigId && onOpenJoinEntry && (
+                                                <button
+                                                    onClick={() => onOpenJoinEntry(index)}
+                                                    className="mr-2 text-xs font-medium text-primary hover:text-primary-dark"
+                                                    type="button"
+                                                >
+                                                    Edit Join Entry
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => handleRemoveRelationship(index)}
+                                                className="p-1 text-gray-400 hover:text-red-600 flex-shrink-0"
+                                                title="Remove relationship"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+
+                                        {renderJoinEntityFields(relationship, index)}
+                                    </div>
+                                );
+                            };
+
+                            if (!hasSequenceNumberField) {
+                                return (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {value.map((relationship, index) => (
+                                            <React.Fragment key={index}>{renderCard(relationship, index)}</React.Fragment>
+                                        ))}
+                                    </div>
+                                );
+                            }
+
+                            const sortableIds = value.map(r => String(r.__dndKey ?? ''));
+                            return (
+                                <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleReorderDragEnd}>
+                                    <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {value.map((relationship, index) => {
+                                                const dndKey = String(relationship.__dndKey ?? `pending-${index}`);
+                                                return (
+                                                    <SortableRelationshipCard key={dndKey} id={dndKey}>
+                                                        {renderCard(relationship, index)}
+                                                    </SortableRelationshipCard>
+                                                );
+                                            })}
+                                        </div>
+                                    </SortableContext>
+                                </DndContext>
                             );
-                        })}
-                    </div>
+                        })()}
+                    </>
                 )}
             </div>
 
