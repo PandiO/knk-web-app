@@ -964,12 +964,12 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                     <div className="flex items-center space-x-2">
                         <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
                             <span className="text-green-600 font-medium text-sm">
-                                {(value.name || value.Name || '?').charAt(0).toUpperCase()}
+                                {String(value.name || value.Name || value.displayName || value.DisplayName || '?').charAt(0).toUpperCase()}
                             </span>
                         </div>
                         <div>
                             <p className="text-sm font-medium text-green-900">
-                                {value.name || value.Name || 'Selected Item'}
+                                {value.name || value.Name || value.displayName || value.DisplayName || 'Selected Item'}
                             </p>
                             {(value.id !== undefined && value.id !== null) && (
                                 <p className="text-xs text-green-600">ID: {value.id}</p>

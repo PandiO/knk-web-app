@@ -8,6 +8,7 @@ import { useRelationshipDrafts, RelationshipDraft } from '../../hooks/useRelatio
 import { metadataClient } from '../../apiClients/metadataClient';
 import { getCreateFunctionForEntity, getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 
 interface Props {
     step: FormStepDto;
@@ -47,6 +48,11 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     const [loading, setLoading] = useState(true);
     const [relatedEntityType, setRelatedEntityType] = useState<string>('');
     const [relatedEntityIdField, setRelatedEntityIdField] = useState<string>('');
+    // The join entity's own plain scalar fields (e.g. Level on ItemBlueprintDefaultEnchantment) -
+    // used to show a quick summary on each relationship card instead of just a generic "edit via
+    // the linked form" hint, per developer feedback (2026-09-23 live testing): the card showed the
+    // matched enchantment's name but not its scanned level.
+    const [joinEntityScalarFields, setJoinEntityScalarFields] = useState<FieldMetadataDto[]>([]);
     const [metadataError, setMetadataError] = useState<string>('');
     const [relationshipErrors, setRelationshipErrors] = useState<Record<number, Record<string, string>>>({});
     const [missingEntityWarnings, setMissingEntityWarnings] = useState<Record<number, string>>({});
@@ -69,6 +75,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
             setRelatedEntityType('');
             setRelatedEntityIdField('');
             setMetadataError('');
+            setJoinEntityScalarFields([]);
             debug('loadMetadata:skip-no-join-entity-type');
             return;
         }
@@ -78,6 +85,17 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
             setMetadataError('');
             // Get metadata for the join entity to understand its fields
             const joinMetadata = await metadataClient.getEntityMetadata(step.joinEntityType);
+
+            // Plain scalar fields the join entity carries beyond its two FKs (e.g. Level on
+            // ItemBlueprintDefaultEnchantment, SequenceNumber on ItemBlueprintOrigin) - shown on
+            // each relationship card as a quick summary below.
+            setJoinEntityScalarFields(
+                joinMetadata.fields.filter(f =>
+                    !f.isRelatedEntity &&
+                    f.fieldName.toLowerCase() !== 'id' &&
+                    !f.fieldName.toLowerCase().endsWith('id')
+                )
+            );
 
             // Determine the related entity type from join entity metadata
             // Look for navigation properties that aren't the parent entity
@@ -482,6 +500,27 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     const renderJoinEntityFields = (relationship: Record<string, unknown>, index: number) => {
         const joinConfigId = joinFormConfigurationId ?? step.subConfigurationId;
         if (joinConfigId) {
+            const scalarSummary = joinEntityScalarFields
+                .map(field => {
+                    const value = (relationship as Record<string, unknown>)[field.fieldName];
+                    return value !== undefined && value !== null && value !== ''
+                        ? { label: field.fieldName, value }
+                        : null;
+                })
+                .filter((entry): entry is { label: string; value: unknown } => entry !== null);
+
+            if (scalarSummary.length > 0) {
+                return (
+                    <div className="text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+                        {scalarSummary.map(entry => (
+                            <span key={entry.label}>
+                                <span className="font-medium">{entry.label}:</span> {String(entry.value)}
+                            </span>
+                        ))}
+                    </div>
+                );
+            }
+
             return (
                 <div className="text-xs text-gray-500 italic">
                     Join entry fields are configured via the linked form. Use “Create Join Entry” to edit details.

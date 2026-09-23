@@ -148,12 +148,19 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         worldTaskHint?: string;
         parentEntityTypeName?: string;
         parentEntitySnapshot?: Record<string, unknown>;
-        // True for an ownedChildCollection List field (e.g. GateStructure -> GateDoors): the
+        // True for an ownedChildCollection List field (e.g. GateStructure -> GateDoors) - the
         // child entity has its own independent CRUD and the parent's own save ignores the
         // embedded list entirely, so completing the nested child form must call the child's own
-        // create/update API directly here - nothing else ever persists it. Not set for a plain
-        // Object field's "Create New" (that data rides along in the parent's own payload and is
-        // expected to be processed there, matching how this already worked before this fix).
+        // create/update API directly here, nothing else ever persists it - AND (2026-09-23,
+        // found live: ItemBlueprint's Tags step, "Join entry 1 in Tags is missing a related
+        // entity selection") for a plain single Object relationship field's "Create New" too.
+        // The comment this replaced said that case's data "rides along in the parent's own
+        // payload and is expected to be processed there" - true only for Location, which has a
+        // real backend ResolveLocationReferenceAsync that accepts a nested object with no id.
+        // Every other entity's normalizeFormSubmission.handleSingleObjectRelationship just calls
+        // extractId() on whatever's stored, which is undefined for a brand-new never-persisted
+        // object, so the field silently vanishes from the submission instead of erroring loudly -
+        // this was never wired to actually work.
         persistIndependently?: boolean;
     };
     const [childFormModal, setChildFormModal] = useState<ChildFormState>({
@@ -1232,12 +1239,31 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         const displayNameField = resolveFieldName('DefaultDisplayName');
         const displayDescriptionField = resolveFieldName('DefaultDisplayDescription');
         const iconMaterialField = resolveFieldName('IconMaterialRefId');
+        const maxStackSizeField = resolveFieldName('MaxStackSize');
         const genInfoStepIndex = currentStepIndex;
+
+        // Snapshot BEFORE any await below - confirmed live (developer testing, 2026-09-23) that
+        // reading this after the material/enchantment resolution awaits always showed a "conflict"
+        // against the scan's own value, even on a genuinely empty form. Root cause: the bound
+        // WorldTask field's own onChange (WorldBoundFieldRenderer's isItemScanTask extraction)
+        // already wrote scannedDisplayName into state *before* onTaskCompleted/this function even
+        // starts - but that write is only a scheduled React state update, not yet applied to
+        // allStepsDataRef (which a useEffect updates after the next render). Since everything up
+        // to the first `await` below runs in the same synchronous callback tick as that onChange
+        // call, no render has happened yet at this point, so this snapshot is still genuinely
+        // pre-scan - capturing it any later (after a real network round trip has had time to let
+        // React flush a render) would race exactly like applyMultipleFieldChanges' own documented
+        // bug once did.
+        const preScanGenInfoData = { ...(allStepsDataRef.current[genInfoStepIndex] || {}) };
 
         const scannedDisplayName = typeof output.displayName === 'string' ? output.displayName : '';
         const scannedDisplayDescription = Array.isArray(output.lore) && output.lore.length > 0
             ? output.lore.join('\n')
             : '';
+        // Per developer feedback (2026-09-23): MaxStackSize varies per material (64 for most, 16
+        // for e.g. snowballs, 1 for tools/weapons/armor), so it has to come from the scan itself,
+        // unlike DefaultQuantity which is a plain static "1" set on the live FormConfiguration.
+        const scannedMaxStackSize = typeof output.maxStackSize === 'number' ? output.maxStackSize : undefined;
 
         let scannedMaterialId: number | undefined;
         let scannedMaterialLabel = '';
@@ -1295,10 +1321,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             }
         }
 
-        // Conflict detection reads live state via the refs above, not this function's own
-        // (potentially long-stale, given the awaits above) closure - "already filled" per the
-        // developer's own framing, not "differs from the scanned value", so a coincidental match
-        // still prompts.
+        // Uses preScanGenInfoData (captured above, before any await) for the General Information
+        // fields - "already filled" per the developer's own framing, not "differs from the
+        // scanned value", so a coincidental match still prompts. The Default Enchantments step is
+        // a different step nothing here writes to before this point, so reading it live (late) is
+        // fine - unlike the General Information fields, there's no self-inflicted race to avoid.
         const describeValue = (value: unknown): string => {
             if (value === null || value === undefined || value === '') return '(empty)';
             if (typeof value === 'object') {
@@ -1308,36 +1335,44 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             return String(value);
         };
 
-        const liveGenInfoData = allStepsDataRef.current[genInfoStepIndex] || {};
         const liveEnchantmentsData = enchantmentStepIndex !== -1 ? (allStepsDataRef.current[enchantmentStepIndex] || {}) : {};
         const isFilled = (value: unknown) => value !== null && value !== undefined && value !== '';
 
         const conflicts: ScanConflictField[] = [];
 
-        if (displayNameField && isFilled(liveGenInfoData[displayNameField])) {
+        if (displayNameField && isFilled(preScanGenInfoData[displayNameField])) {
             conflicts.push({
                 key: 'displayName',
                 label: 'Default Display Name',
-                currentValueLabel: describeValue(liveGenInfoData[displayNameField]),
+                currentValueLabel: describeValue(preScanGenInfoData[displayNameField]),
                 scannedValueLabel: describeValue(scannedDisplayName)
             });
         }
 
-        if (displayDescriptionField && isFilled(liveGenInfoData[displayDescriptionField])) {
+        if (displayDescriptionField && isFilled(preScanGenInfoData[displayDescriptionField])) {
             conflicts.push({
                 key: 'displayDescription',
                 label: 'Default Display Description',
-                currentValueLabel: describeValue(liveGenInfoData[displayDescriptionField]),
+                currentValueLabel: describeValue(preScanGenInfoData[displayDescriptionField]),
                 scannedValueLabel: describeValue(scannedDisplayDescription)
             });
         }
 
-        if (iconMaterialField && scannedMaterialId != null && isFilled(liveGenInfoData[iconMaterialField])) {
+        if (iconMaterialField && scannedMaterialId != null && isFilled(preScanGenInfoData[iconMaterialField])) {
             conflicts.push({
                 key: 'iconMaterial',
                 label: 'Icon Material',
-                currentValueLabel: describeValue(liveGenInfoData[iconMaterialField]),
+                currentValueLabel: describeValue(preScanGenInfoData[iconMaterialField]),
                 scannedValueLabel: scannedMaterialLabel
+            });
+        }
+
+        if (maxStackSizeField && scannedMaxStackSize != null && isFilled(preScanGenInfoData[maxStackSizeField])) {
+            conflicts.push({
+                key: 'maxStackSize',
+                label: 'Max Stack Size',
+                currentValueLabel: describeValue(preScanGenInfoData[maxStackSizeField]),
+                scannedValueLabel: describeValue(scannedMaxStackSize)
             });
         }
 
@@ -1377,6 +1412,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             }
             if (iconMaterialField && scannedMaterialId != null && shouldApplyScannedValue('iconMaterial')) {
                 patch[iconMaterialField] = scannedMaterialId;
+            }
+            if (maxStackSizeField && scannedMaxStackSize != null && shouldApplyScannedValue('maxStackSize')) {
+                patch[maxStackSizeField] = scannedMaxStackSize;
             }
             if (Object.keys(patch).length > 0) {
                 applyMultipleFieldChanges(patch);
@@ -1431,6 +1469,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         }
 
         const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
+        // Location is a genuine embedded value object with real backend support for a nested,
+        // id-less create (see the persistIndependently field's own comment) - every other single
+        // Object relationship needs to be persisted here directly, same as an owned collection.
+        const isLocationField = field.objectType?.toLowerCase() === 'location';
+        const shouldPersistIndependently = ownedChildCollection ||
+            (field.fieldType === FieldType.Object && !isLocationField);
 
         setChildFormModal({
             open: true,
@@ -1442,7 +1486,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             worldTaskHint: enabled ? taskType : undefined,
             parentEntityTypeName: parentEntitySnapshot ? entityName : undefined,
             parentEntitySnapshot,
-            persistIndependently: ownedChildCollection
+            persistIndependently: shouldPersistIndependently
         });
     };
 
@@ -1454,6 +1498,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             ? (Array.isArray(currentStepData[field.fieldName]) ? currentStepData[field.fieldName].length : 0)
             : undefined;
         const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
+        const isLocationField = field.objectType?.toLowerCase() === 'location';
+        const shouldPersistIndependently = ownedChildCollection ||
+            (field.fieldType === FieldType.Object && !isLocationField);
         setChildFormModal({
             open: true,
             entityTypeName: field.objectType || '',
@@ -1464,7 +1511,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             worldTaskHint: undefined,
             parentEntityTypeName: undefined,
             parentEntitySnapshot: undefined,
-            persistIndependently: ownedChildCollection
+            persistIndependently: shouldPersistIndependently
         });
     };
 
@@ -1779,6 +1826,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
         let relatedNavigationFieldName: string | undefined;
         let relatedEntityIdFieldName: string | undefined;
+        let relatedEntityTypeName: string | undefined;
 
         if (joinMetadata) {
             const metadataFields = joinMetadata.fields;
@@ -1794,6 +1842,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             );
 
             relatedNavigationFieldName = relatedNavigationField?.fieldName;
+            relatedEntityTypeName = relatedNavigationField?.relatedEntityType;
 
             if (relatedNavigationField?.relatedEntityType) {
                 relatedEntityIdFieldName = metadataFields.find(field =>
@@ -1818,7 +1867,27 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         ) as unknown;
 
         const relatedEntityId = existingRelationship.relatedEntityId ?? joinDataRelatedEntityId;
-        const relatedEntity = (existingRelationship.relatedEntity ?? joinDataRelatedEntity) as Record<string, unknown> | undefined;
+        let relatedEntity = (existingRelationship.relatedEntity ?? joinDataRelatedEntity) as Record<string, unknown> | undefined;
+
+        // The "Create New Join Entry" path submits through the nested join-entry FormWizard's own
+        // normalizeFormSubmission call, which (correctly) strips the related field down to a bare
+        // FK id before joinData ever reaches here - so relatedEntity is always missing on this path,
+        // even though relatedEntityId is now populated correctly (see persistIndependently's own
+        // comment for the paired fix that made the id itself reliable). Without this, the
+        // relationship card shows a false "Missing Entity" warning and a generic "Relationship #N"
+        // label forever, since nothing ever fetches the real entity afterward - found live testing
+        // ItemBlueprint's Tags/Origin steps (2026-09-23).
+        if (!relatedEntity && relatedEntityId !== undefined && relatedEntityId !== null && relatedEntityTypeName) {
+            try {
+                const fetchByIdFn = getFetchByIdFunctionForEntity(relatedEntityTypeName);
+                const fetched = await fetchByIdFn(String(relatedEntityId));
+                if (fetched && typeof fetched === 'object') {
+                    relatedEntity = fetched as Record<string, unknown>;
+                }
+            } catch (error) {
+                console.error('Failed to fetch related entity for join entry display:', relatedEntityTypeName, relatedEntityId, error);
+            }
+        }
 
         const mergedRelationship: Record<string, unknown> = {
             ...existingRelationship,
