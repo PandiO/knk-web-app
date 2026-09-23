@@ -1192,13 +1192,22 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             return;
         }
 
-        const patch: Record<string, unknown> = {};
-        if (typeof output.displayName === 'string' && output.displayName) {
-            patch.DefaultDisplayName = output.displayName;
-        }
-        if (Array.isArray(output.lore) && output.lore.length > 0) {
-            patch.DefaultDisplayDescription = output.lore.join('\n');
-        }
+        // Always set (never conditionally, even to '') - DefaultDisplayName is also the field
+        // the WorldTask panel itself is bound to (see WorldBoundFieldRenderer.tsx's isItemScanTask
+        // branch), so its own onChange already wrote this same value moments ago from the same
+        // synchronous polling-callback tick. applyMultipleFieldChanges below reads currentStepData
+        // from this render's (possibly now-stale) closure, so leaving this field out of the patch
+        // when a scan has no display name would let this stale-closure merge silently revert that
+        // onChange back to whatever DefaultDisplayName held before the scan. DefaultDisplayDescription
+        // has no such race (nothing else writes it) but is still set unconditionally, matching
+        // §5.2's "rescan overwrites wholesale" non-goal - a rescan with no lore this time should
+        // clear a previous scan's description, not leave it stale.
+        const patch: Record<string, unknown> = {
+            DefaultDisplayName: typeof output.displayName === 'string' ? output.displayName : '',
+            DefaultDisplayDescription: Array.isArray(output.lore) && output.lore.length > 0
+                ? output.lore.join('\n')
+                : ''
+        };
 
         if (typeof output.material === 'string' && output.material) {
             try {

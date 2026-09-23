@@ -260,20 +260,22 @@ function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
             };
         }
 
-        // ItemScan (docs/specs/items/IMPLEMENTATION_PLAN.md §5.2): the raw payload has already
-        // been fanned out onto ItemBlueprint's other fields by FormWizard.tsx's onTaskCompleted
-        // handler (material -> IconMaterialRefId, displayName -> DefaultDisplayName, lore ->
-        // DefaultDisplayDescription, enchantments -> the Default Enchantments M2M step) by the
-        // time that callback fires, using this same task's outputJson independently. This field's
-        // own value is just a compact summary so "already scanned" state survives a saved/resumed
-        // draft and a rescan is visibly distinguishable from a first scan.
+        // ItemScan (docs/specs/items/IMPLEMENTATION_PLAN.md §5.2/§5.3): ItemBlueprint has no
+        // dedicated "scan result" field the way GateDoor has BlockSnapshots (a real persisted
+        // collection) - FormTemplateValidationService rejects a FormField whose fieldName isn't a
+        // real entity property, so the WorldTask panel is bound directly onto the real
+        // DefaultDisplayName field instead of a phantom one (live-authored design decision, see
+        // ACTIVE_SESSIONS.md's Items Phase 4/5 row). This field's own extracted value is
+        // therefore just the scanned display name itself, exactly like any other WorldTask-bound
+        // String field - the material/lore/enchantment fan-out onto the *other* ItemBlueprint
+        // fields happens separately, in FormWizard.tsx's onTaskCompleted handler, from this same
+        // task's outputJson.
         if (isItemScanTask(taskType, task.taskType) && output.status !== undefined) {
-            return {
-                status: output.status,
-                material: output.material,
-                displayName: output.displayName ?? null,
-                scannedAt: new Date().toISOString()
-            };
+            // Most scanned items have no custom display name (ItemMeta.hasDisplayName() is
+            // false for anything never renamed) - falling back to '' rather than null/undefined
+            // keeps hasExtractedValue() true so this is a normal, silent "nothing to fill in"
+            // result rather than a spurious extraction-error banner on the common case.
+            return typeof output.displayName === 'string' ? output.displayName : '';
         }
 
         // Special handling for Location tasks
@@ -772,14 +774,6 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
                     <p className="text-sm text-gray-700">
                         Previously scanned: <strong>{value.blockCount ?? 0} blocks</strong> ({value.status})
-                    </p>
-                </div>
-            )}
-            {!task && !taskId && taskType === ITEM_SCAN_TASK_TYPE && value?.status && (
-                <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
-                    <p className="text-sm text-gray-700">
-                        Previously scanned: <strong>{value.material ?? 'unknown item'}</strong>
-                        {value.displayName ? ` "${value.displayName}"` : ''} ({value.status})
                     </p>
                 </div>
             )}
