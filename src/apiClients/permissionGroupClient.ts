@@ -1,7 +1,7 @@
 import { ObjectManager } from './objectManager';
 import { logging } from '../utils';
 import { Controllers, HttpMethod } from '../utils/enums';
-import { PermissionGroupDto } from '../types/dtos/userManagement/PermissionGroupDto';
+import { ExpiringMembershipDto, PermissionGroupDto } from '../types/dtos/userManagement/PermissionGroupDto';
 
 // Narrow client for PlayerProfilePage.tsx's group-assign quick action (docs/specs/
 // user-management/IMPLEMENTATION_PLAN.md Phase 2) — see PermissionGroupDto.ts for why this isn't
@@ -19,6 +19,12 @@ class PermissionGroupClient extends ObjectManager {
 
   getAll(): Promise<PermissionGroupDto[]> {
     return this.invokeServiceCall(null, '', Controllers.PermissionGroups, HttpMethod.Get);
+  }
+
+  // Phase 3 "premium expiring soon" moderation view (docs/specs/user-management/
+  // IMPLEMENTATION_PLAN.md Phase 3) — UserModerationPage.tsx.
+  getExpiringMemberships(groupId: number, withinDays: number): Promise<ExpiringMembershipDto[]> {
+    return this.invokeServiceCall({ withinDays }, `${groupId}/expiring-memberships`, Controllers.PermissionGroups, HttpMethod.Get);
   }
 }
 

@@ -13,3 +13,12 @@ export interface PermissionGroupDto {
   chatSuffix?: string | null;
   parentGroupId?: number | null;
 }
+
+// Row shape returned by GET /api/PermissionGroups/{id}/expiring-memberships
+// (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 3 "premium expiring soon" view).
+export interface ExpiringMembershipDto {
+  userId: number;
+  username: string;
+  permissionGroupId: number;
+  expiresAt: string;
+}
