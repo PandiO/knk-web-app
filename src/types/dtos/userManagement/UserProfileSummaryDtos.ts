@@ -82,3 +82,48 @@ export interface UserProfileSummaryDto {
   title: TitleResolutionDto;
   salary: SalaryStateDto;
 }
+
+// docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 2.
+
+export interface AssignGroupRequest {
+  permissionGroupId: number;
+  expiresAt?: string | null;
+}
+
+export interface GrantNodeRequest {
+  node: string;
+  value: boolean;
+  expiresAt?: string | null;
+}
+
+export type AuditAction =
+  | 'GroupAssigned'
+  | 'GroupRemoved'
+  | 'GrantAdded'
+  | 'GrantUpdated'
+  | 'GrantRemoved'
+  | 'TitleChanged'
+  | 'VanishToggled'
+  | 'SalaryPayout'
+  | 'BalanceAdjusted';
+
+export interface AuditLogEntryDto {
+  id: number;
+  timestamp: string;
+  actorUserId?: number | null;
+  actorUsername?: string | null;
+  targetUserId: number;
+  targetUsername?: string | null;
+  action: AuditAction;
+  details?: string | null;
+}
+
+// Kept separate from the shared PagedResultDto in types/dtos/common/PagedQuery.ts, which targets
+// a different backend paged shape (page/totalPages) - this mirrors GET /api/audit-log's actual
+// wire shape (pageNumber/pageSize, no totalPages) confirmed live rather than assumed.
+export interface AuditLogPagedResultDto {
+  items: AuditLogEntryDto[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+}

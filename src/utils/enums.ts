@@ -93,7 +93,9 @@ export enum Controllers {
     FieldValidationRules = 'field-validation-rules',
     DisplayConfigurations = 'DisplayConfigurations',
     DisplaySections = 'DisplaySections',
-    DisplayFields = 'DisplayFields'
+    DisplayFields = 'DisplayFields',
+    AuditLog = 'audit-log',
+    PermissionGroups = 'PermissionGroups'
 }
 
 
