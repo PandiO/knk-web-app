@@ -15,8 +15,8 @@ import {
 
 const activeModeLabel = (mode: ActiveMode): string => {
     switch (mode) {
-        case ActiveMode.Owner: return 'Owner mode';
-        case ActiveMode.Staff: return 'Staff mode';
+        case 'Owner': return 'Owner mode';
+        case 'Staff': return 'Staff mode';
         default: return 'Visible (no mode)';
     }
 };
@@ -102,7 +102,7 @@ export const PlayerProfilePage: React.FC = () => {
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
-                            {account.activeMode !== ActiveMode.None && (
+                            {account.activeMode !== 'None' && (
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                                     <EyeOff className="h-3.5 w-3.5 mr-1" />
                                     {activeModeLabel(account.activeMode)}

@@ -4,17 +4,11 @@
 // doesn't carry activeMode/title/premium-tier/salary fields yet - widening that shared type is a
 // bigger, riskier change than this view needs (see the handoff note in ACTIVE_SESSIONS.md).
 
-export enum ActiveMode {
-  None = 0,
-  Staff = 1,
-  Owner = 2,
-}
-
-export enum GatePassThroughMethod {
-  Default = 0,
-  InstantOpen = 1,
-  Teleport = 2,
-}
+// Backend serializes these as their PascalCase enum names (System.Text.Json string enum
+// converter), e.g. {"activeMode":"None"} - confirmed live against GET /api/Users/{id} rather
+// than assumed from the C# enum's underlying int values.
+export type ActiveMode = 'None' | 'Staff' | 'Owner';
+export type GatePassThroughMethod = 'Default' | 'InstantOpen' | 'Teleport';
 
 export interface ProfileAccountDto {
   id: number;
