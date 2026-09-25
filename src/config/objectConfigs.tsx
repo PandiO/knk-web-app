@@ -1,4 +1,4 @@
-import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Shield, Lock } from 'lucide-react';
+import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Shield, Lock, Flag, Users } from 'lucide-react';
 import type { ColumnDefinition, FormField, ObjectConfig } from '../types/common';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
@@ -155,6 +155,22 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       },
       { key: 'salaryMultiplier', label: 'Salary x', sortable: true },
       { key: 'parentGroupName', label: 'Parent', sortable: false, render: (row: any) => row.parentGroupName ?? '-' },
+    ]
+  },
+  bannerdesign: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'baseColor', label: 'Base Colour', sortable: false },
+      { key: 'layerCount', label: 'Layers', sortable: false },
+    ]
+  },
+  clan: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'isNpc', label: 'NPC', sortable: false, render: (row: any) => row.isNpc ? 'Yes' : '-' },
+      { key: 'chatColor', label: 'Chat Colour', sortable: false },
+      { key: 'bannerDesignName', label: 'Banner', sortable: false, render: (row: any) => row.bannerDesignName ?? '-' },
+      { key: 'defaultForTownName', label: 'Default For Town', sortable: false, render: (row: any) => row.defaultForTownName ?? '-' },
     ]
   }
 };
@@ -835,6 +851,101 @@ const permissionGroupConfig: ObjectConfig = {
   },
 };
 
+// Siege Phase 1 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): dashboard/navigation entries
+// for BannerDesign and Clan. The real authoring UI is their FormConfigurations (FormWizard); these
+// ObjectConfigs are what puts them in /dashboard and /forms/<type>. BannerLayer has no entry of its
+// own - layers are only created/edited as the owned "Layers" list inside a banner's wizard.
+const dyeColorOptions = [
+        { label: 'White', value: 'WHITE' },
+        { label: 'Orange', value: 'ORANGE' },
+        { label: 'Magenta', value: 'MAGENTA' },
+        { label: 'Light Blue', value: 'LIGHT_BLUE' },
+        { label: 'Yellow', value: 'YELLOW' },
+        { label: 'Lime', value: 'LIME' },
+        { label: 'Pink', value: 'PINK' },
+        { label: 'Gray', value: 'GRAY' },
+        { label: 'Light Gray', value: 'LIGHT_GRAY' },
+        { label: 'Cyan', value: 'CYAN' },
+        { label: 'Purple', value: 'PURPLE' },
+        { label: 'Blue', value: 'BLUE' },
+        { label: 'Brown', value: 'BROWN' },
+        { label: 'Green', value: 'GREEN' },
+        { label: 'Red', value: 'RED' },
+        { label: 'Black', value: 'BLACK' }
+];
+
+const bannerDesignConfig: ObjectConfig = {
+  type: 'bannerdesign',
+  label: 'Banner Design',
+  icon: <Flag className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    baseColor: {
+      name: 'baseColor',
+      label: 'Base Colour',
+      type: 'select',
+      required: true,
+      defaultValue: 'WHITE',
+      options: dyeColorOptions,
+    },
+  },
+};
+
+const clanConfig: ObjectConfig = {
+  type: 'clan',
+  label: 'Clan',
+  icon: <Users className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    isNpc: {
+      name: 'isNpc',
+      label: 'NPC Clan',
+      type: 'bool',
+      required: false,
+      defaultValue: false,
+    },
+    chatColor: {
+      name: 'chatColor',
+      label: 'Chat Colour',
+      type: 'select',
+      required: true,
+      defaultValue: 'WHITE',
+      options: [
+        { label: 'Black', value: 'BLACK' },
+        { label: 'Dark Blue', value: 'DARK_BLUE' },
+        { label: 'Dark Green', value: 'DARK_GREEN' },
+        { label: 'Dark Aqua', value: 'DARK_AQUA' },
+        { label: 'Dark Red', value: 'DARK_RED' },
+        { label: 'Dark Purple', value: 'DARK_PURPLE' },
+        { label: 'Gold', value: 'GOLD' },
+        { label: 'Gray', value: 'GRAY' },
+        { label: 'Dark Gray', value: 'DARK_GRAY' },
+        { label: 'Blue', value: 'BLUE' },
+        { label: 'Green', value: 'GREEN' },
+        { label: 'Aqua', value: 'AQUA' },
+        { label: 'Red', value: 'RED' },
+        { label: 'Light Purple', value: 'LIGHT_PURPLE' },
+        { label: 'Yellow', value: 'YELLOW' },
+        { label: 'White', value: 'WHITE' }
+      ],
+    },
+    bannerDesignId: {
+      name: 'bannerDesignId',
+      label: 'Banner Design Id',
+      type: 'number',
+      required: true,
+    },
+    defaultForTownId: {
+      name: 'defaultForTownId',
+      label: 'Default For Town Id',
+      type: 'number',
+      required: false,
+    },
+  },
+};
+
 export const objectConfigs: Record<string, ObjectConfig> = {
   location: locationConfig,
   town: townConfig,
@@ -848,4 +959,6 @@ export const objectConfigs: Record<string, ObjectConfig> = {
   gatestructure: GateStructureConfig,
   gatedoor: GateDoorConfig,
   permissiongroup: permissionGroupConfig,
+  bannerdesign: bannerDesignConfig,
+  clan: clanConfig,
 };

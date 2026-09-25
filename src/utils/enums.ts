@@ -95,7 +95,11 @@ export enum Controllers {
     DisplaySections = 'DisplaySections',
     DisplayFields = 'DisplayFields',
     AuditLog = 'audit-log',
-    PermissionGroups = 'PermissionGroups'
+    PermissionGroups = 'PermissionGroups',
+    // Siege Phase 1
+    BannerDesigns = 'BannerDesigns',
+    BannerLayers = 'BannerLayers',
+    Clans = 'Clans'
 }
 
 
