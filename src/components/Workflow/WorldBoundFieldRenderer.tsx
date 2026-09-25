@@ -63,6 +63,12 @@ const GATE_BLOCK_SCAN_TASK_TYPES = ['GateBlockScan', 'GateOpenedBlockScan'];
 
 const ITEM_SCAN_TASK_TYPE = 'ItemScan';
 
+// KitScan (docs/specs/kits/DESIGN.md §6) - player-driven like ItemScan, so also not headless
+// (§6.6). Its output fills many Kit fields at once (six equipment pickers plus the Contents M2M
+// step), which FormWizard.tsx's applyKitScanResult does from onTaskCompleted - so unlike every
+// other task type, a KitScan never writes an extracted value into its own bound field.
+const KIT_SCAN_TASK_TYPE = 'KitScan';
+
 /**
  * Task types that are executed by the plugin without a player and therefore never
  * produce a claim code. The webapp shows scan progress instead of a "send to Minecraft" prompt.
@@ -70,6 +76,7 @@ const ITEM_SCAN_TASK_TYPE = 'ItemScan';
  * ItemScan is deliberately NOT here (docs/specs/items/IMPLEMENTATION_PLAN.md §5.1/§5.3) - it's
  * player-driven (a specific player must be holding the item at scan time), so it needs the
  * normal claim-code banner Location/WgRegionId already get, not the headless progress spinner.
+ * KitScan is deliberately NOT here either, for the same reason (docs/specs/kits/DESIGN.md §6.6).
  */
 const HEADLESS_TASK_TYPES = [...GATE_BLOCK_SCAN_TASK_TYPES];
 
@@ -133,6 +140,22 @@ export function getWorldTaskResultDetails(task: WorldTaskReadDto, taskType: stri
             const details: WorldTaskResultDetail[] = [
                 { label: 'Status', value: String(output.status) },
                 { label: 'Blocks scanned', value: String(output.blockCount ?? 0) }
+            ];
+            const warningCount = Array.isArray(output.warnings) ? output.warnings.length : 0;
+            if (warningCount > 0) {
+                details.push({ label: 'Warnings', value: String(warningCount) });
+            }
+            return details;
+        }
+
+        if (isKitScanTask(taskType, task.taskType) && output.status !== undefined) {
+            const equipmentKeys = ['helmet', 'chestplate', 'leggings', 'boots', 'shield', 'hand'];
+            const equipmentCount = equipmentKeys.filter(key => hasExtractedValue(output[key])).length;
+            const contentCount = Array.isArray(output.contents) ? output.contents.length : 0;
+            const details: WorldTaskResultDetail[] = [
+                { label: 'Status', value: String(output.status) },
+                { label: 'Equipment slots', value: String(equipmentCount) },
+                { label: 'Inventory slots', value: String(contentCount) }
             ];
             const warningCount = Array.isArray(output.warnings) ? output.warnings.length : 0;
             if (warningCount > 0) {
@@ -278,6 +301,13 @@ function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
             return typeof output.displayName === 'string' ? output.displayName : '';
         }
 
+        // KitScan: the bound field itself gets nothing (see the polling effect below) - this only
+        // needs to be non-null so a completed scan counts as a successful extraction and
+        // onTaskCompleted fires.
+        if (isKitScanTask(taskType, task.taskType) && output.status !== undefined) {
+            return String(output.status);
+        }
+
         // Special handling for Location tasks
         if (isLocationTask(taskType, task.taskType)) {
             // Extract raw location data and convert to location object
@@ -338,6 +368,10 @@ function isGateBlockScanTask(taskType: string, actualTaskType?: string): boolean
 
 function isItemScanTask(taskType: string, actualTaskType?: string): boolean {
     return taskType === ITEM_SCAN_TASK_TYPE || actualTaskType === ITEM_SCAN_TASK_TYPE;
+}
+
+function isKitScanTask(taskType: string, actualTaskType?: string): boolean {
+    return taskType === KIT_SCAN_TASK_TYPE || actualTaskType === KIT_SCAN_TASK_TYPE;
 }
 
 export function shouldShowWorldTaskResultDetails(task: WorldTaskReadDto, taskType: string): boolean {
@@ -422,8 +456,12 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     const extractedValue = extractTaskResult(updated, updated.taskType || taskType);
                     
                     if (hasExtractedValue(extractedValue) && !isReadOnlyRef.current) {
-                        // Update field value
-                        onChangeRef.current(extractedValue);
+                        // Update field value - except for KitScan, whose bound field is just an
+                        // anchor for the panel; applyKitScanResult (via onTaskCompleted) does
+                        // every Kit field write itself.
+                        if (!isKitScanTask(taskType, updated.taskType)) {
+                            onChangeRef.current(extractedValue);
+                        }
                         setExtractionSucceeded(true);
                         setExtractionError(null);
                         
