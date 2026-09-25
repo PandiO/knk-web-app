@@ -74,14 +74,14 @@ export class DisplayConfigClient extends ObjectManager {
    * Update existing display configuration
    */
   async update(id: number, config: DisplayConfigurationDto): Promise<void> {
-    return this.invokeServiceCall(config, `${DisplayConfigurationOperation.Update}/${id}`, Controllers.DisplayConfigurations, HttpMethod.Put);
+    return this.invokeServiceCall(config, `${id}`, Controllers.DisplayConfigurations, HttpMethod.Put);
   }
 
   /**
    * Delete display configuration
    */
   async delete(id: number): Promise<void> {
-    return this.invokeServiceCall(null, `${DisplayConfigurationOperation.Delete}/${id}`, Controllers.DisplayConfigurations, HttpMethod.Delete);
+    return this.invokeServiceCall(null, `${id}`, Controllers.DisplayConfigurations, HttpMethod.Delete);
   }
 
   /**
