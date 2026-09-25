@@ -44,6 +44,8 @@ import { withLiveEnumOptions } from '../../utils/forms/enumFieldMetadata';
 import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
 import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 import { ScanConflictModal, ScanConflictField, ScanConflictChoice } from './ScanConflictModal';
+import { parsePickerFilterSettings, resolvePickerFilters } from '../../utils/forms/pickerFilters';
+import { hydrateJoinRowsForEdit, joinFieldSeedValues } from '../../utils/forms/manyToManyEditLoad';
 
 interface FormWizardProps {
     entityName: string;
@@ -60,6 +62,9 @@ interface FormWizardProps {
     workflowSessionId?: number;
     onStepAdvanced?: (args: { from: number; to: number; stepKey: string }) => void;
     worldTaskHint?: string;
+    // The current form values (+ "id", -1 while unsaved) of the record this form was opened from -
+    // an owned child's parent or an M2M join entry's parent. Read by pickerFilters {parent.X} tokens.
+    parentContext?: Record<string, unknown>;
 }
 
 export const FormWizard: React.FC<FormWizardProps> = ({
@@ -74,7 +79,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     fieldName,
     workflowSessionId,
     onStepAdvanced,
-    worldTaskHint
+    worldTaskHint,
+    parentContext
     // Note: currentStepIndex prop removed as unused
 }) => {
     const debug = (...args: unknown[]) => console.log('[FORM_WIZARD_DEBUG]', ...args);
@@ -162,6 +168,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         // object, so the field silently vanishes from the submission instead of erroring loudly -
         // this was never wired to actually work.
         persistIndependently?: boolean;
+        // This wizard's current values + id, handed to the child as its parentContext (pickers).
+        // Unlike parentEntitySnapshot (the create-only prefill) it is set for edits too.
+        parentContext?: Record<string, unknown>;
     };
     const [childFormModal, setChildFormModal] = useState<ChildFormState>({
         open: false,
@@ -185,6 +194,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         initialFieldValues?: Record<string, unknown>;
         parentProgressId?: string;
         existingProgressId?: string;
+        parentContext?: Record<string, unknown>;
     };
 
     const [joinEntryModal, setJoinEntryModal] = useState<JoinEntryModalState>({
@@ -299,8 +309,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 const incoming = incomingKey ? values[incomingKey] : undefined;
                 const existing = next[field.fieldName];
                 const hasExistingValue = existing !== undefined && existing !== null && existing !== '';
+                // A value that is still just the field's authored default is not "existing" data -
+                // an initial value (e.g. a saved siege gate's InitialState when editing its join
+                // entry) must win over it.
+                const isUntouchedDefault = field.defaultValue !== undefined && field.defaultValue !== null
+                    && existing === field.defaultValue;
 
-                if (incoming !== undefined && !hasExistingValue) {
+                if (incoming !== undefined && (!hasExistingValue || isUntouchedDefault)) {
                     next[field.fieldName] = incoming;
                 }
             });
@@ -613,7 +628,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         );
     };
 
-    const loadJoinEntityMetadata = async (cfg: FormConfigurationDto) => {
+    const loadJoinEntityMetadata = async (cfg: FormConfigurationDto): Promise<Record<string, EntityMetadataDto>> => {
         const joinEntityTypes = Array.from(
             new Set(
                 cfg.steps
@@ -624,7 +639,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
         if (joinEntityTypes.length === 0) {
             setJoinEntityMetadataMap({});
-            return;
+            return {};
         }
 
         try {
@@ -636,9 +651,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 return acc;
             }, {});
             setJoinEntityMetadataMap(map);
+            return map;
         } catch (error) {
             console.error('Failed to load join entity metadata:', error);
             setJoinEntityMetadataMap({});
+            return {};
         }
     };
 
@@ -740,12 +757,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     stepCount: fetchedConfig.steps.length
                 });
                 void loadValidationRulesForConfig(fetchedConfig.id);
-                await loadJoinEntityMetadata(fetchedConfig);
-                
+                const loadedJoinMetadata = await loadJoinEntityMetadata(fetchedConfig);
+
                 // changed: if entityId provided, load existing entity data
                 if (currentEntityId) {
                     setEntityId(currentEntityId); // Update state for use in other places
-                    await loadExistingEntityData(entityName, currentEntityId, fetchedConfig);
+                    await loadExistingEntityData(entityName, currentEntityId, fetchedConfig, loadedJoinMetadata);
                     debug('loadConfiguration:edit-mode-entity-load', {
                         entityName,
                         currentEntityId
@@ -876,15 +893,27 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             if (navValue && typeof navValue === 'object') {
                 return navValue;
             }
+            // Many read DTOs carry only the FK plus a display name (e.g. the siege DTOs' townId +
+            // townName) - build a minimal {id, name} so the field shows what's selected. extractId()
+            // still submits the same id.
+            const displayName = findValueByFieldName(entityData, `${navPropertyName}Name`);
+            if (typeof displayName === 'string' && displayName.length > 0) {
+                return { id: rawValue, name: displayName };
+            }
         }
         return rawValue !== undefined ? rawValue : (field.defaultValue ?? null);
     };
 
     // changed: simplified using utility function
-    const loadExistingEntityData = async (entityTypeName: string, id: string, cfg: FormConfigurationDto) => {
+    const loadExistingEntityData = async (
+        entityTypeName: string,
+        id: string,
+        cfg: FormConfigurationDto,
+        joinMetadataMap: Record<string, EntityMetadataDto> = {}
+    ) => {
         try {
             const entityData: Record<string, unknown> = await getFetchByIdFunctionForEntity(entityTypeName)(id);
-            
+
             const populatedStepsData: AllStepsData = {};
             cfg.steps.forEach((step, stepIndex) => {
                 const stepData: StepData = {};
@@ -893,6 +922,18 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     const value = findValueByFieldName(entityData, field.fieldName);
                     stepData[field.fieldName] = resolveObjectFieldValueForEdit(entityData, field, value);
                 });
+                // A many-to-many step's saved join rows arrive as plain DTO rows; give them the
+                // relationship shape the editor and join-entry modal expect (see
+                // manyToManyEditLoad.ts). Without it every saved row showed "Missing Entity".
+                const joinMetadata = step.joinEntityType ? joinMetadataMap[step.joinEntityType] : undefined;
+                const relationshipField = step.relatedEntityPropertyName || 'relationships';
+                if (step.isManyToManyRelationship && joinMetadata && Array.isArray(stepData[relationshipField])) {
+                    stepData[relationshipField] = hydrateJoinRowsForEdit(
+                        stepData[relationshipField] as Array<Record<string, unknown>>,
+                        joinMetadata,
+                        cfg.entityTypeName || entityTypeName
+                    );
+                }
                 populatedStepsData[stepIndex] = stepData;
             });
 
@@ -1457,16 +1498,16 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         // Only relevant when creating a brand-new child (editing an existing instance already has
         // its own real data, including its own link back to this parent). Mirrors the parent-identity
         // snapshot handleOpenJoinEntry builds for many-to-many join entries (see there for the shape).
-        let parentEntitySnapshot: Record<string, unknown> | undefined;
-        if (!resolvedEntityId && config && currentStep) {
-            parentEntitySnapshot = {
+        const currentContext = config && currentStep
+            ? {
                 ...flattenAllStepsData(config, {
                     ...allStepsData,
                     [currentStepIndex]: normalizeStepData(currentStep, currentStepData)
                 }),
                 id: entityId ?? -1
-            };
-        }
+            }
+            : undefined;
+        const parentEntitySnapshot = resolvedEntityId ? undefined : currentContext;
 
         const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
         // Location is a genuine embedded value object with real backend support for a nested,
@@ -1486,7 +1527,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             worldTaskHint: enabled ? taskType : undefined,
             parentEntityTypeName: parentEntitySnapshot ? entityName : undefined,
             parentEntitySnapshot,
-            persistIndependently: shouldPersistIndependently
+            persistIndependently: shouldPersistIndependently,
+            parentContext: currentContext
         });
     };
 
@@ -1511,7 +1553,16 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             worldTaskHint: undefined,
             parentEntityTypeName: undefined,
             parentEntitySnapshot: undefined,
-            persistIndependently: shouldPersistIndependently
+            persistIndependently: shouldPersistIndependently,
+            parentContext: config && currentStep
+                ? {
+                    ...flattenAllStepsData(config, {
+                        ...allStepsData,
+                        [currentStepIndex]: normalizeStepData(currentStep, currentStepData)
+                    }),
+                    id: entityId ?? -1
+                }
+                : undefined
         });
     };
 
@@ -1526,7 +1577,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             worldTaskHint: undefined,
             parentEntityTypeName: undefined,
             parentEntitySnapshot: undefined,
-            persistIndependently: undefined
+            persistIndependently: undefined,
+            parentContext: undefined
         }));
     };
 
@@ -1580,6 +1632,16 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     const updateFn = getUpdateFunctionForEntity(childFormModal.entityTypeName);
                     await updateFn(entityData);
                     createdEntity = entityData;
+                    // An update returns no body; re-read the entity so the list card shows the saved
+                    // state (e.g. a siege team's resolved name) rather than the raw form payload.
+                    try {
+                        const refreshed = await getFetchByIdFunctionForEntity(childFormModal.entityTypeName)(childFormModal.entityId);
+                        if (refreshed && typeof refreshed === 'object') {
+                            createdEntity = refreshed as Record<string, unknown>;
+                        }
+                    } catch (refreshError) {
+                        console.warn('Saved the child entity but could not re-read it for display:', refreshError);
+                    }
                 } else {
                     const createFn = getCreateFunctionForEntity(childFormModal.entityTypeName);
                     const persisted = await createFn(entityData);
@@ -1786,6 +1848,15 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             if (relatedNavField?.fieldName && selectedRelatedEntity) {
                 initialJoinFieldValues[relatedNavField.fieldName] = selectedRelatedEntity;
             }
+
+            // Editing a saved row (no draft to resume): start from its own join values (e.g. a
+            // siege gate's InitialState/Damageable/InitialOwnerTeamId) instead of the form defaults.
+            Object.entries(joinFieldSeedValues(selectedRelationship, joinMetadata, resolvedEntityTypeName))
+                .forEach(([key, value]) => {
+                    if (initialJoinFieldValues[key] === undefined) {
+                        initialJoinFieldValues[key] = value;
+                    }
+                });
         }
         debug('handleOpenJoinEntry:initial-join-values', {
             joinMetadataLoaded: !!joinMetadata,
@@ -1802,7 +1873,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             joinConfigurationId: currentStep.subConfigurationId,
             initialFieldValues: initialJoinFieldValues,
             parentProgressId: parentId,
-            existingProgressId
+            existingProgressId,
+            parentContext: { ...parentSnapshot, id: entityId ?? -1 }
         });
         debug('handleOpenJoinEntry:modal-opened', {
             existingProgressId,
@@ -2355,6 +2427,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         value={currentStepData[currentStep.relatedEntityPropertyName || 'relationships'] || []}
                         onChange={(value) => handleFieldChange(currentStep.relatedEntityPropertyName || 'relationships', value)}
                         entityName={entityName}
+                        parentEntityTypeName={config.entityTypeName || entityName}
                         entityId={entityId}
                         userId={userId}
                         parentProgressId={progressId}
@@ -2466,6 +2539,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         const fieldPlaceholders = fieldId ? preResolvedPlaceholders[fieldId] : undefined;
                         const fieldValidationRules = fieldId ? (validationRules[fieldId] || []) : [];
                         const flatFormValues = config ? flattenAllStepsData(config, allStepsData) : {};
+                        const pickerFilters = resolvePickerFilters(
+                            parsePickerFilterSettings(field.settingsJson),
+                            config ? flattenAllStepsData(config, effectiveAllStepsData) : {},
+                            parentContext
+                        );
                         const canRetryValidation = !!fieldId && fieldValidationRules.length > 0;
                         const handleRetryValidation = () => {
                             if (!fieldId) return;
@@ -2532,6 +2610,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                     validationResult={field.id ? validationResults[Number(field.id)] : undefined}
                                     validationPending={field.id ? validationLoading[Number(field.id)] : false}
                                     onRetryValidation={canRetryValidation ? handleRetryValidation : undefined}
+                                    pickerFilters={pickerFilters}
                                 />
 
                                 {canRenderWorldTaskPanel && (
@@ -2622,6 +2701,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 worldTaskHint={childFormModal.worldTaskHint}
                 parentEntityTypeName={childFormModal.parentEntityTypeName}
                 parentEntitySnapshot={childFormModal.parentEntitySnapshot}
+                parentContext={childFormModal.parentContext}
                 onComplete={handleChildFormComplete}
                 onClose={handleCloseChildForm}
             />
@@ -2634,6 +2714,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 parentProgressId={joinEntryModal.parentProgressId}
                 userId={userId}
                 existingProgressId={joinEntryModal.existingProgressId}
+                parentContext={joinEntryModal.parentContext}
                 onComplete={handleJoinEntryComplete}
                 onClose={handleCloseJoinEntryModal}
             />

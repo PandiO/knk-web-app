@@ -109,4 +109,26 @@ describe('withLiveEnumOptions', () => {
 
         expect(JSON.parse(result.settingsJson!)).toEqual({ enumValues: ['VERTICAL', 'LATERAL', 'ROTATION'] });
     });
+
+    it('keeps an authored subset (enumValuesSubset) instead of every live value', () => {
+        const field: FormFieldDto = {
+            ...baseField,
+            fieldName: 'InitialState',
+            settingsJson: JSON.stringify({ enumValues: ['OPEN', 'CLOSED', 'REMOVED'], enumValuesSubset: true })
+        };
+        const metadataFields: FieldMetadataDto[] = [{
+            fieldName: 'InitialState',
+            fieldType: 'Enum',
+            isNullable: false,
+            isRelatedEntity: false,
+            hasDefaultValue: false,
+            isEnum: true,
+            enumValues: ['CLOSED', 'OPENING', 'OPEN', 'CLOSING', 'JAMMED']
+        }];
+
+        const result = withLiveEnumOptions(field, metadataFields);
+
+        // A value the live enum no longer has is dropped; the transient states stay hidden.
+        expect(JSON.parse(result.settingsJson!)).toEqual({ enumValues: ['OPEN', 'CLOSED'], enumValuesSubset: true });
+    });
 });

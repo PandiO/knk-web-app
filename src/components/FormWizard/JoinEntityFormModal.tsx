@@ -11,6 +11,8 @@ interface JoinEntityFormModalProps {
     parentProgressId?: string;
     userId: string;
     existingProgressId?: string;
+    // The parent form's current values + id (-1 while unsaved), for pickerFilters {parent.X} tokens.
+    parentContext?: Record<string, unknown>;
     onComplete: (data: Record<string, unknown>, progress?: FormSubmissionProgressDto) => void;
     onClose: () => void;
 }
@@ -23,6 +25,7 @@ export const JoinEntityFormModal: React.FC<JoinEntityFormModalProps> = ({
     parentProgressId,
     userId,
     existingProgressId,
+    parentContext,
     onComplete,
     onClose
 }) => {
@@ -78,6 +81,7 @@ export const JoinEntityFormModal: React.FC<JoinEntityFormModalProps> = ({
                                 userId={userId}
                                 existingProgressId={existingProgressId}
                                 parentProgressId={parentProgressId}
+                                parentContext={parentContext}
                                 onComplete={(data, progress) => {
                                     debug('onComplete:from-child-wizard', {
                                         data,

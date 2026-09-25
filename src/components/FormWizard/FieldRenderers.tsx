@@ -14,6 +14,26 @@ import { DisplayFieldDto } from '../../types/dtos/displayConfig/DisplayModels';
 import { useRelationshipDrafts, RelationshipDraft } from '../../hooks/useRelationshipDrafts';
 import { RelationshipDraftCard } from './RelationshipDraftCard';
 import { toBooleanFieldValue } from '../../utils/forms/booleanFieldValue';
+import { ResolvedPickerFilters } from '../../utils/forms/pickerFilters';
+import { renderDisplayPanel, parseDisplayPanel } from './displayPanels';
+
+/**
+ * The label shown for a selected related entity. A clan-sourced siege team has no name of its own,
+ * so its resolved identity is the fallback; a bare id (an edit-loaded FK whose DTO carries no
+ * navigation object) has no label at all.
+ */
+export const getEntityDisplayLabel = (value: any, fallback: string): string => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value !== 'object') return fallback;
+    return value.name || value.Name || value.displayName || value.DisplayName || value.resolvedName || fallback;
+};
+
+/** The id of a selected related entity - an object's id, or the bare id itself. */
+const getEntityDisplayId = (value: any): string | number | undefined => {
+    if (value === null || value === undefined || value === '') return undefined;
+    if (typeof value === 'object') return value.id ?? value.Id ?? undefined;
+    return value;
+};
 
 /** Flattens a display configuration's sections/subSections into an ordered list of fields. */
 const flattenDisplayFields = (sections: { fields: DisplayFieldDto[]; subSections: any[] }[]): DisplayFieldDto[] => {
@@ -101,6 +121,9 @@ interface FieldRendererProps {
     validationResult?: ValidationResultDto;
     validationPending?: boolean;
     onRetryValidation?: () => void;
+    // Context-dependent filters for this field's "Select instance" picker (settingsJson
+    // pickerFilters, resolved by the wizard - see utils/forms/pickerFilters.ts).
+    pickerFilters?: ResolvedPickerFilters | null;
 }
 
 export const FieldRenderer: React.FC<FieldRendererProps> = ({
@@ -120,7 +143,8 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     onContinueDraft,
     validationResult,
     validationPending,
-    onRetryValidation
+    onRetryValidation,
+    pickerFilters
     // Note: allStepsData, currentStepIndex, errors are available in props but currently unused
 }) => {
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG]', ...args);
@@ -161,6 +185,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
         </fieldset>
     );
 
+    // A read-only display panel (e.g. the siege scenario's readiness check) replaces the input.
+    const displayPanel = parseDisplayPanel(field.settingsJson);
+    if (displayPanel) {
+        return renderDisplayPanel(displayPanel, { field, entityId: parentEntityId });
+    }
+
     switch (field.fieldType) {
         case FieldType.String:
             return withFeedback(
@@ -196,6 +226,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     onWorldTaskAction={mutableWorldTaskAction}
                     worldTaskStatusVisible={worldTaskStatusVisible}
                     hideCollectionAddItem={hideCollectionAddItem}
+                    pickerFilters={pickerFilters}
                 />
             );
         case FieldType.List:
@@ -214,6 +245,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     parentEntityTypeName={parentEntityTypeName}
                     parentEntityId={parentEntityId}
                     onContinueDraft={onContinueDraft}
+                    pickerFilters={pickerFilters}
                 />
             );
         case FieldType.HybridMinecraftMaterialRefPicker: {
@@ -860,9 +892,11 @@ const ObjectField: React.FC<FieldRendererProps> = ({
     onCreateNew,
     onEditInstance,
     onWorldTaskAction,
-    worldTaskStatusVisible
+    worldTaskStatusVisible,
+    pickerFilters
 }) => {
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ObjectField]', ...args);
+    const pickerUnavailableReason = pickerFilters?.unavailableReason;
     const canCreate = field.canCreate !== false; // default true if not specified
     const [showReplaceTable, setShowReplaceTable] = React.useState(false);
     const configuredDisplayFields = useDefaultDisplayFields(field.objectType);
@@ -941,7 +975,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
         });
     }
 
-    if (!field.isReadOnly) {
+    if (!field.isReadOnly && !pickerUnavailableReason) {
         actions.push({
             key: 'replace',
             label: value ? 'Replace instance' : 'Select instance',
@@ -964,15 +998,15 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                     <div className="flex items-center space-x-2">
                         <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
                             <span className="text-green-600 font-medium text-sm">
-                                {String(value.name || value.Name || value.displayName || value.DisplayName || '?').charAt(0).toUpperCase()}
+                                {getEntityDisplayLabel(value, '?').charAt(0).toUpperCase()}
                             </span>
                         </div>
                         <div>
                             <p className="text-sm font-medium text-green-900">
-                                {value.name || value.Name || value.displayName || value.DisplayName || 'Selected Item'}
+                                {getEntityDisplayLabel(value, 'Selected Item')}
                             </p>
-                            {(value.id !== undefined && value.id !== null) && (
-                                <p className="text-xs text-green-600">ID: {value.id}</p>
+                            {getEntityDisplayId(value) !== undefined && (
+                                <p className="text-xs text-green-600">ID: {getEntityDisplayId(value)}</p>
                             )}
                             {summaryDetails.length > 0 && (
                                 <dl className="mt-2 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
@@ -1051,23 +1085,34 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                                 {value ? 'Replace via Minecraft' : 'Send to Minecraft'}
                             </button>
                         )}
-                        <button
-                            type="button"
-                            onClick={() => setShowReplaceTable(prev => !prev)}
-                            className="btn-secondary whitespace-nowrap inline-flex items-center gap-1"
-                        >
-                            <RefreshCw className="h-4 w-4" />
-                            {value ? 'Replace instance' : 'Select instance'}
-                        </button>
+                        {!pickerUnavailableReason && (
+                            <button
+                                type="button"
+                                onClick={() => setShowReplaceTable(prev => !prev)}
+                                className="btn-secondary whitespace-nowrap inline-flex items-center gap-1"
+                            >
+                                <RefreshCw className="h-4 w-4" />
+                                {value ? 'Replace instance' : 'Select instance'}
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {showReplaceTable && (
+                {pickerUnavailableReason && (
+                    <p className="text-xs text-amber-700 flex items-start gap-1">
+                        <Info className="h-4 w-4 flex-shrink-0" />
+                        {pickerUnavailableReason}
+                    </p>
+                )}
+
+                {showReplaceTable && !pickerUnavailableReason && (
                     <div className="relative">
                         <PagedEntityTable
+                            // Remount when the context filters change - the table reads initialQuery once.
+                            key={JSON.stringify(pickerFilters?.filters ?? {})}
                             entityTypeName={field.objectType!}
                             columns={columnDefinitionsRegistry[field.objectType!]?.default || defaultColumnDefinitions.default}
-                            initialQuery={{ page: 1, pageSize: 10}}
+                            initialQuery={{ page: 1, pageSize: 10, filters: pickerFilters?.filters ?? {} }}
                             selectionConfig={selectionConfig}
                             selectedItems={value ? [value] : []}
                             onSelectionChange={handleSelectionChange}
@@ -1093,7 +1138,8 @@ const ListField: React.FC<FieldRendererProps> = ({
     parentEntityIsSaved,
     parentEntityTypeName,
     parentEntityId,
-    onContinueDraft
+    onContinueDraft,
+    pickerFilters
 }) => {
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ListField]', ...args);
     console.log('Rendering ListField with value:', value);
@@ -1262,12 +1308,12 @@ const ListField: React.FC<FieldRendererProps> = ({
                                         <div className="flex items-center space-x-2 flex-1 min-w-0">
                                             <div className="flex-shrink-0 h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
                                                 <span className="text-green-600 font-medium text-xs">
-                                                    {(item.name || item.Name || '?').charAt(0).toUpperCase()}
+                                                    {getEntityDisplayLabel(item, '?').charAt(0).toUpperCase()}
                                                 </span>
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-green-900 truncate">
-                                                    {item.name || item.Name || 'Item'}
+                                                    {getEntityDisplayLabel(item, 'Item')}
                                                 </p>
                                                 <p className="text-xs text-green-600">ID: {item.id}</p>
                                             </div>
@@ -1335,11 +1381,19 @@ const ListField: React.FC<FieldRendererProps> = ({
                         </div>
                     )}
 
-                    {!field.isReadOnly && !ownedChildCollection && <div className="border border-gray-200 rounded-md p-4">
+                    {!field.isReadOnly && !ownedChildCollection && pickerFilters?.unavailableReason && (
+                        <p className="text-xs text-amber-700 flex items-start gap-1">
+                            <Info className="h-4 w-4 flex-shrink-0" />
+                            {pickerFilters.unavailableReason}
+                        </p>
+                    )}
+
+                    {!field.isReadOnly && !ownedChildCollection && !pickerFilters?.unavailableReason && <div className="border border-gray-200 rounded-md p-4">
                         <PagedEntityTable
+                            key={JSON.stringify(pickerFilters?.filters ?? {})}
                             entityTypeName={field.objectType}
                             columns={columnDefinitionsRegistry[field.objectType]?.default || defaultColumnDefinitions.default}
-                            initialQuery={{ page: 1, pageSize: 5 }}
+                            initialQuery={{ page: 1, pageSize: 5, filters: pickerFilters?.filters ?? {} }}
                             selectionConfig={selectionConfig}
                             selectedItems={items}
                             onSelectionChange={handleSelectionChange}
