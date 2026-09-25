@@ -7,6 +7,7 @@ import { userClient } from '../../apiClients/userClient';
 import { PermissionGroupDto, ExpiringMembershipDto } from '../../types/dtos/userManagement/PermissionGroupDto';
 import { AuditLogEntryDto } from '../../types/dtos/userManagement/UserProfileSummaryDtos';
 import { UserListDto } from '../../types/dtos/auth/UserDtos';
+import { toApiPagedQuery } from '../../utils/entityApiMapping';
 
 // docs/specs/user-management/DESIGN.md §5, IMPLEMENTATION_PLAN.md Phase 3 - a moderation-oriented
 // list separate from the generic ObjectDashboard/PagedEntityTable system, since "users in group
@@ -53,7 +54,12 @@ export const UserModerationPage: React.FC = () => {
         setAllLoading(true);
         setAllError(null);
         try {
-            const result = await userClient.searchPaged({ page, pageSize: ALL_PAGE_SIZE, searchTerm: searchTerm || undefined });
+            // The backend's PagedQueryDto only binds a "pageNumber" JSON field, not "page" - a
+            // bare { page, ... } body silently pins the server at its default page (1) no matter
+            // what's requested. toApiPagedQuery is the same page->pageNumber translation
+            // entityApiMapping.ts's generic search wrapper already applies; this call site talks
+            // to userClient directly so it has to apply it too.
+            const result = await userClient.searchPaged(toApiPagedQuery({ page, pageSize: ALL_PAGE_SIZE, searchTerm: searchTerm || undefined }));
             setAllResults(result.items);
             setAllTotalCount(result.totalCount);
             // Backend's raw PagedResult wire shape is {pageNumber, pageSize, totalCount}, not

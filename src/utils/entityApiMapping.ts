@@ -21,7 +21,7 @@ import { PermissionGroupClient } from '../apiClients/permissionGroupClient';
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
 // The API contract expects `pageNumber`, while the app-side query object uses `page`.
-function toApiPagedQuery(query: PagedQueryDto): PagedQueryDto {
+export function toApiPagedQuery(query: PagedQueryDto): PagedQueryDto {
     return { ...query, pageNumber: query.page } as PagedQueryDto;
 }
 
