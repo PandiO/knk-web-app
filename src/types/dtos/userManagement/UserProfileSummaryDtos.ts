@@ -105,7 +105,11 @@ export type AuditAction =
   | 'TitleChanged'
   | 'VanishToggled'
   | 'SalaryPayout'
-  | 'BalanceAdjusted';
+  | 'BalanceAdjusted'
+  | 'PlayerFrozen'
+  | 'PlayerUnfrozen'
+  // Written by knk-web-api's KitService.GiveKitAsync (docs/specs/kits/DESIGN.md §4.1).
+  | 'KitGranted';
 
 export interface AuditLogEntryDto {
   id: number;

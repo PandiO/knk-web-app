@@ -83,6 +83,7 @@ export enum Controllers {
     Grades = 'Grades',
     Tags = 'Tags',
     ItemBlueprints = 'ItemBlueprints',
+    Kits = 'Kits',
     EnchantmentDefinitions = 'EnchantmentDefinitions',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs',
@@ -320,6 +321,15 @@ export enum MinecraftEnchantmentRefOperation {
 }
 
 export enum EnchantmentDefinitionOperation {
+    GetAll = '',
+    GetById = '',
+    Create = '',
+    Update = '',
+    Delete = '',
+    SearchPaged = 'search'
+}
+
+export enum KitOperation {
     GetAll = '',
     GetById = '',
     Create = '',

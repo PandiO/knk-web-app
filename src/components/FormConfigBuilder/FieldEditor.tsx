@@ -71,6 +71,7 @@ export const FieldEditor: React.FC<Props> = ({
         'GateBlockScan',
         'GateOpenedBlockScan',
         'ItemScan',
+        'KitScan',
         'Custom'
     ];
 
@@ -1148,6 +1149,14 @@ export const FieldEditor: React.FC<Props> = ({
                                     displayed code in-game (chat command or "/knk itemscan claim
                                     &lt;code&gt;") to capture its material, name, lore, and
                                     enchantments.
+                                </p>
+                            )}
+                            {worldTaskType === 'KitScan' && (
+                                <p className="mt-1 text-xs text-blue-600">
+                                    Requires a player: equip and arrange the kit's items in your
+                                    inventory, then claim the displayed code in-game ("/knk
+                                    task-claim &lt;code&gt;" or "/knk kitscan claim &lt;code&gt;")
+                                    to capture armor, off-hand, main hand, and every inventory slot.
                                 </p>
                             )}
                         </div>

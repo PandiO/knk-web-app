@@ -9,6 +9,7 @@ import { DistrictClient } from '../apiClients/districtClient';
 import { MinecraftBlockRefClient } from '../apiClients/minecraftBlockRefClient';
 import { MinecraftMaterialRefClient } from '../apiClients/minecraftMaterialRefClient';
 import { ItemBlueprintClient } from '../apiClients/itemBlueprintClient';
+import { KitClient } from '../apiClients/kitClient';
 import { EnchantmentDefinitionClient } from '../apiClients/enchantmentDefinitionClient';
 import { GateStructureClient } from '../apiClients/gateStructureClient';
 import { GateDoorClient } from '../apiClients/gateDoorClient';
@@ -86,6 +87,8 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => LocationClient.getInstance().searchPaged(query));
         case 'itemblueprint':
             return withPagedQueryMapping((query) => ItemBlueprintClient.getInstance().searchPaged(query));
+        case 'kit':
+            return withPagedQueryMapping((query) => KitClient.getInstance().searchPaged(query));
         case 'enchantmentdefinition':
             return withPagedQueryMapping((query) => EnchantmentDefinitionClient.getInstance().searchPaged(query));
         case 'minecraftblockref':
@@ -146,6 +149,8 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => LocationClient.getInstance().getById(Number(id));
         case 'itemblueprint':
             return (id) => ItemBlueprintClient.getInstance().getById(id);
+        case 'kit':
+            return (id) => KitClient.getInstance().getById(id);
         case 'enchantmentdefinition':
             return (id) => EnchantmentDefinitionClient.getInstance().getById(id);
         case 'minecraftblockref':
@@ -207,6 +212,8 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => LocationClient.getInstance().update(entity);
         case 'itemblueprint':
             return (entity) => ItemBlueprintClient.getInstance().update(entity);
+        case 'kit':
+            return (entity) => KitClient.getInstance().update(entity);
         case 'enchantmentdefinition':
             return (entity) => EnchantmentDefinitionClient.getInstance().update(entity);
         case 'minecraftblockref':
@@ -268,6 +275,8 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => LocationClient.getInstance().delete(Number(id));
         case 'itemblueprint':
             return (id) => ItemBlueprintClient.getInstance().delete(id as string);
+        case 'kit':
+            return (id) => KitClient.getInstance().delete(id as string);
         case 'enchantmentdefinition':
             return (id) => EnchantmentDefinitionClient.getInstance().delete(id as string);
         case 'minecraftblockref':
@@ -327,6 +336,8 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => LocationClient.getInstance().create(entity);
         case 'itemblueprint':
             return (entity) => ItemBlueprintClient.getInstance().create(entity);
+        case 'kit':
+            return (entity) => KitClient.getInstance().create(entity);
         case 'enchantmentdefinition':
             return (entity) => EnchantmentDefinitionClient.getInstance().create(entity);
         case 'minecraftblockref':

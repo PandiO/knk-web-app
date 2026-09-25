@@ -121,4 +121,26 @@ describe('WorldBoundFieldRenderer result details', () => {
             { label: 'Verified', value: 'true' }
         ]);
     });
+    it('summarizes a KitScan result and keeps KitScan off the headless path', () => {
+        const scannedItem = { material: 'minecraft:iron_helmet', displayName: 'Iron Helmet', lore: [], quantity: 1 };
+        const task = createCompletedTask('KitScan', {
+            fieldName: 'KitScan',
+            status: 'Success',
+            helmet: scannedItem,
+            chestplate: null,
+            leggings: null,
+            boots: null,
+            shield: null,
+            hand: { ...scannedItem, material: 'minecraft:iron_sword', displayName: 'Iron Sword' },
+            contents: [{ ...scannedItem, slot: 9, material: 'minecraft:arrow', displayName: 'Arrow', quantity: 64 }],
+            warnings: []
+        });
+
+        expect(getWorldTaskResultDetails(task, 'KitScan')).toEqual([
+            { label: 'Status', value: 'Success' },
+            { label: 'Equipment slots', value: '2' },
+            { label: 'Inventory slots', value: '1' }
+        ]);
+        expect(isHeadlessTaskType('KitScan')).toBe(false);
+    });
 });
