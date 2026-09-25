@@ -106,9 +106,9 @@ export type AuditAction =
   | 'VanishToggled'
   | 'SalaryPayout'
   | 'BalanceAdjusted'
-  // docs/specs/kits/DESIGN.md §4.1's proposed GiveKitAsync -> AuditLogService.Record action.
-  // Not yet written server-side (kits/IMPLEMENTATION_PLAN.md §2 status: TODO(kits-phase2)) -
-  // included here so the type and PlayerProfilePage.tsx's activity feed are ready for it.
+  | 'PlayerFrozen'
+  | 'PlayerUnfrozen'
+  // Written by knk-web-api's KitService.GiveKitAsync (docs/specs/kits/DESIGN.md §4.1).
   | 'KitGranted';
 
 export interface AuditLogEntryDto {

@@ -34,10 +34,9 @@ const auditActionLabel = (entry: AuditLogEntryDto): string => {
         case 'VanishToggled': return 'Mode changed';
         case 'SalaryPayout': return 'Salary paid out';
         case 'BalanceAdjusted': return 'Balances adjusted';
-        // KitGranted is DESIGN.md §4.1's proposed AuditLogService action for GiveKitAsync - not
-        // yet written server-side (kits/IMPLEMENTATION_PLAN.md §2 status: still a
-        // TODO(kits-phase2) in GiveKitAsync), but the label is here so this feed renders it
-        // correctly the moment that call is wired in, with no further web-app change needed.
+        case 'PlayerFrozen': return 'Player frozen';
+        case 'PlayerUnfrozen': return 'Player unfrozen';
+        // Written by GiveKitAsync (docs/specs/kits/DESIGN.md §4.1) on every staff kit grant.
         case 'KitGranted': return 'Kit granted';
         default: return entry.action;
     }
@@ -269,9 +268,7 @@ export const PlayerProfilePage: React.FC = () => {
 
     // Grant Kit (docs/specs/kits/IMPLEMENTATION_PLAN.md §6) — after a successful grant, re-fetch
     // the kit list (so its resolved cooldown/purchase state reflects the grant immediately) and
-    // Recent activity (surfaces the KitGranted entry for free once GiveKitAsync's own
-    // TODO(kits-phase2) AuditLogService.Record call is wired in server-side - see this session's
-    // §6 status note for the current state of that gap).
+    // Recent activity (so the KitGranted audit entry GiveKitAsync records shows up right away).
     const handleGrantKit = async (kitId: number) => {
         setGrantingKitId(kitId);
         setGrantKitError(null);
