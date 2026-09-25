@@ -16,8 +16,10 @@ export const CollectionSection: React.FC<CollectionSectionProps> = ({
     return <div className="text-center py-8 text-gray-500 italic">No items</div>;
   }
 
-  // Get subsection template (first subsection)
-  const itemTemplate = section.subSections?.[0];
+  // Item template: the collection section's own fields (the builder offers the item
+  // type's properties for them, so they resolve against each item); otherwise the
+  // first subsection
+  const itemTemplate = section.fields?.length > 0 ? section : section.subSections?.[0];
   if (!itemTemplate) {
     return <div className="text-center py-8 text-red-500 italic">No template configured</div>;
   }
@@ -28,10 +30,10 @@ export const CollectionSection: React.FC<CollectionSectionProps> = ({
     : {};
 
   // Parse field order for template
-  const fieldOrder: string[] = itemTemplate.fieldOrderJson 
-    ? JSON.parse(itemTemplate.fieldOrderJson) 
+  const fieldOrder: string[] = itemTemplate.fieldOrderJson
+    ? JSON.parse(itemTemplate.fieldOrderJson)
     : [];
-  
+
   const orderedFields = fieldOrder.length > 0
     ? fieldOrder
         .map(guid => itemTemplate.fields.find(f => f.fieldGuid === guid))
