@@ -4,6 +4,7 @@ import {
   AssignGroupRequest,
   AuditAction,
   AuditLogPagedResultDto,
+  BalanceAdjustmentResultDto,
   GrantNodeRequest,
   UserPermissionGroupDto,
   UserProfileSummaryDto,
@@ -52,7 +53,7 @@ class UserManagementClient extends ObjectManager {
   // new /knk user in-game command wraps - both call this identical PUT /api/users/{id}/balances,
   // so title resolution/audit-logging for a non-zero experienceDelta happens exactly once,
   // server-side, regardless of which surface triggered it.
-  adjustBalances(userId: number, request: { coinsDelta: number; gemsDelta: number; experienceDelta: number; reason: string }): Promise<void> {
+  adjustBalances(userId: number, request: { coinsDelta: number; gemsDelta: number; experienceDelta: number; reason: string }): Promise<BalanceAdjustmentResultDto> {
     return this.invokeServiceCall(request, `${userId}/balances`, Controllers.Users, HttpMethod.Put);
   }
 

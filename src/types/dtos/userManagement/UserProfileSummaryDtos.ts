@@ -127,3 +127,30 @@ export interface AuditLogPagedResultDto {
   pageNumber: number;
   pageSize: number;
 }
+
+// PUT /api/users/{id}/balances' response - consolidates every title bracket crossed by one
+// adjustment into a single result rather than one per tier (see UserService.AdjustBalancesAsync
+// on the backend, and the /knk user xp command's PromotionEffects on the plugin side).
+export interface TitleCrossingDto {
+  titleBracketId: number;
+  titleName: string;
+}
+
+export interface TitleChangeResultDto {
+  direction: 'promotion' | 'demotion';
+  fromTitleBracketId: number;
+  fromTitleName: string;
+  toTitleBracketId: number;
+  toTitleName: string;
+  crossedTitles: TitleCrossingDto[];
+  coinBonusGranted: number;
+  gemBonusGranted: number;
+  expBonusGranted: number;
+}
+
+export interface BalanceAdjustmentResultDto {
+  newCoins: number;
+  newGems: number;
+  newExperiencePoints: number;
+  titleChange: TitleChangeResultDto | null;
+}

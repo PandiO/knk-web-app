@@ -7,6 +7,7 @@ import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import {
     ActiveMode,
     AuditLogEntryDto,
+    TitleChangeResultDto,
     UserProfileSummaryDto,
 } from '../../types/dtos/userManagement/UserProfileSummaryDtos';
 import { PermissionGroupDto } from '../../types/dtos/userManagement/PermissionGroupDto';
@@ -79,6 +80,7 @@ export const PlayerProfilePage: React.FC = () => {
     const [balanceReason, setBalanceReason] = React.useState('');
     const [adjustingBalance, setAdjustingBalance] = React.useState(false);
     const [balanceActionError, setBalanceActionError] = React.useState<string | null>(null);
+    const [titleChangeNotice, setTitleChangeNotice] = React.useState<TitleChangeResultDto | null>(null);
 
     const [togglingMode, setTogglingMode] = React.useState(false);
     const [modeActionError, setModeActionError] = React.useState<string | null>(null);
@@ -204,16 +206,20 @@ export const PlayerProfilePage: React.FC = () => {
         }
         setAdjustingBalance(true);
         setBalanceActionError(null);
+        setTitleChangeNotice(null);
         try {
             const current = account[balanceProperty];
             const delta = balanceAction === 'set' ? amount - current : balanceAction === 'remove' ? -amount : amount;
             if (delta !== 0) {
-                await userManagementClient.adjustBalances(userId, {
+                const result = await userManagementClient.adjustBalances(userId, {
                     coinsDelta: balanceProperty === 'coins' ? delta : 0,
                     gemsDelta: balanceProperty === 'gems' ? delta : 0,
                     experienceDelta: balanceProperty === 'experiencePoints' ? delta : 0,
                     reason: balanceReason.trim(),
                 });
+                if (result.titleChange) {
+                    setTitleChangeNotice(result.titleChange);
+                }
             }
             setBalanceAmount('');
             setBalanceReason('');
@@ -407,6 +413,23 @@ export const PlayerProfilePage: React.FC = () => {
                         </button>
                         {balanceActionError && <span className="text-xs text-red-600 w-full">{balanceActionError}</span>}
                     </form>
+                    {titleChangeNotice && (
+                        <div className={`mt-3 rounded-md p-3 text-sm ${titleChangeNotice.direction === 'promotion' ? 'bg-amber-50 border border-amber-200 text-amber-900' : 'bg-red-50 border border-red-200 text-red-900'}`}>
+                            <p className="font-semibold">
+                                {titleChangeNotice.direction === 'promotion' ? '✦ Promoted!' : 'Demoted'}
+                                {titleChangeNotice.crossedTitles.length > 1
+                                    ? ` — ${titleChangeNotice.crossedTitles.map((t) => t.titleName).join(' → ')} (${titleChangeNotice.crossedTitles.length} tiers at once)`
+                                    : ` — ${titleChangeNotice.fromTitleName} → ${titleChangeNotice.toTitleName}`}
+                            </p>
+                            {(titleChangeNotice.coinBonusGranted > 0 || titleChangeNotice.gemBonusGranted > 0 || titleChangeNotice.expBonusGranted > 0) && (
+                                <p className="mt-1">
+                                    {titleChangeNotice.coinBonusGranted > 0 && <>+{titleChangeNotice.coinBonusGranted} coins  </>}
+                                    {titleChangeNotice.gemBonusGranted > 0 && <>+{titleChangeNotice.gemBonusGranted} gems  </>}
+                                    {titleChangeNotice.expBonusGranted > 0 && <>+{titleChangeNotice.expBonusGranted} bonus XP</>}
+                                </p>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Title / XP */}
