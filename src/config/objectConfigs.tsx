@@ -1,4 +1,4 @@
-import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Shield, Lock, Flag, Users } from 'lucide-react';
+import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Shield, Lock, Flag, Users, Swords, Castle } from 'lucide-react';
 import type { ColumnDefinition, FormField, ObjectConfig } from '../types/common';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
@@ -171,6 +171,42 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'chatColor', label: 'Chat Colour', sortable: false },
       { key: 'bannerDesignName', label: 'Banner', sortable: false, render: (row: any) => row.bannerDesignName ?? '-' },
       { key: 'defaultForTownName', label: 'Default For Town', sortable: false, render: (row: any) => row.defaultForTownName ?? '-' },
+    ]
+  },
+  // Siege Phase 3
+  siegescenario: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'townName', label: 'Town', sortable: false, render: (row: any) => row.townName ?? '-' },
+      { key: 'teamCount', label: 'Teams', sortable: false },
+      { key: 'objectiveCount', label: 'Objectives', sortable: false },
+      { key: 'gateCount', label: 'Gates', sortable: false },
+    ]
+  },
+  // The picker for objective holders / gate owners (scoped to one scenario by pickerFilters).
+  // A clan-sourced team has no name of its own, so show the resolved identity.
+  siegeteam: {
+    default: [
+      { key: 'id', label: 'ID', sortable: false },
+      { key: 'resolvedName', label: 'Team', sortable: false, render: (row: any) => row.resolvedName ?? row.name ?? '-' },
+      { key: 'role', label: 'Role', sortable: false },
+      { key: 'allianceGroup', label: 'Alliance', sortable: false },
+    ]
+  },
+  siegelobby: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'key', label: 'Key', sortable: false },
+      { key: 'isEnabled', label: 'Enabled', sortable: false, render: (row: any) => row.isEnabled ? 'Yes' : '-' },
+      { key: 'mode', label: 'Mode', sortable: false },
+      { key: 'rotationCount', label: 'Scenarios', sortable: false },
+    ]
+  },
+  titlebracket: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'femaleName', label: 'Female Name', sortable: false },
+      { key: 'minExperience', label: 'Min XP', sortable: false },
     ]
   }
 };
@@ -946,6 +982,36 @@ const clanConfig: ObjectConfig = {
   },
 };
 
+// Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): dashboard/navigation entries
+// for the two top-level siege entities. Their real authoring UI is their FormConfigurations
+// (FormWizard). SiegeTeam/SiegeSpawnpoint/SiegeObjective have no entry of their own - like
+// BannerLayer they are owned children, created/edited only inside the scenario's wizard (only teams
+// have a search endpoint, for the holder/owner pickers). SiegeConfiguration is a singleton with its
+// own page (/admin/siege-configuration).
+const siegeScenarioConfig: ObjectConfig = {
+  type: 'siegescenario',
+  label: 'Siege Scenario',
+  icon: <Swords className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    description: commonFields.description,
+    townId: { name: 'townId', label: 'Town Id', type: 'number', required: true },
+  },
+};
+
+const siegeLobbyConfig: ObjectConfig = {
+  type: 'siegelobby',
+  label: 'Siege Lobby',
+  icon: <Castle className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    key: { name: 'key', label: 'Key', type: 'text', required: true },
+    isEnabled: { name: 'isEnabled', label: 'Enabled', type: 'bool', required: false, defaultValue: false },
+  },
+};
+
 export const objectConfigs: Record<string, ObjectConfig> = {
   location: locationConfig,
   town: townConfig,
@@ -961,4 +1027,6 @@ export const objectConfigs: Record<string, ObjectConfig> = {
   permissiongroup: permissionGroupConfig,
   bannerdesign: bannerDesignConfig,
   clan: clanConfig,
+  siegescenario: siegeScenarioConfig,
+  siegelobby: siegeLobbyConfig,
 };
