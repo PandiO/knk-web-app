@@ -1,8 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Search, Users, Clock, TrendingDown } from 'lucide-react';
+import { Loader2, Search, Users, Clock, TrendingDown, List, ChevronLeft, ChevronRight } from 'lucide-react';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
+import { userClient } from '../../apiClients/userClient';
 import { PermissionGroupDto, ExpiringMembershipDto } from '../../types/dtos/userManagement/PermissionGroupDto';
 import { AuditLogEntryDto } from '../../types/dtos/userManagement/UserProfileSummaryDtos';
 import { UserListDto } from '../../types/dtos/auth/UserDtos';
@@ -14,7 +15,7 @@ import { UserListDto } from '../../types/dtos/auth/UserDtos';
 // closes Phase 1/2's carried-forward "no generic-dashboard entry point into PlayerProfilePage"
 // item: every row here links to /admin/users/:id.
 
-type Tab = 'group' | 'expiring' | 'demoted';
+type Tab = 'all' | 'group' | 'expiring' | 'demoted';
 
 const formatDate = (iso?: string | null): string => {
     if (!iso) return '-';
@@ -24,7 +25,7 @@ const formatDate = (iso?: string | null): string => {
 
 export const UserModerationPage: React.FC = () => {
     const navigate = useNavigate();
-    const [tab, setTab] = React.useState<Tab>('group');
+    const [tab, setTab] = React.useState<Tab>('all');
 
     const [groups, setGroups] = React.useState<PermissionGroupDto[]>([]);
     const [groupsLoading, setGroupsLoading] = React.useState(true);
@@ -35,6 +36,50 @@ export const UserModerationPage: React.FC = () => {
             .catch((err) => console.error('Failed to load permission groups:', err))
             .finally(() => setGroupsLoading(false));
     }, []);
+
+    // ----- "All players" tab (developer feedback: the view had no way to just see everyone) -
+    // reuses the existing generic POST /api/Users/search (PagedQueryDto), same endpoint the
+    // ObjectDashboard/PagedEntityTable system uses elsewhere, since a flat "every user" list
+    // doesn't need any of this page's cross-entity moderation logic. -----
+    const ALL_PAGE_SIZE = 20;
+    const [allSearchTerm, setAllSearchTerm] = React.useState('');
+    const [allPage, setAllPage] = React.useState(1);
+    const [allResults, setAllResults] = React.useState<UserListDto[] | null>(null);
+    const [allTotalCount, setAllTotalCount] = React.useState(0);
+    const [allLoading, setAllLoading] = React.useState(false);
+    const [allError, setAllError] = React.useState<string | null>(null);
+
+    const runAllSearch = React.useCallback(async (page: number, searchTerm: string) => {
+        setAllLoading(true);
+        setAllError(null);
+        try {
+            const result = await userClient.searchPaged({ page, pageSize: ALL_PAGE_SIZE, searchTerm: searchTerm || undefined });
+            setAllResults(result.items);
+            setAllTotalCount(result.totalCount);
+            // Backend's raw PagedResult wire shape is {pageNumber, pageSize, totalCount}, not
+            // {page,...} - result.page (typed per the shared PagedResultDto interface) is
+            // actually undefined at runtime here since userClient.searchPaged() returns the raw
+            // response, unlike entityApiMapping.ts's normalizePagedResult which remaps it.
+            // Trusting the page we requested rather than an unreliable response field.
+            setAllPage(page);
+        } catch (err) {
+            console.error('Failed to load all players:', err);
+            setAllError('Could not load players.');
+        } finally {
+            setAllLoading(false);
+        }
+    }, []);
+
+    // Auto-run on first visit, like "recently demoted" - no filter selection needed to see a
+    // useful result.
+    React.useEffect(() => {
+        if (tab === 'all' && allResults === null && !allLoading) {
+            void runAllSearch(1, allSearchTerm);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tab, allResults, allLoading]);
+
+    const allTotalPages = Math.max(1, Math.ceil(allTotalCount / ALL_PAGE_SIZE));
 
     // ----- "By group" tab (also covers "currently online", combined with a group filter -
     // there is no server-wide online list, only GET /api/Users/search?groupId=&onlineOnly=) -----
@@ -110,6 +155,7 @@ export const UserModerationPage: React.FC = () => {
     }, [tab, demotedResults, demotedLoading, runDemotedSearch]);
 
     const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
+        { key: 'all', label: 'All players', icon: <List className="h-4 w-4 mr-2" /> },
         { key: 'group', label: 'By group / online', icon: <Users className="h-4 w-4 mr-2" /> },
         { key: 'expiring', label: 'Premium expiring soon', icon: <Clock className="h-4 w-4 mr-2" /> },
         { key: 'demoted', label: 'Recently demoted', icon: <TrendingDown className="h-4 w-4 mr-2" /> },
@@ -121,8 +167,8 @@ export const UserModerationPage: React.FC = () => {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Player moderation</h1>
                     <p className="mt-1 text-sm text-gray-500">
-                        Search across players for moderation tasks — group membership, expiring premium
-                        tiers, and recent title demotions. Click any row to open that player&apos;s profile.
+                        Browse every player, or search for moderation tasks — group membership, expiring
+                        premium tiers, and recent title demotions. Click any row to open that player&apos;s profile.
                     </p>
                 </div>
 
@@ -145,6 +191,94 @@ export const UserModerationPage: React.FC = () => {
                     </div>
 
                     <div className="p-6">
+                        {tab === 'all' && (
+                            <div className="space-y-4">
+                                <div className="flex flex-wrap items-end gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Search username / email / UUID</label>
+                                        <input
+                                            type="text"
+                                            className="border border-gray-300 rounded-md px-3 py-2 text-sm min-w-[240px]"
+                                            value={allSearchTerm}
+                                            onChange={(e) => setAllSearchTerm(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') void runAllSearch(1, allSearchTerm); }}
+                                            placeholder="Leave blank to list everyone"
+                                        />
+                                    </div>
+                                    <button
+                                        className="btn-primary text-sm inline-flex items-center"
+                                        disabled={allLoading}
+                                        onClick={() => void runAllSearch(1, allSearchTerm)}
+                                    >
+                                        {allLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+                                        Search
+                                    </button>
+                                </div>
+                                {allError && <p className="text-sm text-red-600">{allError}</p>}
+                                {allResults && (
+                                    allResults.length === 0 ? (
+                                        <p className="text-sm text-gray-500">No matching players.</p>
+                                    ) : (
+                                        <>
+                                            <table className="min-w-full text-sm">
+                                                <thead>
+                                                    <tr className="text-left text-gray-500 border-b border-gray-200">
+                                                        <th className="py-2 pr-4">Username</th>
+                                                        <th className="py-2 pr-4">Email</th>
+                                                        <th className="py-2 pr-4">Status</th>
+                                                        <th className="py-2 pr-4">Coins</th>
+                                                        <th className="py-2 pr-4">XP</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {allResults.map((u) => (
+                                                        <tr
+                                                            key={u.id}
+                                                            className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                                                            onClick={() => u.id != null && navigate(`/admin/users/${u.id}`)}
+                                                        >
+                                                            <td className="py-2 pr-4 font-medium text-gray-900">{u.username}</td>
+                                                            <td className="py-2 pr-4 text-gray-500">{u.email ?? '-'}</td>
+                                                            <td className="py-2 pr-4">
+                                                                {u.isOnline ? (
+                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Online</span>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Offline</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-2 pr-4 text-gray-500">{u.coins}</td>
+                                                            <td className="py-2 pr-4 text-gray-500">{u.experiencePoints}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                            <div className="flex items-center justify-between pt-2">
+                                                <p className="text-xs text-gray-500">
+                                                    Page {allPage} of {allTotalPages} ({allTotalCount} total)
+                                                </p>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        className="btn-secondary text-xs inline-flex items-center px-2 py-1"
+                                                        disabled={allLoading || allPage <= 1}
+                                                        onClick={() => void runAllSearch(allPage - 1, allSearchTerm)}
+                                                    >
+                                                        <ChevronLeft className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button
+                                                        className="btn-secondary text-xs inline-flex items-center px-2 py-1"
+                                                        disabled={allLoading || allPage >= allTotalPages}
+                                                        onClick={() => void runAllSearch(allPage + 1, allSearchTerm)}
+                                                    >
+                                                        <ChevronRight className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )
+                                )}
+                            </div>
+                        )}
+
                         {tab === 'group' && (
                             <div className="space-y-4">
                                 <div className="flex flex-wrap items-end gap-3">

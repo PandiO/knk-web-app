@@ -48,6 +48,14 @@ class UserManagementClient extends ObjectManager {
     return this.invokeServiceCall({ activeMode }, `${userId}/vanish-mode`, Controllers.Users, HttpMethod.Post);
   }
 
+  // Developer request 2026-09-25: a web quick action for the same coins/gems/XP adjustment the
+  // new /knk user in-game command wraps - both call this identical PUT /api/users/{id}/balances,
+  // so title resolution/audit-logging for a non-zero experienceDelta happens exactly once,
+  // server-side, regardless of which surface triggered it.
+  adjustBalances(userId: number, request: { coinsDelta: number; gemsDelta: number; experienceDelta: number; reason: string }): Promise<void> {
+    return this.invokeServiceCall(request, `${userId}/balances`, Controllers.Users, HttpMethod.Put);
+  }
+
   getAuditLog(params: {
     targetUserId?: number;
     actorUserId?: number;

@@ -71,6 +71,15 @@ export const PlayerProfilePage: React.FC = () => {
     const [grantingNode, setGrantingNode] = React.useState(false);
     const [grantActionError, setGrantActionError] = React.useState<string | null>(null);
 
+    // Balance/XP quick action (developer request 2026-09-25) — the web counterpart to the new
+    // /knk user in-game command; both call the same PUT /api/users/{id}/balances.
+    const [balanceProperty, setBalanceProperty] = React.useState<'coins' | 'gems' | 'experiencePoints'>('coins');
+    const [balanceAction, setBalanceAction] = React.useState<'set' | 'add' | 'remove'>('add');
+    const [balanceAmount, setBalanceAmount] = React.useState('');
+    const [balanceReason, setBalanceReason] = React.useState('');
+    const [adjustingBalance, setAdjustingBalance] = React.useState(false);
+    const [balanceActionError, setBalanceActionError] = React.useState<string | null>(null);
+
     const [togglingMode, setTogglingMode] = React.useState(false);
     const [modeActionError, setModeActionError] = React.useState<string | null>(null);
 
@@ -182,6 +191,38 @@ export const PlayerProfilePage: React.FC = () => {
             setGrantActionError('Could not save this permission node.');
         } finally {
             setGrantingNode(false);
+        }
+    };
+
+    const handleAdjustBalance = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const amount = Number(balanceAmount);
+        if (!balanceAmount.trim() || Number.isNaN(amount) || amount < 0) return;
+        if (!balanceReason.trim()) {
+            setBalanceActionError('A reason is required.');
+            return;
+        }
+        setAdjustingBalance(true);
+        setBalanceActionError(null);
+        try {
+            const current = account[balanceProperty];
+            const delta = balanceAction === 'set' ? amount - current : balanceAction === 'remove' ? -amount : amount;
+            if (delta !== 0) {
+                await userManagementClient.adjustBalances(userId, {
+                    coinsDelta: balanceProperty === 'coins' ? delta : 0,
+                    gemsDelta: balanceProperty === 'gems' ? delta : 0,
+                    experienceDelta: balanceProperty === 'experiencePoints' ? delta : 0,
+                    reason: balanceReason.trim(),
+                });
+            }
+            setBalanceAmount('');
+            setBalanceReason('');
+            await refreshAfterAction();
+        } catch (err) {
+            console.error('Failed to adjust balance:', err);
+            setBalanceActionError('Could not adjust this balance — check the amount doesn\'t go below zero.');
+        } finally {
+            setAdjustingBalance(false);
         }
     };
 
@@ -311,6 +352,61 @@ export const PlayerProfilePage: React.FC = () => {
                             <p className="font-semibold text-gray-900">{account.isActive ? 'Active' : 'Deactivated'}</p>
                         </div>
                     </div>
+
+                    {/* Quick action: adjust coins/gems/XP (developer request 2026-09-25) - the
+                        same PUT /api/users/{id}/balances the new /knk user in-game command uses,
+                        so a non-zero XP delta resolves/audit-logs a title change here too. */}
+                    <form className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-end gap-3" onSubmit={(e) => void handleAdjustBalance(e)}>
+                        <div>
+                            <label className="block text-xs text-gray-500 mb-1">Property</label>
+                            <select
+                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm"
+                                value={balanceProperty}
+                                onChange={(e) => setBalanceProperty(e.target.value as typeof balanceProperty)}
+                            >
+                                <option value="coins">Coins</option>
+                                <option value="gems">Gems</option>
+                                <option value="experiencePoints">XP</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-500 mb-1">Action</label>
+                            <select
+                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm"
+                                value={balanceAction}
+                                onChange={(e) => setBalanceAction(e.target.value as typeof balanceAction)}
+                            >
+                                <option value="add">Add</option>
+                                <option value="remove">Remove</option>
+                                <option value="set">Set to</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-500 mb-1">Amount</label>
+                            <input
+                                type="number"
+                                min={0}
+                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-28"
+                                value={balanceAmount}
+                                onChange={(e) => setBalanceAmount(e.target.value)}
+                                placeholder="0"
+                            />
+                        </div>
+                        <div className="flex-1 min-w-[160px]">
+                            <label className="block text-xs text-gray-500 mb-1">Reason</label>
+                            <input
+                                type="text"
+                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-full"
+                                value={balanceReason}
+                                onChange={(e) => setBalanceReason(e.target.value)}
+                                placeholder="Required"
+                            />
+                        </div>
+                        <button type="submit" className="btn-primary text-sm" disabled={!balanceAmount.trim() || !balanceReason.trim() || adjustingBalance}>
+                            {adjustingBalance ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+                        </button>
+                        {balanceActionError && <span className="text-xs text-red-600 w-full">{balanceActionError}</span>}
+                    </form>
                 </div>
 
                 {/* Title / XP */}

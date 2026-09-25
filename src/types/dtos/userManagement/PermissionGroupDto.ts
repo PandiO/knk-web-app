@@ -1,8 +1,8 @@
-// Mirrors knk-web-api's PermissionGroupDto (Dtos/PermissionGroupDtos.cs) — used here only to
+// Mirrors knk-web-api's PermissionGroupDto (Dtos/PermissionGroupDtos.cs). Originally used only to
 // populate the group picker on PlayerProfilePage.tsx's quick actions (docs/specs/
-// user-management/IMPLEMENTATION_PLAN.md Phase 2). PermissionGroup isn't registered in
-// objectConfigs.tsx yet (Phase 1's carried-forward item 1), so this is a narrow, page-scoped
-// client rather than the generic CRUD path.
+// user-management/IMPLEMENTATION_PLAN.md Phase 2); also the create/edit shape for the generic
+// ObjectDashboard/FormWizard registration added 2026-09-25 (developer feedback — PermissionGroup
+// is [FormConfigurableEntity] on the backend but had no client-side entry point).
 export interface PermissionGroupDto {
   id?: number | null;
   name: string;
@@ -21,4 +21,17 @@ export interface ExpiringMembershipDto {
   username: string;
   permissionGroupId: number;
   expiresAt: string;
+}
+
+// Mirrors knk-web-api's PermissionGroupListDto — row shape for POST /api/PermissionGroups/search
+// (the generic ObjectDashboard paged listing).
+export interface PermissionGroupListDto {
+  id?: number | null;
+  name: string;
+  weight: number;
+  isPremiumTier: boolean;
+  salaryMultiplier: number;
+  parentGroupId?: number | null;
+  parentGroupName?: string | null;
+  childrenCount: number;
 }

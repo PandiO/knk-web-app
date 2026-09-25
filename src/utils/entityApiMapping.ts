@@ -16,6 +16,7 @@ import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
 import { LocationClient } from '../apiClients/locationClient';
 import { MinecraftEnchantmentRefClient } from '../apiClients/minecraftEnchantmentRefClient';
 import { UserClient } from '../apiClients/userClient';
+import { PermissionGroupClient } from '../apiClients/permissionGroupClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -84,6 +85,8 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => MinecraftMaterialRefClient.getInstance().searchPaged(query));
         case 'minecraftenchantmentref':
             return withPagedQueryMapping((query) => MinecraftEnchantmentRefClient.getInstance().searchPaged(query));
+        case 'permissiongroup':
+            return withPagedQueryMapping((query) => PermissionGroupClient.getInstance().searchPaged(query));
         default:
             throw new Error(`No search function registered for entity type: ${entityTypeName}`);
     }
@@ -125,6 +128,8 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => MinecraftMaterialRefClient.getInstance().getById(Number(id));
         case 'user':
             return (id) => UserClient.getInstance().getById(Number(id));
+        case 'permissiongroup':
+            return (id) => PermissionGroupClient.getInstance().getById(Number(id));
         default:
             throw new Error(`No fetchById function registered for entity type: ${entityTypeName}`);
     }
@@ -168,6 +173,8 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => MinecraftEnchantmentRefClient.getInstance().update(entity);
         case 'user':
             return (entity) => UserClient.getInstance().update(entity);
+        case 'permissiongroup':
+            return (entity) => PermissionGroupClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -209,6 +216,8 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => MinecraftMaterialRefClient.getInstance().delete(Number(id));
         case 'user':
             return (id) => UserClient.getInstance().delete(Number(id));
+        case 'permissiongroup':
+            return (id) => PermissionGroupClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -252,6 +261,8 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => MinecraftEnchantmentRefClient.getInstance().create(entity);
         case 'user':
             return (entity) => UserClient.getInstance().create(entity);
+        case 'permissiongroup':
+            return (entity) => PermissionGroupClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }
