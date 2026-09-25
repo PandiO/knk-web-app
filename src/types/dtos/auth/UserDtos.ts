@@ -38,7 +38,9 @@ export interface UserUpdateDto {
   currentPassword?: string; // required if newPassword is provided
 }
 
-// Row shape returned by POST /api/users/search (PagedResultDto<UserListDto>)
+// Row shape returned by POST /api/users/search (PagedResultDto<UserListDto>) and by
+// GET /api/Users/search?groupId= (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 3,
+// UserModerationPage.tsx) - same backend UserListDto class for both.
 export interface UserListDto {
   id?: number;
   username: string;
@@ -48,4 +50,6 @@ export interface UserListDto {
   gems: number;
   experiencePoints: number;
   isActive: boolean;
+  isOnline: boolean;
+  lastSeenAt?: string | null;
 }

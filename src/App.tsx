@@ -17,6 +17,8 @@ import { DisplayWizardPage } from './pages/DisplayWizardPage';
 import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayConfigBuilder';
 import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import { GameSettingsPage } from './pages/admin/GameSettingsPage';
+import { PlayerProfilePage } from './pages/admin/PlayerProfilePage';
+import { UserModerationPage } from './pages/admin/UserModerationPage';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -178,6 +180,20 @@ function AppContent() {
               <Route path="/admin/game-settings" element={
                 <ProtectedRoute>
                   <GameSettingsPage />
+                </ProtectedRoute>
+              } />
+              {/* User management Phase 1 (docs/specs/user-management/IMPLEMENTATION_PLAN.md) */}
+              <Route path="/admin/users/:id" element={
+                <ProtectedRoute>
+                  <PlayerProfilePage />
+                </ProtectedRoute>
+              } />
+              {/* User management Phase 3 - moderation search/filters, and the generic-dashboard
+                  entry point into PlayerProfilePage that Phase 1/2 carried forward (every row
+                  here links to /admin/users/:id). */}
+              <Route path="/admin/users" element={
+                <ProtectedRoute>
+                  <UserModerationPage />
                 </ProtectedRoute>
               } />
               {/* DisplayWizard routes */}

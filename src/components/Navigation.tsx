@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, Layout, LogOut, UserCircle2, Settings } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, FileText, Layout, LogOut, UserCircle2, Settings, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 // added: explicit types for object types prop
@@ -146,6 +146,17 @@ export function Navigation({ objectTypes }: Props) {
               >
                 <Settings className="h-4 w-4 mr-2" />
                 Game Settings
+              </Link>
+              <Link
+                to="/admin/users"
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  location.pathname === '/admin/users'
+                    ? 'border-b-2 border-primary text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
+                }`}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Moderation
               </Link>
 
             </div>

@@ -1,4 +1,4 @@
-import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Shield } from 'lucide-react';
+import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Shield, Lock } from 'lucide-react';
 import type { ColumnDefinition, FormField, ObjectConfig } from '../types/common';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
@@ -137,6 +137,24 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
         sortable: true,
         render: (row: any) => `${row.healthCurrent ?? 0}/${row.healthMax ?? '-'}`
       }
+    ]
+  },
+  permissiongroup: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'weight', label: 'Weight', sortable: true },
+      {
+        key: 'isPremiumTier',
+        label: 'Premium',
+        sortable: true,
+        render: (row: any) => row.isPremiumTier ? (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Premium</span>
+        ) : (
+          <span className="text-gray-400 text-xs">-</span>
+        )
+      },
+      { key: 'salaryMultiplier', label: 'Salary x', sortable: true },
+      { key: 'parentGroupName', label: 'Parent', sortable: false, render: (row: any) => row.parentGroupName ?? '-' },
     ]
   }
 };
@@ -759,6 +777,64 @@ const GateDoorConfig: ObjectConfig = {
   }
 };
 
+// PermissionGroup is [FormConfigurableEntity] on the backend and has been since user-features
+// Phase 1, but was never registered here - a carried-forward gap every user-management/
+// user-features phase handoff flagged (docs/specs/user-management/IMPLEMENTATION_PLAN.md's
+// "Phase 1 status" carried-forward item 1). This is what closes it: generic CRUD via
+// /dashboard and /forms/permissiongroup, the same mechanism every other entity here uses -
+// no bespoke group-management page needed. parentGroupId is a plain number field rather than
+// an object picker (unlike e.g. districtConfig's `town`) to avoid a self-referencing
+// ObjectConfig - group hierarchies are expected to be shallow and edited by id, matching how
+// structureConfig links districtId/streetId elsewhere in this file.
+const permissionGroupConfig: ObjectConfig = {
+  type: 'permissiongroup',
+  label: 'Permission Group',
+  icon: <Lock className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    weight: {
+      name: 'weight',
+      label: 'Weight',
+      type: 'number',
+      required: true,
+      defaultValue: 0,
+    },
+    isPremiumTier: {
+      name: 'isPremiumTier',
+      label: 'Premium Tier',
+      type: 'bool',
+      required: false,
+      defaultValue: false,
+    },
+    salaryMultiplier: {
+      name: 'salaryMultiplier',
+      label: 'Salary Multiplier',
+      type: 'number',
+      required: true,
+      defaultValue: 1.0,
+    },
+    chatPrefix: {
+      name: 'chatPrefix',
+      label: 'Chat Prefix',
+      type: 'text',
+      required: false,
+    },
+    chatSuffix: {
+      name: 'chatSuffix',
+      label: 'Chat Suffix',
+      type: 'text',
+      required: false,
+    },
+    parentGroupId: {
+      name: 'parentGroupId',
+      label: 'Parent Group Id',
+      type: 'number',
+      required: false,
+    },
+  },
+};
+
 export const objectConfigs: Record<string, ObjectConfig> = {
   location: locationConfig,
   town: townConfig,
@@ -771,4 +847,5 @@ export const objectConfigs: Record<string, ObjectConfig> = {
   minecraftmaterialref: minecraftMaterialRefConfig,
   gatestructure: GateStructureConfig,
   gatedoor: GateDoorConfig,
+  permissiongroup: permissionGroupConfig,
 };
