@@ -17,6 +17,7 @@ import { DisplayWizardPage } from './pages/DisplayWizardPage';
 import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayConfigBuilder';
 import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import { GameSettingsPage } from './pages/admin/GameSettingsPage';
+import { SiegeConfigurationPage } from './pages/admin/SiegeConfigurationPage';
 import { PlayerProfilePage } from './pages/admin/PlayerProfilePage';
 import { UserModerationPage } from './pages/admin/UserModerationPage';
 import React from 'react';
@@ -180,6 +181,12 @@ function AppContent() {
               <Route path="/admin/game-settings" element={
                 <ProtectedRoute>
                   <GameSettingsPage />
+                </ProtectedRoute>
+              } />
+              {/* Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables */}
+              <Route path="/admin/siege-configuration" element={
+                <ProtectedRoute>
+                  <SiegeConfigurationPage />
                 </ProtectedRoute>
               } />
               {/* User management Phase 1 (docs/specs/user-management/IMPLEMENTATION_PLAN.md) */}
