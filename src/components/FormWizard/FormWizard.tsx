@@ -12,6 +12,7 @@ import { WorldBoundFieldRenderer } from '../Workflow/WorldBoundFieldRenderer';
 import { logging } from '../../utils';
 import { getFetchByIdFunctionForEntity, getCreateFunctionForEntity, getUpdateFunctionForEntity } from '../../utils/entityApiMapping';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
+import { resolveObjectFieldValueForEdit } from '../../utils/forms/objectFieldEditValue';
 import { normalizeFormSubmission } from '../../utils/forms/normalizeFormSubmission';
 import {
     FormVisibility,
@@ -42,6 +43,7 @@ import {
 import { deriveGateGeometryStepData, isDerivedGateGeometryField } from '../../utils/forms/gateGeometry';
 import { withLiveEnumOptions } from '../../utils/forms/enumFieldMetadata';
 import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
+import { ItemBlueprintClient } from '../../apiClients/itemBlueprintClient';
 import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 import { ScanConflictModal, ScanConflictField, ScanConflictChoice } from './ScanConflictModal';
 
@@ -858,28 +860,6 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         });
     }, [currentStepIndex, config, allStepsData, preResolvedPlaceholders, resolvePlaceholdersForField]);
 
-    /**
-     * Object-type fields (e.g. AnchorPointId) are configured under the FK field name, but the
-     * entity DTO only exposes the raw FK integer under that name; the populated navigation
-     * object (with id/name/x/y/z, etc.) lives under the property with the "Id" suffix stripped
-     * (e.g. AnchorPoint). Without this, ObjectField only ever sees the bare number and can't
-     * render the related entity's name/id.
-     */
-    const resolveObjectFieldValueForEdit = (
-        entityData: Record<string, unknown>,
-        field: FormFieldDto,
-        rawValue: unknown
-    ): unknown => {
-        if (field.fieldType === FieldType.Object && rawValue !== null && (typeof rawValue !== 'object') && /Id$/.test(field.fieldName)) {
-            const navPropertyName = field.fieldName.slice(0, -2);
-            const navValue = findValueByFieldName(entityData, navPropertyName);
-            if (navValue && typeof navValue === 'object') {
-                return navValue;
-            }
-        }
-        return rawValue !== undefined ? rawValue : (field.defaultValue ?? null);
-    };
-
     // changed: simplified using utility function
     const loadExistingEntityData = async (entityTypeName: string, id: string, cfg: FormConfigurationDto) => {
         try {
@@ -1446,6 +1426,310 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
         if (choices) {
             applyResolvedPatch(choices);
+        }
+    };
+
+    // KitScan's OutputJson (docs/specs/kits/DESIGN.md §6.3-§6.5) fills the Kit form from a
+    // player's whole inventory: helmet/chestplate/leggings/boots/shield/hand each go to that
+    // equipment ItemBlueprint picker, and contents becomes the Contents M2M step as a full
+    // { SlotIndex, ItemBlueprintId, Quantity } list. Unlike ItemScan, every value is a reference
+    // to a *different* ItemBlueprint, so each scanned item is resolved to an existing blueprint
+    // (exact IconMaterial namespace key + DefaultDisplayName match) or auto-created (§6.4).
+    // Same conflict flow as applyItemScanResult: equipment fields that already hold a value, and
+    // Contents as a whole if it already has entries, go through the unmodified ScanConflictModal.
+    //
+    // One ordering difference from applyItemScanResult, on purpose: the conflict prompt comes
+    // before blueprint resolution, not after. Resolution can *create* ItemBlueprint rows, so
+    // resolving first would leave orphan blueprints behind whenever the admin keeps their current
+    // values or cancels. The prompt only needs the scanned display names, which the output
+    // already carries.
+    const applyKitScanResult = async (outputJson: string) => {
+        if (!config || !currentStep) return;
+
+        let output: Record<string, any>;
+        try {
+            output = JSON.parse(outputJson);
+        } catch {
+            console.error('KitScan: could not parse task outputJson');
+            return;
+        }
+
+        type ScannedItem = {
+            material: string;
+            displayName: string;
+            lore: string[];
+            quantity: number;
+            maxStackSize?: number;
+            enchantments: Array<{ key: string; level: number }>;
+        };
+        const toScannedItem = (raw: any): ScannedItem | null => {
+            if (!raw || typeof raw !== 'object' || typeof raw.material !== 'string' || !raw.material) return null;
+            if (raw.material.toLowerCase() === 'minecraft:air') return null;
+            return {
+                material: raw.material,
+                displayName: typeof raw.displayName === 'string' ? raw.displayName : raw.material,
+                lore: Array.isArray(raw.lore) ? raw.lore.filter((line: unknown) => typeof line === 'string') : [],
+                quantity: typeof raw.quantity === 'number' && raw.quantity > 0 ? raw.quantity : 1,
+                maxStackSize: typeof raw.maxStackSize === 'number' ? raw.maxStackSize : undefined,
+                enchantments: [
+                    ...(Array.isArray(raw.vanillaEnchantments) ? raw.vanillaEnchantments : []),
+                    ...(Array.isArray(raw.customEnchantments) ? raw.customEnchantments : [])
+                ].filter((entry: any) => !!entry && typeof entry.key === 'string')
+            };
+        };
+
+        // The equipment pickers may be authored on the navigation property ("Helmet", the
+        // Phase 3 convention) or on the FK ("HelmetId"), and on any step - resolve against the
+        // live config rather than assuming either.
+        const findField = (candidates: string[]): { stepIndex: number; fieldName: string } | null => {
+            for (let stepIndex = 0; stepIndex < config.steps.length; stepIndex++) {
+                const match = config.steps[stepIndex].fields.find(f =>
+                    candidates.some(candidate => f.fieldName.toLowerCase() === candidate.toLowerCase())
+                );
+                if (match) return { stepIndex, fieldName: match.fieldName };
+            }
+            return null;
+        };
+
+        const equipmentSlots: Array<{ key: string; label: string; field: { stepIndex: number; fieldName: string } | null; item: ScannedItem | null }> =
+            [
+                ['helmet', 'Helmet'],
+                ['chestplate', 'Chestplate'],
+                ['leggings', 'Leggings'],
+                ['boots', 'Boots'],
+                ['shield', 'Shield'],
+                ['hand', 'Hand']
+            ].map(([key, label]) => ({
+                key,
+                label,
+                field: findField([label, `${label}Id`]),
+                item: toScannedItem(output[key])
+            }));
+
+        const contentsStepIndex = config.steps.findIndex(
+            step => step.isManyToManyRelationship && step.relatedEntityPropertyName === 'Contents'
+        );
+        const joinChildFields = contentsStepIndex !== -1
+            ? (config.steps[contentsStepIndex].childFormSteps || []).flatMap(step => step.fields)
+            : [];
+        const joinFieldName = (name: string) =>
+            joinChildFields.find(f => f.fieldName.toLowerCase() === name.toLowerCase())?.fieldName ?? name;
+        const slotIndexKey = joinFieldName('SlotIndex');
+        const quantityKey = joinFieldName('Quantity');
+
+        const scannedContents: Array<{ slot: number; item: ScannedItem }> = (Array.isArray(output.contents) ? output.contents : [])
+            .map((raw: any) => ({ slot: raw?.slot, item: toScannedItem(raw) }))
+            .filter((entry: { slot: unknown; item: ScannedItem | null }): entry is { slot: number; item: ScannedItem } =>
+                entry.item !== null && typeof entry.slot === 'number' && entry.slot >= 0 && entry.slot <= 35)
+            .sort((a: { slot: number }, b: { slot: number }) => a.slot - b.slot);
+
+        // Snapshot BEFORE any await, for the same stale-closure reason applyItemScanResult
+        // documents. (A KitScan never writes into its own bound field, so there's no
+        // self-inflicted write to race here - but a real render can still land during the
+        // awaits below, so "what was filled before the scan" has to be read now.)
+        const preScanStepsData: AllStepsData = {};
+        Object.keys(allStepsDataRef.current).forEach(key => {
+            preScanStepsData[Number(key)] = { ...(allStepsDataRef.current[Number(key)] || {}) };
+        });
+        preScanStepsData[currentStepIndex] = {
+            ...(preScanStepsData[currentStepIndex] || {}),
+            ...currentStepDataRef.current
+        };
+
+        const isFilled = (value: unknown) =>
+            value !== null && value !== undefined && value !== '' && !(Array.isArray(value) && value.length === 0);
+        const describeValue = (value: unknown): string => {
+            if (!isFilled(value)) return '(empty)';
+            if (typeof value === 'object') {
+                const obj = value as Record<string, unknown>;
+                return String(obj.defaultDisplayName ?? obj.name ?? obj.displayName ?? obj.id ?? JSON.stringify(obj));
+            }
+            return `ItemBlueprint #${String(value)}`;
+        };
+        const describeContentEntry = (entry: Record<string, unknown>): string => {
+            const related = entry.relatedEntity as Record<string, unknown> | undefined;
+            const name = related?.defaultDisplayName ?? related?.name ?? entry.ItemBlueprintId ?? 'unknown';
+            return `slot ${String(entry[slotIndexKey] ?? '?')}: ${String(name)} x${String(entry[quantityKey] ?? 1)}`;
+        };
+
+        const conflicts: ScanConflictField[] = [];
+        equipmentSlots.forEach(slot => {
+            if (!slot.field || !slot.item) return;
+            const current = preScanStepsData[slot.field.stepIndex]?.[slot.field.fieldName];
+            if (isFilled(current)) {
+                conflicts.push({
+                    key: slot.key,
+                    label: slot.label,
+                    currentValueLabel: describeValue(current),
+                    scannedValueLabel: slot.item.displayName
+                });
+            }
+        });
+
+        const existingContents = contentsStepIndex !== -1 && Array.isArray(preScanStepsData[contentsStepIndex]?.Contents)
+            ? preScanStepsData[contentsStepIndex].Contents as Record<string, unknown>[]
+            : [];
+        // An empty scanned inventory leaves Contents alone, the same way an empty equipment slot
+        // leaves its picker alone - a scan only ever writes what it actually found.
+        if (contentsStepIndex !== -1 && scannedContents.length > 0 && existingContents.length > 0) {
+            conflicts.push({
+                key: 'contents',
+                label: `Contents (${existingContents.length} existing)`,
+                currentValueLabel: existingContents.map(describeContentEntry).join(', '),
+                scannedValueLabel: scannedContents
+                    .map(entry => `slot ${entry.slot}: ${entry.item.displayName} x${entry.item.quantity}`)
+                    .join(', ')
+            });
+        }
+
+        let choices: Record<string, ScanConflictChoice> | null = null;
+        if (conflicts.length > 0) {
+            choices = await new Promise<Record<string, ScanConflictChoice> | null>(resolve => {
+                setScanConflictState({
+                    fields: conflicts,
+                    resolve: picked => { setScanConflictState(null); resolve(picked); },
+                    cancel: () => { setScanConflictState(null); resolve(null); }
+                });
+            });
+            if (!choices) return;
+        }
+        // Not prefixed "use" - see applyItemScanResult's shouldApplyScannedValue for why.
+        const shouldApplyScannedValue = (key: string) => !choices || choices[key] !== 'current';
+
+        // Resolve (or create) one ItemBlueprint per distinct scanned item. Keyed by material +
+        // display name so e.g. three stacks of arrows resolve once, not three times (and never
+        // create three duplicate blueprints).
+        const itemBlueprintClient = ItemBlueprintClient.getInstance();
+        const resolvedBlueprints = new Map<string, Record<string, unknown> | null>();
+        const resolveBlueprint = async (item: ScannedItem): Promise<Record<string, unknown> | null> => {
+            const cacheKey = `${item.material.toLowerCase()}|${item.displayName}`;
+            if (resolvedBlueprints.has(cacheKey)) return resolvedBlueprints.get(cacheKey)!;
+
+            let resolved: Record<string, unknown> | null = null;
+            try {
+                const result = await itemBlueprintClient.searchPaged({ page: 1, pageSize: 25, searchTerm: item.displayName });
+                const candidates: Array<Record<string, any>> = result?.items || [];
+                const exact = candidates.find(candidate =>
+                    String(candidate.iconNamespaceKey ?? '').toLowerCase() === item.material.toLowerCase() &&
+                    candidate.defaultDisplayName === item.displayName
+                );
+                if (exact?.id != null) {
+                    resolved = exact;
+                } else {
+                    let iconMaterialRefId: number | undefined;
+                    try {
+                        const hybridMatches = await minecraftMaterialRefClient.getHybrid(item.material, undefined, 5);
+                        const exactMaterial = hybridMatches.find(
+                            m => m.namespaceKey.toLowerCase() === item.material.toLowerCase()
+                        );
+                        const materialRef = await minecraftMaterialRefClient.persistFromCatalog(
+                            item.material,
+                            exactMaterial?.category || 'Misc'
+                        );
+                        iconMaterialRefId = materialRef?.id ?? undefined;
+                    } catch (error) {
+                        console.error('KitScan: failed to resolve MinecraftMaterialRef for', item.material, error);
+                    }
+
+                    const defaultEnchantments: Array<{ enchantmentDefinitionId: number; level: number }> = [];
+                    for (const scanned of item.enchantments) {
+                        try {
+                            const enchantResult = await enchantmentDefinitionClient.searchPaged({
+                                page: 1,
+                                pageSize: 10,
+                                searchTerm: scanned.key
+                            });
+                            const enchantItems: Array<{ id?: number; key: string }> = enchantResult?.items || [];
+                            const match = enchantItems.find(e => e.key?.toLowerCase() === scanned.key.toLowerCase());
+                            if (match?.id != null) {
+                                defaultEnchantments.push({ enchantmentDefinitionId: match.id, level: scanned.level ?? 1 });
+                            }
+                        } catch (error) {
+                            console.error('KitScan: failed to match enchantment', scanned.key, error);
+                        }
+                    }
+
+                    const created = await itemBlueprintClient.create({
+                        name: item.displayName,
+                        description: '',
+                        iconMaterialRefId,
+                        defaultDisplayName: item.displayName,
+                        defaultDisplayDescription: item.lore.join('\n'),
+                        defaultQuantity: 1,
+                        maxStackSize: item.maxStackSize,
+                        defaultEnchantments: defaultEnchantments as any
+                    });
+                    if (created?.id != null) {
+                        resolved = {
+                            id: created.id,
+                            name: created.name,
+                            defaultDisplayName: created.defaultDisplayName,
+                            iconMaterialRefId: created.iconMaterialRefId,
+                            iconNamespaceKey: item.material
+                        };
+                    }
+                }
+            } catch (error) {
+                console.error('KitScan: failed to resolve or create an ItemBlueprint for', item.material, item.displayName, error);
+            }
+
+            resolvedBlueprints.set(cacheKey, resolved);
+            return resolved;
+        };
+
+        // Equipment patch, grouped by the step each picker lives on.
+        const patchesByStep: Record<number, Record<string, unknown>> = {};
+        for (const slot of equipmentSlots) {
+            if (!slot.field || !slot.item || !shouldApplyScannedValue(slot.key)) continue;
+            const blueprint = await resolveBlueprint(slot.item);
+            if (!blueprint) continue;
+            // FK-authored field ("HelmetId") takes the bare id; a navigation-authored picker
+            // ("Helmet") takes the object ObjectField renders, which normalizeFormSubmission
+            // reduces to HelmetId on submit.
+            const value = /Id$/.test(slot.field.fieldName) ? blueprint.id : blueprint;
+            patchesByStep[slot.field.stepIndex] = { ...(patchesByStep[slot.field.stepIndex] || {}), [slot.field.fieldName]: value };
+        }
+
+        let contentsPatch: Record<string, unknown>[] | null = null;
+        if (contentsStepIndex !== -1 && scannedContents.length > 0 && shouldApplyScannedValue('contents')) {
+            const entries: Record<string, unknown>[] = [];
+            for (const entry of scannedContents) {
+                const blueprint = await resolveBlueprint(entry.item);
+                if (!blueprint) continue;
+                entries.push({
+                    id: undefined,
+                    relatedEntityId: blueprint.id,
+                    ItemBlueprintId: blueprint.id,
+                    relatedEntity: blueprint,
+                    [slotIndexKey]: entry.slot,
+                    [quantityKey]: entry.item.quantity
+                });
+            }
+            contentsPatch = entries;
+        }
+
+        Object.entries(patchesByStep).forEach(([stepIndexKey, patch]) => {
+            const stepIndex = Number(stepIndexKey);
+            if (stepIndex === currentStepIndex) {
+                applyMultipleFieldChanges(patch);
+            } else {
+                setAllStepsData(prev => ({
+                    ...prev,
+                    [stepIndex]: { ...(prev[stepIndex] || {}), ...patch }
+                }));
+            }
+        });
+
+        if (contentsPatch !== null) {
+            // All-or-nothing replacement of the whole list (§6.5), not a per-slot merge.
+            const replacement = contentsPatch;
+            setAllStepsData(prev => ({
+                ...prev,
+                [contentsStepIndex]: {
+                    ...(prev[contentsStepIndex] || {}),
+                    Contents: replacement
+                }
+            }));
         }
     };
 
@@ -2572,6 +2856,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                             if (task?.taskType === 'ItemScan' && task?.outputJson) {
                                                 applyItemScanResult(task.outputJson).catch(error => {
                                                     console.error('ItemScan: failed to apply scan result to form fields:', error);
+                                                });
+                                            }
+                                            if (task?.taskType === 'KitScan' && task?.outputJson) {
+                                                applyKitScanResult(task.outputJson).catch(error => {
+                                                    console.error('KitScan: failed to apply scan result to form fields:', error);
                                                 });
                                             }
                                             if (fieldId) {
