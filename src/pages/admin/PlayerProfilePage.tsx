@@ -1,9 +1,10 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, RefreshCcw, ArrowLeft, ShieldCheck, Users, Award, Coins, EyeOff, X, Plus, History } from 'lucide-react';
+import { Loader2, RefreshCcw, ArrowLeft, ShieldCheck, Users, Award, Coins, EyeOff, X, Plus, History, Gift } from 'lucide-react';
 import { logging } from '../../utils';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
+import { KitClient } from '../../apiClients/kitClient';
 import {
     ActiveMode,
     AuditLogEntryDto,
@@ -11,11 +12,14 @@ import {
     UserProfileSummaryDto,
 } from '../../types/dtos/userManagement/UserProfileSummaryDtos';
 import { PermissionGroupDto } from '../../types/dtos/userManagement/PermissionGroupDto';
+import { KitAvailabilityDto } from '../../types/dtos/kit/KitDtos';
 
 // docs/specs/user-management/DESIGN.md §2 - a read-first composite dashboard for one player,
 // distinct from the generic /forms/user edit screen. Phase 2 (docs/specs/user-management/
 // IMPLEMENTATION_PLAN.md) adds quick actions (assign/revoke group, grant/deny a node, toggle
 // vanish) directly on this page, plus a Recent activity feed off the new audit log.
+// docs/specs/kits/IMPLEMENTATION_PLAN.md §6 adds the "Kits" section/Grant action below, the
+// web-app's first-class counterpart to the in-game /kit give (DESIGN.md §4.0/§4.6).
 
 const ACTIVE_MODES: ActiveMode[] = ['None', 'Staff', 'Owner'];
 
@@ -30,6 +34,11 @@ const auditActionLabel = (entry: AuditLogEntryDto): string => {
         case 'VanishToggled': return 'Mode changed';
         case 'SalaryPayout': return 'Salary paid out';
         case 'BalanceAdjusted': return 'Balances adjusted';
+        // KitGranted is DESIGN.md §4.1's proposed AuditLogService action for GiveKitAsync - not
+        // yet written server-side (kits/IMPLEMENTATION_PLAN.md §2 status: still a
+        // TODO(kits-phase2) in GiveKitAsync), but the label is here so this feed renders it
+        // correctly the moment that call is wired in, with no further web-app change needed.
+        case 'KitGranted': return 'Kit granted';
         default: return entry.action;
     }
 };
@@ -89,6 +98,16 @@ export const PlayerProfilePage: React.FC = () => {
     const [activityLoading, setActivityLoading] = React.useState(true);
     const [activityError, setActivityError] = React.useState<string | null>(null);
 
+    // Kits (docs/specs/kits/IMPLEMENTATION_PLAN.md §6) — lists this player's per-kit
+    // gating/cooldown/cost/purchase state exactly as the in-game /kit list does, with a Grant
+    // button per row that bypasses that state via the same staff-override GiveKitAsync path
+    // /kit give uses (DESIGN.md §4.0/§4.1/§4.6).
+    const [kits, setKits] = React.useState<KitAvailabilityDto[]>([]);
+    const [kitsLoading, setKitsLoading] = React.useState(true);
+    const [kitsError, setKitsError] = React.useState<string | null>(null);
+    const [grantingKitId, setGrantingKitId] = React.useState<number | null>(null);
+    const [grantKitError, setGrantKitError] = React.useState<string | null>(null);
+
     const load = React.useCallback(async () => {
         if (!Number.isFinite(userId) || userId <= 0) {
             setError('Invalid user id.');
@@ -124,10 +143,26 @@ export const PlayerProfilePage: React.FC = () => {
         }
     }, [userId]);
 
+    const loadKits = React.useCallback(async () => {
+        if (!Number.isFinite(userId) || userId <= 0) return;
+        try {
+            setKitsLoading(true);
+            setKitsError(null);
+            const result = await KitClient.getInstance().getAvailableForUser(userId);
+            setKits(result);
+        } catch (err) {
+            console.error('Failed to load available kits:', err);
+            setKitsError('Could not load kits.');
+        } finally {
+            setKitsLoading(false);
+        }
+    }, [userId]);
+
     React.useEffect(() => {
         void load();
         void loadActivity();
-    }, [load, loadActivity]);
+        void loadKits();
+    }, [load, loadActivity, loadKits]);
 
     React.useEffect(() => {
         permissionGroupClient.getAll()
@@ -229,6 +264,25 @@ export const PlayerProfilePage: React.FC = () => {
             setBalanceActionError('Could not adjust this balance — check the amount doesn\'t go below zero.');
         } finally {
             setAdjustingBalance(false);
+        }
+    };
+
+    // Grant Kit (docs/specs/kits/IMPLEMENTATION_PLAN.md §6) — after a successful grant, re-fetch
+    // the kit list (so its resolved cooldown/purchase state reflects the grant immediately) and
+    // Recent activity (surfaces the KitGranted entry for free once GiveKitAsync's own
+    // TODO(kits-phase2) AuditLogService.Record call is wired in server-side - see this session's
+    // §6 status note for the current state of that gap).
+    const handleGrantKit = async (kitId: number) => {
+        setGrantingKitId(kitId);
+        setGrantKitError(null);
+        try {
+            await KitClient.getInstance().give(kitId, userId);
+            await Promise.all([loadKits(), loadActivity()]);
+        } catch (err) {
+            console.error('Failed to grant kit:', err);
+            setGrantKitError('Could not grant this kit.');
+        } finally {
+            setGrantingKitId(null);
         }
     };
 
@@ -670,6 +724,80 @@ export const PlayerProfilePage: React.FC = () => {
                         </button>
                         {grantActionError && <span className="text-xs text-red-600">{grantActionError}</span>}
                     </form>
+                </div>
+
+                {/* Kits (docs/specs/kits/IMPLEMENTATION_PLAN.md §6, DESIGN.md §4.6) */}
+                <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <Gift className="h-5 w-5 mr-2" />
+                        Kits
+                    </h2>
+                    {kitsLoading ? (
+                        <div className="flex items-center text-sm text-gray-500">
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Loading…
+                        </div>
+                    ) : kitsError ? (
+                        <p className="text-sm text-red-600">{kitsError}</p>
+                    ) : kits.length === 0 ? (
+                        <p className="text-sm text-gray-500">No kits are configured yet.</p>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="text-left border-b border-gray-200">
+                                        <th className="py-2 pr-4">Kit</th>
+                                        <th className="py-2 pr-4">Status</th>
+                                        <th className="py-2 pr-4">Cooldown</th>
+                                        <th className="py-2 pr-4">Cost</th>
+                                        <th className="py-2 pr-4" />
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {kits.map((kit) => {
+                                        const cooldownActive = !!kit.cooldownExpiresAt && new Date(kit.cooldownExpiresAt).getTime() > Date.now();
+                                        return (
+                                            <tr key={kit.kitId} className="border-b border-gray-100">
+                                                <td className="py-2 pr-4">
+                                                    <p className="font-medium text-gray-900">{kit.name}</p>
+                                                    {kit.description && <p className="text-xs text-gray-500">{kit.description}</p>}
+                                                </td>
+                                                <td className="py-2 pr-4">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                        kit.canClaim ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                                                    }`}>
+                                                        {kit.canClaim ? 'Available' : (kit.denialReason || 'Not available')}
+                                                    </span>
+                                                </td>
+                                                <td className="py-2 pr-4 text-gray-700">
+                                                    {cooldownActive ? `Until ${formatDate(kit.cooldownExpiresAt)}` : '-'}
+                                                </td>
+                                                <td className="py-2 pr-4 text-gray-700">
+                                                    {kit.isSinglePurchasePremium
+                                                        ? (kit.isPurchased ? 'Purchased' : `${kit.premiumPriceGems ?? 0} gems (not purchased)`)
+                                                        : (kit.costAmount ? `${kit.costAmount} ${kit.costCurrency ?? ''}`.trim() : 'Free')}
+                                                </td>
+                                                <td className="py-2 pr-4 text-right">
+                                                    <button
+                                                        className="btn-primary text-xs px-3 py-1.5 inline-flex items-center disabled:opacity-50"
+                                                        disabled={grantingKitId === kit.kitId}
+                                                        onClick={() => void handleGrantKit(kit.kitId)}
+                                                        title="Grant this kit regardless of gating/cooldown/cost (same as /kit give)"
+                                                    >
+                                                        {grantingKitId === kit.kitId
+                                                            ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                                                            : <Gift className="h-4 w-4 mr-1.5" />}
+                                                        Grant
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                    {grantKitError && <p className="mt-3 text-xs text-red-600">{grantKitError}</p>}
                 </div>
 
                 {/* Recent activity (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 2) */}

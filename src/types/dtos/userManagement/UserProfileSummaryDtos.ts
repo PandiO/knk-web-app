@@ -105,7 +105,11 @@ export type AuditAction =
   | 'TitleChanged'
   | 'VanishToggled'
   | 'SalaryPayout'
-  | 'BalanceAdjusted';
+  | 'BalanceAdjusted'
+  // docs/specs/kits/DESIGN.md §4.1's proposed GiveKitAsync -> AuditLogService.Record action.
+  // Not yet written server-side (kits/IMPLEMENTATION_PLAN.md §2 status: TODO(kits-phase2)) -
+  // included here so the type and PlayerProfilePage.tsx's activity feed are ready for it.
+  | 'KitGranted';
 
 export interface AuditLogEntryDto {
   id: number;
