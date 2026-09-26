@@ -20,6 +20,8 @@ import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import { GameSettingsPage } from './pages/admin/GameSettingsPage';
 import { PlayerProfilePage } from './pages/admin/PlayerProfilePage';
 import { UserModerationPage } from './pages/admin/UserModerationPage';
+import { LootboxesPage } from './pages/admin/LootboxesPage';
+import { LOOTBOX_ADMIN_NODE } from './types/dtos/lootbox/LootboxDtos';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -182,6 +184,13 @@ function AppContent() {
                 <ProtectedRoute>
                   <GameSettingsPage />
                 </ProtectedRoute>
+              } />
+              {/* Lootboxes (docs/specs/lootboxes/DESIGN.md §3.6) - knk.admin.lootbox.manage, which the
+                  API enforces on every call as well. */}
+              <Route path="/admin/lootboxes" element={
+                <StaffRoute node={LOOTBOX_ADMIN_NODE}>
+                  <LootboxesPage />
+                </StaffRoute>
               } />
               {/* User management Phase 1 (docs/specs/user-management/IMPLEMENTATION_PLAN.md).
                   Moderation pages are staff only (knk.admin.user.manage), see StaffRoute. */}
