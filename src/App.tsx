@@ -20,6 +20,7 @@ import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import { GameSettingsPage } from './pages/admin/GameSettingsPage';
 import { PlayerProfilePage } from './pages/admin/PlayerProfilePage';
 import { UserModerationPage } from './pages/admin/UserModerationPage';
+import { AccountTransactionsPage } from './pages/AccountTransactionsPage';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -122,6 +123,11 @@ function AppContent() {
               <Route path="/account" element={
                 <ProtectedRoute>
                   <AccountManagementPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/account/transactions" element={
+                <ProtectedRoute>
+                  <AccountTransactionsPage />
                 </ProtectedRoute>
               } />
               <Route path="/dashboard" element={
