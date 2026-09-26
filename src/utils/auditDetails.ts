@@ -1,5 +1,27 @@
 import { AuditLogEntryDto } from '../types/dtos/userManagement/UserProfileSummaryDtos';
 
+/** Recent Activity heading for an audit entry (PlayerProfilePage). */
+export const auditActionLabel = (entry: AuditLogEntryDto): string => {
+  switch (entry.action) {
+    case 'GroupAssigned': return 'Group assigned';
+    case 'GroupRemoved': return 'Group removed';
+    case 'GrantAdded': return 'Permission granted';
+    case 'GrantUpdated': return 'Permission updated';
+    case 'GrantRemoved': return 'Permission removed';
+    case 'TitleChanged': return 'Title changed';
+    case 'VanishToggled': return 'Mode changed';
+    case 'SalaryPayout': return 'Salary paid out';
+    case 'BalanceAdjusted': return 'Balances adjusted';
+    case 'PlayerFrozen': return 'Player frozen';
+    case 'PlayerUnfrozen': return 'Player unfrozen';
+    // Written by GiveKitAsync (docs/specs/kits/DESIGN.md §4.1) on every staff kit grant.
+    case 'KitGranted': return 'Kit granted';
+    // Recorded by the plugin for /tp, /tphere (docs/specs/teleport/DESIGN.md §3.10).
+    case 'PlayerTeleported': return 'Teleported by staff';
+    default: return entry.action;
+  }
+};
+
 /**
  * Human-readable lines for an audit entry's Details JSON (knk-web-api AuditLogEntry.Details),
  * shown under each entry in the player profile's Recent Activity. Every action writes its own
@@ -23,6 +45,7 @@ export function describeAuditDetails(entry: AuditLogEntryDto): string[] {
     case 'PlayerFrozen':
     case 'PlayerUnfrozen': return details.reason ? [`Reason: ${details.reason}`] : [];
     case 'KitGranted': return details.kitName ? [`Kit: ${details.kitName}`] : [];
+    case 'PlayerTeleported': return teleportLines(details);
     default: return [];
   }
 }
@@ -148,4 +171,34 @@ function grantUpdatedLines(d: Details): string[] {
   if (!to.node) return [];
   const describe = (g: Details) => `${g.node} = ${g.value === false ? 'deny' : 'allow'}${g.expiresAt ? ` until ${new Date(g.expiresAt).toLocaleString()}` : ''}`;
   return [`${describe(from)} → ${describe(to)}`];
+}
+
+/** "world 12, 64, -3" - block coordinates, as players see them in game. */
+function describePoint(point: unknown): string | undefined {
+  if (!point || typeof point !== 'object') return undefined;
+  const p = point as Details;
+  const [x, y, z] = [num(p.x), num(p.y), num(p.z)];
+  if (x === undefined || y === undefined || z === undefined) return undefined;
+  return `${p.world ?? '?'} ${Math.floor(x)}, ${Math.floor(y)}, ${Math.floor(z)}`;
+}
+
+// knk-web-api UserService.RecordTeleportAuditAsync: kind, subject/visited ids + usernames,
+// from/to {world,x,y,z}, silent, reason, via ("command" | "console").
+function teleportLines(d: Details): string[] {
+  const lines: string[] = [];
+  const from = describePoint(d.from);
+  const to = describePoint(d.to);
+  const subject = d.subjectUsername ?? (d.subjectUserId ? `user #${d.subjectUserId}` : '?');
+  if (d.visitedUsername || d.visitedUserId) {
+    lines.push(`${subject} → ${d.visitedUsername ?? `user #${d.visitedUserId}`}`);
+  } else if (to) {
+    lines.push(`${subject} → ${to}`);
+  }
+  if (from && to) lines.push(`From ${from} to ${to}`);
+  const flags: string[] = [];
+  if (d.silent === true) flags.push('silent');
+  if (d.via === 'console') flags.push('from the console');
+  if (flags.length > 0) lines.push(flags.map((f, i) => (i === 0 ? f[0].toUpperCase() + f.slice(1) : f)).join(', '));
+  if (d.reason) lines.push(`Reason: ${d.reason}`);
+  return lines;
 }

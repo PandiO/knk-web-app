@@ -113,7 +113,10 @@ export type AuditAction =
   | 'PlayerFrozen'
   | 'PlayerUnfrozen'
   // Written by knk-web-api's KitService.GiveKitAsync (docs/specs/kits/DESIGN.md §4.1).
-  | 'KitGranted';
+  | 'KitGranted'
+  // Written by knk-web-api's POST /api/users/{id}/teleport-audit for every in-game staff teleport
+  // (docs/specs/teleport/DESIGN.md §3.10).
+  | 'PlayerTeleported';
 
 export interface AuditLogEntryDto {
   id: number;

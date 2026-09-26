@@ -1,4 +1,4 @@
-import { describeAuditDetails, formatAmount } from './auditDetails';
+import { auditActionLabel, describeAuditDetails, formatAmount } from './auditDetails';
 import { AuditLogEntryDto } from '../types/dtos/userManagement/UserProfileSummaryDtos';
 
 const entry = (action: AuditLogEntryDto['action'], details: object | string | null): AuditLogEntryDto => ({
@@ -55,6 +55,31 @@ describe('describeAuditDetails', () => {
     expect(describeAuditDetails(entry('GrantRemoved', { node: 'knk.gate.open', value: true }))).toEqual(['knk.gate.open = allow']);
   });
 
+  it('describes a staff teleport to a player: who, where from/to, silent', () => {
+    expect(describeAuditDetails(entry('PlayerTeleported', {
+      kind: 'STAFF', subjectUserId: 1, subjectUsername: 'Alice', visitedUserId: 2, visitedUsername: 'Bob',
+      from: { world: 'world', x: 0.5, y: 64, z: -3.5 }, to: { world: 'world_nether', x: 100.5, y: 70, z: 20.5, domainId: null },
+      silent: true, reason: null, via: 'command',
+    }))).toEqual([
+      'Alice → Bob',
+      'From world 0, 64, -4 to world_nether 100, 70, 20',
+      'Silent',
+    ]);
+  });
+
+  it('describes a staff teleport to coordinates from the console, with a reason', () => {
+    expect(describeAuditDetails(entry('PlayerTeleported', {
+      kind: 'STAFF', subjectUserId: 3, subjectUsername: 'Carol', visitedUserId: null, visitedUsername: null,
+      from: { world: 'world', x: 1, y: 64, z: 1 }, to: { world: 'world', x: 50, y: 70, z: 50 },
+      silent: false, reason: 'stuck in a wall', via: 'console',
+    }))).toEqual([
+      'Carol → world 50, 70, 50',
+      'From world 1, 64, 1 to world 50, 70, 50',
+      'From the console',
+      'Reason: stuck in a wall',
+    ]);
+  });
+
   it('gives no lines for missing or broken details', () => {
     expect(describeAuditDetails(entry('BalanceAdjusted', null))).toEqual([]);
     expect(describeAuditDetails(entry('BalanceAdjusted', 'not json'))).toEqual([]);
@@ -64,5 +89,13 @@ describe('describeAuditDetails', () => {
     expect(formatAmount(32400)).toBe('32,400');
     expect(formatAmount(500, true)).toBe('+500');
     expect(formatAmount(-3, true)).toBe('-3');
+  });
+});
+
+describe('auditActionLabel', () => {
+  it('labels staff teleports and falls back to the raw action name', () => {
+    expect(auditActionLabel(entry('PlayerTeleported', null))).toBe('Teleported by staff');
+    expect(auditActionLabel(entry('KitGranted', null))).toBe('Kit granted');
+    expect(auditActionLabel(entry('SomethingNew' as AuditLogEntryDto['action'], null))).toBe('SomethingNew');
   });
 });

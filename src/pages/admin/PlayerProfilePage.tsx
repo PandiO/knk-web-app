@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, RefreshCcw, ArrowLeft, ShieldCheck, Users, Award, Coins, EyeOff, X, Plus, History, Gift } from 'lucide-react';
 import { logging } from '../../utils';
-import { describeAuditDetails } from '../../utils/auditDetails';
+import { auditActionLabel, describeAuditDetails } from '../../utils/auditDetails';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { KitClient } from '../../apiClients/kitClient';
@@ -23,25 +23,6 @@ import { KitAvailabilityDto } from '../../types/dtos/kit/KitDtos';
 // web-app's first-class counterpart to the in-game /kit give (DESIGN.md §4.0/§4.6).
 
 const ACTIVE_MODES: ActiveMode[] = ['None', 'Staff', 'Owner'];
-
-const auditActionLabel = (entry: AuditLogEntryDto): string => {
-    switch (entry.action) {
-        case 'GroupAssigned': return 'Group assigned';
-        case 'GroupRemoved': return 'Group removed';
-        case 'GrantAdded': return 'Permission granted';
-        case 'GrantUpdated': return 'Permission updated';
-        case 'GrantRemoved': return 'Permission removed';
-        case 'TitleChanged': return 'Title changed';
-        case 'VanishToggled': return 'Mode changed';
-        case 'SalaryPayout': return 'Salary paid out';
-        case 'BalanceAdjusted': return 'Balances adjusted';
-        case 'PlayerFrozen': return 'Player frozen';
-        case 'PlayerUnfrozen': return 'Player unfrozen';
-        // Written by GiveKitAsync (docs/specs/kits/DESIGN.md §4.1) on every staff kit grant.
-        case 'KitGranted': return 'Kit granted';
-        default: return entry.action;
-    }
-};
 
 const activeModeLabel = (mode: ActiveMode): string => {
     switch (mode) {
