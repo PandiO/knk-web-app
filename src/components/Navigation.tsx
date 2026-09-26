@@ -2,12 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Plus, ChevronRight, Home, Table2, FileText, Layout, LayoutTemplate, LogOut, UserCircle2, Settings, Users, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useStaffAccess } from '../hooks/useStaffAccess';
 
 // added: explicit types for object types prop
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
 
-type NavLink = { to: string; label: string; Icon: React.ComponentType<{ className?: string }>; exact?: boolean };
+type NavLink = { to: string; label: string; Icon: React.ComponentType<{ className?: string }>; exact?: boolean; staffOnly?: boolean };
 
 // One list for every size: the inline bar (labels from 2xl, icons only from lg) and the
 // menu button's panel below lg - the single row used to overflow and push the last links
@@ -19,7 +20,7 @@ const NAV_LINKS: NavLink[] = [
   { to: '/admin/form-configurations', label: 'Form Builder', Icon: Layout },
   { to: '/admin/display-configurations', label: 'Display Builder', Icon: LayoutTemplate },
   { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings },
-  { to: '/admin/users', label: 'Moderation', Icon: Users, exact: true },
+  { to: '/admin/users', label: 'Moderation', Icon: Users, exact: true, staffOnly: true },
 ];
 
 // changed: accept props object instead of raw array parameter
@@ -34,6 +35,8 @@ export function Navigation({ objectTypes }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, isLoading } = useAuth();
+  const { isStaff } = useStaffAccess();
+  const navLinks = NAV_LINKS.filter(link => !link.staffOnly || isStaff);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -113,7 +116,7 @@ export function Navigation({ objectTypes }: Props) {
                   className="absolute left-0 mt-2 w-60 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 z-50"
                   role="menu"
                 >
-                  {NAV_LINKS.map(link => (
+                  {navLinks.map(link => (
                     <Link
                       key={link.to}
                       to={link.to}
@@ -142,7 +145,7 @@ export function Navigation({ objectTypes }: Props) {
               <h1 className="hidden sm:block text-xl font-semibold text-slate-900">Dashboard</h1>
             </div>
             <div className="hidden lg:flex lg:space-x-1 2xl:space-x-6">
-              {NAV_LINKS.map(link => (
+              {navLinks.map(link => (
                 <Link
                   key={link.to}
                   to={link.to}
