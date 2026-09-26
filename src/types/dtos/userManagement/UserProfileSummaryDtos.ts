@@ -113,7 +113,9 @@ export type AuditAction =
   | 'PlayerFrozen'
   | 'PlayerUnfrozen'
   // Written by knk-web-api's KitService.GiveKitAsync (docs/specs/kits/DESIGN.md §4.1).
-  | 'KitGranted';
+  | 'KitGranted'
+  // Written by knk-web-api's DiscoveryService.ResetAsync (docs/specs/domain-discovery/DESIGN.md §3.5).
+  | 'DiscoveryReset';
 
 export interface AuditLogEntryDto {
   id: number;
