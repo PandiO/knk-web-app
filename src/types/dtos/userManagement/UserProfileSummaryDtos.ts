@@ -113,7 +113,12 @@ export type AuditAction =
   | 'PlayerFrozen'
   | 'PlayerUnfrozen'
   // Written by knk-web-api's KitService.GiveKitAsync (docs/specs/kits/DESIGN.md §4.1).
-  | 'KitGranted';
+  | 'KitGranted'
+  // Currency ledger Phase 4 (knk-web-api AuditAction 19-22).
+  | 'CurrencyPolicyChanged'
+  | 'CurrencyTransactionReversed'
+  | 'CurrencyTransferLocked'
+  | 'CurrencyTransferUnlocked';
 
 export interface AuditLogEntryDto {
   id: number;

@@ -26,6 +26,10 @@ export interface LedgerLineDto {
   initiatorComponent?: string | null;
   sourceType?: string | null;
   sourceRef?: string | null;
+  correlationId?: string | null;
+  /** Set on a reversal: the internal id of the transaction it reversed. */
+  reversesTransactionId?: number | null;
+  metadataJson?: string | null;
   /** The other player of a transfer. */
   counterpartyUserId?: number | null;
   counterpartyUsername?: string | null;
@@ -44,3 +48,155 @@ export interface BalancesDto {
   gems: number;
   experiencePoints: number;
 }
+
+// ===== Staff: api/currency/admin (currency-payments Phase 4, KNG-23 balance event log) =====
+
+/** Columns the balance event log can sort by (server-side). */
+export type LedgerSortKey = 'createdAt' | 'recipient' | 'currency' | 'operation' | 'amount' | 'balanceAfter' | 'initiator' | 'reason';
+
+/** GET api/currency/admin/ledger - every filter optional; `to` is exclusive (UTC). */
+export interface LedgerQuery {
+  currency?: 'coins' | 'gems' | 'xp';
+  recipient?: string;
+  userId?: number;
+  initiator?: string;
+  initiatorType?: 'Player' | 'Admin' | 'System' | 'PluginService';
+  source?: string;
+  reason?: string;
+  kind?: string;
+  transaction?: string;
+  from?: string;
+  to?: string;
+  sort?: LedgerSortKey;
+  dir?: 'asc' | 'desc';
+  page?: number;
+  pageSize?: number;
+}
+
+export interface CurrencyEntryDetailDto {
+  entryId: number;
+  currency: LedgerCurrency;
+  accountKind: 'User' | 'System';
+  userId?: number | null;
+  username?: string | null;
+  systemAccount?: string | null;
+  operation: 'Add' | 'Remove' | 'Set';
+  amount: number;
+  balanceBefore?: number | null;
+  balanceAfter?: number | null;
+}
+
+export interface CurrencyTransactionDetailDto {
+  transactionId: number;
+  publicId: string;
+  createdAt: string;
+  kind: string;
+  reasonCode: string;
+  reason: string;
+  sourceType?: string | null;
+  sourceRef?: string | null;
+  initiator: string;
+  initiatorUserId?: number | null;
+  initiatorUsername?: string | null;
+  initiatorComponent?: string | null;
+  idempotencyScope: string;
+  correlationId?: string | null;
+  metadataJson?: string | null;
+  reversesPublicId?: string | null;
+  reversedByPublicId?: string | null;
+  reversible: boolean;
+  entries: CurrencyEntryDetailDto[];
+}
+
+export interface PostedEntryDto {
+  userId: number;
+  currency: LedgerCurrency;
+  operation: 'Add' | 'Remove' | 'Set';
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+}
+
+export interface PostingResultDto {
+  transactionId: number;
+  publicId: string;
+  replayed: boolean;
+  reasonCode: string;
+  createdAt: string;
+  entries: PostedEntryDto[];
+}
+
+export interface ReversalResultDto {
+  reversedPublicId: string;
+  posting: PostingResultDto;
+  partial: boolean;
+}
+
+export interface TransferLockDto {
+  userId: number;
+  username?: string | null;
+  locked: boolean;
+  reason?: string | null;
+  lockedAt?: string | null;
+}
+
+/** A currency's policy (DESIGN.md §3.5). 0 on a cap, cooldown or hourly limit = no limit. */
+export interface CurrencyPolicyDto {
+  currency: 'Coins' | 'Gems';
+  transfersEnabled: boolean;
+  transferable: boolean;
+  minTransfer: number;
+  maxTransfer: number;
+  dailySendCap: number;
+  dailyReceiveCap: number;
+  confirmThreshold: number;
+  confirmTtlSeconds: number;
+  cooldownSeconds: number;
+  maxTransfersPerHour: number;
+  minSenderAccountAgeHours: number;
+  minSenderTitleBracketId?: number | null;
+  transferFeeBasisPoints: number;
+  maxBalance: number;
+  adminDailyGrantCapPerActor: number;
+  signupGrant: number;
+  updatedAt: string;
+  updatedByUserId?: number | null;
+  /** The cap the database enforces; maxBalance may only be lower. */
+  hardMaxBalance: number;
+}
+
+/** POST api/currency/admin/adjustments. */
+export interface AdminAdjustmentDto {
+  targetUserId: number;
+  currency: LedgerCurrency;
+  mode: 'Add' | 'Remove' | 'Set';
+  amount: number;
+  expectedCurrent?: number;
+  category: AdjustmentCategory;
+  note: string;
+  notifyPlayer?: boolean;
+}
+
+/** knk-web-api AdminAdjustmentCategories (a staff adjustment's reason category). */
+export const ADJUSTMENT_CATEGORIES = [
+  { value: 'COMPENSATION', label: 'Compensation' },
+  { value: 'EVENT_PRIZE', label: 'Event prize' },
+  { value: 'REFUND', label: 'Refund' },
+  { value: 'CORRECTION', label: 'Correction' },
+  { value: 'PENALTY', label: 'Penalty' },
+  { value: 'TESTING', label: 'Testing' },
+  { value: 'OTHER', label: 'Other' },
+] as const;
+
+export type AdjustmentCategory = typeof ADJUSTMENT_CATEGORIES[number]['value'];
+
+/** A staff note (adjustment, reversal) must be at least this long - the API checks it too. */
+export const MIN_STAFF_NOTE_LENGTH = 10;
+
+/** The staff nodes of the currency pages (knk-web-api StaffPermissions, DESIGN.md §3.8). */
+export const CURRENCY_NODES = {
+  history: 'knk.admin.currency.history',
+  reverse: 'knk.admin.currency.reverse',
+  lock: 'knk.admin.currency.lock',
+  policy: 'knk.admin.currency.policy',
+} as const;

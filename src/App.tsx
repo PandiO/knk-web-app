@@ -22,6 +22,10 @@ import { SiegeConfigurationPage } from './pages/admin/SiegeConfigurationPage';
 import { PlayerProfilePage } from './pages/admin/PlayerProfilePage';
 import { UserModerationPage } from './pages/admin/UserModerationPage';
 import { AccountTransactionsPage } from './pages/AccountTransactionsPage';
+import { BalanceLogPage } from './pages/admin/BalanceLogPage';
+import { TransactionDetailPage } from './pages/admin/economy/TransactionDetailPage';
+import { CurrencyPolicyPage } from './pages/admin/economy/CurrencyPolicyPage';
+import { CURRENCY_NODES } from './types/dtos/currency/CurrencyDtos';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -194,6 +198,24 @@ function AppContent() {
               <Route path="/admin/siege-configuration" element={
                 <StaffRoute>
                   <SiegeConfigurationPage />
+                </StaffRoute>
+              } />
+              {/* Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md, KNG-23):
+                  the balance event log under Moderation, a transaction's detail/reversal and the
+                  currency policy, each gated on its own knk.admin.currency.* node. */}
+              <Route path="/admin/users/balance-log" element={
+                <StaffRoute node={CURRENCY_NODES.history}>
+                  <BalanceLogPage />
+                </StaffRoute>
+              } />
+              <Route path="/admin/economy/transactions/:publicId" element={
+                <StaffRoute node={CURRENCY_NODES.history}>
+                  <TransactionDetailPage />
+                </StaffRoute>
+              } />
+              <Route path="/admin/economy/policy" element={
+                <StaffRoute node={CURRENCY_NODES.policy}>
+                  <CurrencyPolicyPage />
                 </StaffRoute>
               } />
               {/* User management Phase 1 (docs/specs/user-management/IMPLEMENTATION_PLAN.md).

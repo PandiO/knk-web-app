@@ -65,4 +65,16 @@ describe('describeAuditDetails', () => {
     expect(formatAmount(500, true)).toBe('+500');
     expect(formatAmount(-3, true)).toBe('-3');
   });
+
+  it('describes currency reversals and policy changes (currency Phase 4)', () => {
+    const reversal = entry('CurrencyTransactionReversed', {
+      reversedPublicId: '01M3', reversedReasonCode: 'SALARY', reversalPublicId: '01M4', reason: 'Paid twice by a bug',
+      changes: [{ currency: 'Coins', amount: -650, before: 750, after: 100 }]
+    });
+    expect(describeAuditDetails(reversal)).toEqual([
+      'Reversed SALARY 01M3 (as 01M4)', '-650 coins (750 → 100)', 'Reason: Paid twice by a bug'
+    ]);
+    const policy = entry('CurrencyPolicyChanged', { currency: 'Gems', changes: { transferable: { from: false, to: true } } });
+    expect(describeAuditDetails(policy)).toEqual(['Gems transferable: false → true']);
+  });
 });

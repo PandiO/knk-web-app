@@ -1,6 +1,6 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Loader2, Search, Users, Clock, TrendingDown, List, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Loader2, Search, Users, Clock, TrendingDown, List, ChevronLeft, ChevronRight, Coins, SlidersHorizontal } from 'lucide-react';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { userClient } from '../../apiClients/userClient';
@@ -8,6 +8,8 @@ import { PermissionGroupDto, ExpiringMembershipDto } from '../../types/dtos/user
 import { AuditLogEntryDto } from '../../types/dtos/userManagement/UserProfileSummaryDtos';
 import { UserListDto } from '../../types/dtos/auth/UserDtos';
 import { toApiPagedQuery } from '../../utils/entityApiMapping';
+import { usePermission } from '../../hooks/useStaffAccess';
+import { CURRENCY_NODES } from '../../types/dtos/currency/CurrencyDtos';
 
 // docs/specs/user-management/DESIGN.md §5, IMPLEMENTATION_PLAN.md Phase 3 - a moderation-oriented
 // list separate from the generic ObjectDashboard/PagedEntityTable system, since "users in group
@@ -27,6 +29,8 @@ const formatDate = (iso?: string | null): string => {
 export const UserModerationPage: React.FC = () => {
     const navigate = useNavigate();
     const [tab, setTab] = React.useState<Tab>('all');
+    const { allowed: canReadLedger } = usePermission(CURRENCY_NODES.history);
+    const { allowed: canEditPolicy } = usePermission(CURRENCY_NODES.policy);
 
     const [groups, setGroups] = React.useState<PermissionGroupDto[]>([]);
     const [groupsLoading, setGroupsLoading] = React.useState(true);
@@ -170,12 +174,29 @@ export const UserModerationPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Player moderation</h1>
-                    <p className="mt-1 text-sm text-gray-500">
-                        Browse every player, or search for moderation tasks — group membership, expiring
-                        premium tiers, and recent title demotions. Click any row to open that player&apos;s profile.
-                    </p>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Player moderation</h1>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Browse every player, or search for moderation tasks — group membership, expiring
+                            premium tiers, and recent title demotions. Click any row to open that player&apos;s profile.
+                        </p>
+                    </div>
+                    {/* Currency ledger Phase 4 (KNG-23): shown only to holders of the pages' nodes. */}
+                    <div className="flex gap-2">
+                        {canReadLedger && (
+                            <Link to="/admin/users/balance-log" className="btn-secondary text-sm whitespace-nowrap">
+                                <Coins className="h-4 w-4 mr-2" />
+                                Balance log
+                            </Link>
+                        )}
+                        {canEditPolicy && (
+                            <Link to="/admin/economy/policy" className="btn-secondary text-sm whitespace-nowrap">
+                                <SlidersHorizontal className="h-4 w-4 mr-2" />
+                                Currency policy
+                            </Link>
+                        )}
+                    </div>
                 </div>
 
                 <div className="bg-white shadow-sm rounded-lg border border-gray-200">
