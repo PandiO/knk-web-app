@@ -10,7 +10,8 @@ interface SearchableDropdownProps {
   instances: Instance[];
   selectedId?: number;
   onSelect: (id: number | null) => void;
-  onCreateNew: () => void;
+  /** Adds a "Create New" row; leave out for a pick-only dropdown. */
+  onCreateNew?: () => void;
   label: string;
   loading?: boolean;
   error?: string;
@@ -38,6 +39,8 @@ export function SearchableDropdown({
   );
 
   const selectedInstance = instances?.find(instance => instance.id == selectedId);
+  // The "Create New" row sits after the matches, when there is one.
+  const lastIndex = onCreateNew ? filteredInstances.length : filteredInstances.length - 1;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -61,18 +64,18 @@ export function SearchableDropdown({
       case 'ArrowDown':
         e.preventDefault();
         setHighlightedIndex(prev => 
-          prev < filteredInstances.length ? prev + 1 : 0
+          prev < lastIndex ? prev + 1 : 0
         );
         break;
       case 'ArrowUp':
         e.preventDefault();
         setHighlightedIndex(prev => 
-          prev > 0 ? prev - 1 : filteredInstances.length
+          prev > 0 ? prev - 1 : Math.max(lastIndex, 0)
         );
         break;
       case 'Enter':
         e.preventDefault();
-        if (highlightedIndex === filteredInstances.length) {
+        if (onCreateNew && highlightedIndex === filteredInstances.length) {
           onCreateNew();
         } else if (filteredInstances[highlightedIndex]) {
           onSelect(filteredInstances[highlightedIndex].id);
@@ -173,6 +176,7 @@ export function SearchableDropdown({
               </div>
             ))}
 
+            {onCreateNew && (
             <button
               type="button"
               className={`
@@ -189,6 +193,7 @@ export function SearchableDropdown({
               <Plus className="h-4 w-4 mr-2" />
               Create New {label}
             </button>
+            )}
           </div>
         )}
       </div>
