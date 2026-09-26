@@ -27,6 +27,9 @@ interface ChildFormModalProps {
     // doesn't have to re-search for the entity they're already inside. Ignored in edit/resume mode.
     parentEntityTypeName?: string;
     parentEntitySnapshot?: Record<string, unknown>;
+    // The parent form's current values + id, for the child's pickerFilters {parent.X} tokens. Unlike
+    // parentEntitySnapshot it is passed in edit mode too.
+    parentContext?: Record<string, unknown>;
     onComplete: (data: any, progress?: FormSubmissionProgressDto) => void | Promise<void>;
     onClose: () => void;
 }
@@ -44,6 +47,7 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
     worldTaskHint,
     parentEntityTypeName,
     parentEntitySnapshot,
+    parentContext,
     onComplete,
     onClose
 }) => {
@@ -242,6 +246,7 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                                 workflowSessionId={effectiveWorkflowSessionId}
                                 worldTaskHint={worldTaskHint}
                                 initialFieldValues={initialFieldValues}
+                                parentContext={parentContext}
                             />
                         ) : (
                             <div className="text-center py-12">
