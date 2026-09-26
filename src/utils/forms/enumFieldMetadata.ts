@@ -34,8 +34,19 @@ export const withLiveEnumOptions = (
         baseSettings = {};
     }
 
+    // "enumValuesSubset": true keeps the authored list as a deliberate subset of the enum (e.g. a
+    // siege gate state that may only be OPEN or CLOSED, not the transient OPENING/CLOSING/JAMMED),
+    // still dropping any value the live enum no longer has.
+    const liveValues = metaField.enumValues;
+    const configuredValues = Array.isArray(baseSettings.enumValues)
+        ? (baseSettings.enumValues as unknown[]).filter((v): v is string => typeof v === 'string')
+        : [];
+    const enumValues = baseSettings.enumValuesSubset === true && configuredValues.length > 0
+        ? configuredValues.filter(value => liveValues.includes(value))
+        : liveValues;
+
     return {
         ...field,
-        settingsJson: JSON.stringify({ ...baseSettings, enumValues: metaField.enumValues })
+        settingsJson: JSON.stringify({ ...baseSettings, enumValues })
     };
 };

@@ -5,8 +5,8 @@ import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
 import { TitleBracketDto } from '../types/dtos/title/TitleBracketDto';
 
 // Read-only title-bracket lookup (seeded reference data) for the FormWizard's TitleBracket object
-// picker - e.g. a Town/District/Structure's minimum title for warps (docs/specs/teleport, Phase 5).
-// There is no create/update/delete endpoint.
+// pickers - the siege scenario form's minimum title, and a Town/District/Structure's minimum title
+// for warps (docs/specs/teleport, Phase 5). There is no create/update/delete endpoint.
 export class TitleBracketClient extends ObjectManager {
     private static instance: TitleBracketClient;
 
