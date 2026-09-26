@@ -1,14 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, Layout, LayoutTemplate, LogOut, UserCircle2, Settings, Users, Menu, X } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, FileText, Layout, LayoutTemplate, LogOut, UserCircle2, Settings, Users, Menu, X, Compass } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useStaffAccess } from '../hooks/useStaffAccess';
+import { usePermission, useStaffAccess } from '../hooks/useStaffAccess';
+import { DISCOVERY_ADMIN_NODE } from '../types/dtos/discovery/DiscoveryDtos';
 
 // added: explicit types for object types prop
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
 
-type NavLink = { to: string; label: string; Icon: React.ComponentType<{ className?: string }>; exact?: boolean; staffOnly?: boolean };
+// staffOnly: knk.admin.user.manage (useStaffAccess); node: only for holders of that node (checked in nodeAccess).
+type NavLink = { to: string; label: string; Icon: React.ComponentType<{ className?: string }>; exact?: boolean; staffOnly?: boolean; node?: string };
 
 // One list for every size: the inline bar (labels from 2xl, icons only from lg) and the
 // menu button's panel below lg - the single row used to overflow and push the last links
@@ -20,6 +22,7 @@ const NAV_LINKS: NavLink[] = [
   { to: '/admin/form-configurations', label: 'Form Builder', Icon: Layout },
   { to: '/admin/display-configurations', label: 'Display Builder', Icon: LayoutTemplate },
   { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings },
+  { to: '/admin/discovery', label: 'Discovery', Icon: Compass, node: DISCOVERY_ADMIN_NODE },
   { to: '/admin/users', label: 'Moderation', Icon: Users, exact: true, staffOnly: true },
 ];
 
@@ -36,7 +39,11 @@ export function Navigation({ objectTypes }: Props) {
   const location = useLocation();
   const { logout, isLoading } = useAuth();
   const { isStaff } = useStaffAccess();
-  const navLinks = NAV_LINKS.filter(link => !link.staffOnly || isStaff);
+  // One check per node a link needs (checks are cached per login, see useStaffAccess).
+  const nodeAccess: Record<string, boolean> = {
+    [DISCOVERY_ADMIN_NODE]: usePermission(DISCOVERY_ADMIN_NODE).allowed,
+  };
+  const navLinks = NAV_LINKS.filter(link => (!link.staffOnly || isStaff) && (!link.node || nodeAccess[link.node]));
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

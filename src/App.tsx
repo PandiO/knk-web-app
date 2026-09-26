@@ -20,6 +20,8 @@ import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import { GameSettingsPage } from './pages/admin/GameSettingsPage';
 import { PlayerProfilePage } from './pages/admin/PlayerProfilePage';
 import { UserModerationPage } from './pages/admin/UserModerationPage';
+import { DiscoveryAdminPage } from './pages/admin/DiscoveryAdminPage';
+import { DISCOVERY_ADMIN_NODE } from './types/dtos/discovery/DiscoveryDtos';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -182,6 +184,13 @@ function AppContent() {
                 <ProtectedRoute>
                   <GameSettingsPage />
                 </ProtectedRoute>
+              } />
+              {/* Domain discovery rewards and statistics (docs/specs/domain-discovery/DESIGN.md
+                  §3.9) - knk.admin.discovery, which the API enforces on every call as well. */}
+              <Route path="/admin/discovery" element={
+                <StaffRoute node={DISCOVERY_ADMIN_NODE}>
+                  <DiscoveryAdminPage />
+                </StaffRoute>
               } />
               {/* User management Phase 1 (docs/specs/user-management/IMPLEMENTATION_PLAN.md).
                   Moderation pages are staff only (knk.admin.user.manage), see StaffRoute. */}
