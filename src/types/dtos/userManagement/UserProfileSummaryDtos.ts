@@ -67,6 +67,8 @@ export interface TitleResolutionDto {
 }
 
 export interface SalaryStateDto {
+  /** Coins per hour of the user's current title, before any multiplier. */
+  titleSalary: number;
   globalMultiplier: number;
   personalMultiplier: number;
   rankMultiplier: number;

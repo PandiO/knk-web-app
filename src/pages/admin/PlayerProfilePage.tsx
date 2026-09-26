@@ -622,9 +622,9 @@ export const PlayerProfilePage: React.FC = () => {
                     </h2>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mb-4">
                         <div>
-                            <p className="text-gray-500">Global x Personal x Rank</p>
+                            <p className="text-gray-500">Title salary x Global x Personal x Rank</p>
                             <p className="font-semibold text-gray-900">
-                                {salary.globalMultiplier} &times; {salary.personalMultiplier} &times; {salary.rankMultiplier}
+                                {salary.titleSalary} &times; {salary.globalMultiplier} &times; {salary.personalMultiplier} &times; {salary.rankMultiplier}
                             </p>
                         </div>
                         <div>
