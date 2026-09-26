@@ -25,6 +25,7 @@ import { AccountTransactionsPage } from './pages/AccountTransactionsPage';
 import { BalanceLogPage } from './pages/admin/BalanceLogPage';
 import { TransactionDetailPage } from './pages/admin/economy/TransactionDetailPage';
 import { CurrencyPolicyPage } from './pages/admin/economy/CurrencyPolicyPage';
+import { CurrencyAlertsPage } from './pages/admin/economy/CurrencyAlertsPage';
 import { CURRENCY_NODES } from './types/dtos/currency/CurrencyDtos';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
@@ -216,6 +217,12 @@ function AppContent() {
               <Route path="/admin/economy/policy" element={
                 <StaffRoute node={CURRENCY_NODES.policy}>
                   <CurrencyPolicyPage />
+                </StaffRoute>
+              } />
+              {/* Currency ledger Phase 5: the currency monitor's anomaly alerts and reconciliation. */}
+              <Route path="/admin/economy/alerts" element={
+                <StaffRoute node={CURRENCY_NODES.alerts}>
+                  <CurrencyAlertsPage />
                 </StaffRoute>
               } />
               {/* User management Phase 1 (docs/specs/user-management/IMPLEMENTATION_PLAN.md).

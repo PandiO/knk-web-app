@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Coins, Settings } from 'lucide-react';
+import { ArrowLeft, Coins, Settings, ShieldAlert } from 'lucide-react';
 import { BalanceLedgerTable } from '../../components/currency/BalanceLedgerTable';
 import { usePermission } from '../../hooks/useStaffAccess';
 import { CURRENCY_NODES } from '../../types/dtos/currency/CurrencyDtos';
@@ -13,6 +13,7 @@ import { CURRENCY_NODES } from '../../types/dtos/currency/CurrencyDtos';
  */
 export const BalanceLogPage: React.FC = () => {
     const { allowed: canEditPolicy } = usePermission(CURRENCY_NODES.policy);
+    const { allowed: canSeeAlerts } = usePermission(CURRENCY_NODES.alerts);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -32,12 +33,20 @@ export const BalanceLogPage: React.FC = () => {
                             made it and why. Click a column to sort; open a transaction to see all of it or reverse it.
                         </p>
                     </div>
-                    {canEditPolicy && (
-                        <Link to="/admin/economy/policy" className="btn-secondary text-sm">
-                            <Settings className="h-4 w-4 mr-2" />
-                            Currency policy
-                        </Link>
-                    )}
+                    <div className="flex gap-2">
+                        {canSeeAlerts && (
+                            <Link to="/admin/economy/alerts" className="btn-secondary text-sm">
+                                <ShieldAlert className="h-4 w-4 mr-2" />
+                                Currency alerts
+                            </Link>
+                        )}
+                        {canEditPolicy && (
+                            <Link to="/admin/economy/policy" className="btn-secondary text-sm">
+                                <Settings className="h-4 w-4 mr-2" />
+                                Currency policy
+                            </Link>
+                        )}
+                    </div>
                 </div>
                 <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
                     <BalanceLedgerTable pageSize={50} />

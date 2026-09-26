@@ -2,7 +2,12 @@ import { logging, Controllers, HttpMethod } from '../utils';
 import {
   AdminAdjustmentDto,
   BalancesDto,
+  CurrencyAlertDto,
+  CurrencyAlertPageDto,
+  CurrencyAlertQuery,
   CurrencyPolicyDto,
+  CurrencyReconciliationRunDto,
+  CurrencyReconciliationStatusDto,
   CurrencyTransactionDetailDto,
   LedgerPageDto,
   LedgerQuery,
@@ -16,7 +21,7 @@ import { ObjectManager } from './objectManager';
 export type LedgerFilter = 'coins' | 'gems' | 'xp';
 
 // knk-web-api api/currency (currency ledger, KNG-21 Phase 3) and the staff api/currency/admin
-// routes (Phase 4). Payments between players are in-game only (currency DESIGN.md §5 Q4), so
+// routes (Phase 4; alerts and reconciliation Phase 5). Payments between players are in-game only (currency DESIGN.md §5 Q4), so
 // there is no transfer call here. Staff writes send an Idempotency-Key the caller keeps for the
 // whole submission (the same key on a retry of the same form).
 class CurrencyClient extends ObjectManager {
@@ -82,10 +87,32 @@ class CurrencyClient extends ObjectManager {
   updatePolicy(currency: 'coins' | 'gems', policy: CurrencyPolicyDto): Promise<CurrencyPolicyDto> {
     return this.invokeServiceCall(policy, `admin/policy/${currency}`, Controllers.Currency, HttpMethod.Put);
   }
+
+  // ===== Currency monitor (Phase 5) =====
+
+  /** Anomaly alerts, newest first, with the open counts per severity. */
+  getAlerts(query: CurrencyAlertQuery): Promise<CurrencyAlertPageDto> {
+    return this.invokeServiceCall(null, `admin/alerts?${ledgerQueryString(query)}`, Controllers.Currency, HttpMethod.Get);
+  }
+
+  /** Marks the alert handled by the logged-in staff member (repeatable). */
+  acknowledgeAlert(alertId: number): Promise<CurrencyAlertDto> {
+    return this.invokeServiceCall(null, `admin/alerts/${alertId}/ack`, Controllers.Currency, HttpMethod.Post);
+  }
+
+  /** The last reconciliation run since the API started. */
+  getReconciliation(): Promise<CurrencyReconciliationStatusDto> {
+    return this.invokeServiceCall(null, 'admin/reconciliation', Controllers.Currency, HttpMethod.Get);
+  }
+
+  /** Runs the reconciliation now (409 while one is running). Report only - nothing is corrected. */
+  runReconciliation(): Promise<CurrencyReconciliationRunDto> {
+    return this.invokeServiceCall(null, 'admin/reconciliation/run', Controllers.Currency, HttpMethod.Post);
+  }
 }
 
-/** The query string of GET admin/ledger: empty values are left out. */
-export function ledgerQueryString(query: LedgerQuery): string {
+/** The query string of GET admin/ledger (and admin/alerts): empty values are left out. */
+export function ledgerQueryString(query: LedgerQuery | CurrencyAlertQuery): string {
   const params = new URLSearchParams();
   Object.entries(query).forEach(([key, value]) => {
     if (value !== undefined && value !== null && String(value).trim() !== '') {

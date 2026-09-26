@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Loader2, Search, Users, Clock, TrendingDown, List, ChevronLeft, ChevronRight, Coins, SlidersHorizontal } from 'lucide-react';
+import { Loader2, Search, Users, Clock, TrendingDown, List, ChevronLeft, ChevronRight, Coins, SlidersHorizontal, ShieldAlert } from 'lucide-react';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { userClient } from '../../apiClients/userClient';
@@ -31,6 +31,7 @@ export const UserModerationPage: React.FC = () => {
     const [tab, setTab] = React.useState<Tab>('all');
     const { allowed: canReadLedger } = usePermission(CURRENCY_NODES.history);
     const { allowed: canEditPolicy } = usePermission(CURRENCY_NODES.policy);
+    const { allowed: canSeeAlerts } = usePermission(CURRENCY_NODES.alerts);
 
     const [groups, setGroups] = React.useState<PermissionGroupDto[]>([]);
     const [groupsLoading, setGroupsLoading] = React.useState(true);
@@ -182,7 +183,7 @@ export const UserModerationPage: React.FC = () => {
                             premium tiers, and recent title demotions. Click any row to open that player&apos;s profile.
                         </p>
                     </div>
-                    {/* Currency ledger Phase 4 (KNG-23): shown only to holders of the pages' nodes. */}
+                    {/* Currency ledger Phases 4-5 (KNG-23): shown only to holders of the pages' nodes. */}
                     <div className="flex gap-2">
                         {canReadLedger && (
                             <Link to="/admin/users/balance-log" className="btn-secondary text-sm whitespace-nowrap">
@@ -194,6 +195,12 @@ export const UserModerationPage: React.FC = () => {
                             <Link to="/admin/economy/policy" className="btn-secondary text-sm whitespace-nowrap">
                                 <SlidersHorizontal className="h-4 w-4 mr-2" />
                                 Currency policy
+                            </Link>
+                        )}
+                        {canSeeAlerts && (
+                            <Link to="/admin/economy/alerts" className="btn-secondary text-sm whitespace-nowrap">
+                                <ShieldAlert className="h-4 w-4 mr-2" />
+                                Currency alerts
                             </Link>
                         )}
                     </div>

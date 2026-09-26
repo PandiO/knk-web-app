@@ -199,4 +199,96 @@ export const CURRENCY_NODES = {
   reverse: 'knk.admin.currency.reverse',
   lock: 'knk.admin.currency.lock',
   policy: 'knk.admin.currency.policy',
+  alerts: 'knk.admin.currency.alerts',
 } as const;
+
+// ===== Currency monitor: alerts and reconciliation (Phase 5, DESIGN.md §3.9) =====
+
+export type CurrencyAlertSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
+
+/** knk-web-api CurrencyAlertDto: one anomaly finding (rules R1–R9). */
+export interface CurrencyAlertDto {
+  id: number;
+  rule: string;
+  ruleName: string;
+  severity: CurrencyAlertSeverity;
+  summary: string;
+  userId?: number | null;
+  username?: string | null;
+  transactionId?: number | null;
+  transactionPublicId?: string | null;
+  /** Rule-specific facts (thresholds, counts, mismatches…). */
+  details?: Record<string, unknown> | null;
+  createdAt: string;
+  ackedAt?: string | null;
+  ackedByUserId?: number | null;
+  ackedByUsername?: string | null;
+}
+
+export interface CurrencyAlertPageDto {
+  items: CurrencyAlertDto[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  openCount: number;
+  openBySeverity: Partial<Record<CurrencyAlertSeverity, number>>;
+}
+
+export type CurrencyAlertStatus = 'open' | 'acked' | 'all';
+
+/** GET admin/alerts filters; empty values are left out. */
+export interface CurrencyAlertQuery {
+  status?: CurrencyAlertStatus;
+  /** This severity and above. */
+  severity?: CurrencyAlertSeverity | '';
+  rule?: string;
+  userId?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+/** knk-web-api CurrencyMismatchDto (reconciler). */
+export interface CurrencyMismatchDto {
+  userId: number;
+  currency: string;
+  /** BalanceColumn, Arithmetic, Chain or UnbalancedTransaction. */
+  kind: string;
+  expected?: number | null;
+  actual?: number | null;
+  entryId?: number | null;
+  transactionId?: number | null;
+}
+
+export interface CurrencyReconciliationRunDto {
+  startedAt: string;
+  finishedAt?: string | null;
+  durationMs: number;
+  trigger: string;
+  triggeredByUserId?: number | null;
+  mismatchCount: number;
+  mismatches: CurrencyMismatchDto[];
+  truncated: boolean;
+  error?: string | null;
+  alertIds: number[];
+  transfersDisabled: string[];
+}
+
+export interface CurrencyReconciliationStatusDto {
+  lastRun?: CurrencyReconciliationRunDto | null;
+  running: boolean;
+  monitorEnabled: boolean;
+  intervalMinutes: number;
+}
+
+/** The rules of DESIGN.md §3.9, for the filter dropdown. */
+export const CURRENCY_ALERT_RULES = [
+  { value: 'R1', label: 'R1 Reconciliation mismatch' },
+  { value: 'R2', label: 'R2 Unbalanced transaction' },
+  { value: 'R3', label: 'R3 Funnel' },
+  { value: 'R4', label: 'R4 Ping-pong' },
+  { value: 'R5', label: 'R5 Velocity' },
+  { value: 'R6', label: 'R6 Staff adjustments' },
+  { value: 'R7', label: 'R7 Mint rate' },
+  { value: 'R8', label: 'R8 Balance cap hit' },
+  { value: 'R9', label: 'R9 Probing' },
+] as const;
