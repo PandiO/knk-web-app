@@ -84,6 +84,8 @@ export enum Controllers {
     Tags = 'Tags',
     ItemBlueprints = 'ItemBlueprints',
     Kits = 'Kits',
+    Discoveries = 'discoveries',
+    DiscoveryRewards = 'discovery-rewards',
     EnchantmentDefinitions = 'EnchantmentDefinitions',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs',
