@@ -1,15 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, Layout, LogOut, UserCircle2, Settings, Users } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, FileText, Layout, LayoutTemplate, LogOut, UserCircle2, Settings, Users, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 // added: explicit types for object types prop
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
 
+type NavLink = { to: string; label: string; Icon: React.ComponentType<{ className?: string }>; exact?: boolean };
+
+// One list for every size: the inline bar (labels from 2xl, icons only from lg) and the
+// menu button's panel below lg - the single row used to overflow and push the last links
+// and the account/Create buttons out of view on narrower windows.
+const NAV_LINKS: NavLink[] = [
+  { to: '/', label: 'Home', Icon: Home, exact: true },
+  { to: '/dashboard', label: 'Dashboard', Icon: Table2, exact: true },
+  { to: '/forms', label: 'Forms', Icon: FileText },
+  { to: '/admin/form-configurations', label: 'Form Builder', Icon: Layout },
+  { to: '/admin/display-configurations', label: 'Display Builder', Icon: LayoutTemplate },
+  { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings },
+  { to: '/admin/users', label: 'Moderation', Icon: Users, exact: true },
+];
+
 // changed: accept props object instead of raw array parameter
 export function Navigation({ objectTypes }: Props) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
+  const navMenuRef = useRef<HTMLDivElement>(null);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -25,6 +42,9 @@ export function Navigation({ objectTypes }: Props) {
       }
       if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
         setIsAccountMenuOpen(false);
+      }
+      if (navMenuRef.current && !navMenuRef.current.contains(event.target as Node)) {
+        setIsNavMenuOpen(false);
       }
     };
 
@@ -55,6 +75,14 @@ export function Navigation({ objectTypes }: Props) {
     }
   };
 
+  // Close the small-screen menu after navigating.
+  useEffect(() => {
+    setIsNavMenuOpen(false);
+  }, [location.pathname]);
+
+  const isActive = (link: NavLink) =>
+    link.exact ? location.pathname === link.to : location.pathname.startsWith(link.to);
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -67,9 +95,42 @@ export function Navigation({ objectTypes }: Props) {
 
   return (
     <nav className="panel fixed w-full top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          <div className="flex items-center space-x-8">
+          <div className="flex min-w-0 items-center space-x-4 2xl:space-x-8">
+            {/* Below lg the links live in this menu instead of the bar. */}
+            <div className="relative lg:hidden" ref={navMenuRef}>
+              <button
+                onClick={() => setIsNavMenuOpen(open => !open)}
+                className="inline-flex items-center justify-center rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label={isNavMenuOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={isNavMenuOpen}
+              >
+                {isNavMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+              {isNavMenuOpen && (
+                <div
+                  className="absolute left-0 mt-2 w-60 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 z-50"
+                  role="menu"
+                >
+                  {NAV_LINKS.map(link => (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      role="menuitem"
+                      className={`flex items-center px-4 py-2 text-sm ${
+                        isActive(link)
+                          ? 'bg-slate-100 font-medium text-slate-900'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <link.Icon className="h-4 w-4 mr-3 text-slate-500" />
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex-shrink-0 flex items-center">
               <Link to="/" className="flex items-center">
                 <img
@@ -78,90 +139,28 @@ export function Navigation({ objectTypes }: Props) {
                   className="h-10 w-10 mr-3 hover:opacity-90 transition-opacity"
                 />
               </Link>
-              <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
+              <h1 className="hidden sm:block text-xl font-semibold text-slate-900">Dashboard</h1>
             </div>
-            <div className="hidden sm:flex sm:space-x-8">
-              <Link
-                to="/"
-                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                  location.pathname === '/'
-                    ? 'border-b-2 border-primary text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                }`}
-              >
-                <Home className="h-4 w-4 mr-2" />
-                Home
-              </Link>
-              <Link
-                to="/dashboard"
-                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                  location.pathname === '/dashboard'
-                    ? 'border-b-2 border-primary text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                }`}
-              >
-                <Table2 className="h-4 w-4 mr-2" />
-                Dashboard
-              </Link>
-              <Link
-                to="/forms"
-                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                  location.pathname.startsWith('/forms')
-                    ? 'border-b-2 border-primary text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                }`}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Forms
-              </Link>
-              <Link
-                to="/admin/form-configurations"
-                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                  location.pathname.startsWith('/admin/form-configurations')
-                    ? 'border-b-2 border-primary text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                }`}
-              >
-                <Layout className="h-4 w-4 mr-2" />
-                Form Builder
-              </Link>
-              <Link
-                to="/admin/display-configurations"
-                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                  location.pathname.startsWith('/admin/display-configurations')
-                    ? 'border-b-2 border-primary text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                }`}
-              >
-                <Layout className="h-4 w-4 mr-2" />
-                Display Builder
-              </Link>
-              <Link
-                to="/admin/game-settings"
-                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                  location.pathname.startsWith('/admin/game-settings')
-                    ? 'border-b-2 border-primary text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                }`}
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Game Settings
-              </Link>
-              <Link
-                to="/admin/users"
-                className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                  location.pathname === '/admin/users'
-                    ? 'border-b-2 border-primary text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                }`}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Moderation
-              </Link>
-
+            <div className="hidden lg:flex lg:space-x-1 2xl:space-x-6">
+              {NAV_LINKS.map(link => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  title={link.label}
+                  aria-label={link.label}
+                  className={`inline-flex items-center whitespace-nowrap px-2 pt-1 text-sm font-medium 2xl:px-1 ${
+                    isActive(link)
+                      ? 'border-b-2 border-primary text-slate-900'
+                      : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
+                  }`}
+                >
+                  <link.Icon className="h-4 w-4 2xl:mr-2" />
+                  <span className="hidden 2xl:inline">{link.label}</span>
+                </Link>
+              ))}
             </div>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-shrink-0 items-center space-x-4">
             {/* Account Menu Dropdown */}
             <div className="relative" ref={accountMenuRef}>
               <button
@@ -214,11 +213,11 @@ export function Navigation({ objectTypes }: Props) {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="btn-primary"
+                className="btn-primary inline-flex items-center whitespace-nowrap"
                 title="Create a new object"
               >
-                <Plus className="h-5 w-5 mr-2" />
-                Create New
+                <Plus className="h-5 w-5 sm:mr-2" />
+                <span className="hidden sm:inline">Create New</span>
               </button>
 
               {isOpen && (
