@@ -5,13 +5,13 @@ import { lootboxClaimClient } from '../../apiClients/lootboxClaimClient';
 import { lootboxTypeClient } from '../../apiClients/lootboxTypeClient';
 import { GradeClient } from '../../apiClients/gradeClient';
 import { GradeDto } from '../../types/dtos/grade/GradeDtos';
-import { LootboxClaimLogDto, LootboxClaimSearchFilters, LootboxTypeDto } from '../../types/dtos/lootbox/LootboxDtos';
+import { LootboxClaimLogDto, LootboxClaimSearchFilters, LootboxClaimSource, LootboxTypeDto } from '../../types/dtos/lootbox/LootboxDtos';
 import { apiErrorMessage, formatDateTime, starLabel } from '../../utils/lootbox';
 import { ItemInstanceDetail } from './ItemInstanceDetail';
 
 /**
  * The drop log (docs/specs/lootboxes/DESIGN.md §3.3 LootboxClaims/search): every box a player opened
- * and every staff give, newest first. Specials are highlighted, claims whose item hasn't reached the
+ * or token item they opened and every staff give, newest first. Specials are highlighted, claims whose item hasn't reached the
  * player yet are flagged (the game server redelivers them on join), and the minted item's instance id
  * opens its detail - the same lookup as typing an id read from an item's tag.
  */
@@ -26,14 +26,14 @@ interface FilterState {
     itemGradeId: string;
     isSpecial: TriState;
     delivered: TriState;
-    adminGive: TriState;
+    source: '' | LootboxClaimSource;
     /** yyyy-mm-dd, a UTC calendar day (the daily cap's day). */
     fromDate: string;
     toDate: string;
 }
 
 const EMPTY_FILTERS: FilterState = {
-    searchTerm: '', lootboxTypeId: '', itemGradeId: '', isSpecial: '', delivered: '', adminGive: '', fromDate: '', toDate: '',
+    searchTerm: '', lootboxTypeId: '', itemGradeId: '', isSpecial: '', delivered: '', source: '', fromDate: '', toDate: '',
 };
 
 const nextUtcDay = (date: string): string => {
@@ -49,10 +49,17 @@ export function toClaimSearchFilters(f: FilterState): LootboxClaimSearchFilters 
     if (f.itemGradeId) filters.itemGradeId = f.itemGradeId;
     if (f.isSpecial) filters.isSpecial = f.isSpecial;
     if (f.delivered) filters.delivered = f.delivered;
-    if (f.adminGive) filters.adminGive = f.adminGive;
+    if (f.source) filters.source = f.source;
     if (f.fromDate) filters.from = new Date(`${f.fromDate}T00:00:00Z`).toISOString();
     if (f.toDate) filters.to = nextUtcDay(f.toDate);
     return filters;
+}
+
+/** Where the claim came from: a world box, a token item (Phase 5) or a staff give. */
+export function claimSourceLabel(row: LootboxClaimLogDto): string {
+    if (row.lootboxTokenId != null || row.source === 'Token') return `token item #${row.lootboxTokenId ?? '?'}`;
+    if (row.lootboxSpawnId != null) return `box #${row.lootboxSpawnId}`;
+    return 'staff give';
 }
 
 const selectClass = 'rounded-md border-gray-300 shadow-sm text-sm';
@@ -169,10 +176,11 @@ export const LootboxDropLogTab: React.FC = () => {
                     </label>
                     <label className="block">
                         <span className="block text-xs font-medium text-gray-600 mb-1">Source</span>
-                        <select aria-label="Source filter" value={filters.adminGive} onChange={e => setFilter('adminGive', e.target.value as TriState)} className={selectClass}>
-                            <option value="">World boxes and gives</option>
-                            <option value="false">World boxes</option>
-                            <option value="true">Staff gives</option>
+                        <select aria-label="Source filter" value={filters.source} onChange={e => setFilter('source', e.target.value as FilterState['source'])} className={selectClass}>
+                            <option value="">Every source</option>
+                            <option value="World">World boxes</option>
+                            <option value="Token">Token items</option>
+                            <option value="AdminGive">Staff gives</option>
                         </select>
                     </label>
                     <label className="block">
@@ -235,7 +243,7 @@ export const LootboxDropLogTab: React.FC = () => {
                                 </td>
                                 <td className="px-3 py-2 whitespace-nowrap">
                                     {row.lootboxTypeName ?? `Type #${row.lootboxTypeId}`} <span className="text-amber-600">{starLabel(row.boxStars)}</span>
-                                    <span className="block text-xs text-gray-400">{row.isAdminGive ? 'staff give' : `box #${row.lootboxSpawnId}`}</span>
+                                    <span className="block text-xs text-gray-400">{claimSourceLabel(row)}</span>
                                 </td>
                                 <td className="px-3 py-2">
                                     <span className={row.isSpecial ? 'font-semibold text-purple-800' : 'text-gray-900'}>{row.itemName ?? `Blueprint #${row.itemBlueprintId}`}</span>

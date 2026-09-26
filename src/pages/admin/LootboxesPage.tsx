@@ -7,16 +7,18 @@ import { LootboxAreasTab } from '../../components/lootbox/LootboxAreasTab';
 import { LootboxOddsTab } from '../../components/lootbox/LootboxOddsTab';
 import { LootboxActiveTab } from '../../components/lootbox/LootboxActiveTab';
 import { LootboxDropLogTab } from '../../components/lootbox/LootboxDropLogTab';
+import { LootboxTokensTab } from '../../components/lootbox/LootboxTokensTab';
 
 /**
  * Lootboxes Phase 4 (docs/specs/lootboxes/DESIGN.md §3.6, IMPLEMENTATION_PLAN.md Phase 4): the admin
  * page for world lootboxes, behind knk.admin.lootbox.manage (see the /admin/lootboxes route; the API
  * enforces the node on every call too). Types, specials and areas are FormWizard entities - their
  * tabs list them and link to the forms - while the settings singleton, the odds preview, the active
- * boxes and the drop log live here.
+ * boxes, the token items (Phase 5: issued tokens, revoke, premium tier / kit grant rules) and the drop
+ * log live here.
  */
 
-type TabKey = 'settings' | 'types' | 'specials' | 'areas' | 'odds' | 'active' | 'log';
+type TabKey = 'settings' | 'types' | 'specials' | 'areas' | 'odds' | 'active' | 'tokens' | 'log';
 
 const TABS: { key: TabKey; label: string }[] = [
     { key: 'settings', label: 'Settings' },
@@ -25,6 +27,7 @@ const TABS: { key: TabKey; label: string }[] = [
     { key: 'areas', label: 'Areas' },
     { key: 'odds', label: 'Odds' },
     { key: 'active', label: 'Active boxes' },
+    { key: 'tokens', label: 'Token items' },
     { key: 'log', label: 'Drop log' },
 ];
 
@@ -70,6 +73,7 @@ export const LootboxesPage: React.FC<{ initialTab?: TabKey }> = ({ initialTab = 
                 {tab === 'areas' && <LootboxAreasTab />}
                 {tab === 'odds' && <LootboxOddsTab typeId={oddsTypeId} onTypeChange={setOddsTypeId} />}
                 {tab === 'active' && <LootboxActiveTab />}
+                {tab === 'tokens' && <LootboxTokensTab />}
                 {tab === 'log' && <LootboxDropLogTab />}
             </div>
         </div>

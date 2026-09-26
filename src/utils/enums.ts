@@ -104,6 +104,8 @@ export enum Controllers {
     LootboxConfiguration = 'LootboxConfiguration',
     LootboxSpawns = 'LootboxSpawns',
     LootboxClaims = 'LootboxClaims',
+    LootboxTokens = 'LootboxTokens',
+    LootboxTokenGrants = 'LootboxTokenGrants',
     ItemInstances = 'ItemInstances'
 }
 

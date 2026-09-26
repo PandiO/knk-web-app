@@ -228,8 +228,12 @@ export interface LootboxSpawnDto {
 export interface LootboxClaimLogDto {
     id: number;
     lootboxSpawnId?: number | null;
-    /** No world box: a staff give. */
+    /** Neither a world box nor a token item: a staff give. */
     isAdminGive: boolean;
+    /** Set when a lootbox token item was opened (Phase 5). */
+    lootboxTokenId?: number | null;
+    /** World | Token | AdminGive (older API builds leave it out). */
+    source?: LootboxClaimSource | null;
     userId: number;
     username?: string | null;
     lootboxTypeId: number;
@@ -250,6 +254,8 @@ export interface LootboxClaimLogDto {
     deliveryNote?: string | null;
 }
 
+export type LootboxClaimSource = 'World' | 'Token' | 'AdminGive';
+
 /** Filters POST api/LootboxClaims/search understands (all optional, sent as strings). */
 export interface LootboxClaimSearchFilters {
     userId?: string;
@@ -259,6 +265,7 @@ export interface LootboxClaimSearchFilters {
     isSpecial?: 'true' | 'false';
     delivered?: 'true' | 'false';
     adminGive?: 'true' | 'false';
+    source?: LootboxClaimSource;
     /** ISO date-time, inclusive. */
     from?: string;
     /** ISO date-time, exclusive. */
@@ -299,4 +306,59 @@ export interface ItemInstanceDto {
     isSoulbound: boolean;
     isGhosted: boolean;
     enchantments: ItemInstanceEnchantmentDto[];
+}
+
+// ===== Lootbox token items (IMPLEMENTATION_PLAN.md Phase 5) =====
+
+export type LootboxTokenStatus = 'Issued' | 'Redeemed' | 'Revoked';
+export type LootboxTokenReason = 'Admin' | 'PremiumTier' | 'Kit' | 'PvpKill' | 'Referral' | 'Other';
+
+/** One token item (POST api/LootboxTokens/search). The token id lives in the item's knk_lootbox_token tag. */
+export interface LootboxTokenDto {
+    id: number;
+    token: string;
+    lootboxTypeId: number;
+    lootboxTypeName: string;
+    categoryName?: string | null;
+    boxGradeId: number;
+    boxStars: number;
+    boxLabel: string;
+    status: LootboxTokenStatus;
+    reason: LootboxTokenReason;
+    note?: string | null;
+    issuedToUserId?: number | null;
+    issuedToUsername?: string | null;
+    issuedByUserId?: number | null;
+    issuedAt: string;
+    deliveredAt?: string | null;
+    redeemedAt?: string | null;
+    redeemedByUserId?: number | null;
+    redeemedByUsername?: string | null;
+    revokedAt?: string | null;
+    /** The drop-log row the token was opened into. */
+    claimId?: number | null;
+}
+
+/** Filters POST api/LootboxTokens/search understands (all optional, sent as strings). */
+export interface LootboxTokenSearchFilters {
+    userId?: string;
+    lootboxTypeId?: string;
+    status?: LootboxTokenStatus;
+    reason?: LootboxTokenReason;
+    delivered?: 'true' | 'false';
+}
+
+/** A grant rule (api/LootboxTokenGrants): a premium tier or a kit issues token items. Exactly one of the two is set. */
+export interface LootboxTokenGrantDto {
+    id?: number;
+    lootboxTypeId: number;
+    lootboxTypeName?: string | null;
+    /** 1-5; null = rolled per token from the type's box-grade weights. */
+    boxStars?: number | null;
+    quantity: number;
+    permissionGroupId?: number | null;
+    permissionGroupName?: string | null;
+    kitId?: number | null;
+    kitName?: string | null;
+    enabled: boolean;
 }
