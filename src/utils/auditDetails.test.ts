@@ -55,6 +55,21 @@ describe('describeAuditDetails', () => {
     expect(describeAuditDetails(entry('GrantRemoved', { node: 'knk.gate.open', value: true }))).toEqual(['knk.gate.open = allow']);
   });
 
+  it('describes a private message log read: conversation, dates and what was shown', () => {
+    const from = '2026-09-20T00:00:00Z';
+    const to = '2026-09-26T00:00:00Z';
+    expect(describeAuditDetails(entry('PrivateMessagesViewed', {
+      otherUserId: 12, from, to, pageNumber: 2, pageSize: 25, shown: 1,
+    }))).toEqual([
+      'Conversation with user #12',
+      `Sent from ${new Date(from).toLocaleString()}, before ${new Date(to).toLocaleString()}`,
+      'Page 2, 1 message shown',
+    ]);
+    expect(describeAuditDetails(entry('PrivateMessagesViewed', {
+      otherUserId: null, from: null, to: null, pageNumber: 1, pageSize: 25, shown: 0,
+    }))).toEqual(['Page 1, 0 messages shown']);
+  });
+
   it('gives no lines for missing or broken details', () => {
     expect(describeAuditDetails(entry('BalanceAdjusted', null))).toEqual([]);
     expect(describeAuditDetails(entry('BalanceAdjusted', 'not json'))).toEqual([]);

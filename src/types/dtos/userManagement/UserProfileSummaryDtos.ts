@@ -113,7 +113,9 @@ export type AuditAction =
   | 'PlayerFrozen'
   | 'PlayerUnfrozen'
   // Written by knk-web-api's KitService.GiveKitAsync (docs/specs/kits/DESIGN.md §4.1).
-  | 'KitGranted';
+  | 'KitGranted'
+  // Someone read this player's private messages (docs/specs/private-messages/DESIGN.md §3.2).
+  | 'PrivateMessagesViewed';
 
 export interface AuditLogEntryDto {
   id: number;

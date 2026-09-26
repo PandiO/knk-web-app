@@ -23,6 +23,7 @@ export function describeAuditDetails(entry: AuditLogEntryDto): string[] {
     case 'PlayerFrozen':
     case 'PlayerUnfrozen': return details.reason ? [`Reason: ${details.reason}`] : [];
     case 'KitGranted': return details.kitName ? [`Kit: ${details.kitName}`] : [];
+    case 'PrivateMessagesViewed': return privateMessagesViewedLines(details);
     default: return [];
   }
 }
@@ -148,4 +149,22 @@ function grantUpdatedLines(d: Details): string[] {
   if (!to.node) return [];
   const describe = (g: Details) => `${g.node} = ${g.value === false ? 'deny' : 'allow'}${g.expiresAt ? ` until ${new Date(g.expiresAt).toLocaleString()}` : ''}`;
   return [`${describe(from)} → ${describe(to)}`];
+}
+
+// knk-web-api PrivateMessageLogService.SearchAsync: the filters of the read and how many
+// messages it showed (docs/specs/private-messages/DESIGN.md §3.2).
+function privateMessagesViewedLines(d: Details): string[] {
+  const lines: string[] = [];
+  const otherUserId = num(d.otherUserId);
+  if (otherUserId !== undefined) lines.push(`Conversation with user #${otherUserId}`);
+  const range: string[] = [];
+  if (d.from) range.push(`from ${new Date(d.from).toLocaleString()}`);
+  if (d.to) range.push(`before ${new Date(d.to).toLocaleString()}`);
+  if (range.length > 0) lines.push(`Sent ${range.join(', ')}`);
+  const shown = num(d.shown);
+  const page = num(d.pageNumber);
+  if (shown !== undefined) {
+    lines.push(`${page !== undefined ? `Page ${page}, ` : ''}${shown} message${shown === 1 ? '' : 's'} shown`);
+  }
+  return lines;
 }
