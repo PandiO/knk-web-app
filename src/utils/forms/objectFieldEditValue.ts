@@ -9,6 +9,8 @@ import { findValueByFieldName } from '../fieldNameMapper';
  * carry one side of it:
  * - FK-authored ("AnchorPointId"): the DTO has the bare integer under that name, but ObjectField
  *   needs the populated navigation object (with id/name/...) under "AnchorPoint" to render it.
+ *   When the DTO has no navigation object but a display name ("TownId" + "TownName"), build
+ *   `{ id, name }` from those instead.
  * - Navigation-authored ("Helmet"): normally the DTO carries the object under that name. When it
  *   only exposes the FK ("HelmetId"), fall back to a bare `{ id }` so the picker isn't loaded empty -
  *   otherwise an untouched submit would write null over the existing FK.
@@ -25,6 +27,13 @@ export function resolveObjectFieldValueForEdit(
             const navValue = findValueByFieldName(entityData, field.fieldName.slice(0, -2));
             if (navValue && typeof navValue === 'object') {
                 return navValue;
+            }
+            // Many read DTOs carry only the FK plus a display name (e.g. the siege DTOs' townId +
+            // townName) - build a minimal {id, name} so the field shows what's selected. extractId()
+            // still submits the same id.
+            const displayName = findValueByFieldName(entityData, `${field.fieldName.slice(0, -2)}Name`);
+            if (typeof displayName === 'string' && displayName.length > 0) {
+                return { id: rawValue, name: displayName };
             }
         }
 

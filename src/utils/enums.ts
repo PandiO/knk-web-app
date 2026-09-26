@@ -96,7 +96,19 @@ export enum Controllers {
     DisplaySections = 'DisplaySections',
     DisplayFields = 'DisplayFields',
     AuditLog = 'audit-log',
-    PermissionGroups = 'PermissionGroups'
+    PermissionGroups = 'PermissionGroups',
+    // Siege Phase 1
+    BannerDesigns = 'BannerDesigns',
+    BannerLayers = 'BannerLayers',
+    Clans = 'Clans',
+    // Siege Phase 3
+    SiegeScenarios = 'SiegeScenarios',
+    SiegeTeams = 'SiegeTeams',
+    SiegeSpawnpoints = 'SiegeSpawnpoints',
+    SiegeObjectives = 'SiegeObjectives',
+    SiegeLobbies = 'SiegeLobbies',
+    SiegeConfiguration = 'SiegeConfiguration',
+    TitleBrackets = 'TitleBrackets'
 }
 
 
