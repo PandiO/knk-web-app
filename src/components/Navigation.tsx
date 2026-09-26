@@ -15,13 +15,15 @@ type NavLink = { to: string; label: string; Icon: React.ComponentType<{ classNam
 // and the account/Create buttons out of view on narrower windows.
 const NAV_LINKS: NavLink[] = [
   { to: '/', label: 'Home', Icon: Home, exact: true },
-  { to: '/dashboard', label: 'Dashboard', Icon: Table2, exact: true },
-  { to: '/forms', label: 'Forms', Icon: FileText },
-  { to: '/admin/form-configurations', label: 'Form Builder', Icon: Layout },
-  { to: '/admin/display-configurations', label: 'Display Builder', Icon: LayoutTemplate },
-  { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings },
+  // Smoke test 2026-09-26: the admin tools are staff only (hidden here, and the /admin pages are
+  // StaffRoutes). Dashboard stays a route because login lands there.
+  { to: '/dashboard', label: 'Dashboard', Icon: Table2, exact: true, staffOnly: true },
+  { to: '/forms', label: 'Forms', Icon: FileText, staffOnly: true },
+  { to: '/admin/form-configurations', label: 'Form Builder', Icon: Layout, staffOnly: true },
+  { to: '/admin/display-configurations', label: 'Display Builder', Icon: LayoutTemplate, staffOnly: true },
+  { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings, staffOnly: true },
   // Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables
-  { to: '/admin/siege-configuration', label: 'Siege Settings', Icon: Swords },
+  { to: '/admin/siege-configuration', label: 'Siege Settings', Icon: Swords, staffOnly: true },
   { to: '/admin/users', label: 'Moderation', Icon: Users, exact: true, staffOnly: true },
 ];
 
@@ -215,6 +217,8 @@ export function Navigation({ objectTypes }: Props) {
               )}
             </div>
 
+            {/* Creating objects goes through the forms: staff only, like the Forms link. */}
+            {isStaff && (
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsOpen(!isOpen)}
@@ -264,6 +268,7 @@ export function Navigation({ objectTypes }: Props) {
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
       </div>
