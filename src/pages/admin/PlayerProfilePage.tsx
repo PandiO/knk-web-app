@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, RefreshCcw, ArrowLeft, ShieldCheck, Users, Award, Coins, EyeOff, X, Plus, History, Gift } from 'lucide-react';
 import { logging } from '../../utils';
+import { describeAuditDetails } from '../../utils/auditDetails';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { KitClient } from '../../apiClients/kitClient';
@@ -622,9 +623,9 @@ export const PlayerProfilePage: React.FC = () => {
                     </h2>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mb-4">
                         <div>
-                            <p className="text-gray-500">Global x Personal x Rank</p>
+                            <p className="text-gray-500">Title salary x Global x Personal x Rank</p>
                             <p className="font-semibold text-gray-900">
-                                {salary.globalMultiplier} &times; {salary.personalMultiplier} &times; {salary.rankMultiplier}
+                                {salary.titleSalary} &times; {salary.globalMultiplier} &times; {salary.personalMultiplier} &times; {salary.rankMultiplier}
                             </p>
                         </div>
                         <div>
@@ -816,13 +817,17 @@ export const PlayerProfilePage: React.FC = () => {
                         <ul className="divide-y divide-gray-100">
                             {activity.map((entry) => (
                                 <li key={entry.id} className="py-3 flex items-start justify-between gap-4">
-                                    <div>
+                                    <div className="min-w-0">
                                         <p className="text-sm font-medium text-gray-900">{auditActionLabel(entry)}</p>
                                         <p className="text-xs text-gray-500 mt-0.5">
                                             {entry.actorUsername
                                                 ? <>by <span className="font-medium">{entry.actorUsername}</span></>
                                                 : <span className="italic">system</span>}
                                         </p>
+                                        {/* What changed: amounts, before/after, reason (utils/auditDetails). */}
+                                        {describeAuditDetails(entry).map((line, i) => (
+                                            <p key={i} className="text-xs text-gray-700 mt-0.5 break-words">{line}</p>
+                                        ))}
                                     </div>
                                     <span className="text-xs text-gray-400 whitespace-nowrap">{formatDate(entry.timestamp)}</span>
                                 </li>

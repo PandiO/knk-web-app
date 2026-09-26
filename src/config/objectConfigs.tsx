@@ -154,6 +154,8 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
         )
       },
       { key: 'salaryMultiplier', label: 'Salary x', sortable: true },
+      { key: 'gemBonusMultiplier', label: 'Gem bonus x', sortable: true },
+      { key: 'expBonusMultiplier', label: 'XP bonus x', sortable: true },
       { key: 'parentGroupName', label: 'Parent', sortable: false, render: (row: any) => row.parentGroupName ?? '-' },
     ]
   },
@@ -862,6 +864,21 @@ const permissionGroupConfig: ObjectConfig = {
     salaryMultiplier: {
       name: 'salaryMultiplier',
       label: 'Salary Multiplier',
+      type: 'number',
+      required: true,
+      defaultValue: 1.0,
+    },
+    // KNG-16: scale the one-time gem/XP bonus of each title reached (coins use the salary multiplier).
+    gemBonusMultiplier: {
+      name: 'gemBonusMultiplier',
+      label: 'Title Gem Bonus Multiplier',
+      type: 'number',
+      required: true,
+      defaultValue: 1.0,
+    },
+    expBonusMultiplier: {
+      name: 'expBonusMultiplier',
+      label: 'Title XP Bonus Multiplier',
       type: 'number',
       required: true,
       defaultValue: 1.0,

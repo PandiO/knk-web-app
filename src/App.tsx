@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { StaffRoute } from './components/StaffRoute';
 import { LandingPage } from './pages/LandingPage';
 import { AccountManagementPage } from './pages/AccountManagementPage';
 import ObjectDashboard from './components/ObjectDashboard';
@@ -189,19 +190,20 @@ function AppContent() {
                   <SiegeConfigurationPage />
                 </ProtectedRoute>
               } />
-              {/* User management Phase 1 (docs/specs/user-management/IMPLEMENTATION_PLAN.md) */}
+              {/* User management Phase 1 (docs/specs/user-management/IMPLEMENTATION_PLAN.md).
+                  Moderation pages are staff only (knk.admin.user.manage), see StaffRoute. */}
               <Route path="/admin/users/:id" element={
-                <ProtectedRoute>
+                <StaffRoute>
                   <PlayerProfilePage />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               {/* User management Phase 3 - moderation search/filters, and the generic-dashboard
                   entry point into PlayerProfilePage that Phase 1/2 carried forward (every row
                   here links to /admin/users/:id). */}
               <Route path="/admin/users" element={
-                <ProtectedRoute>
+                <StaffRoute>
                   <UserModerationPage />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               {/* DisplayWizard routes */}
               <Route path="/display/:entityName/:id" element={
