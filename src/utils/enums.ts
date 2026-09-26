@@ -96,6 +96,7 @@ export enum Controllers {
     DisplaySections = 'DisplaySections',
     DisplayFields = 'DisplayFields',
     AuditLog = 'audit-log',
+    AuditLogRetentionConfiguration = 'AuditLogRetentionConfiguration',
     PrivateMessageLog = 'private-message-log',
     PermissionGroups = 'PermissionGroups'
 }
