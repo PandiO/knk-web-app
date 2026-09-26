@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, RefreshCcw, ArrowLeft, ShieldCheck, Users, Award, Coins, EyeOff, X, Plus, History, Gift } from 'lucide-react';
 import { logging } from '../../utils';
-import { describeAuditDetails } from '../../utils/auditDetails';
+import { describeAuditDetails, lootboxSpawnAuditLabel } from '../../utils/auditDetails';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { KitClient } from '../../apiClients/kitClient';
@@ -39,6 +39,9 @@ const auditActionLabel = (entry: AuditLogEntryDto): string => {
         case 'PlayerUnfrozen': return 'Player unfrozen';
         // Written by GiveKitAsync (docs/specs/kits/DESIGN.md §4.1) on every staff kit grant.
         case 'KitGranted': return 'Kit granted';
+        // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.2); the spawn entry's Details.event says which change.
+        case 'LootboxSpawnedByAdmin': return lootboxSpawnAuditLabel(entry.details);
+        case 'LootboxGranted': return 'Lootbox item given';
         default: return entry.action;
     }
 };

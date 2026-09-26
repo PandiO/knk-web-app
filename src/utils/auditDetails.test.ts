@@ -1,4 +1,4 @@
-import { describeAuditDetails, formatAmount } from './auditDetails';
+import { describeAuditDetails, formatAmount, lootboxSpawnAuditLabel } from './auditDetails';
 import { AuditLogEntryDto } from '../types/dtos/userManagement/UserProfileSummaryDtos';
 
 const entry = (action: AuditLogEntryDto['action'], details: object | string | null): AuditLogEntryDto => ({
@@ -10,6 +10,35 @@ const entry = (action: AuditLogEntryDto['action'], details: object | string | nu
 });
 
 describe('describeAuditDetails', () => {
+  it('describes a staff lootbox spawn and the in-game area changes recorded under the same action', () => {
+    expect(describeAuditDetails(entry('LootboxSpawnedByAdmin', {
+      event: 'Spawned', spawnId: 12, lootboxTypeId: 3, lootboxTypeName: 'Weapons Lootbox', boxStars: 5, world: 'world', x: 10, y: 64, z: -20,
+    }))).toEqual(['Weapons Lootbox ★5', 'At world 10 64 -20']);
+    expect(describeAuditDetails(entry('LootboxSpawnedByAdmin', {
+      event: 'AreaCreated', areaId: 4, name: 'spawn', world: 'world', wgRegionId: 'lootbox_spawn',
+    }))).toEqual(['Area: spawn (region lootbox_spawn in world)']);
+    expect(describeAuditDetails(entry('LootboxSpawnedByAdmin', {
+      event: 'AreaDeleted', areaId: 4, name: 'spawn', world: 'world', wgRegionId: 'lootbox_spawn', removedSpawnIds: [7, 8],
+    }))).toEqual(['Area: spawn (region lootbox_spawn in world)', '2 active boxes removed']);
+  });
+
+  it('titles a LootboxSpawnedByAdmin entry by its Details.event', () => {
+    expect(lootboxSpawnAuditLabel(JSON.stringify({ event: 'Spawned' }))).toBe('Lootbox spawned');
+    expect(lootboxSpawnAuditLabel(JSON.stringify({ event: 'AreaCreated' }))).toBe('Lootbox area created');
+    expect(lootboxSpawnAuditLabel(JSON.stringify({ event: 'AreaDeleted' }))).toBe('Lootbox area deleted');
+    expect(lootboxSpawnAuditLabel(null)).toBe('Lootbox spawned');
+  });
+
+  it('describes a staff lootbox give: the item, the box and the minted instance', () => {
+    expect(describeAuditDetails(entry('LootboxGranted', {
+      claimId: 31, lootboxTypeId: 3, lootboxTypeName: 'Weapons Lootbox', boxStars: 5, itemBlueprintId: 9,
+      itemName: 'Flaming Samurai', itemStars: 5, isSpecial: true, itemInstanceId: 1001,
+    }))).toEqual(['Flaming Samurai ★5 (special)', 'From a Weapons Lootbox ★5 box', 'claim #31, item instance #1001']);
+    expect(describeAuditDetails(entry('LootboxGranted', {
+      claimId: 32, lootboxTypeName: 'Food Lootbox', boxStars: 2, itemName: 'Bread', itemStars: 1, isSpecial: false, itemInstanceId: null,
+    }))).toEqual(['Bread ★1', 'From a Food Lootbox ★2 box', 'claim #32']);
+  });
+
   it('shows each balance change with its before/after, the title bonus and the reason', () => {
     expect(describeAuditDetails(entry('BalanceAdjusted', {
       coinsDelta: 0, gemsDelta: -3, experienceDelta: 2500, reason: 'event prize',

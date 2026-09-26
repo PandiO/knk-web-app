@@ -23,6 +23,8 @@ export function describeAuditDetails(entry: AuditLogEntryDto): string[] {
     case 'PlayerFrozen':
     case 'PlayerUnfrozen': return details.reason ? [`Reason: ${details.reason}`] : [];
     case 'KitGranted': return details.kitName ? [`Kit: ${details.kitName}`] : [];
+    case 'LootboxSpawnedByAdmin': return lootboxSpawnLines(details);
+    case 'LootboxGranted': return lootboxGrantedLines(details);
     default: return [];
   }
 }
@@ -148,4 +150,56 @@ function grantUpdatedLines(d: Details): string[] {
   if (!to.node) return [];
   const describe = (g: Details) => `${g.node} = ${g.value === false ? 'deny' : 'allow'}${g.expiresAt ? ` until ${new Date(g.expiresAt).toLocaleString()}` : ''}`;
   return [`${describe(from)} → ${describe(to)}`];
+}
+
+// ===== Lootboxes (docs/specs/lootboxes/DESIGN.md §3.2) =====
+// knk-web-api's AuditAction has only two lootbox values (13-14), so LootboxSpawnedByAdmin covers every
+// staff change to where boxes spawn; Details.event tells them apart.
+
+const stars = (value: unknown): string => (num(value) !== undefined ? ` ★${value}` : '');
+
+/** The Recent-activity title of a LootboxSpawnedByAdmin entry, from its Details.event. */
+export function lootboxSpawnAuditLabel(detailsJson?: string | null): string {
+  switch (parse(detailsJson)?.event) {
+    case 'AreaCreated': return 'Lootbox area created';
+    case 'AreaDeleted': return 'Lootbox area deleted';
+    default: return 'Lootbox spawned';
+  }
+}
+
+// LootboxRuntimeService.AdminSpawnAsync (event Spawned) and LootboxSpawnAreaService's in-game
+// create/delete (AreaCreated / AreaDeleted).
+function lootboxSpawnLines(d: Details): string[] {
+  switch (d.event) {
+    case 'AreaCreated':
+    case 'AreaDeleted': {
+      const lines: string[] = [];
+      if (d.name) lines.push(`Area: ${d.name}${d.wgRegionId ? ` (region ${d.wgRegionId}${d.world ? ` in ${d.world}` : ''})` : ''}`);
+      const removed = Array.isArray(d.removedSpawnIds) ? d.removedSpawnIds.length : 0;
+      if (d.event === 'AreaDeleted' && removed > 0) lines.push(`${removed} active box${removed === 1 ? '' : 'es'} removed`);
+      return lines;
+    }
+    default: {
+      const lines: string[] = [];
+      if (d.lootboxTypeName) lines.push(`${d.lootboxTypeName}${stars(d.boxStars)}`);
+      if (d.world && num(d.x) !== undefined) lines.push(`At ${d.world} ${d.x} ${d.y} ${d.z}`);
+      return lines;
+    }
+  }
+}
+
+// LootboxRuntimeService.AdminGiveAsync: the rolled item and the minted instance, if any.
+function lootboxGrantedLines(d: Details): string[] {
+  const lines: string[] = [];
+  if (d.itemName) {
+    let line = `${d.itemName}${stars(d.itemStars)}`;
+    if (d.isSpecial) line += ' (special)';
+    lines.push(line);
+  }
+  if (d.lootboxTypeName) lines.push(`From a ${d.lootboxTypeName}${stars(d.boxStars)} box`);
+  const refs: string[] = [];
+  if (num(d.claimId) !== undefined) refs.push(`claim #${d.claimId}`);
+  if (num(d.itemInstanceId) !== undefined) refs.push(`item instance #${d.itemInstanceId}`);
+  if (refs.length > 0) lines.push(refs.join(', '));
+  return lines;
 }
