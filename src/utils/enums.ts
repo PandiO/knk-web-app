@@ -96,7 +96,8 @@ export enum Controllers {
     DisplaySections = 'DisplaySections',
     DisplayFields = 'DisplayFields',
     AuditLog = 'audit-log',
-    PermissionGroups = 'PermissionGroups'
+    PermissionGroups = 'PermissionGroups',
+    TitleBrackets = 'TitleBrackets'
 }
 
 

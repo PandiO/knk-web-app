@@ -18,6 +18,7 @@ import { LocationClient } from '../apiClients/locationClient';
 import { MinecraftEnchantmentRefClient } from '../apiClients/minecraftEnchantmentRefClient';
 import { UserClient } from '../apiClients/userClient';
 import { PermissionGroupClient } from '../apiClients/permissionGroupClient';
+import { TitleBracketClient } from '../apiClients/titleBracketClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -90,6 +91,9 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => MinecraftEnchantmentRefClient.getInstance().searchPaged(query));
         case 'permissiongroup':
             return withPagedQueryMapping((query) => PermissionGroupClient.getInstance().searchPaged(query));
+        // Read-only (seeded): search + fetch only, for TitleBracket object pickers (teleport Phase 5).
+        case 'titlebracket':
+            return withPagedQueryMapping((query) => TitleBracketClient.getInstance().searchPaged(query));
         default:
             throw new Error(`No search function registered for entity type: ${entityTypeName}`);
     }
@@ -135,6 +139,8 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => UserClient.getInstance().getById(Number(id));
         case 'permissiongroup':
             return (id) => PermissionGroupClient.getInstance().getById(Number(id));
+        case 'titlebracket':
+            return (id) => TitleBracketClient.getInstance().getById(Number(id));
         default:
             throw new Error(`No fetchById function registered for entity type: ${entityTypeName}`);
     }
