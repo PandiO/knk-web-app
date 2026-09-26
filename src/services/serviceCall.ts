@@ -3,6 +3,31 @@ import ConfigurationHelper from "../utils/config-helper";
 import { HttpMethod } from "../utils/enums";
 import { tokenService } from "../utils/tokenService";
 
+/**
+ * A readable message for a failed response. Many controllers answer a rule violation with
+ * BadRequest(ex.Message) - a plain-text body - which used to be dropped in favour of
+ * "HTTP 400: Bad Request", hiding the actual reason (e.g. the siege API's "A team without a clan
+ * needs a name, a chat colour and a banner."). ProblemDetails bodies contribute detail/title and
+ * their first validation error.
+ */
+export const describeErrorBody = (result: any, status: number, statusText: string): string => {
+    const fallback = `HTTP ${status}: ${statusText}`;
+    if (typeof result === 'string') {
+        const text = result.trim();
+        return text.length > 0 && text.length <= 500 && !text.startsWith('<') ? text : fallback;
+    }
+    if (result && typeof result === 'object') {
+        if (typeof result.message === 'string' && result.message) return result.message;
+        if (typeof result.detail === 'string' && result.detail) return result.detail;
+        const firstValidationError = result.errors && typeof result.errors === 'object'
+            ? Object.values(result.errors).flat().find((e: unknown) => typeof e === 'string')
+            : undefined;
+        if (typeof firstValidationError === 'string') return firstValidationError;
+        if (typeof result.title === 'string' && result.title) return result.title;
+    }
+    return fallback;
+};
+
 export class ServiceCall {
 
     invokeService(_args: InvokeServiceArgs) {
@@ -107,13 +132,13 @@ export class ServiceCall {
             } else {
                 console.error(`[ServiceCall] HTTP ${response.status} error for ${args.controller}/${args.operation}:`, result);
                 if (args.responseHandler) {
-                    const error = new Error(result?.message || `HTTP ${response.status}: ${response.statusText}`);
+                    const error = new Error(describeErrorBody(result, response.status, response.statusText));
                     (error as any).response = result;
                     (error as any).status = response.status;
                     console.error('[ServiceCall] Calling error handler with:', error);
                     args.responseHandler.error(error);
                 } else {
-                    throw new Error(result?.message || `HTTP ${response.status}: ${response.statusText}`);
+                    throw new Error(describeErrorBody(result, response.status, response.statusText));
                 }
             }
         } catch (ex) {

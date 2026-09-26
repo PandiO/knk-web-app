@@ -21,6 +21,15 @@ import { PermissionGroupClient } from '../apiClients/permissionGroupClient';
 import { LootboxTypeClient } from '../apiClients/lootboxTypeClient';
 import { LootboxSpecialEntryClient } from '../apiClients/lootboxSpecialEntryClient';
 import { LootboxSpawnAreaClient } from '../apiClients/lootboxSpawnAreaClient';
+import { BannerDesignClient } from '../apiClients/bannerDesignClient';
+import { BannerLayerClient } from '../apiClients/bannerLayerClient';
+import { ClanClient } from '../apiClients/clanClient';
+import { SiegeScenarioClient } from '../apiClients/siegeScenarioClient';
+import { SiegeTeamClient } from '../apiClients/siegeTeamClient';
+import { SiegeSpawnpointClient } from '../apiClients/siegeSpawnpointClient';
+import { SiegeObjectiveClient } from '../apiClients/siegeObjectiveClient';
+import { SiegeLobbyClient } from '../apiClients/siegeLobbyClient';
+import { TitleBracketClient } from '../apiClients/titleBracketClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -102,6 +111,23 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => LootboxSpecialEntryClient.getInstance().searchPaged(query));
         case 'lootboxspawnarea':
             return withPagedQueryMapping((query) => LootboxSpawnAreaClient.getInstance().searchPaged(query));
+        case 'bannerdesign':
+            return withPagedQueryMapping((query) => BannerDesignClient.getInstance().searchPaged(query));
+        // 'bannerlayer' deliberately has no search: like 'gatedoor', layers only exist under their
+        // banner (GET /api/BannerDesigns/{id}/layers) and are edited from the banner's own wizard.
+        case 'clan':
+            return withPagedQueryMapping((query) => ClanClient.getInstance().searchPaged(query));
+        case 'siegescenario':
+            return withPagedQueryMapping((query) => SiegeScenarioClient.getInstance().searchPaged(query));
+        case 'siegeteam':
+            return withPagedQueryMapping((query) => SiegeTeamClient.getInstance().searchPaged(query));
+        // 'siegespawnpoint' / 'siegeobjective' deliberately have no search: like 'bannerlayer', they
+        // only exist under their team/scenario and are edited from the parent's own wizard.
+        case 'siegelobby':
+            return withPagedQueryMapping((query) => SiegeLobbyClient.getInstance().searchPaged(query));
+        // Read-only reference data (the scenario's minimum-title picker).
+        case 'titlebracket':
+            return withPagedQueryMapping((query) => TitleBracketClient.getInstance().searchPaged(query));
         default:
             throw new Error(`No search function registered for entity type: ${entityTypeName}`);
     }
@@ -153,6 +179,24 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => LootboxSpecialEntryClient.getInstance().getById(id);
         case 'lootboxspawnarea':
             return (id) => LootboxSpawnAreaClient.getInstance().getById(id);
+        case 'bannerdesign':
+            return (id) => BannerDesignClient.getInstance().getById(Number(id));
+        case 'bannerlayer':
+            return (id) => BannerLayerClient.getInstance().getById(Number(id));
+        case 'clan':
+            return (id) => ClanClient.getInstance().getById(Number(id));
+        case 'siegescenario':
+            return (id) => SiegeScenarioClient.getInstance().getById(Number(id));
+        case 'siegeteam':
+            return (id) => SiegeTeamClient.getInstance().getById(Number(id));
+        case 'siegespawnpoint':
+            return (id) => SiegeSpawnpointClient.getInstance().getById(Number(id));
+        case 'siegeobjective':
+            return (id) => SiegeObjectiveClient.getInstance().getById(Number(id));
+        case 'siegelobby':
+            return (id) => SiegeLobbyClient.getInstance().getById(Number(id));
+        case 'titlebracket':
+            return (id) => TitleBracketClient.getInstance().getById(Number(id));
         default:
             throw new Error(`No fetchById function registered for entity type: ${entityTypeName}`);
     }
@@ -206,6 +250,22 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => LootboxSpecialEntryClient.getInstance().update(entity);
         case 'lootboxspawnarea':
             return (entity) => LootboxSpawnAreaClient.getInstance().update(entity);
+        case 'bannerdesign':
+            return (entity) => BannerDesignClient.getInstance().update(entity);
+        case 'bannerlayer':
+            return (entity) => BannerLayerClient.getInstance().update(entity);
+        case 'clan':
+            return (entity) => ClanClient.getInstance().update(entity);
+        case 'siegescenario':
+            return (entity) => SiegeScenarioClient.getInstance().update(entity);
+        case 'siegeteam':
+            return (entity) => SiegeTeamClient.getInstance().update(entity);
+        case 'siegespawnpoint':
+            return (entity) => SiegeSpawnpointClient.getInstance().update(entity);
+        case 'siegeobjective':
+            return (entity) => SiegeObjectiveClient.getInstance().update(entity);
+        case 'siegelobby':
+            return (entity) => SiegeLobbyClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -257,6 +317,22 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => LootboxSpecialEntryClient.getInstance().delete(id);
         case 'lootboxspawnarea':
             return (id) => LootboxSpawnAreaClient.getInstance().delete(id);
+        case 'bannerdesign':
+            return (id) => BannerDesignClient.getInstance().delete(Number(id));
+        case 'bannerlayer':
+            return (id) => BannerLayerClient.getInstance().delete(Number(id));
+        case 'clan':
+            return (id) => ClanClient.getInstance().delete(Number(id));
+        case 'siegescenario':
+            return (id) => SiegeScenarioClient.getInstance().delete(Number(id));
+        case 'siegeteam':
+            return (id) => SiegeTeamClient.getInstance().delete(Number(id));
+        case 'siegespawnpoint':
+            return (id) => SiegeSpawnpointClient.getInstance().delete(Number(id));
+        case 'siegeobjective':
+            return (id) => SiegeObjectiveClient.getInstance().delete(Number(id));
+        case 'siegelobby':
+            return (id) => SiegeLobbyClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -310,6 +386,22 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => LootboxSpecialEntryClient.getInstance().create(entity);
         case 'lootboxspawnarea':
             return (entity) => LootboxSpawnAreaClient.getInstance().create(entity);
+        case 'bannerdesign':
+            return (entity) => BannerDesignClient.getInstance().create(entity);
+        case 'bannerlayer':
+            return (entity) => BannerLayerClient.getInstance().create(entity);
+        case 'clan':
+            return (entity) => ClanClient.getInstance().create(entity);
+        case 'siegescenario':
+            return (entity) => SiegeScenarioClient.getInstance().create(entity);
+        case 'siegeteam':
+            return (entity) => SiegeTeamClient.getInstance().create(entity);
+        case 'siegespawnpoint':
+            return (entity) => SiegeSpawnpointClient.getInstance().create(entity);
+        case 'siegeobjective':
+            return (entity) => SiegeObjectiveClient.getInstance().create(entity);
+        case 'siegelobby':
+            return (entity) => SiegeLobbyClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }
