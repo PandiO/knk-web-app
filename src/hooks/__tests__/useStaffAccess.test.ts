@@ -1,0 +1,68 @@
+import { renderHook, waitFor } from '@testing-library/react';
+import { usePermission, useStaffAccess, STAFF_PERMISSION_NODE } from '../useStaffAccess';
+import { userManagementClient } from '../../apiClients/userManagementClient';
+import { useAuth } from '../../contexts/AuthContext';
+
+jest.mock('../../apiClients/userManagementClient', () => ({
+  userManagementClient: { checkPermission: jest.fn() },
+}));
+jest.mock('../../contexts/AuthContext', () => ({
+  useAuth: jest.fn(),
+}));
+
+const mockedCheck = userManagementClient.checkPermission as jest.Mock;
+const mockedUseAuth = useAuth as jest.Mock;
+
+// The checks are cached per user and node for the page load, so every test uses its own user id.
+describe('usePermission', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('resolves a node for the logged-in user', async () => {
+    mockedUseAuth.mockReturnValue({ user: { id: 101 } });
+    mockedCheck.mockResolvedValue({ allowed: true });
+
+    const { result } = renderHook(() => usePermission('knk.pmlog.read'));
+
+    expect(result.current).toEqual({ allowed: false, isChecking: true });
+    await waitFor(() => expect(result.current).toEqual({ allowed: true, isChecking: false }));
+    expect(mockedCheck).toHaveBeenCalledWith(101, 'knk.pmlog.read');
+  });
+
+  it('checks each node separately and each node only once', async () => {
+    mockedUseAuth.mockReturnValue({ user: { id: 102 } });
+    mockedCheck.mockImplementation((_id: number, node: string) => Promise.resolve({ allowed: node === STAFF_PERMISSION_NODE }));
+
+    const staff = renderHook(() => useStaffAccess());
+    const pmLog = renderHook(() => usePermission('knk.pmlog.read'));
+    const staffAgain = renderHook(() => useStaffAccess());
+
+    await waitFor(() => expect(staff.result.current).toEqual({ isStaff: true, isChecking: false }));
+    await waitFor(() => expect(pmLog.result.current).toEqual({ allowed: false, isChecking: false }));
+    await waitFor(() => expect(staffAgain.result.current.isStaff).toBe(true));
+    expect(mockedCheck).toHaveBeenCalledTimes(2);
+  });
+
+  it('denies when the check fails, and retries next time', async () => {
+    mockedUseAuth.mockReturnValue({ user: { id: 103 } });
+    mockedCheck.mockRejectedValueOnce(new Error('down'));
+
+    const first = renderHook(() => usePermission('knk.pmlog.read'));
+    await waitFor(() => expect(first.result.current).toEqual({ allowed: false, isChecking: false }));
+
+    mockedCheck.mockResolvedValueOnce({ allowed: true });
+    const second = renderHook(() => usePermission('knk.pmlog.read'));
+    await waitFor(() => expect(second.result.current).toEqual({ allowed: true, isChecking: false }));
+    expect(mockedCheck).toHaveBeenCalledTimes(2);
+  });
+
+  it('denies without a logged-in user', () => {
+    mockedUseAuth.mockReturnValue({ user: null });
+
+    const { result } = renderHook(() => usePermission('knk.pmlog.read'));
+
+    expect(result.current).toEqual({ allowed: false, isChecking: false });
+    expect(mockedCheck).not.toHaveBeenCalled();
+  });
+});

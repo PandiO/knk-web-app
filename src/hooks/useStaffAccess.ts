@@ -9,48 +9,62 @@ import { userManagementClient } from '../apiClients/userManagementClient';
  */
 export const STAFF_PERMISSION_NODE = 'knk.admin.user.manage';
 
-// One check per logged-in user per page load, shared by the nav bar and the route guard. A
-// failed check isn't cached, so the next render retries. A rank change applies after a reload.
-const staffChecks = new Map<number, Promise<boolean>>();
+// One check per logged-in user and node per page load, shared by every component asking (nav
+// bar, route guard, panels). A failed check isn't cached, so the next render retries. A rank
+// change applies after a reload.
+const permissionChecks = new Map<string, Promise<boolean>>();
 
-function checkStaff(userId: number): Promise<boolean> {
-  let check = staffChecks.get(userId);
+function checkPermission(userId: number, node: string): Promise<boolean> {
+  const key = `${userId}:${node}`;
+  let check = permissionChecks.get(key);
   if (!check) {
     check = userManagementClient
-      .checkPermission(userId, STAFF_PERMISSION_NODE)
+      .checkPermission(userId, node)
       .then(result => result?.allowed === true)
       .catch(err => {
-        staffChecks.delete(userId);
+        permissionChecks.delete(key);
         throw err;
       });
-    staffChecks.set(userId, check);
+    permissionChecks.set(key, check);
   }
   return check;
 }
 
-/** Whether the logged-in user is staff; `isChecking` while that is being resolved. */
-export function useStaffAccess(): { isStaff: boolean; isChecking: boolean } {
+/**
+ * Whether the logged-in user holds `node` in the in-house permission system (wildcards
+ * included); `isChecking` while that is being resolved. Only decides what the UI shows - the
+ * API enforces the node on its own.
+ */
+export function usePermission(node: string): { allowed: boolean; isChecking: boolean } {
   const { user } = useAuth();
   const userId = user?.id;
-  const [state, setState] = useState<{ userId?: number; isStaff: boolean; isChecking: boolean }>({
-    isStaff: false,
+  const [state, setState] = useState<{ key?: string; allowed: boolean; isChecking: boolean }>({
+    allowed: false,
     isChecking: userId !== undefined,
   });
+  const key = userId === undefined ? undefined : `${userId}:${node}`;
 
   useEffect(() => {
     if (userId === undefined) {
-      setState({ isStaff: false, isChecking: false });
+      setState({ allowed: false, isChecking: false });
       return;
     }
+    const checkKey = `${userId}:${node}`;
     let cancelled = false;
-    setState({ userId, isStaff: false, isChecking: true });
-    checkStaff(userId)
-      .then(isStaff => { if (!cancelled) setState({ userId, isStaff, isChecking: false }); })
-      .catch(() => { if (!cancelled) setState({ userId, isStaff: false, isChecking: false }); });
+    setState({ key: checkKey, allowed: false, isChecking: true });
+    checkPermission(userId, node)
+      .then(allowed => { if (!cancelled) setState({ key: checkKey, allowed, isChecking: false }); })
+      .catch(() => { if (!cancelled) setState({ key: checkKey, allowed: false, isChecking: false }); });
     return () => { cancelled = true; };
-  }, [userId]);
+  }, [userId, node]);
 
-  // Until the effect for a newly logged-in user has run, report "checking" rather than "no".
-  const isChecking = state.isChecking || (userId !== undefined && state.userId !== userId);
-  return { isStaff: !isChecking && state.isStaff, isChecking };
+  // Until the effect for a newly logged-in user (or node) has run, report "checking" rather than "no".
+  const isChecking = state.isChecking || (key !== undefined && state.key !== key);
+  return { allowed: !isChecking && state.allowed, isChecking };
+}
+
+/** Whether the logged-in user is staff; `isChecking` while that is being resolved. */
+export function useStaffAccess(): { isStaff: boolean; isChecking: boolean } {
+  const { allowed, isChecking } = usePermission(STAFF_PERMISSION_NODE);
+  return { isStaff: allowed, isChecking };
 }
