@@ -9,6 +9,9 @@ export interface PermissionGroupDto {
   weight: number;
   isPremiumTier: boolean;
   salaryMultiplier: number;
+  /** KNG-16: rank multipliers on title promotion gem/XP bonuses. Omitted keeps the stored value. */
+  gemBonusMultiplier?: number | null;
+  expBonusMultiplier?: number | null;
   chatPrefix?: string | null;
   chatSuffix?: string | null;
   parentGroupId?: number | null;
@@ -31,6 +34,8 @@ export interface PermissionGroupListDto {
   weight: number;
   isPremiumTier: boolean;
   salaryMultiplier: number;
+  gemBonusMultiplier: number;
+  expBonusMultiplier: number;
   parentGroupId?: number | null;
   parentGroupName?: string | null;
   childrenCount: number;

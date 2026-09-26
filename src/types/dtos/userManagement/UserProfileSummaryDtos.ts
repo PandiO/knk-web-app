@@ -28,6 +28,8 @@ export interface ProfileAccountDto {
   premiumTierName?: string | null;
   premiumTierExpiresAt?: string | null;
   personalSalaryMultiplier: number;
+  personalGemBonusMultiplier?: number | null;
+  personalExpBonusMultiplier?: number | null;
   lastSalaryPayoutAt: string;
   isFullAccount: boolean;
   createdAt: string;
