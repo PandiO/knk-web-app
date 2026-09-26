@@ -57,6 +57,14 @@ const formatDate = (iso?: string | null): string => {
     return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
 };
 
+// The API's own explanation for a refused request (400/403/409), e.g. "Requires the
+// knk.admin.user.coins permission." or a BalanceCapExceeded message since KNG-22.
+const clientErrorMessage = (err: unknown): string | null => {
+    const status = (err as { status?: number } | null)?.status;
+    const message = err instanceof Error ? err.message : null;
+    return status !== undefined && status >= 400 && status < 500 && message ? message : null;
+};
+
 export const PlayerProfilePage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -261,7 +269,7 @@ export const PlayerProfilePage: React.FC = () => {
             await refreshAfterAction();
         } catch (err) {
             console.error('Failed to adjust balance:', err);
-            setBalanceActionError('Could not adjust this balance — check the amount doesn\'t go below zero.');
+            setBalanceActionError(clientErrorMessage(err) ?? 'Could not adjust this balance — check the amount doesn\'t go below zero.');
         } finally {
             setAdjustingBalance(false);
         }
@@ -278,7 +286,7 @@ export const PlayerProfilePage: React.FC = () => {
             await Promise.all([loadKits(), loadActivity()]);
         } catch (err) {
             console.error('Failed to grant kit:', err);
-            setGrantKitError('Could not grant this kit.');
+            setGrantKitError(clientErrorMessage(err) ?? 'Could not grant this kit.');
         } finally {
             setGrantingKitId(null);
         }
