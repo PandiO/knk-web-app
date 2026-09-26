@@ -6,7 +6,7 @@ import { InvokeServiceArgs } from "./interfaces";
 export class ObjectManager {
     protected logger = logging.getLogger('ObjectManager');
     
-    invokeServiceCall(data: any, operation: string, controller: string, httpMethod: string): Promise<any> {
+    invokeServiceCall(data: any, operation: string, controller: string, httpMethod: string, headers?: Record<string, string>): Promise<any> {
         return new Promise((resolve, reject) => {
             const timeoutId = setTimeout(() => {
                 reject(new Error("promise timeout"))
@@ -17,6 +17,7 @@ export class ObjectManager {
                 httpMethod: httpMethod,
                 fetchApiUrl: ConfigurationHelper.gatewayApiUrl,
                 requestData: data,
+                headers,
                 responseHandler: {
                     success: (result: any) => {
                         console.log(result);

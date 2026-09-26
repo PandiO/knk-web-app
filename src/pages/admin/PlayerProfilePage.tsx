@@ -9,6 +9,8 @@ import { KitClient } from '../../apiClients/kitClient';
 import {
     ActiveMode,
     AuditLogEntryDto,
+    BalanceCurrency,
+    BalanceMode,
     TitleChangeResultDto,
     UserProfileSummaryDto,
 } from '../../types/dtos/userManagement/UserProfileSummaryDtos';
@@ -97,6 +99,13 @@ export const PlayerProfilePage: React.FC = () => {
     const [balanceReason, setBalanceReason] = React.useState('');
     const [adjustingBalance, setAdjustingBalance] = React.useState(false);
     const [balanceActionError, setBalanceActionError] = React.useState<string | null>(null);
+    // One Idempotency-Key per submission (currency ledger, KNG-21 Phase 2): kept when the request
+    // fails, so resubmitting the same values can't apply them twice if the first actually landed;
+    // dropped on success and whenever the form changes.
+    const balanceKeyRef = React.useRef<string | null>(null);
+    React.useEffect(() => {
+        balanceKeyRef.current = null;
+    }, [balanceProperty, balanceAction, balanceAmount, balanceReason, userId]);
     const [titleChangeNotice, setTitleChangeNotice] = React.useState<TitleChangeResultDto | null>(null);
 
     const [togglingMode, setTogglingMode] = React.useState(false);
@@ -251,25 +260,35 @@ export const PlayerProfilePage: React.FC = () => {
         setBalanceActionError(null);
         setTitleChangeNotice(null);
         try {
-            const current = account[balanceProperty];
-            const delta = balanceAction === 'set' ? amount - current : balanceAction === 'remove' ? -amount : amount;
-            if (delta !== 0) {
-                const result = await userManagementClient.adjustBalances(userId, {
-                    coinsDelta: balanceProperty === 'coins' ? delta : 0,
-                    gemsDelta: balanceProperty === 'gems' ? delta : 0,
-                    experienceDelta: balanceProperty === 'experiencePoints' ? delta : 0,
-                    reason: balanceReason.trim(),
-                });
-                if (result.titleChange) {
-                    setTitleChangeNotice(result.titleChange);
-                }
+            // The server applies the mode itself (a Set lands on exactly this value); no delta is
+            // computed here. expectedCurrent makes it refuse a Set if the balance changed since
+            // this page loaded, instead of overwriting that change.
+            const currency: BalanceCurrency = balanceProperty === 'coins' ? 'Coins' : balanceProperty === 'gems' ? 'Gems' : 'Experience';
+            const mode: BalanceMode = balanceAction === 'set' ? 'Set' : balanceAction === 'remove' ? 'Remove' : 'Add';
+            if (!balanceKeyRef.current) {
+                balanceKeyRef.current = crypto.randomUUID?.() || `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            }
+            const result = await userManagementClient.adjustBalances(userId, {
+                changes: [{
+                    currency,
+                    mode,
+                    amount,
+                    ...(mode === 'Set' ? { expectedCurrent: account[balanceProperty] } : {}),
+                }],
+                reason: balanceReason.trim(),
+            }, balanceKeyRef.current);
+            if (result.titleChange) {
+                setTitleChangeNotice(result.titleChange);
             }
             setBalanceAmount('');
             setBalanceReason('');
+            balanceKeyRef.current = null;
             await refreshAfterAction();
         } catch (err) {
             console.error('Failed to adjust balance:', err);
-            setBalanceActionError(clientErrorMessage(err) ?? 'Could not adjust this balance — check the amount doesn\'t go below zero.');
+            setBalanceActionError((err as { status?: number })?.status === 409
+                ? 'This balance changed since the page loaded — refresh and try again.'
+                : clientErrorMessage(err) ?? 'Could not adjust this balance — check the amount doesn\'t go below zero.');
         } finally {
             setAdjustingBalance(false);
         }
@@ -420,8 +439,9 @@ export const PlayerProfilePage: React.FC = () => {
                     </div>
 
                     {/* Quick action: adjust coins/gems/XP (developer request 2026-09-25) - the
-                        same PUT /api/users/{id}/balances the new /knk user in-game command uses,
-                        so a non-zero XP delta resolves/audit-logs a title change here too. */}
+                        same PUT /api/users/{id}/balances the /knk user in-game command uses; the
+                        server applies Add/Remove/Set through the currency ledger, and an XP
+                        change resolves/audit-logs a title change here too. */}
                     <form className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-end gap-3" onSubmit={(e) => void handleAdjustBalance(e)}>
                         <div>
                             <label className="block text-xs text-gray-500 mb-1">Property</label>
