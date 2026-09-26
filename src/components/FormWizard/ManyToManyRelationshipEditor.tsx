@@ -22,6 +22,11 @@ interface Props {
     value: Record<string, unknown>[]; // Array of join entity instances
     onChange: (value: Record<string, unknown>[]) => void;
     entityName: string; // Parent entity being edited
+    // The parent's real, correctly-cased entity type ("SiegeScenario"). `entityName` is the raw
+    // lowercase route segment, which never equals metadata's relatedEntityType - so the "not the
+    // parent" test below always passed and picked the parent's own FK (e.g. SiegeScenarioId) as the
+    // related side. Same bug class as the fixes in FormWizard.tsx (see PHASE_2_FORMCONFIGS.md).
+    parentEntityTypeName?: string;
     entityId?: string; // Parent entity's own id, once saved - used to look up its join-entry drafts
     joinFormConfigurationId?: string;
     onOpenJoinEntry?: (relationshipIndex: number) => void;
@@ -43,6 +48,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     value = [],
     onChange,
     entityName,
+    parentEntityTypeName,
     entityId,
     joinFormConfigurationId,
     onOpenJoinEntry,
@@ -158,8 +164,9 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
 
             // Determine the related entity type from join entity metadata
             // Look for navigation properties that aren't the parent entity
+            const parentTypeName = parentEntityTypeName || entityName;
             const relatedProp = joinMetadata.fields.find(
-                f => f.isRelatedEntity && f.relatedEntityType !== entityName
+                f => f.isRelatedEntity && f.relatedEntityType !== parentTypeName
             );
             if (relatedProp) {
                 const resolvedRelatedEntityType = relatedProp.relatedEntityType!;
@@ -217,7 +224,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                 relatedEntityIdField
             });
         }
-    }, [step.joinEntityType, entityName]);
+    }, [step.joinEntityType, entityName, parentEntityTypeName]);
 
     useEffect(() => {
         loadMetadata();

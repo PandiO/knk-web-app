@@ -841,9 +841,13 @@ export const FormWizardPage: React.FC<Props> = ({
         } catch (err) {
             logging.errorHandler.next('ErrorMessage.Entity.SaveFailed');
             console.error('Failed to create/update entity:', err);
+            // Show the API's own reason when it gave one (e.g. a siege save-time rule).
+            const reason = err instanceof Error && err.message && !/^HTTP \d+/.test(err.message) && err.message !== 'promise timeout'
+                ? ` ${err.message}`
+                : '';
             showFeedback({
                 title: 'Submit failed',
-                message: 'The form could not be submitted. Please review and try again.',
+                message: `The form could not be submitted.${reason || ' Please review and try again.'}`,
                 status: 'error',
                 onContinue: undefined,
             });
