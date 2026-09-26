@@ -18,6 +18,9 @@ import { LocationClient } from '../apiClients/locationClient';
 import { MinecraftEnchantmentRefClient } from '../apiClients/minecraftEnchantmentRefClient';
 import { UserClient } from '../apiClients/userClient';
 import { PermissionGroupClient } from '../apiClients/permissionGroupClient';
+import { LootboxTypeClient } from '../apiClients/lootboxTypeClient';
+import { LootboxSpecialEntryClient } from '../apiClients/lootboxSpecialEntryClient';
+import { LootboxSpawnAreaClient } from '../apiClients/lootboxSpawnAreaClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -90,6 +93,15 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => MinecraftEnchantmentRefClient.getInstance().searchPaged(query));
         case 'permissiongroup':
             return withPagedQueryMapping((query) => PermissionGroupClient.getInstance().searchPaged(query));
+        // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.6). The join entities (grade weights, pool
+        // entries, enchant rolls, area types) have no case: they are only edited inside their
+        // parent's wizard and travel with it, like KitContent.
+        case 'lootboxtype':
+            return withPagedQueryMapping((query) => LootboxTypeClient.getInstance().searchPaged(query));
+        case 'lootboxspecialentry':
+            return withPagedQueryMapping((query) => LootboxSpecialEntryClient.getInstance().searchPaged(query));
+        case 'lootboxspawnarea':
+            return withPagedQueryMapping((query) => LootboxSpawnAreaClient.getInstance().searchPaged(query));
         default:
             throw new Error(`No search function registered for entity type: ${entityTypeName}`);
     }
@@ -135,6 +147,12 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => UserClient.getInstance().getById(Number(id));
         case 'permissiongroup':
             return (id) => PermissionGroupClient.getInstance().getById(Number(id));
+        case 'lootboxtype':
+            return (id) => LootboxTypeClient.getInstance().getById(id);
+        case 'lootboxspecialentry':
+            return (id) => LootboxSpecialEntryClient.getInstance().getById(id);
+        case 'lootboxspawnarea':
+            return (id) => LootboxSpawnAreaClient.getInstance().getById(id);
         default:
             throw new Error(`No fetchById function registered for entity type: ${entityTypeName}`);
     }
@@ -182,6 +200,12 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => UserClient.getInstance().update(entity);
         case 'permissiongroup':
             return (entity) => PermissionGroupClient.getInstance().update(entity);
+        case 'lootboxtype':
+            return (entity) => LootboxTypeClient.getInstance().update(entity);
+        case 'lootboxspecialentry':
+            return (entity) => LootboxSpecialEntryClient.getInstance().update(entity);
+        case 'lootboxspawnarea':
+            return (entity) => LootboxSpawnAreaClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -227,6 +251,12 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => UserClient.getInstance().delete(Number(id));
         case 'permissiongroup':
             return (id) => PermissionGroupClient.getInstance().delete(Number(id));
+        case 'lootboxtype':
+            return (id) => LootboxTypeClient.getInstance().delete(id);
+        case 'lootboxspecialentry':
+            return (id) => LootboxSpecialEntryClient.getInstance().delete(id);
+        case 'lootboxspawnarea':
+            return (id) => LootboxSpawnAreaClient.getInstance().delete(id);
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -274,6 +304,12 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => UserClient.getInstance().create(entity);
         case 'permissiongroup':
             return (entity) => PermissionGroupClient.getInstance().create(entity);
+        case 'lootboxtype':
+            return (entity) => LootboxTypeClient.getInstance().create(entity);
+        case 'lootboxspecialentry':
+            return (entity) => LootboxSpecialEntryClient.getInstance().create(entity);
+        case 'lootboxspawnarea':
+            return (entity) => LootboxSpawnAreaClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }

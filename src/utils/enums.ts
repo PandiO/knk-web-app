@@ -96,7 +96,15 @@ export enum Controllers {
     DisplaySections = 'DisplaySections',
     DisplayFields = 'DisplayFields',
     AuditLog = 'audit-log',
-    PermissionGroups = 'PermissionGroups'
+    PermissionGroups = 'PermissionGroups',
+    // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.3)
+    LootboxTypes = 'LootboxTypes',
+    LootboxSpecialEntries = 'LootboxSpecialEntries',
+    LootboxSpawnAreas = 'LootboxSpawnAreas',
+    LootboxConfiguration = 'LootboxConfiguration',
+    LootboxSpawns = 'LootboxSpawns',
+    LootboxClaims = 'LootboxClaims',
+    ItemInstances = 'ItemInstances'
 }
 
 

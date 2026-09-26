@@ -1,4 +1,4 @@
-import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Shield, Lock } from 'lucide-react';
+import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Shield, Lock, Gift, Sparkles, Boxes } from 'lucide-react';
 import type { ColumnDefinition, FormField, ObjectConfig } from '../types/common';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
@@ -157,6 +157,36 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'gemBonusMultiplier', label: 'Gem bonus x', sortable: true },
       { key: 'expBonusMultiplier', label: 'XP bonus x', sortable: true },
       { key: 'parentGroupName', label: 'Parent', sortable: false, render: (row: any) => row.parentGroupName ?? '-' },
+    ]
+  },
+  // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.6) - also the pickers for a special entry's box type
+  // and a spawn area's allowed types.
+  lootboxtype: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'category', label: 'Category', sortable: false, render: (row: any) => row.category?.name ?? '-' },
+      { key: 'enabled', label: 'Enabled', sortable: false, render: (row: any) => row.enabled ? 'Yes' : '-' },
+      { key: 'boxStars', label: 'Box ★', sortable: false, render: (row: any) => `${row.minBoxStars}-${row.maxBoxStars}` },
+      { key: 'spawnWeight', label: 'Spawn Weight', sortable: false },
+    ]
+  },
+  lootboxspecialentry: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'itemBlueprint', label: 'Item', sortable: false, render: (row: any) => row.itemBlueprint?.name ?? `#${row.itemBlueprintId}` },
+      { key: 'lootboxType', label: 'Box Type', sortable: false, render: (row: any) => row.lootboxType?.name ?? 'Any box' },
+      { key: 'chancePerMillion', label: 'Chance', sortable: false, render: (row: any) => `${(row.chancePerMillion / 10000).toLocaleString('en-US', { maximumFractionDigits: 4 })}%` },
+      { key: 'minBoxStars', label: 'Min Box ★', sortable: false },
+      { key: 'enabled', label: 'Enabled', sortable: false, render: (row: any) => row.enabled ? 'Yes' : '-' },
+    ]
+  },
+  lootboxspawnarea: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'world', label: 'World', sortable: false },
+      { key: 'wgRegionId', label: 'Region', sortable: false },
+      { key: 'enabled', label: 'Enabled', sortable: false, render: (row: any) => row.enabled ? 'Yes' : '-' },
+      { key: 'maxActive', label: 'Max Active', sortable: false },
     ]
   }
 };
@@ -852,6 +882,55 @@ const permissionGroupConfig: ObjectConfig = {
   },
 };
 
+// Lootboxes Phase 4 (docs/specs/lootboxes/IMPLEMENTATION_PLAN.md): dashboard/navigation entries.
+// The real authoring UI is each entity's FormConfiguration (FormWizard); the grade weights, pool
+// entries and enchant rolls are join steps inside the LootboxType wizard, the allowed types one
+// inside the area's. /admin/lootboxes adds the settings singleton, odds, active boxes and drop log.
+const lootboxTypeConfig: ObjectConfig = {
+  type: 'lootboxtype',
+  label: 'Lootbox Type',
+  icon: <Gift className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    categoryId: { name: 'categoryId', label: 'Category Id', type: 'number', required: true },
+    enabled: { name: 'enabled', label: 'Enabled', type: 'bool', required: false, defaultValue: false },
+    spawnWeight: { name: 'spawnWeight', label: 'Spawn Weight', type: 'number', required: true, defaultValue: 10 },
+    minBoxStars: { name: 'minBoxStars', label: 'Min Box Stars', type: 'number', required: true, defaultValue: 1, min: 1, max: 5 },
+    maxBoxStars: { name: 'maxBoxStars', label: 'Max Box Stars', type: 'number', required: true, defaultValue: 5, min: 1, max: 5 },
+    itemStarSpread: { name: 'itemStarSpread', label: 'Item Star Spread', type: 'number', required: true, defaultValue: 2, min: 0, max: 9 },
+  },
+};
+
+const lootboxSpecialEntryConfig: ObjectConfig = {
+  type: 'lootboxspecialentry',
+  label: 'Lootbox Special',
+  icon: <Sparkles className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    itemBlueprintId: { name: 'itemBlueprintId', label: 'Item Blueprint Id', type: 'number', required: true },
+    lootboxTypeId: { name: 'lootboxTypeId', label: 'Lootbox Type Id (empty = any box)', type: 'number', required: false },
+    chancePerMillion: { name: 'chancePerMillion', label: 'Chance per Million', type: 'number', required: true, defaultValue: 2000, min: 0, max: 1000000 },
+    minBoxStars: { name: 'minBoxStars', label: 'Min Box Stars', type: 'number', required: true, defaultValue: 5, min: 1, max: 5 },
+    enabled: { name: 'enabled', label: 'Enabled', type: 'bool', required: false, defaultValue: true },
+    sortOrder: { name: 'sortOrder', label: 'Sort Order', type: 'number', required: true, defaultValue: 0 },
+  },
+};
+
+const lootboxSpawnAreaConfig: ObjectConfig = {
+  type: 'lootboxspawnarea',
+  label: 'Lootbox Spawn Area',
+  icon: <Boxes className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    world: { name: 'world', label: 'World', type: 'text', required: true },
+    wgRegionId: { name: 'wgRegionId', label: 'WorldGuard Region', type: 'text', required: true },
+    enabled: { name: 'enabled', label: 'Enabled', type: 'bool', required: false, defaultValue: false },
+    maxActive: { name: 'maxActive', label: 'Max Active', type: 'number', required: true, defaultValue: 3, min: 0 },
+  },
+};
+
 export const objectConfigs: Record<string, ObjectConfig> = {
   location: locationConfig,
   town: townConfig,
@@ -865,4 +944,7 @@ export const objectConfigs: Record<string, ObjectConfig> = {
   gatestructure: GateStructureConfig,
   gatedoor: GateDoorConfig,
   permissiongroup: permissionGroupConfig,
+  lootboxtype: lootboxTypeConfig,
+  lootboxspecialentry: lootboxSpecialEntryConfig,
+  lootboxspawnarea: lootboxSpawnAreaConfig,
 };
