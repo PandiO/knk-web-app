@@ -18,6 +18,7 @@ import { DisplayWizardPage } from './pages/DisplayWizardPage';
 import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayConfigBuilder';
 import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import { GameSettingsPage } from './pages/admin/GameSettingsPage';
+import { SiegeConfigurationPage } from './pages/admin/SiegeConfigurationPage';
 import { PlayerProfilePage } from './pages/admin/PlayerProfilePage';
 import { UserModerationPage } from './pages/admin/UserModerationPage';
 import { DiscoveryAdminPage } from './pages/admin/DiscoveryAdminPage';
@@ -150,40 +151,46 @@ function AppContent() {
                 </ProtectedRoute>
               } />
               <Route path="/admin/form-configurations" element={
-                <ProtectedRoute>
+                <StaffRoute>
                   <FormConfigListPage />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               <Route path="/admin/form-configurations/new" element={
-                <ProtectedRoute>
+                <StaffRoute>
                   <FormConfigBuilder />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               <Route path="/admin/form-configurations/edit/:id" element={
-                <ProtectedRoute>
+                <StaffRoute>
                   <FormConfigBuilder />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               {/* DisplayConfiguration routes */}
               <Route path="/admin/display-configurations" element={
-                <ProtectedRoute>
+                <StaffRoute>
                   <DisplayConfigListPage />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               <Route path="/admin/display-configurations/new" element={
-                <ProtectedRoute>
+                <StaffRoute>
                   <DisplayConfigBuilder />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               <Route path="/admin/display-configurations/edit/:id" element={
-                <ProtectedRoute>
+                <StaffRoute>
                   <DisplayConfigBuilder />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               <Route path="/admin/game-settings" element={
-                <ProtectedRoute>
+                <StaffRoute>
                   <GameSettingsPage />
-                </ProtectedRoute>
+                </StaffRoute>
+              } />
+              {/* Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables */}
+              <Route path="/admin/siege-configuration" element={
+                <StaffRoute>
+                  <SiegeConfigurationPage />
+                </StaffRoute>
               } />
               {/* Domain discovery rewards and statistics (docs/specs/domain-discovery/DESIGN.md
                   §3.9) - knk.admin.discovery, which the API enforces on every call as well. */}

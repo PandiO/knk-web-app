@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, Layout, LayoutTemplate, LogOut, UserCircle2, Settings, Users, Menu, X, Compass } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, FileText, Layout, LayoutTemplate, LogOut, UserCircle2, Settings, Users, Menu, X, Swords, Compass } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermission, useStaffAccess } from '../hooks/useStaffAccess';
 import { DISCOVERY_ADMIN_NODE } from '../types/dtos/discovery/DiscoveryDtos';
+import { NavLayout, pickNavLayout } from './navLayout';
 
 // added: explicit types for object types prop
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -12,19 +13,26 @@ type Props = { objectTypes: ObjectType[] };
 // staffOnly: knk.admin.user.manage (useStaffAccess); node: only for holders of that node (checked in nodeAccess).
 type NavLink = { to: string; label: string; Icon: React.ComponentType<{ className?: string }>; exact?: boolean; staffOnly?: boolean; node?: string };
 
-// One list for every size: the inline bar (labels from 2xl, icons only from lg) and the
-// menu button's panel below lg - the single row used to overflow and push the last links
-// and the account/Create buttons out of view on narrower windows.
+// One list for every size: the inline bar (with labels, or icons only) and the menu
+// button's panel. Which one shows is decided by measuring - see pickNavLayout.
 const NAV_LINKS: NavLink[] = [
   { to: '/', label: 'Home', Icon: Home, exact: true },
-  { to: '/dashboard', label: 'Dashboard', Icon: Table2, exact: true },
-  { to: '/forms', label: 'Forms', Icon: FileText },
-  { to: '/admin/form-configurations', label: 'Form Builder', Icon: Layout },
-  { to: '/admin/display-configurations', label: 'Display Builder', Icon: LayoutTemplate },
-  { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings },
+  // Smoke test 2026-09-26: the admin tools are staff only (hidden here, and the /admin pages are
+  // StaffRoutes). Dashboard stays a route because login lands there.
+  { to: '/dashboard', label: 'Dashboard', Icon: Table2, exact: true, staffOnly: true },
+  { to: '/forms', label: 'Forms', Icon: FileText, staffOnly: true },
+  { to: '/admin/form-configurations', label: 'Form Builder', Icon: Layout, staffOnly: true },
+  { to: '/admin/display-configurations', label: 'Display Builder', Icon: LayoutTemplate, staffOnly: true },
+  { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings, staffOnly: true },
+  // Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables
+  { to: '/admin/siege-configuration', label: 'Siege Settings', Icon: Swords, staffOnly: true },
   { to: '/admin/discovery', label: 'Discovery', Icon: Compass, node: DISCOVERY_ADMIN_NODE },
   { to: '/admin/users', label: 'Moderation', Icon: Users, exact: true, staffOnly: true },
 ];
+
+const LINK_CLASS = 'inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-2 py-1.5 text-sm font-medium transition-colors';
+const LINKS_ROW_CLASS = 'flex items-center gap-1';
+const TITLE_CLASS = 'whitespace-nowrap text-xl font-semibold text-slate-900';
 
 // changed: accept props object instead of raw array parameter
 export function Navigation({ objectTypes }: Props) {
@@ -44,6 +52,43 @@ export function Navigation({ objectTypes }: Props) {
     [DISCOVERY_ADMIN_NODE]: usePermission(DISCOVERY_ADMIN_NODE).allowed,
   };
   const navLinks = NAV_LINKS.filter(link => (!link.staffOnly || isStaff) && (!link.node || nodeAccess[link.node]));
+
+  const [navLayout, setNavLayout] = useState<NavLayout>('labels+title');
+  const leftRef = useRef<HTMLDivElement>(null);
+  const logoRef = useRef<HTMLAnchorElement>(null);
+  const titleMeasureRef = useRef<HTMLSpanElement>(null);
+  const labelsMeasureRef = useRef<HTMLDivElement>(null);
+  const iconsMeasureRef = useRef<HTMLDivElement>(null);
+
+  // The left half is flex-1/min-w-0, so its width is whatever the account and Create
+  // buttons leave over - it doesn't depend on the layout picked, so this can't flip-flop.
+  // The invisible copies in the render give the widths each layout would need.
+  useLayoutEffect(() => {
+    const left = leftRef.current;
+    if (!left) return;
+    const measure = () => {
+      setNavLayout(pickNavLayout(left.clientWidth, {
+        logo: logoRef.current?.offsetWidth ?? 0,
+        title: titleMeasureRef.current?.offsetWidth ?? 0,
+        labels: labelsMeasureRef.current?.offsetWidth ?? 0,
+        icons: iconsMeasureRef.current?.offsetWidth ?? 0,
+      }));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+    // Also watch the labels copy: it widens once the web font has loaded.
+    const observer = new ResizeObserver(measure);
+    observer.observe(left);
+    if (labelsMeasureRef.current) observer.observe(labelsMeasureRef.current);
+    return () => observer.disconnect();
+  }, [navLinks.length]);
+
+  const showMenu = navLayout === 'menu';
+  const showLabels = navLayout === 'labels+title' || navLayout === 'labels';
+  const showTitle = navLayout !== 'labels' && navLayout !== 'icons';
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -106,69 +151,93 @@ export function Navigation({ objectTypes }: Props) {
   return (
     <nav className="panel fixed w-full top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex min-w-0 items-center space-x-4 2xl:space-x-8">
-            {/* Below lg the links live in this menu instead of the bar. */}
-            <div className="relative lg:hidden" ref={navMenuRef}>
-              <button
-                onClick={() => setIsNavMenuOpen(open => !open)}
-                className="inline-flex items-center justify-center rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary"
-                aria-label={isNavMenuOpen ? 'Close menu' : 'Open menu'}
-                aria-expanded={isNavMenuOpen}
-              >
-                {isNavMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </button>
-              {isNavMenuOpen && (
-                <div
-                  className="absolute left-0 mt-2 w-60 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 z-50"
-                  role="menu"
-                >
-                  {navLinks.map(link => (
-                    <Link
-                      key={link.to}
-                      to={link.to}
-                      role="menuitem"
-                      className={`flex items-center px-4 py-2 text-sm ${
-                        isActive(link)
-                          ? 'bg-slate-100 font-medium text-slate-900'
-                          : 'text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      <link.Icon className="h-4 w-4 mr-3 text-slate-500" />
-                      {link.label}
-                    </Link>
-                  ))}
-                </div>
-              )}
+        <div className="flex h-16 justify-between gap-4">
+          <div ref={leftRef} className="relative flex min-w-0 flex-1 items-center gap-4">
+            {/* Invisible copies, only there to be measured for pickNavLayout. */}
+            <div aria-hidden="true" className="invisible pointer-events-none absolute left-0 top-0">
+              <span ref={titleMeasureRef} className={`${TITLE_CLASS} inline-block`}>Dashboard</span>
+              <div ref={labelsMeasureRef} className={`${LINKS_ROW_CLASS} w-max`}>
+                {navLinks.map(link => (
+                  <span key={link.to} className={LINK_CLASS}>
+                    <link.Icon className="h-5 w-5" />
+                    {link.label}
+                  </span>
+                ))}
+              </div>
+              <div ref={iconsMeasureRef} className={`${LINKS_ROW_CLASS} w-max`}>
+                {navLinks.map(link => (
+                  <span key={link.to} className={LINK_CLASS}>
+                    <link.Icon className="h-5 w-5" />
+                  </span>
+                ))}
+              </div>
             </div>
-            <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="flex items-center">
+            {/* When even the icons don't fit, the links live in this menu instead of the bar. */}
+            {showMenu && (
+              <div className="relative flex-shrink-0" ref={navMenuRef}>
+                <button
+                  onClick={() => setIsNavMenuOpen(open => !open)}
+                  className="inline-flex items-center justify-center rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary"
+                  aria-label={isNavMenuOpen ? 'Close menu' : 'Open menu'}
+                  aria-expanded={isNavMenuOpen}
+                >
+                  {isNavMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                </button>
+                {isNavMenuOpen && (
+                  <div
+                    className="absolute left-0 mt-2 w-64 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 z-50"
+                    role="menu"
+                  >
+                    {navLinks.map(link => (
+                      <Link
+                        key={link.to}
+                        to={link.to}
+                        role="menuitem"
+                        className={`flex items-center px-4 py-2.5 text-sm ${
+                          isActive(link)
+                            ? 'bg-slate-100 font-medium text-slate-900'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <link.Icon className="h-5 w-5 mr-3 text-slate-500" />
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex flex-shrink-0 items-center">
+              <Link ref={logoRef} to="/" className="flex items-center">
                 <img
                   src="https://www.dropbox.com/scl/fi/dshx4j5951wsc0dvxvk22/favicon.png?rlkey=te7efq8ukvzy8mx6uj654h54h&raw=1"
                   alt="Logo"
-                  className="h-10 w-10 mr-3 hover:opacity-90 transition-opacity"
+                  className="h-10 w-10 hover:opacity-90 transition-opacity"
                 />
               </Link>
-              <h1 className="hidden sm:block text-xl font-semibold text-slate-900">Dashboard</h1>
+              {/* Phones hide it even in the menu layout - the logo is enough there. */}
+              {showTitle && <h1 className={`${TITLE_CLASS} ml-3 hidden sm:block`}>Dashboard</h1>}
             </div>
-            <div className="hidden lg:flex lg:space-x-1 2xl:space-x-6">
-              {navLinks.map(link => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  title={link.label}
-                  aria-label={link.label}
-                  className={`inline-flex items-center whitespace-nowrap px-2 pt-1 text-sm font-medium 2xl:px-1 ${
-                    isActive(link)
-                      ? 'border-b-2 border-primary text-slate-900'
-                      : 'text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                  }`}
-                >
-                  <link.Icon className="h-4 w-4 2xl:mr-2" />
-                  <span className="hidden 2xl:inline">{link.label}</span>
-                </Link>
-              ))}
-            </div>
+            {!showMenu && (
+              <div className={`${LINKS_ROW_CLASS} min-w-0`}>
+                {navLinks.map(link => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    title={showLabels ? undefined : link.label}
+                    aria-label={showLabels ? undefined : link.label}
+                    className={`${LINK_CLASS} ${
+                      isActive(link)
+                        ? 'border-primary text-slate-900'
+                        : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                    }`}
+                  >
+                    <link.Icon className="h-5 w-5" />
+                    {showLabels && link.label}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex flex-shrink-0 items-center space-x-4">
             {/* Account Menu Dropdown */}
@@ -220,6 +289,8 @@ export function Navigation({ objectTypes }: Props) {
               )}
             </div>
 
+            {/* Creating objects goes through the forms: staff only, like the Forms link. */}
+            {isStaff && (
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsOpen(!isOpen)}
@@ -269,6 +340,7 @@ export function Navigation({ objectTypes }: Props) {
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
       </div>

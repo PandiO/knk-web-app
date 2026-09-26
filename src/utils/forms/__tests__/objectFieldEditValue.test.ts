@@ -37,6 +37,12 @@ describe('resolveObjectFieldValueForEdit', () => {
         expect(load({ anchorPointId: 5 }, objectField('AnchorPointId'))).toBe(5);
     });
 
+    it('builds { id, name } on an FK-authored field from an FK + display-name DTO', () => {
+        // The siege read DTOs expose townId + townName but no Town object.
+        expect(load({ townId: 7, townName: 'Cinix' }, objectField('TownId'))).toEqual({ id: 7, name: 'Cinix' });
+        expect(load({ townId: 7, townName: '' }, objectField('TownId'))).toBe(7);
+    });
+
     it('leaves non-Object fields alone and applies the default only when the value is missing', () => {
         const text = { fieldName: 'Name', fieldType: FieldType.String, defaultValue: 'x' } as FormFieldDto;
         expect(load({ name: 'Starter' }, text)).toBe('Starter');
