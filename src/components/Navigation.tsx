@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, Layout, LayoutTemplate, LogOut, UserCircle2, Settings, Users, Menu, X, Swords } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Swords } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStaffAccess } from '../hooks/useStaffAccess';
 import { NavLayout, pickNavLayout } from './navLayout';
@@ -16,11 +16,10 @@ type NavLink = { to: string; label: string; Icon: React.ComponentType<{ classNam
 const NAV_LINKS: NavLink[] = [
   { to: '/', label: 'Home', Icon: Home, exact: true },
   // Smoke test 2026-09-26: the admin tools are staff only (hidden here, and the /admin pages are
-  // StaffRoutes). Dashboard stays a route because login lands there.
+  // StaffRoutes). Dashboard stays a route because login lands there. The form and display
+  // builders have no link of their own: they're opened from the Forms page.
   { to: '/dashboard', label: 'Dashboard', Icon: Table2, exact: true, staffOnly: true },
   { to: '/forms', label: 'Forms', Icon: FileText, staffOnly: true },
-  { to: '/admin/form-configurations', label: 'Form Builder', Icon: Layout, staffOnly: true },
-  { to: '/admin/display-configurations', label: 'Display Builder', Icon: LayoutTemplate, staffOnly: true },
   { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings, staffOnly: true },
   // Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables
   { to: '/admin/siege-configuration', label: 'Siege Settings', Icon: Swords, staffOnly: true },
@@ -28,6 +27,9 @@ const NAV_LINKS: NavLink[] = [
 ];
 
 const LINK_CLASS = 'inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-2 py-1.5 text-sm font-medium transition-colors';
+// Without labels the icons are all there is to go on: bigger, on a square button, with the
+// active page filled in rather than just underlined.
+const ICON_LINK_CLASS = 'inline-flex items-center justify-center rounded-lg p-2 transition-colors';
 const LINKS_ROW_CLASS = 'flex items-center gap-1';
 const TITLE_CLASS = 'whitespace-nowrap text-xl font-semibold text-slate-900';
 
@@ -159,8 +161,8 @@ export function Navigation({ objectTypes }: Props) {
               </div>
               <div ref={iconsMeasureRef} className={`${LINKS_ROW_CLASS} w-max`}>
                 {navLinks.map(link => (
-                  <span key={link.to} className={LINK_CLASS}>
-                    <link.Icon className="h-5 w-5" />
+                  <span key={link.to} className={ICON_LINK_CLASS}>
+                    <link.Icon className="h-6 w-6" />
                   </span>
                 ))}
               </div>
@@ -219,14 +221,27 @@ export function Navigation({ objectTypes }: Props) {
                     to={link.to}
                     title={showLabels ? undefined : link.label}
                     aria-label={showLabels ? undefined : link.label}
-                    className={`${LINK_CLASS} ${
-                      isActive(link)
-                        ? 'border-primary text-slate-900'
-                        : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'
-                    }`}
+                    aria-current={isActive(link) ? 'page' : undefined}
+                    className={showLabels
+                      ? `${LINK_CLASS} ${
+                        isActive(link)
+                          ? 'border-primary text-slate-900'
+                          : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                      }`
+                      : `${ICON_LINK_CLASS} ${
+                        isActive(link)
+                          ? 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/30'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
                   >
-                    <link.Icon className="h-5 w-5" />
-                    {showLabels && link.label}
+                    {showLabels ? (
+                      <>
+                        <link.Icon className="h-5 w-5" />
+                        {link.label}
+                      </>
+                    ) : (
+                      <link.Icon className="h-6 w-6" />
+                    )}
                   </Link>
                 ))}
               </div>

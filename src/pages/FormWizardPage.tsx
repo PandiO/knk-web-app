@@ -887,22 +887,6 @@ export const FormWizardPage: React.FC<Props> = ({
                     />
                 </div>
                 <div className='dashboard-content'>
-                    {/* Quick access to builders */}
-                    <div className="flex justify-end mb-4 gap-2">
-                        <button
-                            onClick={() => navigate('/admin/display-configurations')}
-                            className="btn-secondary text-sm"
-                        >
-                            Open Display Builder
-                        </button>
-                        <button
-                            onClick={() => navigate('/admin/form-configurations')}
-                            className="btn-secondary text-sm"
-                        >
-                            Open Form Builder
-                        </button>
-                    </div>
-
                     <div className="mb-4">
                         <EntityMetadataNavigator metadata={selectedEntityMetadata} />
                     </div>
