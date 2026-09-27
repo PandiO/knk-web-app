@@ -39,6 +39,19 @@ describe('describeAuditDetails', () => {
     }))).toEqual(['Bread ★1', 'From a Food Lootbox ★2 box', 'claim #32']);
   });
 
+  it('describes a discovery reset: the place and what its discovery paid (kept)', () => {
+    const at = '2026-09-20T18:30:00Z';
+    expect(describeAuditDetails(entry('DiscoveryReset', {
+      domainId: 42, domainName: 'Rivia', domainType: 'Town', discoveredAt: at,
+      coinsAwarded: 2600, gemsAwarded: 7, expAwarded: 0,
+    }))).toEqual([
+      'Town Rivia',
+      `Discovered ${new Date(at).toLocaleString()}, paid 2,600 coins, 7 gems (kept)`,
+    ]);
+    expect(describeAuditDetails(entry('DiscoveryReset', { domainId: 9, domainName: null, domainType: 'GateStructure' })))
+      .toEqual(['Gate domain #9']);
+  });
+
   it('shows each balance change with its before/after, the title bonus and the reason', () => {
     expect(describeAuditDetails(entry('BalanceAdjusted', {
       coinsDelta: 0, gemsDelta: -3, experienceDelta: 2500, reason: 'event prize',

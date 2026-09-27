@@ -1,4 +1,5 @@
 import { AuditLogEntryDto } from '../types/dtos/userManagement/UserProfileSummaryDtos';
+import { discoveryTypeLabel } from '../types/dtos/discovery/DiscoveryDtos';
 
 /**
  * Human-readable lines for an audit entry's Details JSON (knk-web-api AuditLogEntry.Details),
@@ -25,6 +26,7 @@ export function describeAuditDetails(entry: AuditLogEntryDto): string[] {
     case 'KitGranted': return details.kitName ? [`Kit: ${details.kitName}`] : [];
     case 'LootboxSpawnedByAdmin': return lootboxSpawnLines(details);
     case 'LootboxGranted': return lootboxGrantedLines(details);
+    case 'DiscoveryReset': return discoveryResetLines(details);
     // Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md).
     case 'CurrencyTransactionReversed': return reversalLines(details);
     case 'CurrencyTransferLocked': return details.reason ? [`Reason: ${details.reason}`] : [];
@@ -207,6 +209,27 @@ function lootboxGrantedLines(d: Details): string[] {
   if (num(d.claimId) !== undefined) refs.push(`claim #${d.claimId}`);
   if (num(d.itemInstanceId) !== undefined) refs.push(`item instance #${d.itemInstanceId}`);
   if (refs.length > 0) lines.push(refs.join(', '));
+  return lines;
+}
+
+// knk-web-api DiscoveryService.ResetAsync: the place whose discovery was forgotten and what that
+// discovery had paid (not taken back - docs/specs/domain-discovery/DESIGN.md D8).
+function discoveryResetLines(d: Details): string[] {
+  const lines: string[] = [];
+  const domainId = num(d.domainId);
+  const name = d.domainName ?? (domainId !== undefined ? `domain #${domainId}` : null);
+  if (name) lines.push(`${d.domainType ? `${discoveryTypeLabel(d.domainType)} ` : ''}${name}`);
+  const paid: string[] = [];
+  const coins = num(d.coinsAwarded) ?? 0;
+  const gems = num(d.gemsAwarded) ?? 0;
+  const exp = num(d.expAwarded) ?? 0;
+  if (coins) paid.push(`${formatAmount(coins)} coins`);
+  if (gems) paid.push(`${formatAmount(gems)} gems`);
+  if (exp) paid.push(`${formatAmount(exp)} XP`);
+  const when = d.discoveredAt ? `Discovered ${new Date(d.discoveredAt).toLocaleString()}` : null;
+  if (when || paid.length > 0) {
+    lines.push([when, paid.length > 0 ? `paid ${paid.join(', ')} (kept)` : null].filter(Boolean).join(', '));
+  }
   return lines;
 }
 

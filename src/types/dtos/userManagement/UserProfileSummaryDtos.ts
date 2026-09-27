@@ -119,6 +119,8 @@ export type AuditAction =
   // staff give of a lootbox item (/knk lootbox give, target = the player who got it).
   | 'LootboxSpawnedByAdmin'
   | 'LootboxGranted'
+  // Written by knk-web-api's DiscoveryService.ResetAsync (docs/specs/domain-discovery/DESIGN.md §3.5).
+  | 'DiscoveryReset'
   // Currency ledger Phase 4 (knk-web-api AuditAction 19-22).
   | 'CurrencyPolicyChanged'
   | 'CurrencyTransactionReversed'

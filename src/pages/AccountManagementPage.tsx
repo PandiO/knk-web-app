@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { authClient } from '../apiClients/authClient';
 import { FeedbackModal } from '../components/FeedbackModal';
 import { validateEmailFormat } from '../utils/passwordValidator';
+import { MyDiscoveriesSection } from '../components/discovery/MyDiscoveriesSection';
 
 export const AccountManagementPage: React.FC = () => {
   const { user, refresh } = useAuth();
@@ -210,6 +211,10 @@ export const AccountManagementPage: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Discoveries (docs/specs/domain-discovery/DESIGN.md §3.9) - only once the account is
+                linked to Minecraft, since discoveries are made in-game. */}
+            {user.uuid && <MyDiscoveriesSection userId={user.id} />}
 
             {/* Email Management */}
             <div className="border-b pb-6">
