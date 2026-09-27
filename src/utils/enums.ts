@@ -101,6 +101,16 @@ export enum Controllers {
     AuditLogRetentionConfiguration = 'AuditLogRetentionConfiguration',
     PrivateMessageLog = 'private-message-log',
     PermissionGroups = 'PermissionGroups',
+    // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.3)
+    LootboxTypes = 'LootboxTypes',
+    LootboxSpecialEntries = 'LootboxSpecialEntries',
+    LootboxSpawnAreas = 'LootboxSpawnAreas',
+    LootboxConfiguration = 'LootboxConfiguration',
+    LootboxSpawns = 'LootboxSpawns',
+    LootboxClaims = 'LootboxClaims',
+    LootboxTokens = 'LootboxTokens',
+    LootboxTokenGrants = 'LootboxTokenGrants',
+    ItemInstances = 'ItemInstances',
     Currency = 'currency',
     // Siege Phase 1
     BannerDesigns = 'BannerDesigns',

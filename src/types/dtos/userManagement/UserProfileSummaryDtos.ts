@@ -114,6 +114,11 @@ export type AuditAction =
   | 'PlayerUnfrozen'
   // Written by knk-web-api's KitService.GiveKitAsync (docs/specs/kits/DESIGN.md §4.1).
   | 'KitGranted'
+  // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.2): a staff member changed where boxes spawn
+  // (Details.event Spawned | AreaCreated | AreaDeleted, recorded against the staff member), and a
+  // staff give of a lootbox item (/knk lootbox give, target = the player who got it).
+  | 'LootboxSpawnedByAdmin'
+  | 'LootboxGranted'
   // Written by knk-web-api's DiscoveryService.ResetAsync (docs/specs/domain-discovery/DESIGN.md §3.5).
   | 'DiscoveryReset'
   // Currency ledger Phase 4 (knk-web-api AuditAction 19-22).
