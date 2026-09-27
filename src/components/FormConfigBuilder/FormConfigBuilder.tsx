@@ -84,19 +84,24 @@ export const FormConfigBuilder: React.FC = () => {
         return () => clearAutoClose();
     }, []);
 
+    // Back to the Forms page (where the builders are opened from), on this config's entity.
+    const formsPagePath = config.entityTypeName
+        ? `/forms/${encodeURIComponent(config.entityTypeName)}`
+        : '/forms';
+
     const closeSaveModal = () => {
         clearAutoClose();
         const shouldNavigate = saveFeedback.status === 'success';
         setSaveFeedback(prev => ({ ...prev, open: false }));
         if (shouldNavigate) {
-            navigate('/admin/form-configurations');
+            navigate(formsPagePath);
         }
     };
 
     const handleSaveContinue = () => {
         clearAutoClose();
         setSaveFeedback(prev => ({ ...prev, open: false }));
-        navigate('/admin/form-configurations');
+        navigate(formsPagePath);
     };
 
     const loadData = useCallback(async () => {
@@ -742,7 +747,7 @@ export const FormConfigBuilder: React.FC = () => {
                 {/* Save Button */}
                 <div className="mt-6 flex justify-end space-x-3">
                     <button
-                        onClick={() => navigate('/admin/form-configurations')}
+                        onClick={() => navigate(formsPagePath)}
                         className="btn-secondary"
                     >
                         Cancel

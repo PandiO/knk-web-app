@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { StaffRoute } from './components/StaffRoute';
@@ -13,10 +13,8 @@ import en from './utils/languages/en-en.json';
 import { ErrorView } from './components/ErrorView';
 import { FormWizardPage } from './pages/FormWizardPage';
 import { FormConfigBuilder } from './components/FormConfigBuilder/FormConfigBuilder';
-import { FormConfigListPage } from './pages/FormConfigListPage';
 import { DisplayWizardPage } from './pages/DisplayWizardPage';
 import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayConfigBuilder';
-import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import { GameSettingsPage } from './pages/admin/GameSettingsPage';
 import { SiegeConfigurationPage } from './pages/admin/SiegeConfigurationPage';
 import { PlayerProfilePage } from './pages/admin/PlayerProfilePage';
@@ -161,11 +159,8 @@ function AppContent() {
                   <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
                 </ProtectedRoute>
               } />
-              <Route path="/admin/form-configurations" element={
-                <StaffRoute>
-                  <FormConfigListPage />
-                </StaffRoute>
-              } />
+              {/* The builders are opened from the Forms page; their old list pages redirect there. */}
+              <Route path="/admin/form-configurations" element={<Navigate to="/forms" replace />} />
               <Route path="/admin/form-configurations/new" element={
                 <StaffRoute>
                   <FormConfigBuilder />
@@ -177,11 +172,7 @@ function AppContent() {
                 </StaffRoute>
               } />
               {/* DisplayConfiguration routes */}
-              <Route path="/admin/display-configurations" element={
-                <StaffRoute>
-                  <DisplayConfigListPage />
-                </StaffRoute>
-              } />
+              <Route path="/admin/display-configurations" element={<Navigate to="/forms" replace />} />
               <Route path="/admin/display-configurations/new" element={
                 <StaffRoute>
                   <DisplayConfigBuilder />
