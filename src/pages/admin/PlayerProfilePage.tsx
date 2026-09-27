@@ -6,6 +6,7 @@ import { describeAuditDetails } from '../../utils/auditDetails';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { KitClient } from '../../apiClients/kitClient';
+import { PrivateMessagesPanel } from '../../components/admin/PrivateMessagesPanel';
 import {
     ActiveMode,
     AuditLogEntryDto,
@@ -21,6 +22,7 @@ import { KitAvailabilityDto } from '../../types/dtos/kit/KitDtos';
 // vanish) directly on this page, plus a Recent activity feed off the new audit log.
 // docs/specs/kits/IMPLEMENTATION_PLAN.md §6 adds the "Kits" section/Grant action below, the
 // web-app's first-class counterpart to the in-game /kit give (DESIGN.md §4.0/§4.6).
+// docs/specs/private-messages/IMPLEMENTATION_PLAN.md Phase 4 adds the "Private messages" panel.
 
 const ACTIVE_MODES: ActiveMode[] = ['None', 'Staff', 'Owner'];
 
@@ -39,6 +41,8 @@ const auditActionLabel = (entry: AuditLogEntryDto): string => {
         case 'PlayerUnfrozen': return 'Player unfrozen';
         // Written by GiveKitAsync (docs/specs/kits/DESIGN.md §4.1) on every staff kit grant.
         case 'KitGranted': return 'Kit granted';
+        // Written by PrivateMessageLogService on every read of the PM log (see PrivateMessagesPanel).
+        case 'PrivateMessagesViewed': return 'Private messages viewed';
         default: return entry.action;
     }
 };
@@ -55,6 +59,14 @@ const formatDate = (iso?: string | null): string => {
     if (!iso) return '-';
     const date = new Date(iso);
     return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
+};
+
+// The API's own explanation for a refused request (400/403/409), e.g. "Requires the
+// knk.admin.user.coins permission." or a BalanceCapExceeded message since KNG-22.
+const clientErrorMessage = (err: unknown): string | null => {
+    const status = (err as { status?: number } | null)?.status;
+    const message = err instanceof Error ? err.message : null;
+    return status !== undefined && status >= 400 && status < 500 && message ? message : null;
 };
 
 export const PlayerProfilePage: React.FC = () => {
@@ -261,7 +273,7 @@ export const PlayerProfilePage: React.FC = () => {
             await refreshAfterAction();
         } catch (err) {
             console.error('Failed to adjust balance:', err);
-            setBalanceActionError('Could not adjust this balance — check the amount doesn\'t go below zero.');
+            setBalanceActionError(clientErrorMessage(err) ?? 'Could not adjust this balance — check the amount doesn\'t go below zero.');
         } finally {
             setAdjustingBalance(false);
         }
@@ -278,7 +290,7 @@ export const PlayerProfilePage: React.FC = () => {
             await Promise.all([loadKits(), loadActivity()]);
         } catch (err) {
             console.error('Failed to grant kit:', err);
-            setGrantKitError('Could not grant this kit.');
+            setGrantKitError(clientErrorMessage(err) ?? 'Could not grant this kit.');
         } finally {
             setGrantingKitId(null);
         }
@@ -797,6 +809,10 @@ export const PlayerProfilePage: React.FC = () => {
                     )}
                     {grantKitError && <p className="mt-3 text-xs text-red-600">{grantKitError}</p>}
                 </div>
+
+                {/* Private messages (docs/specs/private-messages/DESIGN.md §3.4) - only for holders of
+                    knk.pmlog.read; each read adds a PrivateMessagesViewed entry to Recent activity. */}
+                <PrivateMessagesPanel key={userId} userId={userId} onViewed={loadActivity} />
 
                 {/* Recent activity (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 2) */}
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
