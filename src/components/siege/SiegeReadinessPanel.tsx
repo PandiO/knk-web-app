@@ -28,7 +28,8 @@ interface Props {
  * GET /api/SiegeScenarios/{id}/readiness (DESIGN.md §3.9) for the SAVED scenario - teams, spawnpoints
  * and objectives are saved as soon as their own forms complete, but this wizard's own fields
  * (general, hub, rules, districts, gates) only save on Submit, so the panel says so and offers a
- * re-check.
+ * re-check. Location checks are the field-validation rules configured on the siege forms (none
+ * configured = nothing spatial is checked); a failed rule is FIELD_RULE_FAILED.
  */
 export const SiegeReadinessPanel: React.FC<Props> = ({ scenarioId, label, description }) => {
     const [readiness, setReadiness] = React.useState<SiegeScenarioReadinessDto | null>(null);
@@ -130,21 +131,7 @@ export const SiegeReadinessPanel: React.FC<Props> = ({ scenarioId, label, descri
                         <IssueList title="Warnings (don't block)" issues={otherWarnings} tone="warning" />
                     )}
 
-                    <div
-                        className={`rounded-md border p-3 text-xs flex items-start gap-2 ${
-                            readiness.spatialChecksRun
-                                ? 'border-green-200 bg-green-50 text-green-800'
-                                : 'border-amber-300 bg-amber-50 text-amber-800'
-                        }`}
-                    >
-                        {readiness.spatialChecksRun ? <CheckCircle2 className="h-4 w-4 flex-shrink-0" /> : <WifiOff className="h-4 w-4 flex-shrink-0" />}
-                        <span>
-                            {readiness.spatialChecksRun
-                                ? 'Spatial checks ran: the hub, spawnpoints and capture points were checked against the town region.'
-                                : (spatialWarning?.message ||
-                                    'Spatial checks did not run (the Minecraft server/plugin is not reachable). The hub, spawnpoints and capture points were not checked against the town region.')}
-                        </span>
-                    </div>
+                    <FieldRuleStatus readiness={readiness} unavailableMessage={spatialWarning?.message} />
                 </>
             )}
 
@@ -152,6 +139,45 @@ export const SiegeReadinessPanel: React.FC<Props> = ({ scenarioId, label, descri
                 This checks the saved scenario. Changes on this form's own steps (general, districts, hub,
                 rules, rewards, gates) are saved when you press Submit - re-check after that.
             </p>
+        </div>
+    );
+};
+
+// Location (and other cross-field) checks are the field-validation rules configured on the siege
+// forms - FormConfigBuilder → field → Cross-Field Validation - not hard-coded, so say which case applies.
+const FieldRuleStatus: React.FC<{ readiness: SiegeScenarioReadinessDto; unavailableMessage?: string }> = ({ readiness, unavailableMessage }) => {
+    const checks = readiness.fieldRuleChecks ?? 0;
+    if (!readiness.spatialChecksRun) {
+        return (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 flex items-start gap-2">
+                <WifiOff className="h-4 w-4 flex-shrink-0" />
+                <span>
+                    {unavailableMessage ||
+                        'Some validation rules could not run (the Minecraft server/plugin is not reachable), so those fields were not checked.'}
+                </span>
+            </div>
+        );
+    }
+    if (checks === 0) {
+        return (
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800 flex items-start gap-2">
+                <Info className="h-4 w-4 flex-shrink-0" />
+                <span>
+                    No validation rules are configured on the scenario, team, spawnpoint or objective forms, so
+                    locations are not checked against the town. To check one, add a Cross-Field Validation rule
+                    (e.g. Location Inside Region, depending on the scenario form's Town) to that field in the
+                    form configuration.
+                </span>
+            </div>
+        );
+    }
+    return (
+        <div className="rounded-md border border-green-200 bg-green-50 p-3 text-xs text-green-800 flex items-start gap-2">
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+            <span>
+                Validation rules ran: {checks} field check{checks === 1 ? '' : 's'} from the rules configured on the
+                siege forms. Blocking rules show as errors, non-blocking rules as warnings.
+            </span>
         </div>
     );
 };
@@ -164,7 +190,7 @@ const IssueList: React.FC<{ title: string; issues: SiegeReadinessIssueDto[]; ton
             <p className="text-xs font-semibold text-gray-700 mb-1">{title}</p>
             <ul className="space-y-1">
                 {issues.map((issue, index) => (
-                    <li key={`${issue.code}-${issue.entityId ?? index}`} className={`flex items-start gap-2 text-sm ${color}`}>
+                    <li key={`${issue.code}-${issue.entityType ?? ''}-${issue.entityId ?? ''}-${index}`} className={`flex items-start gap-2 text-sm ${color}`}>
                         <Icon className="h-4 w-4 mt-0.5 flex-shrink-0" />
                         <span>
                             {issue.message}

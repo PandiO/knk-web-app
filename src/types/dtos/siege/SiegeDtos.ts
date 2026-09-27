@@ -122,7 +122,10 @@ export interface SiegeReadinessIssueDto {
 export interface SiegeScenarioReadinessDto {
     siegeScenarioId: number;
     isReady: boolean;
+    // False when some configured field-validation rules couldn't run (plugin unreachable).
     spatialChecksRun: boolean;
+    // Field-validation rule checks that ran; 0 = no rules configured on the siege forms.
+    fieldRuleChecks?: number;
     errors: SiegeReadinessIssueDto[];
     warnings: SiegeReadinessIssueDto[];
 }
