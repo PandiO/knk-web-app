@@ -71,4 +71,39 @@ describe('TransactionDetailPage', () => {
         renderPage();
         await waitFor(() => expect(screen.getByText('Reversed by')).toBeInTheDocument());
     });
+
+    it('shows who reversed it and when, without a Reverse form, for a reversed transaction', async () => {
+        (currencyClient.getTransaction as jest.Mock).mockResolvedValue({
+            ...TX, reversible: false, reversedByPublicId: '01M3FJ00000000000000000000',
+            reversedAt: '2026-09-27T10:30:00Z', reversedByUserId: 9, reversedByUsername: 'moderator'
+        });
+        renderPage();
+
+        const notice = await screen.findByRole('status');
+        expect(notice).toHaveTextContent(/Already reversed on .+ by moderator \(reversal 01M3FJ00000000000000000000\)/);
+        expect(screen.queryByRole('button', { name: 'Reverse' })).not.toBeInTheDocument();
+    });
+
+    it('on 409 AlreadyReversed shows the existing reversal instead of success, and hides the form', async () => {
+        (currencyClient.reverse as jest.Mock).mockRejectedValue(Object.assign(
+            new Error('AlreadyReversed: Transaction 01M3 was already reversed.'), {
+                status: 409,
+                response: {
+                    error: 'AlreadyReversed', code: 'AlreadyReversed', message: 'already reversed',
+                    details: { reversalTransactionPublicId: '01M3FK00000000000000000000', reversedAt: '2026-09-27T10:30:00Z', reversedByUserId: null, reversedByUsername: null }
+                }
+            }));
+        renderPage();
+        await waitFor(() => expect(screen.getByText('SYS_SALARY')).toBeInTheDocument());
+
+        // Someone else reversed it meanwhile; the reload still shows it as reversible here.
+        fireEvent.change(screen.getByLabelText(/reason/i), { target: { value: 'Paid twice by a bug' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Reverse' }));
+
+        const notice = await screen.findByRole('status');
+        expect(notice).toHaveTextContent(/Already reversed on .+ by the game server \(reversal 01M3FK00000000000000000000\)/);
+        expect(screen.queryByText(/^Reversed as/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/AlreadyReversed:/)).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Reverse' })).not.toBeInTheDocument();
+    });
 });

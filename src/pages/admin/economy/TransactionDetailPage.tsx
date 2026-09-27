@@ -5,6 +5,7 @@ import { currencyClient } from '../../../apiClients/currencyClient';
 import { usePermission } from '../../../hooks/useStaffAccess';
 import { currencyName, parseUtc } from '../../../components/currency/BalanceLedgerTable';
 import {
+    AlreadyReversedDetailsDto,
     CURRENCY_NODES,
     CurrencyTransactionDetailDto,
     MIN_STAFF_NOTE_LENGTH,
@@ -16,12 +17,46 @@ const numberFormat = new Intl.NumberFormat('en-US');
 const errorMessage = (err: unknown, fallback: string): string =>
     err instanceof Error && err.message ? err.message : fallback;
 
+/** The existing reversal from a 409 AlreadyReversed refusal, if that is what the error is. */
+const alreadyReversedDetails = (err: unknown): AlreadyReversedDetailsDto | null => {
+    const response = (err as { response?: { code?: string; error?: string; details?: AlreadyReversedDetailsDto | null } } | null)?.response;
+    const code = response?.code ?? response?.error;
+    return code === 'AlreadyReversed' && response?.details?.reversalTransactionPublicId ? response.details : null;
+};
+
+/** The transaction's own reversal, from the detail view. */
+const reversalOf = (tx: CurrencyTransactionDetailDto): AlreadyReversedDetailsDto | null =>
+    tx.reversedByPublicId && tx.reversedAt
+        ? {
+            reversalTransactionPublicId: tx.reversedByPublicId,
+            reversedAt: tx.reversedAt,
+            reversedByUserId: tx.reversedByUserId,
+            reversedByUsername: tx.reversedByUsername,
+        }
+        : null;
+
+/** "Already reversed on … by … (reversal …)" - instead of a success message or the Reverse form. */
+const AlreadyReversedNotice: React.FC<{ info: AlreadyReversedDetailsDto }> = ({ info }) => {
+    const when = parseUtc(info.reversedAt);
+    return (
+        <div role="status" className="rounded-md p-3 text-sm bg-amber-50 border border-amber-200 text-amber-900">
+            Already reversed on {Number.isNaN(when.getTime()) ? info.reversedAt : when.toLocaleString()} by{' '}
+            {info.reversedByUserId
+                ? <Link className="underline" to={`/admin/users/${info.reversedByUserId}`}>{info.reversedByUsername ?? `#${info.reversedByUserId}`}</Link>
+                : 'the game server'}{' '}
+            (reversal{' '}
+            <Link className="font-mono underline" to={`/admin/economy/transactions/${info.reversalTransactionPublicId}`}>{info.reversalTransactionPublicId}</Link>).
+        </div>
+    );
+};
+
 /**
  * One ledger transaction (currency-payments Phase 4, DESIGN.md §3.7 TransactionDetailPage): every
  * leg (players and system accounts), who started it and why, its reversal links, and - for holders
  * of knk.admin.currency.reverse - a Reverse form (note of at least 10 characters, optional partial
  * reversal when the player has spent some of it). The server posts the reversal once and never
- * takes a balance below zero.
+ * takes a balance below zero. A reversed transaction shows "Already reversed on … by …" and no
+ * form; so does a Reverse refused with 409 AlreadyReversed (someone else was first).
  */
 export const TransactionDetailPage: React.FC = () => {
     const { publicId = '' } = useParams<{ publicId: string }>();
@@ -36,6 +71,8 @@ export const TransactionDetailPage: React.FC = () => {
     const [reversing, setReversing] = React.useState(false);
     const [reverseError, setReverseError] = React.useState<string | null>(null);
     const [reversal, setReversal] = React.useState<ReversalResultDto | null>(null);
+    // Set when the API said someone reversed it after this page loaded (409 AlreadyReversed).
+    const [refusedAsReversed, setRefusedAsReversed] = React.useState<AlreadyReversedDetailsDto | null>(null);
 
     const load = React.useCallback(async () => {
         setLoading(true);
@@ -51,6 +88,7 @@ export const TransactionDetailPage: React.FC = () => {
 
     React.useEffect(() => {
         setReversal(null);
+        setRefusedAsReversed(null);
         void load();
     }, [load]);
 
@@ -67,11 +105,21 @@ export const TransactionDetailPage: React.FC = () => {
             setNote('');
             await load();
         } catch (err) {
-            setReverseError(errorMessage(err, 'Could not reverse this transaction.'));
+            const existing = alreadyReversedDetails(err);
+            if (existing) {
+                setRefusedAsReversed(existing);
+                setNote('');
+                await load();
+            } else {
+                setReverseError(errorMessage(err, 'Could not reverse this transaction.'));
+            }
         } finally {
             setReversing(false);
         }
     };
+
+    // A reversal made in this session shows its own success message instead.
+    const alreadyReversed = reversal ? null : (refusedAsReversed ?? (tx ? reversalOf(tx) : null));
 
     let metadata: string | null = null;
     if (tx?.metadataJson) {
@@ -175,13 +223,15 @@ export const TransactionDetailPage: React.FC = () => {
 
                         {reversal && (
                             <div className="rounded-md p-3 text-sm bg-green-50 border border-green-200 text-green-900">
-                                {reversal.posting.replayed ? 'Already reversed' : 'Reversed'} as{' '}
+                                Reversed as{' '}
                                 <Link className="font-mono underline" to={`/admin/economy/transactions/${reversal.posting.publicId}`}>{reversal.posting.publicId}</Link>
                                 {reversal.partial && ' - partially: the player had spent some of it, the shortfall is recorded in the reversal.'}
                             </div>
                         )}
 
-                        {canReverse && tx.reversible && (
+                        {alreadyReversed && <AlreadyReversedNotice info={alreadyReversed} />}
+
+                        {canReverse && tx.reversible && !alreadyReversed && (
                             <form className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 space-y-3" onSubmit={(e) => void handleReverse(e)}>
                                 <h2 className="text-lg font-semibold text-gray-900 flex items-center">
                                     <Undo2 className="h-5 w-5 mr-2" />

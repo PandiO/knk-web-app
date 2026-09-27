@@ -104,8 +104,21 @@ export interface CurrencyTransactionDetailDto {
   metadataJson?: string | null;
   reversesPublicId?: string | null;
   reversedByPublicId?: string | null;
+  /** When it was reversed (UTC); set with reversedByPublicId. */
+  reversedAt?: string | null;
+  /** The staff member who reversed it (null: reversed by the game server without a named staff member). */
+  reversedByUserId?: number | null;
+  reversedByUsername?: string | null;
   reversible: boolean;
   entries: CurrencyEntryDetailDto[];
+}
+
+/** `details` of a 409 AlreadyReversed from POST admin/transactions/{publicId}/reverse (KNG-21). */
+export interface AlreadyReversedDetailsDto {
+  reversalTransactionPublicId: string;
+  reversedAt: string;
+  reversedByUserId?: number | null;
+  reversedByUsername?: string | null;
 }
 
 export interface PostedEntryDto {
