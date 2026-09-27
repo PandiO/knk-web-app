@@ -114,6 +114,8 @@ export type AuditAction =
   | 'PlayerUnfrozen'
   // Written by knk-web-api's KitService.GiveKitAsync (docs/specs/kits/DESIGN.md §4.1).
   | 'KitGranted'
+  // Written by knk-web-api's DiscoveryService.ResetAsync (docs/specs/domain-discovery/DESIGN.md §3.5).
+  | 'DiscoveryReset'
   // Currency ledger Phase 4 (knk-web-api AuditAction 19-22).
   | 'CurrencyPolicyChanged'
   | 'CurrencyTransactionReversed'

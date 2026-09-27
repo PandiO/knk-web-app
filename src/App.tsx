@@ -19,6 +19,8 @@ import { GameSettingsPage } from './pages/admin/GameSettingsPage';
 import { SiegeConfigurationPage } from './pages/admin/SiegeConfigurationPage';
 import { PlayerProfilePage } from './pages/admin/PlayerProfilePage';
 import { UserModerationPage } from './pages/admin/UserModerationPage';
+import { DiscoveryAdminPage } from './pages/admin/DiscoveryAdminPage';
+import { DISCOVERY_ADMIN_NODE } from './types/dtos/discovery/DiscoveryDtos';
 import { AccountTransactionsPage } from './pages/AccountTransactionsPage';
 import { BalanceLogPage } from './pages/admin/BalanceLogPage';
 import { TransactionDetailPage } from './pages/admin/economy/TransactionDetailPage';
@@ -190,6 +192,13 @@ function AppContent() {
               <Route path="/admin/siege-configuration" element={
                 <StaffRoute>
                   <SiegeConfigurationPage />
+                </StaffRoute>
+              } />
+              {/* Domain discovery rewards and statistics (docs/specs/domain-discovery/DESIGN.md
+                  §3.9) - knk.admin.discovery, which the API enforces on every call as well. */}
+              <Route path="/admin/discovery" element={
+                <StaffRoute node={DISCOVERY_ADMIN_NODE}>
+                  <DiscoveryAdminPage />
                 </StaffRoute>
               } />
               {/* Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md, KNG-23):

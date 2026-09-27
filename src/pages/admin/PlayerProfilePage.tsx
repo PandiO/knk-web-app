@@ -6,6 +6,7 @@ import { describeAuditDetails } from '../../utils/auditDetails';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { KitClient } from '../../apiClients/kitClient';
+import { PlayerDiscoveriesPanel } from '../../components/admin/PlayerDiscoveriesPanel';
 import { currencyClient } from '../../apiClients/currencyClient';
 import { usePermission } from '../../hooks/useStaffAccess';
 import { BalanceLedgerTable } from '../../components/currency/BalanceLedgerTable';
@@ -31,6 +32,7 @@ import { KitAvailabilityDto } from '../../types/dtos/kit/KitDtos';
 // vanish) directly on this page, plus a Recent activity feed off the new audit log.
 // docs/specs/kits/IMPLEMENTATION_PLAN.md §6 adds the "Kits" section/Grant action below, the
 // web-app's first-class counterpart to the in-game /kit give (DESIGN.md §4.0/§4.6).
+// docs/specs/domain-discovery/DESIGN.md §3.9 adds the "Discoveries" panel (knk.admin.discovery).
 // docs/specs/private-messages/IMPLEMENTATION_PLAN.md Phase 4 adds the "Private messages" panel.
 
 const ACTIVE_MODES: ActiveMode[] = ['None', 'Staff', 'Owner'];
@@ -50,6 +52,8 @@ const auditActionLabel = (entry: AuditLogEntryDto): string => {
         case 'PlayerUnfrozen': return 'Player unfrozen';
         // Written by GiveKitAsync (docs/specs/kits/DESIGN.md §4.1) on every staff kit grant.
         case 'KitGranted': return 'Kit granted';
+        // Written by DiscoveryService.ResetAsync (docs/specs/domain-discovery/DESIGN.md §3.5).
+        case 'DiscoveryReset': return 'Discovery reset';
         // Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md).
         case 'CurrencyTransactionReversed': return 'Transaction reversed';
         case 'CurrencyTransferLocked': return 'Payments locked';
@@ -814,6 +818,10 @@ export const PlayerProfilePage: React.FC = () => {
                     )}
                     {grantKitError && <p className="mt-3 text-xs text-red-600">{grantKitError}</p>}
                 </div>
+
+                {/* Discoveries (docs/specs/domain-discovery/DESIGN.md §3.9) - only for holders of
+                    knk.admin.discovery; each reset adds a DiscoveryReset entry to Recent activity. */}
+                <PlayerDiscoveriesPanel key={userId} userId={userId} onReset={loadActivity} />
 
                 {/* Balance history (KNG-23, currency Phase 4): the balance event log filtered to this player. */}
                 {canReadLedger && (

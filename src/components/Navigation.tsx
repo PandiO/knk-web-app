@@ -1,15 +1,17 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Swords } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Swords, Compass } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useStaffAccess } from '../hooks/useStaffAccess';
+import { usePermission, useStaffAccess } from '../hooks/useStaffAccess';
+import { DISCOVERY_ADMIN_NODE } from '../types/dtos/discovery/DiscoveryDtos';
 import { NavLayout, pickNavLayout } from './navLayout';
 
 // added: explicit types for object types prop
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
 
-type NavLink = { to: string; label: string; Icon: React.ComponentType<{ className?: string }>; exact?: boolean; staffOnly?: boolean };
+// staffOnly: knk.admin.user.manage (useStaffAccess); node: only for holders of that node (checked in nodeAccess).
+type NavLink = { to: string; label: string; Icon: React.ComponentType<{ className?: string }>; exact?: boolean; staffOnly?: boolean; node?: string };
 
 // One list for every size: the inline bar (with labels, or icons only) and the menu
 // button's panel. Which one shows is decided by measuring - see pickNavLayout.
@@ -23,6 +25,7 @@ const NAV_LINKS: NavLink[] = [
   { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings, staffOnly: true },
   // Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables
   { to: '/admin/siege-configuration', label: 'Siege Settings', Icon: Swords, staffOnly: true },
+  { to: '/admin/discovery', label: 'Discovery', Icon: Compass, node: DISCOVERY_ADMIN_NODE },
   { to: '/admin/users', label: 'Moderation', Icon: Users, exact: true, staffOnly: true },
 ];
 
@@ -46,7 +49,11 @@ export function Navigation({ objectTypes }: Props) {
   const location = useLocation();
   const { logout, isLoading } = useAuth();
   const { isStaff } = useStaffAccess();
-  const navLinks = NAV_LINKS.filter(link => !link.staffOnly || isStaff);
+  // One check per node a link needs (checks are cached per login, see useStaffAccess).
+  const nodeAccess: Record<string, boolean> = {
+    [DISCOVERY_ADMIN_NODE]: usePermission(DISCOVERY_ADMIN_NODE).allowed,
+  };
+  const navLinks = NAV_LINKS.filter(link => (!link.staffOnly || isStaff) && (!link.node || nodeAccess[link.node]));
 
   const [navLayout, setNavLayout] = useState<NavLayout>('labels+title');
   const leftRef = useRef<HTMLDivElement>(null);
