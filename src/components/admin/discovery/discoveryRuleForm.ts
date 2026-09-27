@@ -52,6 +52,18 @@ export const ruleToDraft = (rule: DiscoveryRewardRuleDto): RuleDraft => ({
   includeAncestors: rule.includeAncestors,
 });
 
+/** A saved rule as a PUT body, unchanged. */
+export const ruleToUpdate = (rule: DiscoveryRewardRuleDto): UpdateDiscoveryRewardRuleDto => ({
+  isEnabled: rule.isEnabled,
+  expUnitsMin: rule.expUnitsMin,
+  expUnitsMax: rule.expUnitsMax,
+  coinSalaryHoursMin: rule.coinSalaryHoursMin,
+  coinSalaryHoursMax: rule.coinSalaryHoursMax,
+  gemsMin: rule.gemsMin,
+  gemsMax: rule.gemsMax,
+  includeAncestors: rule.includeAncestors,
+});
+
 export const overrideToDraft = (domainOverride?: DomainDiscoveryOverrideDto | null): OverrideDraft => ({
   ...numberFields(domainOverride ?? {}),
   isEnabled: triState(domainOverride?.isEnabled),

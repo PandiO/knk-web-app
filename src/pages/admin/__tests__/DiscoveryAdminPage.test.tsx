@@ -182,6 +182,113 @@ describe('DiscoveryAdminPage', () => {
     expect(await screen.findByText('expUnitsMin and expUnitsMax cannot exceed 1000.')).toBeInTheDocument();
   });
 
+  describe('turning a type with subtypes on or off', () => {
+    const saved = (domainType: string, body: object): DiscoveryRewardRuleDto => ({ ...rule(domainType), ...body });
+
+    const turnOffStructure = async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Edit Structure rule' }));
+      await userEvent.click(screen.getByLabelText('Structure enabled'));
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    };
+
+    beforeEach(() => {
+      client.updateRule.mockImplementation(async (domainType, body) => saved(domainType, body));
+    });
+
+    it('asks whether Gate structures follow when Structure is turned off', async () => {
+      renderPage();
+      await screen.findByText('Serf');
+
+      await turnOffStructure();
+
+      const dialog = screen.getByRole('dialog', { name: 'Also turn discovery off for Gate structures?' });
+      expect(within(dialog).getByRole('button', { name: 'Also apply to Gate structures' })).toBeInTheDocument();
+      expect(within(dialog).getByRole('button', { name: 'Only Structure' })).toBeInTheDocument();
+      expect(client.updateRule).not.toHaveBeenCalled();
+
+      // Closing goes back to editing without saving.
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Structure enabled')).not.toBeChecked();
+      expect(client.updateRule).not.toHaveBeenCalled();
+    });
+
+    it('saves Structure and then the Gate rule with only Enabled changed', async () => {
+      renderPage();
+      await screen.findByText('Serf');
+
+      await turnOffStructure();
+      await userEvent.click(screen.getByRole('button', { name: 'Also apply to Gate structures' }));
+
+      const gate = RULES[3];
+      await waitFor(() => expect(client.updateRule).toHaveBeenCalledTimes(2));
+      expect(client.updateRule).toHaveBeenNthCalledWith(1, 'Structure', expect.objectContaining({ isEnabled: false }));
+      expect(client.updateRule).toHaveBeenNthCalledWith(2, 'GateStructure', {
+        isEnabled: false, includeAncestors: gate.includeAncestors,
+        expUnitsMin: gate.expUnitsMin, expUnitsMax: gate.expUnitsMax,
+        coinSalaryHoursMin: gate.coinSalaryHoursMin, coinSalaryHoursMax: gate.coinSalaryHoursMax,
+        gemsMin: gate.gemsMin, gemsMax: gate.gemsMax,
+      });
+      await waitFor(() => expect(within(ruleRow('Gate')).getByText('No', { selector: 'span' })).toBeInTheDocument());
+      expect(within(ruleRow('Structure')).getByText('No', { selector: 'span' })).toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('saves only Structure when asked to', async () => {
+      renderPage();
+      await screen.findByText('Serf');
+
+      await turnOffStructure();
+      await userEvent.click(screen.getByRole('button', { name: 'Only Structure' }));
+
+      await waitFor(() => expect(within(ruleRow('Structure')).getByText('No', { selector: 'span' })).toBeInTheDocument());
+      expect(client.updateRule).toHaveBeenCalledTimes(1);
+      expect(client.updateRule).toHaveBeenCalledWith('Structure', expect.objectContaining({ isEnabled: false }));
+      expect(within(ruleRow('Gate')).getByText('Yes', { selector: 'span' })).toBeInTheDocument();
+    });
+
+    it('keeps Structure saved and says so when the Gate rule cannot be saved', async () => {
+      client.updateRule.mockImplementation(async (domainType, body) => {
+        if (domainType === 'GateStructure') throw new Error('down');
+        return saved(domainType, body);
+      });
+      renderPage();
+      await screen.findByText('Serf');
+
+      await turnOffStructure();
+      await userEvent.click(screen.getByRole('button', { name: 'Also apply to Gate structures' }));
+
+      expect(await screen.findByText('Gate: Could not save this rule.')).toBeInTheDocument();
+      expect(within(ruleRow('Structure')).getByText('No', { selector: 'span' })).toBeInTheDocument();
+      expect(within(ruleRow('Gate')).getByText('Yes', { selector: 'span' })).toBeInTheDocument();
+    });
+
+    it('does not ask when the Gate rule already matches', async () => {
+      client.getRules.mockResolvedValue([RULES[0], RULES[1], RULES[2], { ...RULES[3], isEnabled: false }]);
+      renderPage();
+      await screen.findByText('Serf');
+
+      await turnOffStructure();
+
+      await waitFor(() => expect(client.updateRule).toHaveBeenCalledTimes(1));
+      expect(client.updateRule).toHaveBeenCalledWith('Structure', expect.objectContaining({ isEnabled: false }));
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('does not ask for Town, whose districts are not a kind of town', async () => {
+      renderPage();
+      await screen.findByText('Serf');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Edit Town rule' }));
+      await userEvent.click(screen.getByLabelText('Town enabled'));
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => expect(client.updateRule).toHaveBeenCalledTimes(1));
+      expect(client.updateRule).toHaveBeenCalledWith('Town', expect.objectContaining({ isEnabled: false }));
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
   it('previews another type', async () => {
     renderPage();
     await screen.findByText('Serf');

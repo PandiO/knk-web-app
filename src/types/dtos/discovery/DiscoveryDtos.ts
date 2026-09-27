@@ -13,6 +13,22 @@ export type DiscoveryDomainType = typeof DISCOVERY_DOMAIN_TYPES[number];
 export const discoveryTypeLabel = (domainType: string): string =>
   domainType === 'GateStructure' ? 'Gate' : domainType;
 
+/** "Gate structures", "Towns" - for sentences about every place of a type. */
+export const discoveryTypePluralLabel = (domainType: string): string =>
+  domainType === 'GateStructure' ? 'Gate structures' : `${domainType}s`;
+
+/**
+ * Subtypes per domain type (the API's class hierarchy: a GateStructure is a Structure). Turning a
+ * type's discovery on or off offers to do the same for these. Containment is not subtyping - a
+ * District lies in a Town but is not one - so Town has no entry.
+ */
+export const DISCOVERY_CHILD_TYPES: Partial<Record<DiscoveryDomainType, readonly DiscoveryDomainType[]>> = {
+  Structure: ['GateStructure'],
+};
+
+export const discoveryChildTypes = (domainType: string): readonly DiscoveryDomainType[] =>
+  DISCOVERY_CHILD_TYPES[domainType as DiscoveryDomainType] ?? [];
+
 /**
  * Body of POST api/users/{id}/discoveries/progress. The API's PagedQueryDto binds "pageNumber"
  * (not the shared web-app PagedQueryDto's "page"). Filters: domainType, status

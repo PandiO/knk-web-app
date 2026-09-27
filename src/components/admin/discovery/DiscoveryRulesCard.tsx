@@ -4,9 +4,12 @@ import { discoveryClient } from '../../../apiClients/discoveryClient';
 import {
   DiscoveryRewardRuleDto,
   UpdateDiscoveryRewardRuleDto,
+  discoveryChildTypes,
   discoveryTypeLabel,
+  discoveryTypePluralLabel,
 } from '../../../types/dtos/discovery/DiscoveryDtos';
-import { RANGES, RangeKey, RuleDraft, parseRuleDraft, ruleToDraft } from './discoveryRuleForm';
+import { FeedbackModal } from '../../FeedbackModal';
+import { RANGES, RangeKey, RuleDraft, parseRuleDraft, ruleToDraft, ruleToUpdate } from './discoveryRuleForm';
 
 // docs/specs/domain-discovery/DESIGN.md §3.1/§3.3/§3.9 (1) - one reward rule per domain type,
 // edited inline. XP = units × 1% of the player's title bracket width, coins = salary-hours × the
@@ -52,6 +55,16 @@ export const RangeInputs: React.FC<{
   </div>
 );
 
+/** The API's reason for a refused rule (400), otherwise a generic message. */
+const saveErrorMessage = (err: unknown): string => {
+  const status = (err as { status?: number } | null)?.status;
+  const message = err instanceof Error ? err.message : null;
+  return status === 400 && message ? message : 'Could not save this rule.';
+};
+
+/** A save waiting for the admin to say whether the subtypes' Enabled follows the parent's. */
+type CascadePrompt = { rule: UpdateDiscoveryRewardRuleDto; children: DiscoveryRewardRuleDto[] };
+
 const formatUpdated = (iso?: string | null): string => {
   if (!iso) return '-';
   const date = new Date(iso);
@@ -68,6 +81,9 @@ export const DiscoveryRulesCard: React.FC<{
   const [draft, setDraft] = React.useState<RuleDraft | null>(null);
   const [errors, setErrors] = React.useState<string[]>([]);
   const [saving, setSaving] = React.useState(false);
+  const [cascadePrompt, setCascadePrompt] = React.useState<CascadePrompt | null>(null);
+  // A subtype that could not follow its parent's Enabled - shown after the parent was saved.
+  const [cascadeErrors, setCascadeErrors] = React.useState<string[]>([]);
 
   const startEdit = (rule: DiscoveryRewardRuleDto) => {
     if (editingType) onDraftChange(editingType, null);
@@ -75,6 +91,7 @@ export const DiscoveryRulesCard: React.FC<{
     setEditingType(rule.domainType);
     setDraft(next);
     setErrors([]);
+    setCascadeErrors([]);
     onDraftChange(rule.domainType, parseRuleDraft(next).value ?? null);
   };
 
@@ -92,28 +109,63 @@ export const DiscoveryRulesCard: React.FC<{
     setErrors([]);
   };
 
-  const save = async () => {
+  /** Saves the edited rule, then each subtype's rule with only Enabled changed. */
+  const persist = async (rule: UpdateDiscoveryRewardRuleDto, children: DiscoveryRewardRuleDto[]) => {
+    if (!editingType) return;
+    setSaving(true);
+    setErrors([]);
+    setCascadeErrors([]);
+    try {
+      let saved: DiscoveryRewardRuleDto;
+      try {
+        saved = await discoveryClient.updateRule(editingType, rule);
+      } catch (err) {
+        console.error('Failed to save discovery rule:', err);
+        setErrors([saveErrorMessage(err)]);
+        return;
+      }
+      stopEdit();
+      onSaved(saved);
+      const failed: string[] = [];
+      for (const child of children) {
+        try {
+          onSaved(await discoveryClient.updateRule(child.domainType, { ...ruleToUpdate(child), isEnabled: rule.isEnabled }));
+        } catch (err) {
+          console.error('Failed to save discovery rule:', err);
+          failed.push(`${discoveryTypeLabel(child.domainType)}: ${saveErrorMessage(err)}`);
+        }
+      }
+      setCascadeErrors(failed);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const save = () => {
     if (!draft || !editingType) return;
     const parsed = parseRuleDraft(draft);
     if (!parsed.value) {
       setErrors(parsed.errors);
       return;
     }
-    setSaving(true);
-    setErrors([]);
-    try {
-      const saved = await discoveryClient.updateRule(editingType, parsed.value);
-      stopEdit();
-      onSaved(saved);
-    } catch (err) {
-      console.error('Failed to save discovery rule:', err);
-      const status = (err as { status?: number } | null)?.status;
-      const message = err instanceof Error ? err.message : null;
-      setErrors([status === 400 && message ? message : 'Could not save this rule.']);
-    } finally {
-      setSaving(false);
+    // Switching a type on or off asks whether its subtypes (Structure -> Gate) follow, unless
+    // they already match.
+    const current = rules.find((r) => r.domainType === editingType);
+    const newEnabled = parsed.value.isEnabled;
+    if (current && current.isEnabled !== newEnabled) {
+      const childTypes = discoveryChildTypes(editingType);
+      const children = rules.filter((r) => childTypes.some((t) => t === r.domainType) && r.isEnabled !== newEnabled);
+      if (children.length > 0) {
+        setCascadePrompt({ rule: parsed.value, children });
+        return;
+      }
     }
+    void persist(parsed.value, []);
   };
+
+  const cascadeParentLabel = editingType ? discoveryTypeLabel(editingType) : '';
+  const cascadeParentPlural = editingType ? discoveryTypePluralLabel(editingType) : '';
+  const cascadeChildrenLabel = cascadePrompt?.children.map((c) => discoveryTypePluralLabel(c.domainType)).join(' and ') ?? '';
 
   return (
     <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
@@ -123,6 +175,11 @@ export const DiscoveryRulesCard: React.FC<{
         salary-hours are multiplied by the title&apos;s hourly salary; gems are flat. Each reward is rolled
         between min and max, then the player&apos;s personal and rank multipliers apply.
       </p>
+      {cascadeErrors.length > 0 && (
+        <div className="mb-3">
+          {cascadeErrors.map((error) => <p key={error} className="text-xs text-red-600">{error}</p>)}
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -189,7 +246,7 @@ export const DiscoveryRulesCard: React.FC<{
                     <td className="py-2 pr-4 text-right whitespace-nowrap">
                       {editing ? (
                         <div className="inline-flex gap-1">
-                          <button className="btn-primary text-xs px-2 py-1 inline-flex items-center" disabled={saving} onClick={() => void save()}>
+                          <button className="btn-primary text-xs px-2 py-1 inline-flex items-center" disabled={saving} onClick={save}>
                             {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
                             Save
                           </button>
@@ -224,6 +281,21 @@ export const DiscoveryRulesCard: React.FC<{
           </tbody>
         </table>
       </div>
+      <FeedbackModal
+        open={cascadePrompt !== null}
+        title={`Also turn discovery ${cascadePrompt?.rule.isEnabled ? 'on' : 'off'} for ${cascadeChildrenLabel}?`}
+        message={`${cascadeChildrenLabel} are ${cascadeParentPlural.toLowerCase()} too, but have a reward rule of their own. `
+          + `"Only ${cascadeParentLabel}" leaves it as it is; Close goes back to editing.`}
+        continueLabel={`Also apply to ${cascadeChildrenLabel}`}
+        onContinue={() => {
+          if (cascadePrompt) void persist(cascadePrompt.rule, cascadePrompt.children);
+        }}
+        secondaryLabel={`Only ${cascadeParentLabel}`}
+        onSecondary={() => {
+          if (cascadePrompt) void persist(cascadePrompt.rule, []);
+        }}
+        onClose={() => setCascadePrompt(null)}
+      />
     </div>
   );
 };
