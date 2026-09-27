@@ -74,7 +74,7 @@ describe('Lootbox token items tab (Phase 5)', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Revoke token 1' }));
         fireEvent.click(screen.getByRole('button', { name: 'Revoke' }));
         await waitFor(() => expect(tokenClient.revoke).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000001'));
-        expect(await screen.findByText('Token #1 revoked.')).toBeInTheDocument();
+        expect(await screen.findByText(/Token #1 revoked/)).toBeInTheDocument();
     });
 
     it('shows the grant rules and adds one for a premium tier only', async () => {

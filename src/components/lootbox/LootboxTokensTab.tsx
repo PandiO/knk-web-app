@@ -28,7 +28,7 @@ import { apiErrorMessage, formatDateTime, starLabel } from '../../utils/lootbox'
 
 export const TOKENS_PAGE_SIZE = 25;
 
-const REASONS: LootboxTokenReason[] = ['Admin', 'PremiumTier', 'Kit', 'PvpKill', 'Referral', 'Other'];
+const REASONS: LootboxTokenReason[] = ['WorldPickup', 'Admin', 'PremiumTier', 'Kit', 'PvpKill', 'Referral', 'Other'];
 const STATUSES: LootboxTokenStatus[] = ['Issued', 'Redeemed', 'Revoked'];
 
 const REASON_LABELS: Record<LootboxTokenReason, string> = {
@@ -38,6 +38,7 @@ const REASON_LABELS: Record<LootboxTokenReason, string> = {
     PvpKill: 'PvP kill',
     Referral: 'Referral',
     Other: 'Other',
+    WorldPickup: 'World box',
 };
 
 const selectClass = 'rounded-md border-gray-300 shadow-sm text-sm';
@@ -278,7 +279,7 @@ export const LootboxTokensTab: React.FC = () => {
         try {
             const updated = await lootboxTokenClient.revoke(row.token);
             setRows(prev => prev.map(r => (r.id === row.id ? updated : r)));
-            setNotice(`Token #${row.id} revoked.`);
+            setNotice(`Token #${row.id} revoked - removed from online players within seconds, and from anyone offline when they next join.`);
         } catch (err) {
             setError(apiErrorMessage(err, `Could not revoke token #${row.id}.`));
         } finally {
@@ -344,7 +345,7 @@ export const LootboxTokensTab: React.FC = () => {
                                     <td className="px-3 py-2 whitespace-nowrap text-gray-600">
                                         {formatDateTime(row.issuedAt)}
                                         <span className="block text-xs text-gray-400">
-                                            #{row.id} · {REASON_LABELS[row.reason] ?? row.reason}{row.deliveredAt ? '' : ' · not handed over yet'}
+                                            #{row.id} · {REASON_LABELS[row.reason] ?? row.reason}{row.sourceSpawnId != null ? ` (box #${row.sourceSpawnId})` : ''}{row.deliveredAt ? '' : ' · not handed over yet'}
                                         </span>
                                     </td>
                                     <td className="px-3 py-2">

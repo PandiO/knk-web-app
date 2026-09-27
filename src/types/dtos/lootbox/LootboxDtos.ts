@@ -4,8 +4,8 @@
 /** The in-house node every lootbox admin endpoint and the /admin/lootboxes page require. */
 export const LOOTBOX_ADMIN_NODE = 'knk.admin.lootbox.manage';
 
-/** Boxes are ★1-5 only (DESIGN.md Q3/D5). */
-export const MAX_BOX_STARS = 5;
+/** The highest box grade: the Grade table's ★10 (DESIGN.md D5 as amended 2026-09-27; types default to ★1-5). */
+export const MAX_BOX_STARS = 10;
 
 export interface NavRefDto {
     id: number;
@@ -311,7 +311,8 @@ export interface ItemInstanceDto {
 // ===== Lootbox token items (IMPLEMENTATION_PLAN.md Phase 5) =====
 
 export type LootboxTokenStatus = 'Issued' | 'Redeemed' | 'Revoked';
-export type LootboxTokenReason = 'Admin' | 'PremiumTier' | 'Kit' | 'PvpKill' | 'Referral' | 'Other';
+/** WorldPickup: a world box a player picked up by clicking it (DESIGN.md §3.8). */
+export type LootboxTokenReason = 'Admin' | 'PremiumTier' | 'Kit' | 'PvpKill' | 'Referral' | 'Other' | 'WorldPickup';
 
 /** One token item (POST api/LootboxTokens/search). The token id lives in the item's knk_lootbox_token tag. */
 export interface LootboxTokenDto {
@@ -337,6 +338,8 @@ export interface LootboxTokenDto {
     revokedAt?: string | null;
     /** The drop-log row the token was opened into. */
     claimId?: number | null;
+    /** The world box it was picked up from (reason WorldPickup). */
+    sourceSpawnId?: number | null;
 }
 
 /** Filters POST api/LootboxTokens/search understands (all optional, sent as strings). */
