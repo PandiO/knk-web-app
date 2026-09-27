@@ -1,4 +1,5 @@
 import { AuditLogEntryDto } from '../types/dtos/userManagement/UserProfileSummaryDtos';
+import { discoveryTypeLabel } from '../types/dtos/discovery/DiscoveryDtos';
 
 /** Recent Activity heading for an audit entry (PlayerProfilePage). */
 export const auditActionLabel = (entry: AuditLogEntryDto): string => {
@@ -18,6 +19,18 @@ export const auditActionLabel = (entry: AuditLogEntryDto): string => {
     case 'KitGranted': return 'Kit granted';
     // Recorded by the plugin for /tp, /tphere (docs/specs/teleport/DESIGN.md §3.10).
     case 'PlayerTeleported': return 'Teleported by staff';
+    // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.2); the spawn entry's Details.event says which change.
+    case 'LootboxSpawnedByAdmin': return lootboxSpawnAuditLabel(entry.details);
+    case 'LootboxGranted': return 'Lootbox item given';
+    // Written by DiscoveryService.ResetAsync (docs/specs/domain-discovery/DESIGN.md §3.5).
+    case 'DiscoveryReset': return 'Discovery reset';
+    // Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md).
+    case 'CurrencyTransactionReversed': return 'Transaction reversed';
+    case 'CurrencyTransferLocked': return 'Payments locked';
+    case 'CurrencyTransferUnlocked': return 'Payments unlocked';
+    case 'CurrencyPolicyChanged': return 'Currency policy changed';
+    // Written by PrivateMessageLogService on every read of the PM log (see PrivateMessagesPanel).
+    case 'PrivateMessagesViewed': return 'Private messages viewed';
     default: return entry.action;
   }
 };
@@ -46,6 +59,15 @@ export function describeAuditDetails(entry: AuditLogEntryDto): string[] {
     case 'PlayerUnfrozen': return details.reason ? [`Reason: ${details.reason}`] : [];
     case 'KitGranted': return details.kitName ? [`Kit: ${details.kitName}`] : [];
     case 'PlayerTeleported': return teleportLines(details);
+    case 'LootboxSpawnedByAdmin': return lootboxSpawnLines(details);
+    case 'LootboxGranted': return lootboxGrantedLines(details);
+    case 'DiscoveryReset': return discoveryResetLines(details);
+    // Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md).
+    case 'CurrencyTransactionReversed': return reversalLines(details);
+    case 'CurrencyTransferLocked': return details.reason ? [`Reason: ${details.reason}`] : [];
+    case 'CurrencyTransferUnlocked': return details.previousReason ? [`Was locked for: ${details.previousReason}`] : [];
+    case 'CurrencyPolicyChanged': return policyLines(details);
+    case 'PrivateMessagesViewed': return privateMessagesViewedLines(details);
     default: return [];
   }
 }
@@ -200,5 +222,120 @@ function teleportLines(d: Details): string[] {
   if (d.via === 'console') flags.push('from the console');
   if (flags.length > 0) lines.push(flags.map((f, i) => (i === 0 ? f[0].toUpperCase() + f.slice(1) : f)).join(', '));
   if (d.reason) lines.push(`Reason: ${d.reason}`);
+  return lines;
+}
+
+// ===== Lootboxes (docs/specs/lootboxes/DESIGN.md §3.2) =====
+// knk-web-api's AuditAction has only two lootbox values (13-14), so LootboxSpawnedByAdmin covers every
+// staff change to where boxes spawn; Details.event tells them apart.
+
+const stars = (value: unknown): string => (num(value) !== undefined ? ` ★${value}` : '');
+
+/** The Recent-activity title of a LootboxSpawnedByAdmin entry, from its Details.event. */
+export function lootboxSpawnAuditLabel(detailsJson?: string | null): string {
+  switch (parse(detailsJson)?.event) {
+    case 'AreaCreated': return 'Lootbox area created';
+    case 'AreaDeleted': return 'Lootbox area deleted';
+    default: return 'Lootbox spawned';
+  }
+}
+
+// LootboxRuntimeService.AdminSpawnAsync (event Spawned) and LootboxSpawnAreaService's in-game
+// create/delete (AreaCreated / AreaDeleted).
+function lootboxSpawnLines(d: Details): string[] {
+  switch (d.event) {
+    case 'AreaCreated':
+    case 'AreaDeleted': {
+      const lines: string[] = [];
+      if (d.name) lines.push(`Area: ${d.name}${d.wgRegionId ? ` (region ${d.wgRegionId}${d.world ? ` in ${d.world}` : ''})` : ''}`);
+      const removed = Array.isArray(d.removedSpawnIds) ? d.removedSpawnIds.length : 0;
+      if (d.event === 'AreaDeleted' && removed > 0) lines.push(`${removed} active box${removed === 1 ? '' : 'es'} removed`);
+      return lines;
+    }
+    default: {
+      const lines: string[] = [];
+      if (d.lootboxTypeName) lines.push(`${d.lootboxTypeName}${stars(d.boxStars)}`);
+      if (d.world && num(d.x) !== undefined) lines.push(`At ${d.world} ${d.x} ${d.y} ${d.z}`);
+      return lines;
+    }
+  }
+}
+
+// LootboxRuntimeService.AdminGiveAsync: the rolled item and the minted instance, if any.
+function lootboxGrantedLines(d: Details): string[] {
+  const lines: string[] = [];
+  if (d.itemName) {
+    let line = `${d.itemName}${stars(d.itemStars)}`;
+    if (d.isSpecial) line += ' (special)';
+    lines.push(line);
+  }
+  if (d.lootboxTypeName) lines.push(`From a ${d.lootboxTypeName}${stars(d.boxStars)} box`);
+  const refs: string[] = [];
+  if (num(d.claimId) !== undefined) refs.push(`claim #${d.claimId}`);
+  if (num(d.itemInstanceId) !== undefined) refs.push(`item instance #${d.itemInstanceId}`);
+  if (refs.length > 0) lines.push(refs.join(', '));
+  return lines;
+}
+
+// knk-web-api DiscoveryService.ResetAsync: the place whose discovery was forgotten and what that
+// discovery had paid (not taken back - docs/specs/domain-discovery/DESIGN.md D8).
+function discoveryResetLines(d: Details): string[] {
+  const lines: string[] = [];
+  const domainId = num(d.domainId);
+  const name = d.domainName ?? (domainId !== undefined ? `domain #${domainId}` : null);
+  if (name) lines.push(`${d.domainType ? `${discoveryTypeLabel(d.domainType)} ` : ''}${name}`);
+  const paid: string[] = [];
+  const coins = num(d.coinsAwarded) ?? 0;
+  const gems = num(d.gemsAwarded) ?? 0;
+  const exp = num(d.expAwarded) ?? 0;
+  if (coins) paid.push(`${formatAmount(coins)} coins`);
+  if (gems) paid.push(`${formatAmount(gems)} gems`);
+  if (exp) paid.push(`${formatAmount(exp)} XP`);
+  const when = d.discoveredAt ? `Discovered ${new Date(d.discoveredAt).toLocaleString()}` : null;
+  if (when || paid.length > 0) {
+    lines.push([when, paid.length > 0 ? `paid ${paid.join(', ')} (kept)` : null].filter(Boolean).join(', '));
+  }
+  return lines;
+}
+
+function reversalLines(d: Details): string[] {
+  const lines: string[] = [];
+  if (d.reversedPublicId) {
+    lines.push(`Reversed ${d.reversedReasonCode ?? 'transaction'} ${d.reversedPublicId}${d.reversalPublicId ? ` (as ${d.reversalPublicId})` : ''}`);
+  }
+  if (Array.isArray(d.changes)) {
+    for (const change of d.changes) {
+      const amount = num(change?.amount);
+      if (amount === undefined) continue;
+      const label = change.currency === 'Experience' ? 'XP' : String(change.currency ?? '').toLowerCase();
+      const before = num(change.before);
+      const after = num(change.after);
+      lines.push(`${formatAmount(amount, true)} ${label}${before !== undefined && after !== undefined ? ` (${formatAmount(before)} → ${formatAmount(after)})` : ''}`);
+    }
+  }
+  if (d.reason) lines.push(`Reason: ${d.reason}`);
+  return lines;
+}
+
+function policyLines(d: Details): string[] {
+  const changes = d.changes && typeof d.changes === 'object' ? Object.entries(d.changes as Record<string, any>) : [];
+  return changes.map(([field, value]) => `${d.currency ?? ''} ${field}: ${value?.from ?? '-'} → ${value?.to ?? '-'}`.trim());
+}
+
+// knk-web-api PrivateMessageLogService.SearchAsync: the filters of the read and how many
+// messages it showed (docs/specs/private-messages/DESIGN.md §3.2).
+function privateMessagesViewedLines(d: Details): string[] {
+  const lines: string[] = [];
+  const otherUserId = num(d.otherUserId);
+  if (otherUserId !== undefined) lines.push(`Conversation with user #${otherUserId}`);
+  const range: string[] = [];
+  if (d.from) range.push(`from ${new Date(d.from).toLocaleString()}`);
+  if (d.to) range.push(`before ${new Date(d.to).toLocaleString()}`);
+  if (range.length > 0) lines.push(`Sent ${range.join(', ')}`);
+  const shown = num(d.shown);
+  const page = num(d.pageNumber);
+  if (shown !== undefined) {
+    lines.push(`${page !== undefined ? `Page ${page}, ` : ''}${shown} message${shown === 1 ? '' : 's'} shown`);
+  }
   return lines;
 }

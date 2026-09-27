@@ -71,19 +71,24 @@ export const DisplayConfigBuilder: React.FC = () => {
         return () => clearAutoClose();
     }, []);
 
+    // Back to the Forms page (where the builders are opened from), on this config's entity.
+    const formsPagePath = config.entityTypeName
+        ? `/forms/${encodeURIComponent(config.entityTypeName)}`
+        : '/forms';
+
     const closeSaveModal = () => {
         clearAutoClose();
         const shouldNavigate = saveFeedback.status === 'success';
         setSaveFeedback(prev => ({ ...prev, open: false }));
         if (shouldNavigate) {
-            navigate('/admin/display-configurations');
+            navigate(formsPagePath);
         }
     };
 
     const handleSaveContinue = () => {
         clearAutoClose();
         setSaveFeedback(prev => ({ ...prev, open: false }));
-        navigate('/admin/display-configurations');
+        navigate(formsPagePath);
     };
 
     useEffect(() => {
@@ -743,7 +748,7 @@ export const DisplayConfigBuilder: React.FC = () => {
                 {/* Save Button */}
                 <div className="mt-6 flex justify-end gap-3">
                     <button
-                        onClick={() => navigate('/admin/display-configurations')}
+                        onClick={() => navigate(formsPagePath)}
                         className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                     >
                         Cancel

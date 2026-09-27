@@ -1,14 +1,25 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, RefreshCcw, ArrowLeft, ShieldCheck, Users, Award, Coins, EyeOff, X, Plus, History, Gift } from 'lucide-react';
+import { Loader2, RefreshCcw, ArrowLeft, ShieldCheck, Users, Award, Coins, EyeOff, X, Plus, History, Gift, Lock, Unlock } from 'lucide-react';
 import { logging } from '../../utils';
 import { auditActionLabel, describeAuditDetails } from '../../utils/auditDetails';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { KitClient } from '../../apiClients/kitClient';
+import { PlayerDiscoveriesPanel } from '../../components/admin/PlayerDiscoveriesPanel';
+import { currencyClient } from '../../apiClients/currencyClient';
+import { usePermission } from '../../hooks/useStaffAccess';
+import { BalanceLedgerTable } from '../../components/currency/BalanceLedgerTable';
+import { AdjustBalanceCard } from '../../components/currency/AdjustBalanceCard';
+import {
+    CURRENCY_NODES,
+    TransferLockDto,
+} from '../../types/dtos/currency/CurrencyDtos';
+import { PrivateMessagesPanel } from '../../components/admin/PrivateMessagesPanel';
 import {
     ActiveMode,
     AuditLogEntryDto,
+    BalanceAdjustmentResultDto,
     TitleChangeResultDto,
     UserProfileSummaryDto,
 } from '../../types/dtos/userManagement/UserProfileSummaryDtos';
@@ -21,6 +32,8 @@ import { KitAvailabilityDto } from '../../types/dtos/kit/KitDtos';
 // vanish) directly on this page, plus a Recent activity feed off the new audit log.
 // docs/specs/kits/IMPLEMENTATION_PLAN.md §6 adds the "Kits" section/Grant action below, the
 // web-app's first-class counterpart to the in-game /kit give (DESIGN.md §4.0/§4.6).
+// docs/specs/domain-discovery/DESIGN.md §3.9 adds the "Discoveries" panel (knk.admin.discovery).
+// docs/specs/private-messages/IMPLEMENTATION_PLAN.md Phase 4 adds the "Private messages" panel.
 
 const ACTIVE_MODES: ActiveMode[] = ['None', 'Staff', 'Owner'];
 
@@ -70,15 +83,18 @@ export const PlayerProfilePage: React.FC = () => {
     const [grantingNode, setGrantingNode] = React.useState(false);
     const [grantActionError, setGrantActionError] = React.useState<string | null>(null);
 
-    // Balance/XP quick action (developer request 2026-09-25) — the web counterpart to the new
-    // /knk user in-game command; both call the same PUT /api/users/{id}/balances.
-    const [balanceProperty, setBalanceProperty] = React.useState<'coins' | 'gems' | 'experiencePoints'>('coins');
-    const [balanceAction, setBalanceAction] = React.useState<'set' | 'add' | 'remove'>('add');
-    const [balanceAmount, setBalanceAmount] = React.useState('');
-    const [balanceReason, setBalanceReason] = React.useState('');
-    const [adjustingBalance, setAdjustingBalance] = React.useState(false);
-    const [balanceActionError, setBalanceActionError] = React.useState<string | null>(null);
+    // "Adjust balance" card (AdjustBalanceCard): the title change its last adjustment caused.
     const [titleChangeNotice, setTitleChangeNotice] = React.useState<TitleChangeResultDto | null>(null);
+
+    // Currency Phase 4: the balance history (knk.admin.currency.history) and the payment lock
+    // (knk.admin.currency.lock). The API enforces both nodes; these only decide what shows.
+    const { allowed: canReadLedger } = usePermission(CURRENCY_NODES.history);
+    const { allowed: canLockTransfers } = usePermission(CURRENCY_NODES.lock);
+    const [ledgerRefresh, setLedgerRefresh] = React.useState(0);
+    const [transferLock, setTransferLock] = React.useState<TransferLockDto | null>(null);
+    const [lockReason, setLockReason] = React.useState('');
+    const [changingLock, setChangingLock] = React.useState(false);
+    const [lockError, setLockError] = React.useState<string | null>(null);
 
     const [togglingMode, setTogglingMode] = React.useState(false);
     const [modeActionError, setModeActionError] = React.useState<string | null>(null);
@@ -147,11 +163,21 @@ export const PlayerProfilePage: React.FC = () => {
         }
     }, [userId]);
 
+    const loadTransferLock = React.useCallback(async () => {
+        if (!Number.isFinite(userId) || userId <= 0) return;
+        try {
+            setTransferLock(await currencyClient.getTransferLock(userId));
+        } catch (err) {
+            console.error('Failed to load the transfer lock:', err);
+        }
+    }, [userId]);
+
     React.useEffect(() => {
         void load();
         void loadActivity();
         void loadKits();
-    }, [load, loadActivity, loadKits]);
+        void loadTransferLock();
+    }, [load, loadActivity, loadKits, loadTransferLock]);
 
     React.useEffect(() => {
         permissionGroupClient.getAll()
@@ -220,39 +246,33 @@ export const PlayerProfilePage: React.FC = () => {
         }
     };
 
-    const handleAdjustBalance = async (e: React.FormEvent) => {
+    const handleBalanceAdjusted = async (result: BalanceAdjustmentResultDto) => {
+        setTitleChangeNotice(result.titleChange ?? null);
+        setLedgerRefresh(n => n + 1);
+        await refreshAfterAction();
+    };
+
+    // Payment lock (currency Phase 4): a locked player can neither send nor receive /pay.
+    const handleToggleTransferLock = async (e: React.FormEvent) => {
         e.preventDefault();
-        const amount = Number(balanceAmount);
-        if (!balanceAmount.trim() || Number.isNaN(amount) || amount < 0) return;
-        if (!balanceReason.trim()) {
-            setBalanceActionError('A reason is required.');
+        if (!transferLock) return;
+        if (!transferLock.locked && !lockReason.trim()) {
+            setLockError('A reason is required.');
             return;
         }
-        setAdjustingBalance(true);
-        setBalanceActionError(null);
-        setTitleChangeNotice(null);
+        setChangingLock(true);
+        setLockError(null);
         try {
-            const current = account[balanceProperty];
-            const delta = balanceAction === 'set' ? amount - current : balanceAction === 'remove' ? -amount : amount;
-            if (delta !== 0) {
-                const result = await userManagementClient.adjustBalances(userId, {
-                    coinsDelta: balanceProperty === 'coins' ? delta : 0,
-                    gemsDelta: balanceProperty === 'gems' ? delta : 0,
-                    experienceDelta: balanceProperty === 'experiencePoints' ? delta : 0,
-                    reason: balanceReason.trim(),
-                });
-                if (result.titleChange) {
-                    setTitleChangeNotice(result.titleChange);
-                }
-            }
-            setBalanceAmount('');
-            setBalanceReason('');
-            await refreshAfterAction();
+            setTransferLock(transferLock.locked
+                ? await currencyClient.unlockTransfers(userId)
+                : await currencyClient.lockTransfers(userId, lockReason.trim()));
+            setLockReason('');
+            await loadActivity();
         } catch (err) {
-            console.error('Failed to adjust balance:', err);
-            setBalanceActionError(clientErrorMessage(err) ?? 'Could not adjust this balance — check the amount doesn\'t go below zero.');
+            console.error('Failed to change the transfer lock:', err);
+            setLockError(clientErrorMessage(err) ?? 'Could not change the payment lock.');
         } finally {
-            setAdjustingBalance(false);
+            setChangingLock(false);
         }
     };
 
@@ -400,60 +420,44 @@ export const PlayerProfilePage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Quick action: adjust coins/gems/XP (developer request 2026-09-25) - the
-                        same PUT /api/users/{id}/balances the new /knk user in-game command uses,
-                        so a non-zero XP delta resolves/audit-logs a title change here too. */}
-                    <form className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-end gap-3" onSubmit={(e) => void handleAdjustBalance(e)}>
-                        <div>
-                            <label className="block text-xs text-gray-500 mb-1">Property</label>
-                            <select
-                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm"
-                                value={balanceProperty}
-                                onChange={(e) => setBalanceProperty(e.target.value as typeof balanceProperty)}
-                            >
-                                <option value="coins">Coins</option>
-                                <option value="gems">Gems</option>
-                                <option value="experiencePoints">XP</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs text-gray-500 mb-1">Action</label>
-                            <select
-                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm"
-                                value={balanceAction}
-                                onChange={(e) => setBalanceAction(e.target.value as typeof balanceAction)}
-                            >
-                                <option value="add">Add</option>
-                                <option value="remove">Remove</option>
-                                <option value="set">Set to</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs text-gray-500 mb-1">Amount</label>
-                            <input
-                                type="number"
-                                min={0}
-                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-28"
-                                value={balanceAmount}
-                                onChange={(e) => setBalanceAmount(e.target.value)}
-                                placeholder="0"
-                            />
-                        </div>
-                        <div className="flex-1 min-w-[160px]">
-                            <label className="block text-xs text-gray-500 mb-1">Reason</label>
-                            <input
-                                type="text"
-                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-full"
-                                value={balanceReason}
-                                onChange={(e) => setBalanceReason(e.target.value)}
-                                placeholder="Required"
-                            />
-                        </div>
-                        <button type="submit" className="btn-primary text-sm" disabled={!balanceAmount.trim() || !balanceReason.trim() || adjustingBalance}>
-                            {adjustingBalance ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
-                        </button>
-                        {balanceActionError && <span className="text-xs text-red-600 w-full">{balanceActionError}</span>}
-                    </form>
+                    {/* Payment lock (currency Phase 4): shown to staff, changeable with knk.admin.currency.lock. */}
+                    {transferLock && (
+                        <form className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-3 text-sm" onSubmit={(e) => void handleToggleTransferLock(e)}>
+                            <span className={`inline-flex items-center font-medium ${transferLock.locked ? 'text-red-700' : 'text-gray-600'}`}>
+                                {transferLock.locked ? <Lock className="h-4 w-4 mr-1" /> : <Unlock className="h-4 w-4 mr-1" />}
+                                {transferLock.locked ? `Payments locked: ${transferLock.reason ?? ''}` : 'Payments allowed'}
+                            </span>
+                            {transferLock.locked && transferLock.lockedAt && (
+                                <span className="text-xs text-gray-500">since {formatDate(transferLock.lockedAt)}</span>
+                            )}
+                            {canLockTransfers && !transferLock.locked && (
+                                <input
+                                    type="text"
+                                    maxLength={200}
+                                    aria-label="Lock reason"
+                                    className="border border-gray-300 rounded-md px-2 py-1.5 text-sm flex-1 min-w-[160px]"
+                                    value={lockReason}
+                                    onChange={(e) => setLockReason(e.target.value)}
+                                    placeholder="Reason to lock this player's payments"
+                                />
+                            )}
+                            {canLockTransfers && (
+                                <button type="submit" className="btn-secondary text-sm" disabled={changingLock || (!transferLock.locked && !lockReason.trim())}>
+                                    {changingLock ? <Loader2 className="h-4 w-4 animate-spin" /> : transferLock.locked ? 'Unlock payments' : 'Lock payments'}
+                                </button>
+                            )}
+                            {lockError && <span className="text-xs text-red-600 w-full">{lockError}</span>}
+                        </form>
+                    )}
+                </div>
+
+                {/* Adjust balance (currency Phase 4; its own card since the KNG-21 smoke test) */}
+                <AdjustBalanceCard
+                    userId={userId}
+                    balances={account}
+                    onStart={() => setTitleChangeNotice(null)}
+                    onAdjusted={handleBalanceAdjusted}
+                >
                     {titleChangeNotice && (
                         <div className={`mt-3 rounded-md p-3 text-sm ${titleChangeNotice.direction === 'promotion' ? 'bg-amber-50 border border-amber-200 text-amber-900' : 'bg-red-50 border border-red-200 text-red-900'}`}>
                             <p className="font-semibold">
@@ -471,7 +475,7 @@ export const PlayerProfilePage: React.FC = () => {
                             )}
                         </div>
                     )}
-                </div>
+                </AdjustBalanceCard>
 
                 {/* Title / XP */}
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
@@ -786,6 +790,25 @@ export const PlayerProfilePage: React.FC = () => {
                     )}
                     {grantKitError && <p className="mt-3 text-xs text-red-600">{grantKitError}</p>}
                 </div>
+
+                {/* Discoveries (docs/specs/domain-discovery/DESIGN.md §3.9) - only for holders of
+                    knk.admin.discovery; each reset adds a DiscoveryReset entry to Recent activity. */}
+                <PlayerDiscoveriesPanel key={userId} userId={userId} onReset={loadActivity} />
+
+                {/* Balance history (KNG-23, currency Phase 4): the balance event log filtered to this player. */}
+                {canReadLedger && (
+                    <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
+                        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <Coins className="h-5 w-5 mr-2" />
+                            Balance history
+                        </h2>
+                        <BalanceLedgerTable userId={userId} pageSize={20} refreshToken={ledgerRefresh} />
+                    </div>
+                )}
+
+                {/* Private messages (docs/specs/private-messages/DESIGN.md §3.4) - only for holders of
+                    knk.pmlog.read; each read adds a PrivateMessagesViewed entry to Recent activity. */}
+                <PrivateMessagesPanel key={userId} userId={userId} onViewed={loadActivity} />
 
                 {/* Recent activity (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 2) */}
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">

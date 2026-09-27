@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { StaffRoute } from './components/StaffRoute';
@@ -13,14 +13,22 @@ import en from './utils/languages/en-en.json';
 import { ErrorView } from './components/ErrorView';
 import { FormWizardPage } from './pages/FormWizardPage';
 import { FormConfigBuilder } from './components/FormConfigBuilder/FormConfigBuilder';
-import { FormConfigListPage } from './pages/FormConfigListPage';
 import { DisplayWizardPage } from './pages/DisplayWizardPage';
 import { DisplayConfigBuilder } from './components/DisplayConfigBuilder/DisplayConfigBuilder';
-import { DisplayConfigListPage } from './pages/DisplayConfigListPage';
 import { GameSettingsPage } from './pages/admin/GameSettingsPage';
 import { SiegeConfigurationPage } from './pages/admin/SiegeConfigurationPage';
 import { PlayerProfilePage } from './pages/admin/PlayerProfilePage';
 import { UserModerationPage } from './pages/admin/UserModerationPage';
+import { LootboxesPage } from './pages/admin/LootboxesPage';
+import { LOOTBOX_ADMIN_NODE } from './types/dtos/lootbox/LootboxDtos';
+import { DiscoveryAdminPage } from './pages/admin/DiscoveryAdminPage';
+import { DISCOVERY_ADMIN_NODE } from './types/dtos/discovery/DiscoveryDtos';
+import { AccountTransactionsPage } from './pages/AccountTransactionsPage';
+import { BalanceLogPage } from './pages/admin/BalanceLogPage';
+import { TransactionDetailPage } from './pages/admin/economy/TransactionDetailPage';
+import { CurrencyPolicyPage } from './pages/admin/economy/CurrencyPolicyPage';
+import { CurrencyAlertsPage } from './pages/admin/economy/CurrencyAlertsPage';
+import { CURRENCY_NODES } from './types/dtos/currency/CurrencyDtos';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -125,6 +133,11 @@ function AppContent() {
                   <AccountManagementPage />
                 </ProtectedRoute>
               } />
+              <Route path="/account/transactions" element={
+                <ProtectedRoute>
+                  <AccountTransactionsPage />
+                </ProtectedRoute>
+              } />
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <ObjectDashboard objectTypes={objectTypes} />
@@ -148,11 +161,8 @@ function AppContent() {
                   <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
                 </ProtectedRoute>
               } />
-              <Route path="/admin/form-configurations" element={
-                <StaffRoute>
-                  <FormConfigListPage />
-                </StaffRoute>
-              } />
+              {/* The builders are opened from the Forms page; their old list pages redirect there. */}
+              <Route path="/admin/form-configurations" element={<Navigate to="/forms" replace />} />
               <Route path="/admin/form-configurations/new" element={
                 <StaffRoute>
                   <FormConfigBuilder />
@@ -164,11 +174,7 @@ function AppContent() {
                 </StaffRoute>
               } />
               {/* DisplayConfiguration routes */}
-              <Route path="/admin/display-configurations" element={
-                <StaffRoute>
-                  <DisplayConfigListPage />
-                </StaffRoute>
-              } />
+              <Route path="/admin/display-configurations" element={<Navigate to="/forms" replace />} />
               <Route path="/admin/display-configurations/new" element={
                 <StaffRoute>
                   <DisplayConfigBuilder />
@@ -188,6 +194,44 @@ function AppContent() {
               <Route path="/admin/siege-configuration" element={
                 <StaffRoute>
                   <SiegeConfigurationPage />
+                </StaffRoute>
+              } />
+              {/* Lootboxes (docs/specs/lootboxes/DESIGN.md §3.6) - knk.admin.lootbox.manage, which the
+                  API enforces on every call as well. */}
+              <Route path="/admin/lootboxes" element={
+                <StaffRoute node={LOOTBOX_ADMIN_NODE}>
+                  <LootboxesPage />
+                </StaffRoute>
+              } />
+              {/* Domain discovery rewards and statistics (docs/specs/domain-discovery/DESIGN.md
+                  §3.9) - knk.admin.discovery, which the API enforces on every call as well. */}
+              <Route path="/admin/discovery" element={
+                <StaffRoute node={DISCOVERY_ADMIN_NODE}>
+                  <DiscoveryAdminPage />
+                </StaffRoute>
+              } />
+              {/* Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md, KNG-23):
+                  the balance event log under Moderation, a transaction's detail/reversal and the
+                  currency policy, each gated on its own knk.admin.currency.* node. */}
+              <Route path="/admin/users/balance-log" element={
+                <StaffRoute node={CURRENCY_NODES.history}>
+                  <BalanceLogPage />
+                </StaffRoute>
+              } />
+              <Route path="/admin/economy/transactions/:publicId" element={
+                <StaffRoute node={CURRENCY_NODES.history}>
+                  <TransactionDetailPage />
+                </StaffRoute>
+              } />
+              <Route path="/admin/economy/policy" element={
+                <StaffRoute node={CURRENCY_NODES.policy}>
+                  <CurrencyPolicyPage />
+                </StaffRoute>
+              } />
+              {/* Currency ledger Phase 5: the currency monitor's anomaly alerts and reconciliation. */}
+              <Route path="/admin/economy/alerts" element={
+                <StaffRoute node={CURRENCY_NODES.alerts}>
+                  <CurrencyAlertsPage />
                 </StaffRoute>
               } />
               {/* User management Phase 1 (docs/specs/user-management/IMPLEMENTATION_PLAN.md).
