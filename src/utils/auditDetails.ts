@@ -23,6 +23,11 @@ export function describeAuditDetails(entry: AuditLogEntryDto): string[] {
     case 'PlayerFrozen':
     case 'PlayerUnfrozen': return details.reason ? [`Reason: ${details.reason}`] : [];
     case 'KitGranted': return details.kitName ? [`Kit: ${details.kitName}`] : [];
+    // Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md).
+    case 'CurrencyTransactionReversed': return reversalLines(details);
+    case 'CurrencyTransferLocked': return details.reason ? [`Reason: ${details.reason}`] : [];
+    case 'CurrencyTransferUnlocked': return details.previousReason ? [`Was locked for: ${details.previousReason}`] : [];
+    case 'CurrencyPolicyChanged': return policyLines(details);
     case 'PrivateMessagesViewed': return privateMessagesViewedLines(details);
     default: return [];
   }
@@ -149,6 +154,30 @@ function grantUpdatedLines(d: Details): string[] {
   if (!to.node) return [];
   const describe = (g: Details) => `${g.node} = ${g.value === false ? 'deny' : 'allow'}${g.expiresAt ? ` until ${new Date(g.expiresAt).toLocaleString()}` : ''}`;
   return [`${describe(from)} → ${describe(to)}`];
+}
+
+function reversalLines(d: Details): string[] {
+  const lines: string[] = [];
+  if (d.reversedPublicId) {
+    lines.push(`Reversed ${d.reversedReasonCode ?? 'transaction'} ${d.reversedPublicId}${d.reversalPublicId ? ` (as ${d.reversalPublicId})` : ''}`);
+  }
+  if (Array.isArray(d.changes)) {
+    for (const change of d.changes) {
+      const amount = num(change?.amount);
+      if (amount === undefined) continue;
+      const label = change.currency === 'Experience' ? 'XP' : String(change.currency ?? '').toLowerCase();
+      const before = num(change.before);
+      const after = num(change.after);
+      lines.push(`${formatAmount(amount, true)} ${label}${before !== undefined && after !== undefined ? ` (${formatAmount(before)} → ${formatAmount(after)})` : ''}`);
+    }
+  }
+  if (d.reason) lines.push(`Reason: ${d.reason}`);
+  return lines;
+}
+
+function policyLines(d: Details): string[] {
+  const changes = d.changes && typeof d.changes === 'object' ? Object.entries(d.changes as Record<string, any>) : [];
+  return changes.map(([field, value]) => `${d.currency ?? ''} ${field}: ${value?.from ?? '-'} → ${value?.to ?? '-'}`.trim());
 }
 
 // knk-web-api PrivateMessageLogService.SearchAsync: the filters of the read and how many
