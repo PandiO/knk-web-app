@@ -17,6 +17,7 @@ import {
     MIN_STAFF_NOTE_LENGTH,
     TransferLockDto,
 } from '../../types/dtos/currency/CurrencyDtos';
+import { PrivateMessagesPanel } from '../../components/admin/PrivateMessagesPanel';
 import {
     ActiveMode,
     AuditLogEntryDto,
@@ -33,6 +34,7 @@ import { KitAvailabilityDto } from '../../types/dtos/kit/KitDtos';
 // vanish) directly on this page, plus a Recent activity feed off the new audit log.
 // docs/specs/kits/IMPLEMENTATION_PLAN.md §6 adds the "Kits" section/Grant action below, the
 // web-app's first-class counterpart to the in-game /kit give (DESIGN.md §4.0/§4.6).
+// docs/specs/private-messages/IMPLEMENTATION_PLAN.md Phase 4 adds the "Private messages" panel.
 
 const ACTIVE_MODES: ActiveMode[] = ['None', 'Staff', 'Owner'];
 
@@ -56,6 +58,8 @@ const auditActionLabel = (entry: AuditLogEntryDto): string => {
         case 'CurrencyTransferLocked': return 'Payments locked';
         case 'CurrencyTransferUnlocked': return 'Payments unlocked';
         case 'CurrencyPolicyChanged': return 'Currency policy changed';
+        // Written by PrivateMessageLogService on every read of the PM log (see PrivateMessagesPanel).
+        case 'PrivateMessagesViewed': return 'Private messages viewed';
         default: return entry.action;
     }
 };
@@ -944,6 +948,10 @@ export const PlayerProfilePage: React.FC = () => {
                         <BalanceLedgerTable userId={userId} pageSize={20} refreshToken={ledgerRefresh} />
                     </div>
                 )}
+
+                {/* Private messages (docs/specs/private-messages/DESIGN.md §3.4) - only for holders of
+                    knk.pmlog.read; each read adds a PrivateMessagesViewed entry to Recent activity. */}
+                <PrivateMessagesPanel key={userId} userId={userId} onViewed={loadActivity} />
 
                 {/* Recent activity (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 2) */}
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">

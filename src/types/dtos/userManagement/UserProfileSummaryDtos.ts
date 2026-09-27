@@ -118,7 +118,9 @@ export type AuditAction =
   | 'CurrencyPolicyChanged'
   | 'CurrencyTransactionReversed'
   | 'CurrencyTransferLocked'
-  | 'CurrencyTransferUnlocked';
+  | 'CurrencyTransferUnlocked'
+  // Someone read this player's private messages (docs/specs/private-messages/DESIGN.md §3.2).
+  | 'PrivateMessagesViewed';
 
 export interface AuditLogEntryDto {
   id: number;

@@ -28,6 +28,7 @@ export function describeAuditDetails(entry: AuditLogEntryDto): string[] {
     case 'CurrencyTransferLocked': return details.reason ? [`Reason: ${details.reason}`] : [];
     case 'CurrencyTransferUnlocked': return details.previousReason ? [`Was locked for: ${details.previousReason}`] : [];
     case 'CurrencyPolicyChanged': return policyLines(details);
+    case 'PrivateMessagesViewed': return privateMessagesViewedLines(details);
     default: return [];
   }
 }
@@ -177,4 +178,22 @@ function reversalLines(d: Details): string[] {
 function policyLines(d: Details): string[] {
   const changes = d.changes && typeof d.changes === 'object' ? Object.entries(d.changes as Record<string, any>) : [];
   return changes.map(([field, value]) => `${d.currency ?? ''} ${field}: ${value?.from ?? '-'} → ${value?.to ?? '-'}`.trim());
+}
+
+// knk-web-api PrivateMessageLogService.SearchAsync: the filters of the read and how many
+// messages it showed (docs/specs/private-messages/DESIGN.md §3.2).
+function privateMessagesViewedLines(d: Details): string[] {
+  const lines: string[] = [];
+  const otherUserId = num(d.otherUserId);
+  if (otherUserId !== undefined) lines.push(`Conversation with user #${otherUserId}`);
+  const range: string[] = [];
+  if (d.from) range.push(`from ${new Date(d.from).toLocaleString()}`);
+  if (d.to) range.push(`before ${new Date(d.to).toLocaleString()}`);
+  if (range.length > 0) lines.push(`Sent ${range.join(', ')}`);
+  const shown = num(d.shown);
+  const page = num(d.pageNumber);
+  if (shown !== undefined) {
+    lines.push(`${page !== undefined ? `Page ${page}, ` : ''}${shown} message${shown === 1 ? '' : 's'} shown`);
+  }
+  return lines;
 }
