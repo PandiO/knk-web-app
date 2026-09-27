@@ -4,6 +4,7 @@ import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { CreateFieldValidationRuleDto, FieldValidationRuleDto, PathValidationResult } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { PathBuilder } from '../PathBuilder/PathBuilder';
+import { ParentFormField } from '../../utils/forms/parentFormFields';
 
 interface ValidationRuleBuilderProps {
     field: FormFieldDto;
@@ -13,6 +14,8 @@ interface ValidationRuleBuilderProps {
     onSave: (rule: CreateFieldValidationRuleDto) => Promise<void> | void;
     onCancel: () => void;
     initialRule?: FieldValidationRuleDto;
+    /** Fields of the forms this form is opened from (findParentFormFields), also offered as dependencies. */
+    parentFormFields?: ParentFormField[];
 }
 
 const CONFIG_TEMPLATES: Record<string, { config: unknown; error: string; success?: string }> = {
@@ -40,7 +43,8 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
     entityMetadata,
     onSave,
     onCancel,
-    initialRule
+    initialRule,
+    parentFormFields = []
 }) => {
     const [validationType, setValidationType] = useState<string>(initialRule?.validationType || 'LocationInsideRegion');
     const [dependsOnFieldId, setDependsOnFieldId] = useState<number | ''>(initialRule?.dependsOnFieldId || '');
@@ -57,6 +61,23 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
     const dependencyOptions = useMemo(() => {
         return availableFields.filter(f => f.id && f.id !== field.id);
     }, [availableFields, field.id]);
+
+    // Parent-form fields grouped per form, nearest parent first.
+    const parentFormGroups = useMemo(() => {
+        const groups = new Map<string, ParentFormField[]>();
+        parentFormFields.forEach(item => {
+            const key = `${item.depth}|${item.configurationName}`;
+            groups.set(key, [...(groups.get(key) ?? []), item]);
+        });
+        return Array.from(groups.values());
+    }, [parentFormFields]);
+
+    const selectedParentField = useMemo(
+        () => parentFormFields.find(item => dependsOnFieldId !== '' && Number(item.field.id) === dependsOnFieldId),
+        [parentFormFields, dependsOnFieldId]
+    );
+    // A dependency path starts at the entity of the form the dependency field is on.
+    const pathEntityTypeName = selectedParentField?.entityTypeName ?? entityTypeName;
 
     const handlePathChange = useCallback((path: string) => {
         setDependencyPath(path);
@@ -160,7 +181,7 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
         </div>
     );
 
-    const shouldDisablePathBuilder = !dependsOnFieldId || !entityTypeName;
+    const shouldDisablePathBuilder = !dependsOnFieldId || !pathEntityTypeName;
     const isPathMissing = dependsOnFieldId !== '' && !dependencyPath;
 
     return (
@@ -204,20 +225,49 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                         className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                     >
                         <option value="">-- Select dependency field --</option>
-                        {dependencyOptions.map(option => (
-                            <option key={option.id} value={option.id}>
-                                {option.label || option.fieldName}
-                            </option>
-                        ))}
+                        {parentFormGroups.length === 0 ? (
+                            dependencyOptions.map(option => (
+                                <option key={option.id} value={option.id}>
+                                    {option.label || option.fieldName}
+                                </option>
+                            ))
+                        ) : (
+                            <>
+                                <optgroup label="This form">
+                                    {dependencyOptions.map(option => (
+                                        <option key={option.id} value={option.id}>
+                                            {option.label || option.fieldName}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                                {parentFormGroups.map(group => (
+                                    <optgroup
+                                        key={`${group[0].depth}-${group[0].configurationName}`}
+                                        label={`Parent form: ${group[0].configurationName}`}
+                                    >
+                                        {group.map(item => (
+                                            <option key={item.field.id} value={item.field.id}>
+                                                {item.field.label || item.field.fieldName}
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                ))}
+                            </>
+                        )}
                     </select>
-                    <p className="mt-1 text-xs text-gray-500">Dependency must appear earlier in the form.</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                        {selectedParentField
+                            ? `Taken from the ${selectedParentField.configurationName} form this form is opened from (and from the saved ${selectedParentField.entityTypeName} in server-side checks such as siege readiness).`
+                            : 'Dependency must appear earlier in the form, or on a form this one is opened from.'}
+                    </p>
                 </div>
             </div>
 
             <div className="space-y-2">
                 <PathBuilder
+                    key={pathEntityTypeName}
                     initialPath={dependencyPath}
-                    entityTypeName={entityTypeName}
+                    entityTypeName={pathEntityTypeName}
                     entityMetadata={entityMetadata}
                     onPathChange={handlePathChange}
                     onValidationStatusChange={handleValidationStatusChange}

@@ -75,15 +75,42 @@ describe('Siege readiness panel (displayPanel field)', () => {
     });
 
     it('shows ready and re-checks on demand', async () => {
-        getReadiness.mockResolvedValue({ siegeScenarioId: 1, isReady: true, spatialChecksRun: true, errors: [], warnings: [] });
+        getReadiness.mockResolvedValue({ siegeScenarioId: 1, isReady: true, spatialChecksRun: true, fieldRuleChecks: 3, errors: [], warnings: [] });
 
         renderPanel('1');
 
         await waitFor(() => expect(screen.getByText(/ready - this scenario can be put in a lobby rotation/i)).toBeInTheDocument());
-        expect(screen.getByText(/spatial checks ran/i)).toBeInTheDocument();
+        expect(screen.getByText(/validation rules ran: 3 field checks/i)).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: /re-check/i }));
         await waitFor(() => expect(getReadiness).toHaveBeenCalledTimes(2));
+    });
+
+    it('says when no validation rules are configured, so locations are not checked', async () => {
+        getReadiness.mockResolvedValue({ siegeScenarioId: 1, isReady: true, spatialChecksRun: true, fieldRuleChecks: 0, errors: [], warnings: [] });
+
+        renderPanel('1');
+
+        await waitFor(() => expect(screen.getByText(/no validation rules are configured/i)).toBeInTheDocument());
+    });
+
+    it('lists a failed configured rule like any other issue', async () => {
+        getReadiness.mockResolvedValue({
+            siegeScenarioId: 1,
+            isReady: true,
+            spatialChecksRun: true,
+            fieldRuleChecks: 2,
+            errors: [],
+            warnings: [
+                { code: 'FIELD_RULE_FAILED', message: "Spawnpoint 'Camp' of team 'Raiders' - Location: outside Cinix.", entityType: 'SiegeSpawnpoint', entityId: 7 },
+                { code: 'FIELD_RULE_FAILED', message: "Spawnpoint 'Gate' of team 'Raiders' - Location: outside Cinix.", entityType: 'SiegeSpawnpoint', entityId: 8 }
+            ]
+        });
+
+        renderPanel('1');
+
+        await waitFor(() => expect(screen.getByText(/FIELD_RULE_FAILED · Spawnpoint #7/)).toBeInTheDocument());
+        expect(screen.getByText(/FIELD_RULE_FAILED · Spawnpoint #8/)).toBeInTheDocument();
     });
 
     it('shows the API error when the check fails', async () => {
