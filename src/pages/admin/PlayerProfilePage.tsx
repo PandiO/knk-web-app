@@ -9,19 +9,16 @@ import { KitClient } from '../../apiClients/kitClient';
 import { currencyClient } from '../../apiClients/currencyClient';
 import { usePermission } from '../../hooks/useStaffAccess';
 import { BalanceLedgerTable } from '../../components/currency/BalanceLedgerTable';
+import { AdjustBalanceCard } from '../../components/currency/AdjustBalanceCard';
 import {
-    ADJUSTMENT_CATEGORIES,
-    AdjustmentCategory,
     CURRENCY_NODES,
-    LedgerCurrency,
-    MIN_STAFF_NOTE_LENGTH,
     TransferLockDto,
 } from '../../types/dtos/currency/CurrencyDtos';
 import { PrivateMessagesPanel } from '../../components/admin/PrivateMessagesPanel';
 import {
     ActiveMode,
     AuditLogEntryDto,
-    BalanceMode,
+    BalanceAdjustmentResultDto,
     TitleChangeResultDto,
     UserProfileSummaryDto,
 } from '../../types/dtos/userManagement/UserProfileSummaryDtos';
@@ -110,22 +107,7 @@ export const PlayerProfilePage: React.FC = () => {
     const [grantingNode, setGrantingNode] = React.useState(false);
     const [grantActionError, setGrantActionError] = React.useState<string | null>(null);
 
-    // Balance/XP quick action (developer request 2026-09-25; currency Phase 4: POST
-    // api/currency/admin/adjustments with a reason category and a note of at least 10 characters).
-    const [balanceProperty, setBalanceProperty] = React.useState<'coins' | 'gems' | 'experiencePoints'>('coins');
-    const [balanceAction, setBalanceAction] = React.useState<'set' | 'add' | 'remove'>('add');
-    const [balanceAmount, setBalanceAmount] = React.useState('');
-    const [balanceCategory, setBalanceCategory] = React.useState<AdjustmentCategory | ''>('');
-    const [balanceReason, setBalanceReason] = React.useState('');
-    const [adjustingBalance, setAdjustingBalance] = React.useState(false);
-    const [balanceActionError, setBalanceActionError] = React.useState<string | null>(null);
-    // One Idempotency-Key per submission (currency ledger, KNG-21 Phase 2): kept when the request
-    // fails, so resubmitting the same values can't apply them twice if the first actually landed;
-    // dropped on success and whenever the form changes.
-    const balanceKeyRef = React.useRef<string | null>(null);
-    React.useEffect(() => {
-        balanceKeyRef.current = null;
-    }, [balanceProperty, balanceAction, balanceAmount, balanceCategory, balanceReason, userId]);
+    // "Adjust balance" card (AdjustBalanceCard): the title change its last adjustment caused.
     const [titleChangeNotice, setTitleChangeNotice] = React.useState<TitleChangeResultDto | null>(null);
 
     // Currency Phase 4: the balance history (knk.admin.currency.history) and the payment lock
@@ -288,51 +270,10 @@ export const PlayerProfilePage: React.FC = () => {
         }
     };
 
-    const handleAdjustBalance = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const amount = Number(balanceAmount);
-        if (!balanceAmount.trim() || Number.isNaN(amount) || amount < 0) return;
-        if (!balanceCategory || balanceReason.trim().length < MIN_STAFF_NOTE_LENGTH) {
-            setBalanceActionError(`Pick a category and say why in at least ${MIN_STAFF_NOTE_LENGTH} characters.`);
-            return;
-        }
-        setAdjustingBalance(true);
-        setBalanceActionError(null);
-        setTitleChangeNotice(null);
-        try {
-            // The server applies the mode itself (a Set lands on exactly this value); no delta is
-            // computed here. expectedCurrent makes it refuse a Set if the balance changed since
-            // this page loaded, instead of overwriting that change.
-            const currency: LedgerCurrency = balanceProperty === 'coins' ? 'Coins' : balanceProperty === 'gems' ? 'Gems' : 'Experience';
-            const mode: BalanceMode = balanceAction === 'set' ? 'Set' : balanceAction === 'remove' ? 'Remove' : 'Add';
-            if (!balanceKeyRef.current) {
-                balanceKeyRef.current = crypto.randomUUID?.() || `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-            }
-            const result = await currencyClient.adjust({
-                targetUserId: userId,
-                currency,
-                mode,
-                amount,
-                ...(mode === 'Set' ? { expectedCurrent: account[balanceProperty] } : {}),
-                category: balanceCategory,
-                note: balanceReason.trim(),
-            }, balanceKeyRef.current);
-            if (result.titleChange) {
-                setTitleChangeNotice(result.titleChange);
-            }
-            setBalanceAmount('');
-            setBalanceReason('');
-            balanceKeyRef.current = null;
-            setLedgerRefresh(n => n + 1);
-            await refreshAfterAction();
-        } catch (err) {
-            console.error('Failed to adjust balance:', err);
-            setBalanceActionError((err as { status?: number })?.status === 409
-                ? 'This balance changed since the page loaded — refresh and try again.'
-                : clientErrorMessage(err) ?? 'Could not adjust this balance — check the amount doesn\'t go below zero.');
-        } finally {
-            setAdjustingBalance(false);
-        }
+    const handleBalanceAdjusted = async (result: BalanceAdjustmentResultDto) => {
+        setTitleChangeNotice(result.titleChange ?? null);
+        setLedgerRefresh(n => n + 1);
+        await refreshAfterAction();
     };
 
     // Payment lock (currency Phase 4): a locked player can neither send nor receive /pay.
@@ -503,79 +444,6 @@ export const PlayerProfilePage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Quick action: adjust coins/gems/XP (developer request 2026-09-25) - POST
-                        api/currency/admin/adjustments (currency Phase 4): the server applies
-                        Add/Remove/Set through the currency ledger with the category and note as
-                        its reason, and an XP change resolves/audit-logs a title change here too. */}
-                    <form className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-end gap-3" onSubmit={(e) => void handleAdjustBalance(e)}>
-                        <div>
-                            <label className="block text-xs text-gray-500 mb-1">Property</label>
-                            <select
-                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm"
-                                value={balanceProperty}
-                                onChange={(e) => setBalanceProperty(e.target.value as typeof balanceProperty)}
-                            >
-                                <option value="coins">Coins</option>
-                                <option value="gems">Gems</option>
-                                <option value="experiencePoints">XP</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs text-gray-500 mb-1">Action</label>
-                            <select
-                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm"
-                                value={balanceAction}
-                                onChange={(e) => setBalanceAction(e.target.value as typeof balanceAction)}
-                            >
-                                <option value="add">Add</option>
-                                <option value="remove">Remove</option>
-                                <option value="set">Set to</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs text-gray-500 mb-1">Amount</label>
-                            <input
-                                type="number"
-                                min={0}
-                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-28"
-                                value={balanceAmount}
-                                onChange={(e) => setBalanceAmount(e.target.value)}
-                                placeholder="0"
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="balance-category" className="block text-xs text-gray-500 mb-1">Category</label>
-                            <select
-                                id="balance-category"
-                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm"
-                                value={balanceCategory}
-                                onChange={(e) => setBalanceCategory(e.target.value as AdjustmentCategory | '')}
-                            >
-                                <option value="">Choose…</option>
-                                {ADJUSTMENT_CATEGORIES.map((c) => (
-                                    <option key={c.value} value={c.value}>{c.label}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="flex-1 min-w-[160px]">
-                            <label htmlFor="balance-note" className="block text-xs text-gray-500 mb-1">Reason</label>
-                            <input
-                                id="balance-note"
-                                type="text"
-                                maxLength={450}
-                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-full"
-                                value={balanceReason}
-                                onChange={(e) => setBalanceReason(e.target.value)}
-                                placeholder={`Required, at least ${MIN_STAFF_NOTE_LENGTH} characters`}
-                            />
-                        </div>
-                        <button type="submit" className="btn-primary text-sm"
-                            disabled={!balanceAmount.trim() || !balanceCategory || balanceReason.trim().length < MIN_STAFF_NOTE_LENGTH || adjustingBalance}>
-                            {adjustingBalance ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
-                        </button>
-                        {balanceActionError && <span className="text-xs text-red-600 w-full">{balanceActionError}</span>}
-                    </form>
-
                     {/* Payment lock (currency Phase 4): shown to staff, changeable with knk.admin.currency.lock. */}
                     {transferLock && (
                         <form className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-3 text-sm" onSubmit={(e) => void handleToggleTransferLock(e)}>
@@ -605,6 +473,15 @@ export const PlayerProfilePage: React.FC = () => {
                             {lockError && <span className="text-xs text-red-600 w-full">{lockError}</span>}
                         </form>
                     )}
+                </div>
+
+                {/* Adjust balance (currency Phase 4; its own card since the KNG-21 smoke test) */}
+                <AdjustBalanceCard
+                    userId={userId}
+                    balances={account}
+                    onStart={() => setTitleChangeNotice(null)}
+                    onAdjusted={handleBalanceAdjusted}
+                >
                     {titleChangeNotice && (
                         <div className={`mt-3 rounded-md p-3 text-sm ${titleChangeNotice.direction === 'promotion' ? 'bg-amber-50 border border-amber-200 text-amber-900' : 'bg-red-50 border border-red-200 text-red-900'}`}>
                             <p className="font-semibold">
@@ -622,7 +499,7 @@ export const PlayerProfilePage: React.FC = () => {
                             )}
                         </div>
                     )}
-                </div>
+                </AdjustBalanceCard>
 
                 {/* Title / XP */}
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">

@@ -206,6 +206,13 @@ export type AdjustmentCategory = typeof ADJUSTMENT_CATEGORIES[number]['value'];
 /** A staff note (adjustment, reversal) must be at least this long - the API checks it too. */
 export const MIN_STAFF_NOTE_LENGTH = 10;
 
+/** The in-game /knk user nodes for changing each balance (knk-web-api StaffPermissions); an XP increase needs all three. */
+export const BALANCE_NODES = {
+  coins: 'knk.admin.user.coins',
+  gems: 'knk.admin.user.gems',
+  xp: 'knk.admin.user.xp',
+} as const;
+
 /** The staff nodes of the currency pages (knk-web-api StaffPermissions, DESIGN.md §3.8). */
 export const CURRENCY_NODES = {
   history: 'knk.admin.currency.history',
