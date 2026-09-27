@@ -6,6 +6,8 @@ import { FieldMetadataDto, EntityMetadataDto } from '../../types/dtos/metadata/M
 import { metadataClient } from '../../apiClients/metadataClient';
 import { mapFieldType } from '../../utils/fieldTypeMapper';
 import { ValidationRuleBuilder } from './ValidationRuleBuilder';
+import { formConfigClient } from '../../apiClients/formConfigClient';
+import { findParentFormFields, ParentFormField } from '../../utils/forms/parentFormFields';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { CreateFieldValidationRuleDto, FieldValidationRuleDto, UpdateFieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { FeedbackModal } from '../FeedbackModal';
@@ -87,6 +89,19 @@ export const FieldEditor: React.FC<Props> = ({
     const [rulesError, setRulesError] = useState<string | null>(null);
     type RuleFeedbackState = { open: boolean; title: string; message: string; status: 'success' | 'error' | 'info' };
     const [ruleFeedback, setRuleFeedback] = useState<RuleFeedbackState>({ open: false, title: '', message: '', status: 'info' });
+
+    // Fields of the forms this entity's form is opened from, offered as rule dependencies.
+    const [parentFormFields, setParentFormFields] = useState<ParentFormField[]>([]);
+    useEffect(() => {
+        if (!entityTypeName) return;
+        let cancelled = false;
+        formConfigClient.getAll()
+            .then(configs => {
+                if (!cancelled) setParentFormFields(findParentFormFields(configs, entityTypeName));
+            })
+            .catch(error => console.error('Failed to load parent form configurations:', error));
+        return () => { cancelled = true; };
+    }, [entityTypeName]);
 
     const entityMetadataMap = React.useMemo(() => {
         return new Map(entityMetadata.map(meta => [meta.entityName, meta]));
@@ -456,7 +471,10 @@ export const FieldEditor: React.FC<Props> = ({
     const resolveFieldLabel = (fieldId?: number) => {
         if (!fieldId) return 'Unknown field';
         const match = allFields.find(f => f.id && parseInt(f.id, 10) === fieldId);
-        return match?.label || match?.fieldName || `Field ${fieldId}`;
+        if (match) return match.label || match.fieldName;
+        const parent = parentFormFields.find(item => item.field.id && parseInt(item.field.id, 10) === fieldId);
+        if (parent) return `${parent.field.label || parent.field.fieldName} (${parent.configurationName})`;
+        return `Field ${fieldId}`;
     };
 
     const renderValidationRules = () => {
@@ -572,6 +590,7 @@ export const FieldEditor: React.FC<Props> = ({
                                 setEditingRule(undefined);
                             }}
                             initialRule={editingRule}
+                            parentFormFields={parentFormFields}
                         />
                     </div>
                 )}

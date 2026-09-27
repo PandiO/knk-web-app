@@ -7,6 +7,7 @@ import { locationClient } from '../../apiClients/locationClient';
 import { townClient } from '../../apiClients/townClient';
 import { districtClient } from '../../apiClients/districtClient';
 import { structureClient } from '../../apiClients/structureClient';
+import { DataRetentionCard } from '../../components/admin/DataRetentionCard';
 import {
     GameSettingsDto,
     GameSettingsUpdateDto,
@@ -678,6 +679,9 @@ export const GameSettingsPage: React.FC = () => {
                         })
                     )}
                 </div>
+
+                {/* Audit log / private message log retention - saved on its own (knk.admin.config). */}
+                <DataRetentionCard />
             </div>
         </div>
     );

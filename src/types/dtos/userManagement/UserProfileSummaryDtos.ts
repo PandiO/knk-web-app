@@ -118,7 +118,14 @@ export type AuditAction =
   // (Details.event Spawned | AreaCreated | AreaDeleted, recorded against the staff member), and a
   // staff give of a lootbox item (/knk lootbox give, target = the player who got it).
   | 'LootboxSpawnedByAdmin'
-  | 'LootboxGranted';
+  | 'LootboxGranted'
+  // Currency ledger Phase 4 (knk-web-api AuditAction 19-22).
+  | 'CurrencyPolicyChanged'
+  | 'CurrencyTransactionReversed'
+  | 'CurrencyTransferLocked'
+  | 'CurrencyTransferUnlocked'
+  // Someone read this player's private messages (docs/specs/private-messages/DESIGN.md §3.2).
+  | 'PrivateMessagesViewed';
 
 export interface AuditLogEntryDto {
   id: number;
@@ -142,7 +149,7 @@ export interface AuditLogPagedResultDto {
 }
 
 // PUT /api/users/{id}/balances' response - consolidates every title bracket crossed by one
-// adjustment into a single result rather than one per tier (see UserService.AdjustBalancesAsync
+// adjustment into a single result rather than one per tier (see TitleProgressionService
 // on the backend, and the /knk user xp command's PromotionEffects on the plugin side).
 export interface TitleCrossingDto {
   titleBracketId: number;
@@ -161,9 +168,41 @@ export interface TitleChangeResultDto {
   expBonusGranted: number;
 }
 
+export type BalanceCurrency = 'Coins' | 'Gems' | 'Experience';
+export type BalanceMode = 'Add' | 'Remove' | 'Set';
+
+// PUT /api/users/{id}/balances body (currency ledger, KNG-21 Phase 2): Add/Remove take a positive
+// amount, Set the target balance; expectedCurrent (optional) makes the server refuse (409) a set
+// made from a stale screen.
+export interface BalanceChangeDto {
+  currency: BalanceCurrency;
+  mode: BalanceMode;
+  amount: number;
+  expectedCurrent?: number;
+}
+
+export interface AdjustBalancesRequestDto {
+  changes: BalanceChangeDto[];
+  reason: string;
+  notifyPlayer?: boolean;
+}
+
+// One change as the server's ledger recorded it (amount = the signed change it applied).
+export interface BalanceChangeResultDto {
+  currency: BalanceCurrency;
+  mode: BalanceMode;
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  transactionPublicId: string;
+  replayed: boolean;
+}
+
 export interface BalanceAdjustmentResultDto {
   newCoins: number;
   newGems: number;
   newExperiencePoints: number;
   titleChange: TitleChangeResultDto | null;
+  changes: BalanceChangeResultDto[];
+  replayed: boolean;
 }
