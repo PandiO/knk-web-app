@@ -1,6 +1,7 @@
 import { logging, Controllers, HttpMethod } from '../utils';
 import {
   ActiveMode,
+  AdjustBalancesRequestDto,
   AssignGroupRequest,
   AuditAction,
   AuditLogPagedResultDto,
@@ -50,11 +51,13 @@ class UserManagementClient extends ObjectManager {
   }
 
   // Developer request 2026-09-25: a web quick action for the same coins/gems/XP adjustment the
-  // new /knk user in-game command wraps - both call this identical PUT /api/users/{id}/balances,
-  // so title resolution/audit-logging for a non-zero experienceDelta happens exactly once,
-  // server-side, regardless of which surface triggered it.
-  adjustBalances(userId: number, request: { coinsDelta: number; gemsDelta: number; experienceDelta: number; reason: string }): Promise<BalanceAdjustmentResultDto> {
-    return this.invokeServiceCall(request, `${userId}/balances`, Controllers.Users, HttpMethod.Put);
+  // /knk user in-game command wraps - both call this identical PUT /api/users/{id}/balances.
+  // Since the currency ledger (KNG-21 Phase 2) the server applies Add/Remove/Set itself (no
+  // client-computed delta) and requires an Idempotency-Key: generate one per form submission and
+  // reuse it when retrying that same submission, so a lost response can't apply it twice.
+  adjustBalances(userId: number, request: AdjustBalancesRequestDto, idempotencyKey: string): Promise<BalanceAdjustmentResultDto> {
+    return this.invokeServiceCall(request, `${userId}/balances`, Controllers.Users, HttpMethod.Put,
+      { 'Idempotency-Key': idempotencyKey });
   }
 
   // GET /api/users/{id}/permissions/check - resolves one node through the in-house permission

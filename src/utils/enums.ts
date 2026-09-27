@@ -98,7 +98,10 @@ export enum Controllers {
     DisplaySections = 'DisplaySections',
     DisplayFields = 'DisplayFields',
     AuditLog = 'audit-log',
+    AuditLogRetentionConfiguration = 'AuditLogRetentionConfiguration',
+    PrivateMessageLog = 'private-message-log',
     PermissionGroups = 'PermissionGroups',
+    Currency = 'currency',
     // Siege Phase 1
     BannerDesigns = 'BannerDesigns',
     BannerLayers = 'BannerLayers',

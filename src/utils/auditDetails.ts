@@ -25,6 +25,12 @@ export function describeAuditDetails(entry: AuditLogEntryDto): string[] {
     case 'PlayerUnfrozen': return details.reason ? [`Reason: ${details.reason}`] : [];
     case 'KitGranted': return details.kitName ? [`Kit: ${details.kitName}`] : [];
     case 'DiscoveryReset': return discoveryResetLines(details);
+    // Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md).
+    case 'CurrencyTransactionReversed': return reversalLines(details);
+    case 'CurrencyTransferLocked': return details.reason ? [`Reason: ${details.reason}`] : [];
+    case 'CurrencyTransferUnlocked': return details.previousReason ? [`Was locked for: ${details.previousReason}`] : [];
+    case 'CurrencyPolicyChanged': return policyLines(details);
+    case 'PrivateMessagesViewed': return privateMessagesViewedLines(details);
     default: return [];
   }
 }
@@ -169,6 +175,48 @@ function discoveryResetLines(d: Details): string[] {
   const when = d.discoveredAt ? `Discovered ${new Date(d.discoveredAt).toLocaleString()}` : null;
   if (when || paid.length > 0) {
     lines.push([when, paid.length > 0 ? `paid ${paid.join(', ')} (kept)` : null].filter(Boolean).join(', '));
+  }
+  return lines;
+}
+
+function reversalLines(d: Details): string[] {
+  const lines: string[] = [];
+  if (d.reversedPublicId) {
+    lines.push(`Reversed ${d.reversedReasonCode ?? 'transaction'} ${d.reversedPublicId}${d.reversalPublicId ? ` (as ${d.reversalPublicId})` : ''}`);
+  }
+  if (Array.isArray(d.changes)) {
+    for (const change of d.changes) {
+      const amount = num(change?.amount);
+      if (amount === undefined) continue;
+      const label = change.currency === 'Experience' ? 'XP' : String(change.currency ?? '').toLowerCase();
+      const before = num(change.before);
+      const after = num(change.after);
+      lines.push(`${formatAmount(amount, true)} ${label}${before !== undefined && after !== undefined ? ` (${formatAmount(before)} → ${formatAmount(after)})` : ''}`);
+    }
+  }
+  if (d.reason) lines.push(`Reason: ${d.reason}`);
+  return lines;
+}
+
+function policyLines(d: Details): string[] {
+  const changes = d.changes && typeof d.changes === 'object' ? Object.entries(d.changes as Record<string, any>) : [];
+  return changes.map(([field, value]) => `${d.currency ?? ''} ${field}: ${value?.from ?? '-'} → ${value?.to ?? '-'}`.trim());
+}
+
+// knk-web-api PrivateMessageLogService.SearchAsync: the filters of the read and how many
+// messages it showed (docs/specs/private-messages/DESIGN.md §3.2).
+function privateMessagesViewedLines(d: Details): string[] {
+  const lines: string[] = [];
+  const otherUserId = num(d.otherUserId);
+  if (otherUserId !== undefined) lines.push(`Conversation with user #${otherUserId}`);
+  const range: string[] = [];
+  if (d.from) range.push(`from ${new Date(d.from).toLocaleString()}`);
+  if (d.to) range.push(`before ${new Date(d.to).toLocaleString()}`);
+  if (range.length > 0) lines.push(`Sent ${range.join(', ')}`);
+  const shown = num(d.shown);
+  const page = num(d.pageNumber);
+  if (shown !== undefined) {
+    lines.push(`${page !== undefined ? `Page ${page}, ` : ''}${shown} message${shown === 1 ? '' : 's'} shown`);
   }
   return lines;
 }

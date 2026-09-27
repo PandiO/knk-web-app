@@ -68,6 +68,21 @@ describe('describeAuditDetails', () => {
     expect(describeAuditDetails(entry('GrantRemoved', { node: 'knk.gate.open', value: true }))).toEqual(['knk.gate.open = allow']);
   });
 
+  it('describes a private message log read: conversation, dates and what was shown', () => {
+    const from = '2026-09-20T00:00:00Z';
+    const to = '2026-09-26T00:00:00Z';
+    expect(describeAuditDetails(entry('PrivateMessagesViewed', {
+      otherUserId: 12, from, to, pageNumber: 2, pageSize: 25, shown: 1,
+    }))).toEqual([
+      'Conversation with user #12',
+      `Sent from ${new Date(from).toLocaleString()}, before ${new Date(to).toLocaleString()}`,
+      'Page 2, 1 message shown',
+    ]);
+    expect(describeAuditDetails(entry('PrivateMessagesViewed', {
+      otherUserId: null, from: null, to: null, pageNumber: 1, pageSize: 25, shown: 0,
+    }))).toEqual(['Page 1, 0 messages shown']);
+  });
+
   it('gives no lines for missing or broken details', () => {
     expect(describeAuditDetails(entry('BalanceAdjusted', null))).toEqual([]);
     expect(describeAuditDetails(entry('BalanceAdjusted', 'not json'))).toEqual([]);
@@ -77,5 +92,17 @@ describe('describeAuditDetails', () => {
     expect(formatAmount(32400)).toBe('32,400');
     expect(formatAmount(500, true)).toBe('+500');
     expect(formatAmount(-3, true)).toBe('-3');
+  });
+
+  it('describes currency reversals and policy changes (currency Phase 4)', () => {
+    const reversal = entry('CurrencyTransactionReversed', {
+      reversedPublicId: '01M3', reversedReasonCode: 'SALARY', reversalPublicId: '01M4', reason: 'Paid twice by a bug',
+      changes: [{ currency: 'Coins', amount: -650, before: 750, after: 100 }]
+    });
+    expect(describeAuditDetails(reversal)).toEqual([
+      'Reversed SALARY 01M3 (as 01M4)', '-650 coins (750 → 100)', 'Reason: Paid twice by a bug'
+    ]);
+    const policy = entry('CurrencyPolicyChanged', { currency: 'Gems', changes: { transferable: { from: false, to: true } } });
+    expect(describeAuditDetails(policy)).toEqual(['Gems transferable: false → true']);
   });
 });
