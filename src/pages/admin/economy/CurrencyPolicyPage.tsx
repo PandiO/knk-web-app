@@ -53,12 +53,17 @@ export const CurrencyPolicyPage: React.FC = () => {
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
 
-    React.useEffect(() => {
-        currencyClient.getPolicies()
+    const reloadPolicies = React.useCallback((): Promise<void> => {
+        setError(null);
+        return currencyClient.getPolicies()
             .then(setPolicies)
             .catch((err: unknown) => setError(err instanceof Error && err.message ? err.message : 'Could not load the currency policy.'))
             .finally(() => setLoading(false));
     }, []);
+
+    React.useEffect(() => {
+        void reloadPolicies();
+    }, [reloadPolicies]);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -86,24 +91,43 @@ export const CurrencyPolicyPage: React.FC = () => {
                 {error && <p className="text-sm text-red-600">{error}</p>}
                 {policies.map(policy => (
                     <PolicyForm key={policy.currency} policy={policy}
-                        onSaved={saved => setPolicies(ps => ps.map(p => (p.currency === saved.currency ? saved : p)))} />
+                        onSaved={saved => setPolicies(ps => ps.map(p => (p.currency === saved.currency ? saved : p)))}
+                        onReload={reloadPolicies} />
                 ))}
             </div>
         </div>
     );
 };
 
-const PolicyForm: React.FC<{ policy: CurrencyPolicyDto; onSaved: (policy: CurrencyPolicyDto) => void }> = ({ policy, onSaved }) => {
+/** What staff see when the API refuses a save because the policy changed since the form loaded (409 PolicyChanged). */
+export const POLICY_CHANGED_MESSAGE =
+    'This policy was changed since you loaded it (possibly by an automatic safety shut-off). Reload it and review the current values before saving again.';
+
+const PolicyForm: React.FC<{
+    policy: CurrencyPolicyDto;
+    onSaved: (policy: CurrencyPolicyDto) => void;
+    onReload: () => Promise<void>;
+}> = ({ policy, onSaved, onReload }) => {
     const [draft, setDraft] = React.useState<Draft>(() => toDraft(policy));
     const [saving, setSaving] = React.useState(false);
     const [message, setMessage] = React.useState<{ ok: boolean; text: string } | null>(null);
+    // Set when the save was refused as stale: the form keeps the staff member's edits until they reload.
+    const [stale, setStale] = React.useState(false);
 
-    React.useEffect(() => setDraft(toDraft(policy)), [policy]);
+    React.useEffect(() => {
+        setDraft(toDraft(policy));
+        setStale(false);
+    }, [policy]);
 
     const invalid = NUMBER_FIELDS.filter(f => !isWhole(draft[f.key])).map(f => f.key);
     const titleInvalid = draft.minSenderTitleBracketId.trim() !== '' && !isWhole(draft.minSenderTitleBracketId);
     const original = toDraft(policy);
     const dirty = JSON.stringify(original) !== JSON.stringify(draft);
+
+    const handleReload = async () => {
+        setMessage(null);
+        await onReload();
+    };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -111,6 +135,7 @@ const PolicyForm: React.FC<{ policy: CurrencyPolicyDto; onSaved: (policy: Curren
         setSaving(true);
         setMessage(null);
         try {
+            // updatedAt is sent back exactly as loaded: the API refuses (409) an edit of an older version.
             const body: CurrencyPolicyDto = {
                 ...policy,
                 ...(Object.fromEntries(NUMBER_FIELDS.map(f => [f.key, Number(draft[f.key])])) as Record<NumberField, number>),
@@ -122,7 +147,12 @@ const PolicyForm: React.FC<{ policy: CurrencyPolicyDto; onSaved: (policy: Curren
             onSaved(saved);
             setMessage({ ok: true, text: 'Saved.' });
         } catch (err) {
-            setMessage({ ok: false, text: err instanceof Error && err.message ? err.message : 'Could not save the policy.' });
+            if ((err as { status?: number })?.status === 409) {
+                setStale(true);
+                setMessage({ ok: false, text: POLICY_CHANGED_MESSAGE });
+            } else {
+                setMessage({ ok: false, text: err instanceof Error && err.message ? err.message : 'Could not save the policy.' });
+            }
         } finally {
             setSaving(false);
         }
@@ -168,10 +198,15 @@ const PolicyForm: React.FC<{ policy: CurrencyPolicyDto; onSaved: (policy: Curren
                 </div>
             </div>
             <div className="flex items-center gap-3">
-                <button type="submit" className="btn-primary text-sm" disabled={!dirty || saving || invalid.length > 0 || titleInvalid}>
+                <button type="submit" className="btn-primary text-sm" disabled={!dirty || saving || stale || invalid.length > 0 || titleInvalid}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : `Save ${policy.currency.toLowerCase()}`}
                 </button>
-                {message && <span className={`text-sm ${message.ok ? 'text-green-700' : 'text-red-600'}`}>{message.text}</span>}
+                {stale && (
+                    <button type="button" className="btn-secondary text-sm" onClick={() => void handleReload()}>
+                        Reload current policy
+                    </button>
+                )}
+                {message && <span role={message.ok ? undefined : 'alert'} className={`text-sm ${message.ok ? 'text-green-700' : 'text-red-600'}`}>{message.text}</span>}
             </div>
         </form>
     );
