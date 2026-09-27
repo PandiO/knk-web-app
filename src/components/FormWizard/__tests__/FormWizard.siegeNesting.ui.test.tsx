@@ -21,6 +21,8 @@ import {
  * depths - each modal creates its own WorkflowSession (the gate QoL 5.11 fix, now at depth 2), the
  * depth-2 child is prefilled with its parent team and persisted through its own create API - and the
  * team form's Clan picker receiving the scenario's town as a pickerFilters {parent.TownId} value.
+ * Also (2026-09-27): a spawnpoint-form validation rule whose dependency is the scenario form's Town
+ * gets the scenario's town in its context, two levels down.
  */
 
 jest.mock('../../../apiClients/formConfigClient', () => ({
@@ -148,7 +150,16 @@ describe('Siege authoring: Scenario -> Team -> Spawnpoint owned nesting', () => 
         (metadataClient.getEntityMetadata as jest.Mock).mockResolvedValue({ entityName: '', displayName: '', fields: [] });
         (metadataClient.getAllEntityMetadata as jest.Mock).mockResolvedValue([]);
         (displayConfigClient.getDefaultByEntityType as jest.Mock).mockRejectedValue(new Error('none'));
-        (fieldValidationRuleClient.getByFormConfigurationId as jest.Mock).mockResolvedValue([]);
+        // The spawnpoint form's Name field (322) has a rule depending on the scenario form's Town (301).
+        (fieldValidationRuleClient.getByFormConfigurationId as jest.Mock).mockImplementation(async (configId: number) =>
+            configId === 32
+                ? [{
+                    id: 1, formFieldId: 322, validationType: 'ConditionalRequired', dependsOnFieldId: 301,
+                    dependsOnField: { id: 301, fieldName: 'TownId', label: 'Town' },
+                    configJson: '{}', errorMessage: 'x', isBlocking: false, requiresDependencyFilled: false
+                }]
+                : []);
+        (fieldValidationRuleClient.validateField as jest.Mock).mockResolvedValue({ isValid: true, isBlocking: false, message: 'ok' });
         (formSubmissionClient.getByEntityTypeNameFiltered as jest.Mock).mockResolvedValue([]);
         (formSubmissionClient.create as jest.Mock).mockImplementation(async (p: Record<string, unknown>) => ({ ...p, id: 'progress-1' }));
         (formSubmissionClient.update as jest.Mock).mockImplementation(async (p: Record<string, unknown>) => p);
@@ -208,6 +219,13 @@ describe('Siege authoring: Scenario -> Team -> Spawnpoint owned nesting', () => 
 
         fireEvent.change(within(spawnModal).getByRole('textbox'), { target: { value: 'Keep stairs' } });
         fireEvent.click(within(spawnModal).getByRole('button', { name: /submit/i }));
+
+        // The rule ran with the grandparent scenario's town in its context (edit-loaded as {id, name}).
+        await waitFor(() => expect(fieldValidationRuleClient.validateField).toHaveBeenCalledWith(expect.objectContaining({
+            fieldId: 322,
+            fieldValue: 'Keep stairs',
+            formContextData: expect.objectContaining({ TownId: expect.objectContaining({ id: 5 }), Name: 'Keep stairs' })
+        })));
 
         await waitFor(() => expect(spawnpointCreate).toHaveBeenCalledTimes(1));
         expect(getCreateFunctionForEntity).toHaveBeenCalledWith('SiegeSpawnpoint');

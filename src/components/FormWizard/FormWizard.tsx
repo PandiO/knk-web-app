@@ -65,7 +65,10 @@ interface FormWizardProps {
     onStepAdvanced?: (args: { from: number; to: number; stepKey: string }) => void;
     worldTaskHint?: string;
     // The current form values (+ "id", -1 while unsaved) of the record this form was opened from -
-    // an owned child's parent or an M2M join entry's parent. Read by pickerFilters {parent.X} tokens.
+    // an owned child's parent or an M2M join entry's parent - laid over the values that parent was
+    // itself opened with, so a grandchild still sees its grandparent's fields (a siege spawnpoint the
+    // scenario's TownId). Read by pickerFilters {parent.X} tokens, and the fallback for a validation
+    // rule whose dependency field belongs to a parent form.
     parentContext?: Record<string, unknown>;
 }
 
@@ -427,9 +430,15 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         return Object.entries(placeholders).reduce((acc, [key, val]) => acc.replace(`{${key}}`, val), message);
     };
 
+    // The values a validation rule's dependency is looked up in: this form's own, then the parent
+    // forms' (a child form's rule may depend on a field of the form it was opened from).
     const buildFormContextData = (cfg: FormConfigurationDto, stepsData: AllStepsData): Record<string, unknown> => {
-        return flattenAllStepsData(cfg, stepsData);
+        return { ...(parentContext ?? {}), ...flattenAllStepsData(cfg, stepsData) };
     };
+
+    // What a child/join form opened from here receives as its parentContext.
+    const contextForChild = (ownContext: Record<string, unknown>): Record<string, unknown> =>
+        ({ ...(parentContext ?? {}), ...ownContext });
 
     const findFieldById = (fieldId: number): { field: FormFieldDto; stepIndex: number } | null => {
         if (!config) return null;
@@ -1805,7 +1814,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             parentEntityTypeName: parentEntitySnapshot ? entityName : undefined,
             parentEntitySnapshot,
             persistIndependently: shouldPersistIndependently,
-            parentContext: currentContext
+            parentContext: currentContext ? contextForChild(currentContext) : undefined
         });
     };
 
@@ -1832,13 +1841,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             parentEntitySnapshot: undefined,
             persistIndependently: shouldPersistIndependently,
             parentContext: config && currentStep
-                ? {
+                ? contextForChild({
                     ...flattenAllStepsData(config, {
                         ...allStepsData,
                         [currentStepIndex]: normalizeStepData(currentStep, currentStepData)
                     }),
                     id: entityId ?? -1
-                }
+                })
                 : undefined
         });
     };
@@ -2151,7 +2160,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             initialFieldValues: initialJoinFieldValues,
             parentProgressId: parentId,
             existingProgressId,
-            parentContext: { ...parentSnapshot, id: entityId ?? -1 }
+            parentContext: contextForChild({ ...parentSnapshot, id: entityId ?? -1 })
         });
         debug('handleOpenJoinEntry:modal-opened', {
             existingProgressId,
@@ -2815,7 +2824,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                             : 'space-y-3 rounded-lg border border-gray-200 bg-gray-50/60 p-4 md:p-5';
                         const fieldPlaceholders = fieldId ? preResolvedPlaceholders[fieldId] : undefined;
                         const fieldValidationRules = fieldId ? (validationRules[fieldId] || []) : [];
-                        const flatFormValues = config ? flattenAllStepsData(config, allStepsData) : {};
+                        // Parent forms' values too: a world-bound field's rules may depend on one.
+                        const flatFormValues = config ? buildFormContextData(config, allStepsData) : {};
                         const pickerFilters = resolvePickerFilters(
                             parsePickerFilterSettings(field.settingsJson),
                             config ? flattenAllStepsData(config, effectiveAllStepsData) : {},
