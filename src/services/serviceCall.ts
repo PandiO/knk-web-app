@@ -84,7 +84,9 @@ export class ServiceCall {
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
-                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+                    // e.g. Idempotency-Key on currency writes (see ObjectManager.invokeServiceCall)
+                    ...(args.headers ?? {})
                 }
             };
         
