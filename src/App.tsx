@@ -23,6 +23,8 @@ import { LootboxesPage } from './pages/admin/LootboxesPage';
 import { LOOTBOX_ADMIN_NODE } from './types/dtos/lootbox/LootboxDtos';
 import { DiscoveryAdminPage } from './pages/admin/DiscoveryAdminPage';
 import { DISCOVERY_ADMIN_NODE } from './types/dtos/discovery/DiscoveryDtos';
+import { RoadsAdminPage } from './pages/admin/RoadsAdminPage';
+import { ROAD_ADMIN_NODE } from './types/dtos/road/RoadDtos';
 import { AccountTransactionsPage } from './pages/AccountTransactionsPage';
 import { BalanceLogPage } from './pages/admin/BalanceLogPage';
 import { TransactionDetailPage } from './pages/admin/economy/TransactionDetailPage';
@@ -208,6 +210,14 @@ function AppContent() {
               <Route path="/admin/discovery" element={
                 <StaffRoute node={DISCOVERY_ADMIN_NODE}>
                   <DiscoveryAdminPage />
+                </StaffRoute>
+              } />
+              {/* Road navigation Phase 5 (docs/specs/navigation/IMPLEMENTATION_PLAN.md): road
+                  profiles, the tile overview and the edge table - knk.admin.road, which the API
+                  enforces on every write. */}
+              <Route path="/admin/roads" element={
+                <StaffRoute node={ROAD_ADMIN_NODE}>
+                  <RoadsAdminPage />
                 </StaffRoute>
               } />
               {/* Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md, KNG-23):
