@@ -2,6 +2,7 @@ import React from 'react';
 import { Loader2, RefreshCcw, Route } from 'lucide-react';
 import { roadClient } from '../../apiClients/roadClient';
 import { RoadNetworkMetaDto, RoadProfileDto, RoadTileDto } from '../../types/dtos/road/RoadDtos';
+import { RoadProfilesCard } from '../../components/admin/roads/RoadProfilesCard';
 
 // docs/specs/navigation/DESIGN.md §7 / IMPLEMENTATION_PLAN.md Phase 5 - the road network's admin
 // page (knk.admin.road, see the /admin/roads route): road profiles (what roads are made of), the
@@ -137,6 +138,7 @@ export const RoadsAdminPage: React.FC = () => {
               <span><span className="font-semibold text-gray-900">{meta?.streets.length ?? 0}</span> streets labelled</span>
               <span><span className="font-semibold text-gray-900">{profiles.filter((p) => p.enabled).length}</span> of {profiles.length} profiles enabled</span>
             </div>
+            <RoadProfilesCard profiles={profiles} onChanged={handleProfilesChanged} />
             {/* ROADS_CARDS */}
           </>
         )}
