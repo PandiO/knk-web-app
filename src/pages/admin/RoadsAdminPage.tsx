@@ -101,7 +101,10 @@ export const RoadsAdminPage: React.FC = () => {
   const edgesRef = React.useRef<HTMLDivElement>(null);
   const showTileEdges = (tileId: number) => {
     setEdgesTileId(tileId);
-    edgesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // jsdom has no scrollIntoView; browsers do.
+    if (typeof edgesRef.current?.scrollIntoView === 'function') {
+      edgesRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   const nodeCount = meta?.components.reduce((sum, c) => sum + c.nodeCount, 0) ?? 0;

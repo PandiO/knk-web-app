@@ -8,10 +8,6 @@ import { StreetRoadDto } from '../../../types/dtos/road/RoadDtos';
 
 // Road navigation Phase 5: the Street form's read-only road panel (displayPanel "streetRoad").
 
-// virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
-jest.mock('react-router-dom', () => ({
-    Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode }) => <a href={to} {...rest}>{children}</a>,
-}), { virtual: true });
 jest.mock('../../../apiClients/roadClient', () => ({
     roadClient: { getStreetRoad: jest.fn() },
 }));

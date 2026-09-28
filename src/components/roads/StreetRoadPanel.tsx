@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { Info, Loader2, RefreshCw, Route } from 'lucide-react';
 import { roadClient } from '../../apiClients/roadClient';
 import { StreetRoadDto, formatRoadFlags } from '../../types/dtos/road/RoadDtos';
@@ -14,7 +13,9 @@ interface Props {
  * Road navigation Phase 5 (docs/specs/navigation/DESIGN.md §3.7, §7): the Street form's read-only
  * road panel - GET api/Streets/{id}/road for the SAVED street: how many stretches carry its name,
  * their total length, and the stretches themselves. Labels are changed on the Roads page (or in
- * game); this panel only shows them. Registered as the `streetRoad` display panel.
+ * game); this panel only shows them. Registered as the `streetRoad` display panel. Plain anchors
+ * rather than router Links, like SiegeReadinessPanel: FieldRenderers is imported by many test
+ * suites without a react-router-dom mock (CRA's Jest resolver can't resolve its exports).
  */
 export const StreetRoadPanel: React.FC<Props> = ({ streetId, label, description }) => {
     const [road, setRoad] = React.useState<StreetRoadDto | null>(null);
@@ -105,7 +106,7 @@ export const StreetRoadPanel: React.FC<Props> = ({ streetId, label, description 
                     {road.edges.length === 0 ? (
                         <p className="text-sm text-gray-500">
                             No road stretch carries this street yet. Build the area in game (<code className="text-xs bg-gray-100 px-1 rounded">/knk road build</code>)
-                            or label stretches on the <Link to="/admin/roads" className="text-primary hover:underline">Roads page</Link>.
+                            or label stretches on the <a href="/admin/roads" className="text-primary hover:underline">Roads page</a>.
                         </p>
                     ) : (
                         <div className="overflow-x-auto">
@@ -146,7 +147,7 @@ export const StreetRoadPanel: React.FC<Props> = ({ streetId, label, description 
 
                     <p className="text-xs text-gray-500">
                         Renaming this street renames it on every stretch - navigation picks the new name up within a
-                        minute. To move a stretch to another street, use the <Link to="/admin/roads" className="text-primary hover:underline">Roads page</Link>.
+                        minute. To move a stretch to another street, use the <a href="/admin/roads" className="text-primary hover:underline">Roads page</a>.
                     </p>
                 </>
             )}
