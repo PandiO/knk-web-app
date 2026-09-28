@@ -4,6 +4,7 @@ import { roadClient } from '../../apiClients/roadClient';
 import { RoadNetworkMetaDto, RoadProfileDto, RoadTileDto } from '../../types/dtos/road/RoadDtos';
 import { RoadProfilesCard } from '../../components/admin/roads/RoadProfilesCard';
 import { RoadTilesCard } from '../../components/admin/roads/RoadTilesCard';
+import { RoadEdgesCard } from '../../components/admin/roads/RoadEdgesCard';
 
 // docs/specs/navigation/DESIGN.md §7 / IMPLEMENTATION_PLAN.md Phase 5 - the road network's admin
 // page (knk.admin.road, see the /admin/roads route): road profiles (what roads are made of), the
@@ -86,6 +87,15 @@ export const RoadsAdminPage: React.FC = () => {
     }
   };
 
+  // A street label changed: the labelled-streets list (the edge filter's choices) follows.
+  const handleStreetsChanged = async () => {
+    try {
+      setMeta(await roadClient.getMeta(world));
+    } catch (err) {
+      console.error('Failed to reload the road network meta:', err);
+    }
+  };
+
   // The tile whose stretches the edge table is limited to (from a tile row's "Edges" button).
   const [edgesTileId, setEdgesTileId] = React.useState<number | null>(null);
   const edgesRef = React.useRef<HTMLDivElement>(null);
@@ -149,7 +159,17 @@ export const RoadsAdminPage: React.FC = () => {
             </div>
             <RoadProfilesCard profiles={profiles} onChanged={handleProfilesChanged} />
             <RoadTilesCard tiles={tiles} onShowEdges={showTileEdges} />
-            {/* ROADS_CARDS */}
+            <div ref={edgesRef}>
+              <RoadEdgesCard
+                world={world}
+                tiles={tiles}
+                profiles={profiles}
+                streets={meta?.streets ?? []}
+                tileId={edgesTileId}
+                onTileCleared={() => setEdgesTileId(null)}
+                onStreetsChanged={handleStreetsChanged}
+              />
+            </div>
           </>
         )}
       </div>
