@@ -86,6 +86,12 @@ export enum Controllers {
     Kits = 'Kits',
     Discoveries = 'discoveries',
     DiscoveryRewards = 'discovery-rewards',
+    // Road navigation (docs/specs/navigation/IMPLEMENTATION_PLAN.md Phase 1.5)
+    RoadProfiles = 'road-profiles',
+    RoadTiles = 'road-tiles',
+    RoadEdges = 'road-edges',
+    RoadNetwork = 'road-network',
+    RoadNodes = 'road-nodes',
     EnchantmentDefinitions = 'EnchantmentDefinitions',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs',
