@@ -3,6 +3,7 @@ import { Loader2, RefreshCcw, Route } from 'lucide-react';
 import { roadClient } from '../../apiClients/roadClient';
 import { RoadNetworkMetaDto, RoadProfileDto, RoadTileDto } from '../../types/dtos/road/RoadDtos';
 import { RoadProfilesCard } from '../../components/admin/roads/RoadProfilesCard';
+import { RoadTilesCard } from '../../components/admin/roads/RoadTilesCard';
 
 // docs/specs/navigation/DESIGN.md §7 / IMPLEMENTATION_PLAN.md Phase 5 - the road network's admin
 // page (knk.admin.road, see the /admin/roads route): road profiles (what roads are made of), the
@@ -85,6 +86,14 @@ export const RoadsAdminPage: React.FC = () => {
     }
   };
 
+  // The tile whose stretches the edge table is limited to (from a tile row's "Edges" button).
+  const [edgesTileId, setEdgesTileId] = React.useState<number | null>(null);
+  const edgesRef = React.useRef<HTMLDivElement>(null);
+  const showTileEdges = (tileId: number) => {
+    setEdgesTileId(tileId);
+    edgesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const nodeCount = meta?.components.reduce((sum, c) => sum + c.nodeCount, 0) ?? 0;
   const dirtyTiles = tiles.filter((t) => t.dirty).length;
 
@@ -139,6 +148,7 @@ export const RoadsAdminPage: React.FC = () => {
               <span><span className="font-semibold text-gray-900">{profiles.filter((p) => p.enabled).length}</span> of {profiles.length} profiles enabled</span>
             </div>
             <RoadProfilesCard profiles={profiles} onChanged={handleProfilesChanged} />
+            <RoadTilesCard tiles={tiles} onShowEdges={showTileEdges} />
             {/* ROADS_CARDS */}
           </>
         )}
