@@ -125,7 +125,8 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
         // only exist under their team/scenario and are edited from the parent's own wizard.
         case 'siegelobby':
             return withPagedQueryMapping((query) => SiegeLobbyClient.getInstance().searchPaged(query));
-        // Read-only reference data (the scenario's minimum-title picker).
+        // Read-only reference data (seeded): search + fetch only, for TitleBracket object pickers
+        // (the siege scenario's minimum title, a domain's warp settings - teleport Phase 5).
         case 'titlebracket':
             return withPagedQueryMapping((query) => TitleBracketClient.getInstance().searchPaged(query));
         default:

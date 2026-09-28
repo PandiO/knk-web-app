@@ -1,6 +1,40 @@
 import { AuditLogEntryDto } from '../types/dtos/userManagement/UserProfileSummaryDtos';
 import { discoveryTypeLabel } from '../types/dtos/discovery/DiscoveryDtos';
 
+/** Recent Activity heading for an audit entry (PlayerProfilePage). */
+export const auditActionLabel = (entry: AuditLogEntryDto): string => {
+  switch (entry.action) {
+    case 'GroupAssigned': return 'Group assigned';
+    case 'GroupRemoved': return 'Group removed';
+    case 'GrantAdded': return 'Permission granted';
+    case 'GrantUpdated': return 'Permission updated';
+    case 'GrantRemoved': return 'Permission removed';
+    case 'TitleChanged': return 'Title changed';
+    case 'VanishToggled': return 'Mode changed';
+    case 'SalaryPayout': return 'Salary paid out';
+    case 'BalanceAdjusted': return 'Balances adjusted';
+    case 'PlayerFrozen': return 'Player frozen';
+    case 'PlayerUnfrozen': return 'Player unfrozen';
+    // Written by GiveKitAsync (docs/specs/kits/DESIGN.md §4.1) on every staff kit grant.
+    case 'KitGranted': return 'Kit granted';
+    // Recorded by the plugin for /tp, /tphere (docs/specs/teleport/DESIGN.md §3.10).
+    case 'PlayerTeleported': return 'Teleported by staff';
+    // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.2); the spawn entry's Details.event says which change.
+    case 'LootboxSpawnedByAdmin': return lootboxSpawnAuditLabel(entry.details);
+    case 'LootboxGranted': return 'Lootbox item given';
+    // Written by DiscoveryService.ResetAsync (docs/specs/domain-discovery/DESIGN.md §3.5).
+    case 'DiscoveryReset': return 'Discovery reset';
+    // Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md).
+    case 'CurrencyTransactionReversed': return 'Transaction reversed';
+    case 'CurrencyTransferLocked': return 'Payments locked';
+    case 'CurrencyTransferUnlocked': return 'Payments unlocked';
+    case 'CurrencyPolicyChanged': return 'Currency policy changed';
+    // Written by PrivateMessageLogService on every read of the PM log (see PrivateMessagesPanel).
+    case 'PrivateMessagesViewed': return 'Private messages viewed';
+    default: return entry.action;
+  }
+};
+
 /**
  * Human-readable lines for an audit entry's Details JSON (knk-web-api AuditLogEntry.Details),
  * shown under each entry in the player profile's Recent Activity. Every action writes its own
@@ -24,6 +58,7 @@ export function describeAuditDetails(entry: AuditLogEntryDto): string[] {
     case 'PlayerFrozen':
     case 'PlayerUnfrozen': return details.reason ? [`Reason: ${details.reason}`] : [];
     case 'KitGranted': return details.kitName ? [`Kit: ${details.kitName}`] : [];
+    case 'PlayerTeleported': return teleportLines(details);
     case 'LootboxSpawnedByAdmin': return lootboxSpawnLines(details);
     case 'LootboxGranted': return lootboxGrantedLines(details);
     case 'DiscoveryReset': return discoveryResetLines(details);
@@ -158,6 +193,36 @@ function grantUpdatedLines(d: Details): string[] {
   if (!to.node) return [];
   const describe = (g: Details) => `${g.node} = ${g.value === false ? 'deny' : 'allow'}${g.expiresAt ? ` until ${new Date(g.expiresAt).toLocaleString()}` : ''}`;
   return [`${describe(from)} → ${describe(to)}`];
+}
+
+/** "world 12, 64, -3" - block coordinates, as players see them in game. */
+function describePoint(point: unknown): string | undefined {
+  if (!point || typeof point !== 'object') return undefined;
+  const p = point as Details;
+  const [x, y, z] = [num(p.x), num(p.y), num(p.z)];
+  if (x === undefined || y === undefined || z === undefined) return undefined;
+  return `${p.world ?? '?'} ${Math.floor(x)}, ${Math.floor(y)}, ${Math.floor(z)}`;
+}
+
+// knk-web-api UserService.RecordTeleportAuditAsync: kind, subject/visited ids + usernames,
+// from/to {world,x,y,z}, silent, reason, via ("command" | "console").
+function teleportLines(d: Details): string[] {
+  const lines: string[] = [];
+  const from = describePoint(d.from);
+  const to = describePoint(d.to);
+  const subject = d.subjectUsername ?? (d.subjectUserId ? `user #${d.subjectUserId}` : '?');
+  if (d.visitedUsername || d.visitedUserId) {
+    lines.push(`${subject} → ${d.visitedUsername ?? `user #${d.visitedUserId}`}`);
+  } else if (to) {
+    lines.push(`${subject} → ${to}`);
+  }
+  if (from && to) lines.push(`From ${from} to ${to}`);
+  const flags: string[] = [];
+  if (d.silent === true) flags.push('silent');
+  if (d.via === 'console') flags.push('from the console');
+  if (flags.length > 0) lines.push(flags.map((f, i) => (i === 0 ? f[0].toUpperCase() + f.slice(1) : f)).join(', '));
+  if (d.reason) lines.push(`Reason: ${d.reason}`);
+  return lines;
 }
 
 // ===== Lootboxes (docs/specs/lootboxes/DESIGN.md §3.2) =====

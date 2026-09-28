@@ -2,10 +2,11 @@ import { ObjectManager } from './objectManager';
 import { logging } from '../utils';
 import { Controllers, HttpMethod } from '../utils/enums';
 import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
-import { TitleBracketDto } from '../types/dtos/siege/SiegeDtos';
+import { TitleBracketDto } from '../types/dtos/title/TitleBracketDto';
 
-// Read-only title-bracket lookup (seeded reference data), for the siege scenario form's minimum-title
-// picker. There is no create/update/delete endpoint.
+// Read-only title-bracket lookup (seeded reference data) for the FormWizard's TitleBracket object
+// pickers - the siege scenario form's minimum title, and a Town/District/Structure's minimum title
+// for warps (docs/specs/teleport, Phase 5). There is no create/update/delete endpoint.
 export class TitleBracketClient extends ObjectManager {
     private static instance: TitleBracketClient;
 
