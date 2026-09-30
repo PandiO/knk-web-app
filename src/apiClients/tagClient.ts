@@ -30,7 +30,7 @@ export class TagClient extends ObjectManager {
         if (!data.id) {
             throw new Error('TagDto id is required for update operation');
         }
-        return this.invokeServiceCall(data, data.id, Controllers.Tags, HttpMethod.Put);
+        return this.invokeServiceCall(data, `${data.id}`, Controllers.Tags, HttpMethod.Put);
     }
 
     delete(id: string): Promise<void> {

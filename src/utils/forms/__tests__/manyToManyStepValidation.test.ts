@@ -4,7 +4,6 @@ import { FormStepDto } from '../../../types/dtos/forms/FormModels';
 const baseStep: FormStepDto = {
     id: 'step-1',
     stepName: 'Step 1',
-    title: 'Step 1',
     description: '',
     order: 0,
     fieldOrderJson: '[]',

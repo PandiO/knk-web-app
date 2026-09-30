@@ -114,6 +114,9 @@ export type AuditAction =
   | 'PlayerUnfrozen'
   // Written by knk-web-api's KitService.GiveKitAsync (docs/specs/kits/DESIGN.md §4.1).
   | 'KitGranted'
+  // Written by knk-web-api's POST /api/users/{id}/teleport-audit for every in-game staff teleport
+  // (docs/specs/teleport/DESIGN.md §3.10).
+  | 'PlayerTeleported'
   // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.2): a staff member changed where boxes spawn
   // (Details.event Spawned | AreaCreated | AreaDeleted, recorded against the staff member), and a
   // staff give of a lootbox item (/knk lootbox give, target = the player who got it).

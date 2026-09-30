@@ -30,7 +30,7 @@ export class EnchantmentDefinitionClient extends ObjectManager {
         if (!data.id) {
             throw new Error('EnchantmentDefinitionDto id is required for update operation');
         }
-        return this.invokeServiceCall(data, data.id, Controllers.EnchantmentDefinitions, HttpMethod.Put);
+        return this.invokeServiceCall(data, `${data.id}`, Controllers.EnchantmentDefinitions, HttpMethod.Put);
     }
 
     delete(id: string): Promise<void> {

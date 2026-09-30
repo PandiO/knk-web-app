@@ -1,4 +1,4 @@
-import { FieldMetadataDto } from '../domain/dto/metadata/MetadataModels';
+import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 
 /**
  * Helper to find foreign key field name for a navigation property using entity metadata.

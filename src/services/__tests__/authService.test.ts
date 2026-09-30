@@ -1,7 +1,7 @@
 import { authService } from '../authService';
 import { authClient } from '../../apiClients/authClient';
 import { tokenService } from '../../utils/tokenService';
-import { UserDto } from '../../types/dtos/auth/UserDtos';
+import { UserDto, AccountCreationMethod } from '../../types/dtos/auth/UserDtos';
 import { AuthLoginResponseDto, AuthRefreshResponseDto } from '../../types/dtos/auth/AuthDtos';
 
 // Mock dependencies
@@ -21,16 +21,13 @@ describe('AuthService', () => {
       id: 1,
       email: 'test@example.com',
       username: 'testuser',
-      minecraftUUID: null,
-      minecraftUsername: null,
       emailVerified: true,
-      accountCreatedVia: 'email',
-      balanceGold: 0,
-      balanceSilver: 0,
-      balanceCopper: 0,
+      accountCreatedVia: AccountCreationMethod.WebApp,
+      coins: 0,
+      gems: 0,
+      experiencePoints: 0,
       isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: new Date(),
       deletedAt: null,
     };
 
@@ -125,26 +122,30 @@ describe('AuthService', () => {
       id: 2,
       email: 'newuser@example.com',
       username: 'newuser',
-      minecraftUUID: null,
-      minecraftUsername: null,
       emailVerified: false,
-      accountCreatedVia: 'email',
-      balanceGold: 0,
-      balanceSilver: 0,
-      balanceCopper: 0,
+      accountCreatedVia: AccountCreationMethod.WebApp,
+      coins: 0,
+      gems: 0,
+      experiencePoints: 0,
       isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: new Date(),
       deletedAt: null,
     };
 
     it('should successfully register a new user', async () => {
       mockedAuthClient.register.mockResolvedValue(mockUser);
+      mockedAuthClient.login.mockResolvedValue({
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
+        expiresIn: 3600,
+        user: mockUser,
+      });
 
       const result = await authService.register({
         email: 'newuser@example.com',
         username: 'newuser',
         password: 'SecurePass123!',
+        passwordConfirmation: 'SecurePass123!',
       });
 
       expect(result).toEqual(mockUser);
@@ -152,6 +153,7 @@ describe('AuthService', () => {
         email: 'newuser@example.com',
         username: 'newuser',
         password: 'SecurePass123!',
+        passwordConfirmation: 'SecurePass123!',
       });
     });
 
@@ -168,6 +170,7 @@ describe('AuthService', () => {
           email: 'existing@example.com',
           username: 'newuser',
           password: 'SecurePass123!',
+          passwordConfirmation: 'SecurePass123!',
         })
       ).rejects.toEqual(duplicateError);
     });
@@ -198,16 +201,13 @@ describe('AuthService', () => {
       id: 1,
       email: 'test@example.com',
       username: 'testuser',
-      minecraftUUID: null,
-      minecraftUsername: null,
       emailVerified: true,
-      accountCreatedVia: 'email',
-      balanceGold: 100,
-      balanceSilver: 50,
-      balanceCopper: 25,
+      accountCreatedVia: AccountCreationMethod.WebApp,
+      coins: 100,
+      gems: 50,
+      experiencePoints: 25,
       isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: new Date(),
       deletedAt: null,
     };
 
@@ -301,16 +301,13 @@ describe('AuthService', () => {
       id: 1,
       email: 'test@example.com',
       username: 'testuser',
-      minecraftUUID: null,
-      minecraftUsername: null,
       emailVerified: true,
-      accountCreatedVia: 'email',
-      balanceGold: 0,
-      balanceSilver: 0,
-      balanceCopper: 0,
+      accountCreatedVia: AccountCreationMethod.WebApp,
+      coins: 0,
+      gems: 0,
+      experiencePoints: 0,
       isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: new Date(),
       deletedAt: null,
     };
 
@@ -370,16 +367,13 @@ describe('AuthService', () => {
       id: 1,
       email: 'updated@example.com',
       username: 'updateduser',
-      minecraftUUID: null,
-      minecraftUsername: null,
       emailVerified: true,
-      accountCreatedVia: 'email',
-      balanceGold: 0,
-      balanceSilver: 0,
-      balanceCopper: 0,
+      accountCreatedVia: AccountCreationMethod.WebApp,
+      coins: 0,
+      gems: 0,
+      experiencePoints: 0,
       isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: new Date(),
       deletedAt: null,
     };
 

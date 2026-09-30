@@ -1,4 +1,4 @@
-import { FilterType, StructureOverviewFilter } from "../../../enums";
+import { FilterType, StructureOverviewFilter } from "../../../utils/enums";
 
 export interface StructureOverviewArgumentsDTO {
   filters: Map<StructureOverviewFilter, number[]>;

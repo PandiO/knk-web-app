@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, RefreshCcw, ArrowLeft, ShieldCheck, Users, Award, Coins, EyeOff, X, Plus, History, Gift, Lock, Unlock } from 'lucide-react';
 import { logging } from '../../utils';
-import { describeAuditDetails, lootboxSpawnAuditLabel } from '../../utils/auditDetails';
+import { auditActionLabel, describeAuditDetails } from '../../utils/auditDetails';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { KitClient } from '../../apiClients/kitClient';
@@ -36,37 +36,6 @@ import { KitAvailabilityDto } from '../../types/dtos/kit/KitDtos';
 // docs/specs/private-messages/IMPLEMENTATION_PLAN.md Phase 4 adds the "Private messages" panel.
 
 const ACTIVE_MODES: ActiveMode[] = ['None', 'Staff', 'Owner'];
-
-const auditActionLabel = (entry: AuditLogEntryDto): string => {
-    switch (entry.action) {
-        case 'GroupAssigned': return 'Group assigned';
-        case 'GroupRemoved': return 'Group removed';
-        case 'GrantAdded': return 'Permission granted';
-        case 'GrantUpdated': return 'Permission updated';
-        case 'GrantRemoved': return 'Permission removed';
-        case 'TitleChanged': return 'Title changed';
-        case 'VanishToggled': return 'Mode changed';
-        case 'SalaryPayout': return 'Salary paid out';
-        case 'BalanceAdjusted': return 'Balances adjusted';
-        case 'PlayerFrozen': return 'Player frozen';
-        case 'PlayerUnfrozen': return 'Player unfrozen';
-        // Written by GiveKitAsync (docs/specs/kits/DESIGN.md §4.1) on every staff kit grant.
-        case 'KitGranted': return 'Kit granted';
-        // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.2); the spawn entry's Details.event says which change.
-        case 'LootboxSpawnedByAdmin': return lootboxSpawnAuditLabel(entry.details);
-        case 'LootboxGranted': return 'Lootbox item given';
-        // Written by DiscoveryService.ResetAsync (docs/specs/domain-discovery/DESIGN.md §3.5).
-        case 'DiscoveryReset': return 'Discovery reset';
-        // Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md).
-        case 'CurrencyTransactionReversed': return 'Transaction reversed';
-        case 'CurrencyTransferLocked': return 'Payments locked';
-        case 'CurrencyTransferUnlocked': return 'Payments unlocked';
-        case 'CurrencyPolicyChanged': return 'Currency policy changed';
-        // Written by PrivateMessageLogService on every read of the PM log (see PrivateMessagesPanel).
-        case 'PrivateMessagesViewed': return 'Private messages viewed';
-        default: return entry.action;
-    }
-};
 
 const activeModeLabel = (mode: ActiveMode): string => {
     switch (mode) {

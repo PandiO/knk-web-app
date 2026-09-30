@@ -5,6 +5,8 @@ import { EntityMetadataDto, MergedEntityMetadata, EntityTypeConfigurationDto } f
 import { fieldValidationRuleClient } from '../apiClients/fieldValidationRuleClient';
 import { logging } from '../utils';
 import { useAuth } from '../contexts/AuthContext';
+import { FieldValidationRuleDto, ResolvedDependency, DependencyResolutionResponse } from '../types/dtos/forms/FieldValidationRuleDtos';
+import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../types/dtos/forms/FormModels';
 
 type MetadataBundle = {
   baseMetadata: EntityMetadataDto[];
@@ -402,7 +404,7 @@ export function useEnrichedFormContext(
       try {
         allRules = await fieldValidationRuleClient.getByFormConfigurationId(parseInt(formConfig.id, 10));
       } catch (err) {
-        logger.warn(`Failed to load validation rules for config ${formConfig.id}:`, err);
+        logger.warn(`Failed to load validation rules for config ${formConfig.id}: ${err}`);
       }
     }
 
@@ -448,7 +450,7 @@ export function useEnrichedFormContext(
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to load metadata';
         setError(msg);
-        logger.error('Failed to load enriched form context:', err);
+        logger.error(`Failed to load enriched form context: ${err}`);
       } finally {
         setIsLoading(false);
       }
@@ -471,7 +473,7 @@ export function useEnrichedFormContext(
         await resolveDependenciesBatch([fieldMeta.fieldId]);
       }
     } catch (err) {
-      logger.error(`Failed to set field value for ${fieldName}:`, err);
+      logger.error(`Failed to set field value for ${fieldName}: ${err}`);
       throw err;
     }
   }, [fieldMetadata]);
@@ -505,7 +507,7 @@ export function useEnrichedFormContext(
 
       return null;
     } catch (err) {
-      logger.error(`Failed to resolve dependency for rule ${ruleId}:`, err);
+      logger.error(`Failed to resolve dependency for rule ${ruleId}: ${err}`);
       return null;
     }
   }, [fieldMetadata, values, config.id]);
@@ -534,7 +536,7 @@ export function useEnrichedFormContext(
 
       return response;
     } catch (err) {
-      logger.error('Failed to resolve dependencies batch:', err);
+      logger.error(`Failed to resolve dependencies batch: ${err}`);
       return null;
     }
   }, [values, config.id, resolvedDependencies]);

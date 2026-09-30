@@ -47,7 +47,6 @@ describe('normalizeFormSubmission (many-to-many join entries)', () => {
     const step: FormStepDto = {
         id: 'step-1',
         stepName: 'Step 1',
-        title: 'Step 1',
         order: 0,
         isReusable: false,
         isLinkedToSource: false,
@@ -158,7 +157,6 @@ describe('normalizeFormSubmission (world task locations)', () => {
         isActive: true,
         steps: [{
             stepName: 'Geometry: Plane Grid',
-            title: 'Geometry: Plane Grid',
             order: 0,
             fields: [locationField]
         } as FormStepDto]
@@ -282,7 +280,6 @@ describe('normalizeFormSubmission (world task scan summary fields)', () => {
         isActive: true,
         steps: [{
             stepName: 'Block scans',
-            title: 'Block scans',
             order: 0,
             fields: [openedBlockSnapshotsField, blockSnapshotsField, anchorPointField]
         } as FormStepDto]
@@ -340,7 +337,6 @@ describe('normalizeFormSubmission (scalar API types)', () => {
         isActive: true,
         steps: [{
             stepName: 'Gate settings',
-            title: 'Gate settings',
             order: 0,
             fields: [
                 createField('IsActive', FieldType.Boolean),

@@ -37,7 +37,7 @@ describe('ConfigurationHealthPanel', () => {
   });
 
   it('renders the component title', async () => {
-    jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
+    jest.spyOn(fieldValidationRuleClient.fieldValidationRuleClient, 'validateConfigurationHealth')
       .mockResolvedValue(mockNoIssues);
 
     render(<ConfigurationHealthPanel configurationId="1" />);
@@ -48,7 +48,7 @@ describe('ConfigurationHealthPanel', () => {
   });
 
   it('displays loading state on initial load', () => {
-    jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
+    jest.spyOn(fieldValidationRuleClient.fieldValidationRuleClient, 'validateConfigurationHealth')
       .mockImplementation(() => new Promise(() => {}));
 
     render(<ConfigurationHealthPanel configurationId="1" />);
@@ -57,7 +57,7 @@ describe('ConfigurationHealthPanel', () => {
   });
 
   it('displays success message when no issues found', async () => {
-    jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
+    jest.spyOn(fieldValidationRuleClient.fieldValidationRuleClient, 'validateConfigurationHealth')
       .mockResolvedValue(mockNoIssues);
 
     render(<ConfigurationHealthPanel configurationId="1" />);
@@ -68,7 +68,7 @@ describe('ConfigurationHealthPanel', () => {
   });
 
   it('groups issues into sections', async () => {
-    jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
+    jest.spyOn(fieldValidationRuleClient.fieldValidationRuleClient, 'validateConfigurationHealth')
       .mockResolvedValue(mockIssues);
 
     render(<ConfigurationHealthPanel configurationId="1" />);
@@ -82,7 +82,7 @@ describe('ConfigurationHealthPanel', () => {
 
   it('refreshes health check when refresh button is clicked', async () => {
     const user = userEvent.setup();
-    const mockValidate = jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
+    const mockValidate = jest.spyOn(fieldValidationRuleClient.fieldValidationRuleClient, 'validateConfigurationHealth')
       .mockResolvedValue(mockNoIssues);
 
     render(<ConfigurationHealthPanel configurationId="1" />);
@@ -101,7 +101,7 @@ describe('ConfigurationHealthPanel', () => {
 
   it('shows error then refreshes successfully', async () => {
     const user = userEvent.setup();
-    jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
+    jest.spyOn(fieldValidationRuleClient.fieldValidationRuleClient, 'validateConfigurationHealth')
       .mockRejectedValueOnce(new Error('API Error'))
       .mockResolvedValueOnce(mockNoIssues);
 
@@ -121,7 +121,7 @@ describe('ConfigurationHealthPanel', () => {
 
   it('expands issue details when clicked', async () => {
     const user = userEvent.setup();
-    jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
+    jest.spyOn(fieldValidationRuleClient.fieldValidationRuleClient, 'validateConfigurationHealth')
       .mockResolvedValue(mockIssues);
 
     render(<ConfigurationHealthPanel configurationId="1" />);
@@ -139,7 +139,7 @@ describe('ConfigurationHealthPanel', () => {
   });
 
   it('automatically refreshes when configurationId changes', async () => {
-    const mockValidate = jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
+    const mockValidate = jest.spyOn(fieldValidationRuleClient.fieldValidationRuleClient, 'validateConfigurationHealth')
       .mockResolvedValue(mockNoIssues);
 
     const { rerender } = render(<ConfigurationHealthPanel configurationId="1" />);

@@ -3,7 +3,7 @@ import { UserDto } from "./UserDtos";
 export interface LoginRequestDto {
   email: string;
   password: string;
-  rememberMe: boolean;
+  rememberMe?: boolean;
 }
 
   export interface AuthLoginRequestDto {
