@@ -100,6 +100,7 @@ export const EntityTypeConfigurationPage: React.FC = () => {
             if (editingId) {
                 await entityTypeConfigurationClient.update({
                     id: editingId,
+                    entityTypeName: formData.entityTypeName,
                     iconKey: formData.iconKey,
                     customIconUrl: formData.customIconUrl,
                     displayColor: formData.displayColor,

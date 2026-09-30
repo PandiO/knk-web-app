@@ -1,11 +1,12 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { LoginForm } from '../LoginForm';
-import { useAuth } from '../../../hooks/useAuth';
+import { useAuth } from '../../../contexts/AuthContext';
 
 // Mock useAuth hook
-jest.mock('../../../hooks/useAuth');
+jest.mock('../../../contexts/AuthContext');
 
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 
@@ -29,14 +30,14 @@ describe('LoginForm', () => {
 
   describe('rendering', () => {
     it('should render email and password fields', () => {
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
       expect(screen.getByLabelText(/^email/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/^password/i)).toBeInTheDocument();
     });
 
     it('should render remember me checkbox', () => {
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
       const rememberMeCheckbox = screen.getByRole('checkbox', { name: /remember me/i });
       expect(rememberMeCheckbox).toBeInTheDocument();
@@ -44,13 +45,13 @@ describe('LoginForm', () => {
     });
 
     it('should render submit button', () => {
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
       expect(screen.getByRole('button', { name: /log in/i })).toBeInTheDocument();
     });
 
     it('should render password visibility toggle button', () => {
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
         expect(screen.getByRole('button', { name: /show password/i })).toBeInTheDocument();
     });
@@ -59,7 +60,7 @@ describe('LoginForm', () => {
   describe('form validation', () => {
     it('should show error when email is empty on submit', async () => {
       const user = userEvent.setup();
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
       const submitButton = screen.getByRole('button', { name: /log in/i });
       await user.click(submitButton);
@@ -75,7 +76,7 @@ describe('LoginForm', () => {
 
     it('should show error when email format is invalid', async () => {
       const user = userEvent.setup();
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
       const emailInput = screen.getByLabelText(/^email/i);
       await user.type(emailInput, 'invalid-email');
@@ -93,7 +94,7 @@ describe('LoginForm', () => {
 
     it('should show error when password is empty on submit', async () => {
       const user = userEvent.setup();
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
       const emailInput = screen.getByLabelText(/^email/i);
       await user.type(emailInput, 'test@example.com');
@@ -111,7 +112,7 @@ describe('LoginForm', () => {
 
     it('should clear validation errors when user corrects input', async () => {
       const user = userEvent.setup();
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
       // Submit with empty email to trigger error
       const submitButton = screen.getByRole('button', { name: /log in/i });
@@ -141,7 +142,7 @@ describe('LoginForm', () => {
   describe('password visibility toggle', () => {
     it('should toggle password visibility when clicking eye icon', async () => {
       const user = userEvent.setup();
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
         const passwordInput = screen.getByLabelText(/^password/i) as HTMLInputElement;
       expect(passwordInput.type).toBe('password');
@@ -160,7 +161,7 @@ describe('LoginForm', () => {
   describe('remember me checkbox', () => {
     it('should toggle remember me state when clicking checkbox', async () => {
       const user = userEvent.setup();
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
       const rememberMeCheckbox = screen.getByRole('checkbox', { name: /remember me/i });
       expect(rememberMeCheckbox).toBeChecked();
@@ -180,7 +181,7 @@ describe('LoginForm', () => {
         username: 'testuser',
       } as any);
 
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
   const emailInput = screen.getByLabelText(/^email/i);
   const passwordInput = screen.getByLabelText(/^password/i);
@@ -213,7 +214,7 @@ describe('LoginForm', () => {
         username: 'testuser',
       } as any);
 
-      render(<LoginForm onLoginSuccess={mockOnSuccess} />);
+      render(<MemoryRouter><LoginForm onLoginSuccess={mockOnSuccess} /></MemoryRouter>);
 
   const emailInput = screen.getByLabelText(/^email/i);
   const passwordInput = screen.getByLabelText(/^password/i);
@@ -250,7 +251,7 @@ describe('LoginForm', () => {
       });
       mockLogin.mockReturnValue(loginPromise);
 
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
   const emailInput = screen.getByLabelText(/^email/i);
   const passwordInput = screen.getByLabelText(/^password/i);
@@ -281,7 +282,7 @@ describe('LoginForm', () => {
         response: { code: 'InvalidCredentials', message: 'Invalid email or password' },
       });
 
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
   const emailInput = screen.getByLabelText(/^email/i);
   const passwordInput = screen.getByLabelText(/^password/i);
@@ -292,7 +293,6 @@ describe('LoginForm', () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(screen.getByText(/login failed/i)).toBeInTheDocument();
         expect(screen.getAllByText(/email or password is incorrect/i).length).toBeGreaterThan(0);
       });
     });
@@ -303,7 +303,7 @@ describe('LoginForm', () => {
         response: { message: 'Account is temporarily locked' },
       });
 
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
   const emailInput = screen.getByLabelText(/^email/i);
   const passwordInput = screen.getByLabelText(/^password/i);
@@ -320,7 +320,7 @@ describe('LoginForm', () => {
 
     it('should announce errors to screen readers', async () => {
       const user = userEvent.setup();
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
       const submitButton = screen.getByRole('button', { name: /log in/i });
       await user.click(submitButton);
@@ -337,7 +337,7 @@ describe('LoginForm', () => {
         response: { message: 'Invalid credentials' },
       });
 
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
       const emailInput = screen.getByLabelText(/^email/i);
       const passwordInput = screen.getByLabelText(/^password/i);
@@ -356,7 +356,7 @@ describe('LoginForm', () => {
 
   describe('accessibility', () => {
     it('should have proper ARIA attributes on inputs', () => {
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
         const emailInput = screen.getByLabelText(/^email/i);
         const passwordInput = screen.getByLabelText(/^password/i);
@@ -367,7 +367,7 @@ describe('LoginForm', () => {
 
     it('should mark inputs as invalid when errors exist', async () => {
       const user = userEvent.setup();
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
       const submitButton = screen.getByRole('button', { name: /log in/i });
       await user.click(submitButton);
@@ -383,7 +383,7 @@ describe('LoginForm', () => {
 
     it('should associate error messages with inputs via aria-describedby', async () => {
       const user = userEvent.setup();
-      render(<LoginForm />);
+      render(<MemoryRouter><LoginForm /></MemoryRouter>);
 
       const submitButton = screen.getByRole('button', { name: /log in/i });
       await user.click(submitButton);

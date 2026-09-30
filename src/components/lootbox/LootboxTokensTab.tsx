@@ -139,7 +139,7 @@ const GrantRules: React.FC<{ types: LootboxTypeDto[] }> = ({ types }) => {
         }
     };
 
-    const targets: { id: number; name: string }[] = (draft.target === 'tier' ? tiers : kits)
+    const targets: { id: number; name: string }[] = ((draft.target === 'tier' ? tiers : kits) as (PermissionGroupDto | KitDto)[])
         .filter(t => t.id != null)
         .map(t => ({ id: t.id as number, name: t.name }));
 

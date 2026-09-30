@@ -45,10 +45,12 @@ export const SortableStepItem: React.FC<Props> = ({ step, index, isSelected, onS
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                     <div className="text-sm font-medium text-gray-900 truncate">
-                        {index + 1}. {step.title || step.stepName}
+                        {index + 1}. {step.stepName}
                     </div>
                     {step.hasCompatibilityIssues && (
-                        <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" title="Has compatibility issues" />
+                        <span title="Has compatibility issues">
+                            <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                        </span>
                     )}
                     {step.isReusable && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 flex-shrink-0">
@@ -57,9 +59,13 @@ export const SortableStepItem: React.FC<Props> = ({ step, index, isSelected, onS
                     )}
                     {step.sourceStepId && (
                         step.isLinkedToSource ? (
-                            <LinkIcon className="h-3 w-3 text-blue-600 flex-shrink-0" title="Linked to template" />
+                            <span title="Linked to template">
+                                <LinkIcon className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                            </span>
                         ) : (
-                            <CopyIcon className="h-3 w-3 text-gray-600 flex-shrink-0" title="Copied from template" />
+                            <span title="Copied from template">
+                                <CopyIcon className="h-3 w-3 text-gray-600 flex-shrink-0" />
+                            </span>
                         )
                     )}
                 </div>

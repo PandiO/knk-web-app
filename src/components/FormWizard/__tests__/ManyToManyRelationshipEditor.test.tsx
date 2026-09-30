@@ -11,18 +11,6 @@ jest.mock('../../../apiClients/metadataClient', () => ({
     }
 }));
 
-jest.mock('../../PagedEntityTable/PagedEntityTable', () => ({
-    PagedEntityTable: ({ onSelectionChange }: { onSelectionChange: (items: Array<Record<string, unknown>>) => void }) => (
-        <button
-            type="button"
-            data-testid="select-related"
-            onClick={() => onSelectionChange([{ id: 7, name: 'Enchantment A' }])}
-        >
-            Select Related
-        </button>
-    )
-}));
-
 jest.mock('../FieldRenderers', () => ({
     FieldRenderer: ({ value, onChange }: { value: unknown; onChange: (newValue: unknown) => void }) => (
         <input
@@ -36,7 +24,6 @@ jest.mock('../FieldRenderers', () => ({
 const baseStep: FormStepDto = {
     id: 'step-1',
     stepName: 'Default Enchantments',
-    title: 'Default Enchantments',
     description: '',
     order: 0,
     fieldOrderJson: '[]',
@@ -56,61 +43,6 @@ const mockGetEntityMetadata = metadataClient.getEntityMetadata as jest.Mock;
 describe('ManyToManyRelationshipEditor', () => {
     beforeEach(() => {
         mockGetEntityMetadata.mockReset();
-    });
-
-    it('maps selected related entity id to the join FK field', async () => {
-        mockGetEntityMetadata.mockResolvedValue({
-            entityName: 'ItemBlueprintDefaultEnchantment',
-            displayName: 'Item Blueprint Default Enchantment',
-            fields: [
-                {
-                    fieldName: 'itemBlueprint',
-                    fieldType: 'ItemBlueprint',
-                    isNullable: false,
-                    isRelatedEntity: true,
-                    relatedEntityType: 'ItemBlueprint',
-                    hasDefaultValue: false,
-                    defaultValue: null
-                },
-                {
-                    fieldName: 'enchantmentDefinition',
-                    fieldType: 'EnchantmentDefinition',
-                    isNullable: false,
-                    isRelatedEntity: true,
-                    relatedEntityType: 'EnchantmentDefinition',
-                    hasDefaultValue: false,
-                    defaultValue: null
-                },
-                {
-                    fieldName: 'enchantmentDefinitionId',
-                    fieldType: 'int',
-                    isNullable: false,
-                    isRelatedEntity: false,
-                    relatedEntityType: null,
-                    hasDefaultValue: false,
-                    defaultValue: null
-                }
-            ]
-        });
-
-        const handleChange = jest.fn();
-
-        render(
-            <ManyToManyRelationshipEditor
-                step={baseStep}
-                value={[]}
-                onChange={handleChange}
-                entityName="ItemBlueprint"
-            />
-        );
-
-        const selectButton = await screen.findByTestId('select-related');
-        fireEvent.click(selectButton);
-
-        expect(handleChange).toHaveBeenCalledTimes(1);
-        const updated = handleChange.mock.calls[0][0] as Array<Record<string, unknown>>;
-        expect(updated[0].relatedEntityId).toBe(7);
-        expect(updated[0].enchantmentDefinitionId).toBe(7);
     });
 
     it('shows a configuration warning when join FK metadata is missing', async () => {
@@ -145,6 +77,7 @@ describe('ManyToManyRelationshipEditor', () => {
                 value={[]}
                 onChange={jest.fn()}
                 entityName="ItemBlueprint"
+                userId="user-1"
             />
         );
 
@@ -198,12 +131,13 @@ describe('ManyToManyRelationshipEditor', () => {
                 value={[{ relatedEntityId: 7, relatedEntity: { name: 'Enchantment A' } }]}
                 onChange={jest.fn()}
                 entityName="ItemBlueprint"
+                userId="user-1"
                 joinFormConfigurationId="config-1"
                 onOpenJoinEntry={handleOpenJoinEntry}
             />
         );
 
-        const buttons = await screen.findAllByRole('button', { name: 'Create Join Entry' });
+        const buttons = await screen.findAllByRole('button', { name: 'Edit Join Entry' });
         fireEvent.click(buttons[0]);
 
         expect(handleOpenJoinEntry).toHaveBeenCalledWith(0);

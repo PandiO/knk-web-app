@@ -759,7 +759,7 @@ const GateDoorConfig: ObjectConfig = {
     showHealthDisplay: {
       name: 'showHealthDisplay',
       label: 'Show Health Display',
-      type: 'boolean',
+      type: 'bool',
       required: false
     },
     healthDisplayMode: {
@@ -825,13 +825,13 @@ const GateDoorConfig: ObjectConfig = {
     isInvincible: {
       name: 'isInvincible',
       label: 'Invincible',
-      type: 'boolean',
+      type: 'bool',
       required: false
     },
     canRespawn: {
       name: 'canRespawn',
       label: 'Can Respawn',
-      type: 'boolean',
+      type: 'bool',
       required: false
     },
     respawnRateSeconds: {
@@ -846,7 +846,7 @@ const GateDoorConfig: ObjectConfig = {
     allowPassThrough: {
       name: 'allowPassThrough',
       label: 'Allow Pass-Through',
-      type: 'boolean',
+      type: 'bool',
       required: false
     },
     passThroughDurationSeconds: {

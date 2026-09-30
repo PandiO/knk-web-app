@@ -17,7 +17,8 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { WorldBoundFieldRenderer } from '../WorldBoundFieldRenderer';
-import { FormFieldDto, FormConfigurationDto } from '../../../types/dtos/forms/FormModels';
+import { FormFieldDto, FormConfigurationDto, FormStepDto } from '../../../types/dtos/forms/FormModels';
+import { FieldType } from '../../../utils/enums';
 import * as worldTaskClientModule from '../../../apiClients/worldTaskClient';
 import * as useEnrichedFormContextModule from '../../../hooks/useEnrichedFormContext';
 
@@ -28,26 +29,40 @@ jest.mock('../../../hooks/useEnrichedFormContext');
 describe('WorldBoundFieldRenderer - Phase 7 E2E Tests', () => {
     const mockFormConfiguration: FormConfigurationDto = {
         id: '1',
-        entityName: 'Town',
-        version: 1,
+        entityTypeName: 'Town',
+        configurationName: 'Town Form',
+        isDefault: true,
+        isActive: true,
         steps: [
             {
                 id: '1',
-                stepNumber: 1,
-                title: 'Basic Info',
+                formConfigurationId: '1',
+                stepName: 'Basic Info',
                 description: 'Enter basic information',
+                order: 1,
                 fields: [
                     {
                         id: '1',
                         fieldName: 'wgRegionId',
                         label: 'Region',
-                        fieldType: 'String',
+                        fieldType: FieldType.String,
                         isRequired: true,
+                        isReadOnly: false,
                         order: 1,
+                        isReusable: false,
+                        isLinkedToSource: false,
+                        hasCompatibilityIssues: false,
+                        validations: [],
                         settingsJson: JSON.stringify({ worldTask: { enabled: true, taskType: 'RegionCreate' } })
                     } as FormFieldDto
-                ]
-            }
+                ],
+                childFormSteps: [],
+                conditions: [],
+                isReusable: false,
+                isManyToManyRelationship: false,
+                isLinkedToSource: false,
+                hasCompatibilityIssues: false
+            } as FormStepDto
         ]
     } as FormConfigurationDto;
 
@@ -55,9 +70,14 @@ describe('WorldBoundFieldRenderer - Phase 7 E2E Tests', () => {
         id: '1',
         fieldName: 'wgRegionId',
         label: 'Region',
-        fieldType: 'String',
+        fieldType: FieldType.String,
         isRequired: true,
+        isReadOnly: false,
         order: 1,
+        isReusable: false,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        validations: [],
         settingsJson: JSON.stringify({ worldTask: { enabled: true, taskType: 'RegionCreate' } })
     };
 

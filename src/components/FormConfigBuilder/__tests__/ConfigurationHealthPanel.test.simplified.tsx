@@ -15,7 +15,7 @@ describe('ConfigurationHealthPanel (simplified)', () => {
   });
 
   it('renders panel and refresh control', async () => {
-    jest.spyOn(fieldValidationRuleClient, 'validateConfigurationHealth')
+    jest.spyOn(fieldValidationRuleClient.fieldValidationRuleClient, 'validateConfigurationHealth')
       .mockResolvedValue(mockNoIssues);
 
     render(<ConfigurationHealthPanel configurationId="1" />);

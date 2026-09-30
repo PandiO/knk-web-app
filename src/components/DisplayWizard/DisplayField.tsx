@@ -204,10 +204,10 @@ function renderDisplayValue(sourceData: unknown, field: DisplayFieldProps['field
           />
           <div>
             <div className="text-base text-gray-900 font-medium">
-              {namespaceKey || displayValue || '-'}
+              {String(namespaceKey || displayValue || '-')}
             </div>
             {displayValue && displayValue !== namespaceKey && (
-              <div className="text-xs text-gray-600">{displayValue}</div>
+              <div className="text-xs text-gray-600">{String(displayValue)}</div>
             )}
           </div>
         </div>

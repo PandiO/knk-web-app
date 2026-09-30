@@ -24,7 +24,6 @@ describe("buildPlaceholderContext", () => {
             steps: [
                 {
                     stepName: "Step 1",
-                    title: "Basics",
                     order: 0,
                     isReusable: false,
                     isLinkedToSource: false,
@@ -82,7 +81,6 @@ describe("buildPlaceholderContext", () => {
             steps: [
                 {
                     stepName: "Step 1",
-                    title: "Basic Info",
                     order: 0,
                     isReusable: false,
                     isLinkedToSource: false,
@@ -107,7 +105,6 @@ describe("buildPlaceholderContext", () => {
                 },
                 {
                     stepName: "Step 2",
-                    title: "Details",
                     order: 1,
                     isReusable: false,
                     isLinkedToSource: false,
@@ -151,7 +148,6 @@ describe("buildPlaceholderContext", () => {
             steps: [
                 {
                     stepName: "Step 1",
-                    title: "Basics",
                     order: 0,
                     isReusable: false,
                     isLinkedToSource: false,
@@ -225,7 +221,6 @@ describe("buildPlaceholderContext", () => {
             steps: [
                 {
                     stepName: "Step 1",
-                    title: "Basics",
                     order: 0,
                     isReusable: false,
                     isLinkedToSource: false,
@@ -250,7 +245,6 @@ describe("buildPlaceholderContext", () => {
                 },
                 {
                     stepName: "Step 2",
-                    title: "Details",
                     order: 1,
                     isReusable: false,
                     isLinkedToSource: false,

@@ -41,6 +41,9 @@ export enum LocationsOperation {
 
 export enum StreetsOperation {
     GetAll = '',
+    // POST api/Streets (streetClient.create referenced this member before it existed; an
+    // undefined operation happened to build the same URL).
+    Create = '',
     GetById = 'GetStreet',
     GetByName = 'GetStreetByName'
 }

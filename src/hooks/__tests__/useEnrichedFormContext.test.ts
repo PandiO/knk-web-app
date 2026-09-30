@@ -97,6 +97,7 @@ describe('useEnrichedFormContext', () => {
           }
         ] as FormFieldDto[],
         childFormSteps: [],
+        conditions: [],
         isReusable: false,
         isManyToManyRelationship: false,
         isLinkedToSource: false,
@@ -107,9 +108,9 @@ describe('useEnrichedFormContext', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockMetadataClient.metadataClient.getAllEntityMetadata.mockResolvedValue(mockEntityMetadata);
-    mockFieldValidationRuleClient.fieldValidationRuleClient.getByFormConfigurationId.mockResolvedValue([mockValidationRule]);
-    mockFieldValidationRuleClient.fieldValidationRuleClient.resolveDependencies.mockResolvedValue({
+    (mockMetadataClient.metadataClient.getAllEntityMetadata as jest.Mock).mockResolvedValue(mockEntityMetadata);
+    (mockFieldValidationRuleClient.fieldValidationRuleClient.getByFormConfigurationId as jest.Mock).mockResolvedValue([mockValidationRule]);
+    (mockFieldValidationRuleClient.fieldValidationRuleClient.resolveDependencies as jest.Mock).mockResolvedValue({
       resolved: {
         1: {
           ruleId: 1,
@@ -140,7 +141,7 @@ describe('useEnrichedFormContext', () => {
     });
 
     it('should handle initialization error gracefully', async () => {
-      mockMetadataClient.metadataClient.getAllEntityMetadata.mockRejectedValue(new Error('Network error'));
+      (mockMetadataClient.metadataClient.getAllEntityMetadata as jest.Mock).mockRejectedValue(new Error('Network error'));
 
       const { result } = renderHook(() => useEnrichedFormContext(mockFormConfiguration));
 
@@ -171,7 +172,7 @@ describe('useEnrichedFormContext', () => {
     });
 
     it('should handle setFieldValue errors', async () => {
-      mockFieldValidationRuleClient.fieldValidationRuleClient.resolveDependencies.mockRejectedValue(
+      (mockFieldValidationRuleClient.fieldValidationRuleClient.resolveDependencies as jest.Mock).mockRejectedValue(
         new Error('Resolution failed')
       );
 
@@ -301,13 +302,13 @@ describe('useEnrichedFormContext', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      const initialCallCount = mockMetadataClient.metadataClient.getAllEntityMetadata.mock.callCount;
+      const initialCallCount = (mockMetadataClient.metadataClient.getAllEntityMetadata as jest.Mock).mock.calls.length;
 
       await act(async () => {
         await result.current.refresh();
       });
 
-      expect(mockMetadataClient.metadataClient.getAllEntityMetadata.mock.callCount).toBeGreaterThan(initialCallCount);
+      expect((mockMetadataClient.metadataClient.getAllEntityMetadata as jest.Mock).mock.calls.length).toBeGreaterThan(initialCallCount);
     });
   });
 });

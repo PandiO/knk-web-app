@@ -55,7 +55,7 @@ const town: TownViewDTO = {
   Description: "A prosperous medieval town nestled in a scenic valley",
   AllowEntry: true,
   Created: new Date("2024-01-15T08:00:00Z"),
-  WgRegionId: 1001,
+  WgRegionId: "1001",
   Location: locations[0],
   RequiredTitle: 2
 };
@@ -68,7 +68,7 @@ const districts: DistrictViewDTO[] = [
     Description: "The bustling commercial heart of Silverbrook",
     AllowEntry: true,
     Created: new Date("2024-01-15T09:00:00Z"),
-    WgRegionId: 2001,
+    WgRegionId: "2001",
     Location: locations[1],
     Town: town,
     Streets: [], // Will be populated after street creation
@@ -83,7 +83,7 @@ const districts: DistrictViewDTO[] = [
     Description: "An elegant residential area for the town's elite",
     AllowEntry: false,
     Created: new Date("2024-01-15T09:30:00Z"),
-    WgRegionId: 2002,
+    WgRegionId: "2002",
     Location: locations[2],
     Town: town,
     Streets: [], // Will be populated after street creation
@@ -128,7 +128,8 @@ const items: ItemDTO[] = [
     categoryId: 42,
     gradeId: 6,
     itemtypeId: 36,
-    itemtypeName: "COAL"
+    itemtypeName: "COAL",
+    data: 0
   },
   {
     id: 60,
@@ -138,7 +139,8 @@ const items: ItemDTO[] = [
     categoryId: 42,
     gradeId: 6,
     itemtypeId: 38,
-    itemtypeName: "IRON_INGOT"
+    itemtypeName: "IRON_INGOT",
+    data: 0
   },
   {
     id: 65,
@@ -329,8 +331,8 @@ const structures: StructureViewDTO[] = [
       WorldName: "world"
     },
     Street: structureStreets[2],
-    streetNumber: null,
-    district: null,
+    StreetNumber: null,
+    District: null,
     storages: [storages[1]]
   },
   {
@@ -339,7 +341,7 @@ const structures: StructureViewDTO[] = [
     Description: "This Stone Quarry generates stone, and some iron ore as byproduct.",
     AllowEntry: true,
     Created: new Date("2023-02-09T16:10:34"),
-    wgRegionId: "productionstructure_1000012",
+    WgRegionId: "productionstructure_1000012",
     Location: {
       Id: 10,
       X: 1507.5899658203125,
@@ -349,9 +351,9 @@ const structures: StructureViewDTO[] = [
       Pitch: 2.40026,
       WorldName: "world"
     },
-    street: null,
-    streetNumber: null,
-    district: null,
+    Street: null,
+    StreetNumber: null,
+    District: null,
     storages: [storages[2]]
   }
 ];
@@ -419,7 +421,6 @@ export const uiConfigTestData: UIObjectConfigDto[] = [
         componentType: "number",
         validations: [
           {
-            id: 202,
             type: ValidationType.Pattern,
             value: "^[0-9]+$",
             message: "Only numeric values are allowed",

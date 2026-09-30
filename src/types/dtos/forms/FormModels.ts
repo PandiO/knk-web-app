@@ -1,4 +1,4 @@
-import { FieldType, ValidationType, FormSubmissionStatus, ConditionOperator, DisplayConditionLogic, DisplayConditionTargetType } from '../../../enums';
+import { FieldType, ValidationType, FormSubmissionStatus, ConditionOperator, DisplayConditionLogic, DisplayConditionTargetType } from '../../../utils/enums';
 
 /**
  * One comparison against the value of an earlier field.

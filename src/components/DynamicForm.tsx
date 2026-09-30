@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { objectConfigs } from '../config/objectConfigs';
-import { DistrictManager } from '../apiClients/districts';
-import { StreetManager } from '../apiClients/streets';
+import { DistrictClient as DistrictManager } from '../apiClients/districtClient';
+import { StreetClient as StreetManager } from '../apiClients/streetClient';
 import type { FormField, ObjectConfig } from '../types/common';
 import { MultiSelectDropdown } from './MultiSelectDropdown';
 import { SearchableDropdown } from './SearchableDropdown';
@@ -9,7 +9,7 @@ import { X, Loader2, Plus } from 'lucide-react';
 import { mapFieldDataToForm as mapDistrictFieldDataToForm } from '../types/dtos/district/DistrictViewDTO';
 import { mapFieldDataToForm as mapLocationFieldDataToForm } from '../types/dtos/location/LocationViewDTO';
 import { mapFieldDataToForm as mapStreetFieldDataToForm } from '../types/dtos/street/StreetViewDTO';
-import { LocationsManager } from '../apiClients/locations';
+import { LocationClient as LocationsManager } from '../apiClients/locationClient';
 
 interface DynamicFormProps {
   config: ObjectConfig;
@@ -62,7 +62,7 @@ export function DynamicForm({
             LocationsManager.getInstance().getAll().then((data) => {
               setRelationshipData(prev => ({
                 ...prev,
-                [key]: data.map(mapLocationFieldDataToForm).map((o: any) => ({ id: o.id, name: 'Location' }))
+                [key]: data.map((o) => ({ id: o.id, name: 'Location' }))
               }));
             }).catch((err) => { console.error(err); });
           }; break;

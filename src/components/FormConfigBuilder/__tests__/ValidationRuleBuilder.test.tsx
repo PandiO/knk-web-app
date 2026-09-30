@@ -10,10 +10,10 @@ import { EntityMetadataDto } from '../../../types/dtos/metadata/MetadataModels';
 
 describe('ValidationRuleBuilder', () => {
   const mockFormFields: FormFieldDto[] = [
-    { id: 1, label: 'Town', fieldName: 'town', fieldType: FieldType.String, formStepId: 1, isRequired: true, displayOrder: 1, isReadOnly: false },
-    { id: 2, label: 'Location', fieldName: 'location', fieldType: FieldType.String, formStepId: 1, isRequired: true, displayOrder: 2, isReadOnly: false },
-    { id: 3, label: 'NPC Name', fieldName: 'npcName', fieldType: FieldType.String, formStepId: 1, isRequired: false, displayOrder: 3, isReadOnly: false }
-  ] as FormFieldDto[];
+    { id: '1', label: 'Town', fieldName: 'town', fieldType: FieldType.String, formStepId: '1', isRequired: true, order: 1, isReadOnly: false, isReusable: false, isLinkedToSource: false, hasCompatibilityIssues: false, validations: [] },
+    { id: '2', label: 'Location', fieldName: 'location', fieldType: FieldType.String, formStepId: '1', isRequired: true, order: 2, isReadOnly: false, isReusable: false, isLinkedToSource: false, hasCompatibilityIssues: false, validations: [] },
+    { id: '3', label: 'NPC Name', fieldName: 'npcName', fieldType: FieldType.String, formStepId: '1', isRequired: false, order: 3, isReadOnly: false, isReusable: false, isLinkedToSource: false, hasCompatibilityIssues: false, validations: [] }
+  ];
 
   const mockOnSave = jest.fn();
   const mockOnCancel = jest.fn();
@@ -163,7 +163,7 @@ describe('ValidationRuleBuilder', () => {
     it('populates form with existing rule data', () => {
       const existingRule: FieldValidationRuleDto = {
         id: 1,
-        formFieldId: mockField.id,
+        formFieldId: Number(mockField.id),
         validationType: 'LocationInsideRegion',
         dependsOnFieldId: 2,
         dependencyPath: undefined,

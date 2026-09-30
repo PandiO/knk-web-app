@@ -332,9 +332,6 @@ export const SearchablePathBuilder: React.FC<SearchablePathBuilderProps> = ({
                   } transition-colors`}
                 >
                   <div className="font-medium">{entity.displayName || entity.entityName}</div>
-                  {entity.description && (
-                    <div className="text-xs text-gray-500 mt-0.5">{entity.description}</div>
-                  )}
                 </button>
               ))}
 

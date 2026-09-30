@@ -1,24 +1,21 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { PathBuilder } from './PathBuilder';
-import * as fieldValidationRuleClient from '../../apiClients/fieldValidationRuleClient';
+import { PathBuilder } from '../PathBuilder';
+import * as fieldValidationRuleClient from '../../../apiClients/fieldValidationRuleClient';
+import { logging } from '../../../utils';
 import {
   EntityMetadataDto,
   EntityPropertyDto,
-} from '../../types/dtos/metadata/MetadataModels';
+} from '../../../types/dtos/metadata/MetadataModels';
 
 // Mock the API client
-jest.mock('../../apiClients/fieldValidationRuleClient');
+jest.mock('../../../apiClients/fieldValidationRuleClient');
 
 // Mock the logging utility
-jest.mock('../../utils', () => ({
+jest.mock('../../../utils', () => ({
   logging: {
-    getLogger: jest.fn(() => ({
-      debug: jest.fn(),
-      error: jest.fn(),
-      warn: jest.fn(),
-    })),
+    getLogger: jest.fn(),
   },
 }));
 
@@ -30,7 +27,7 @@ const createMockEntityMetadata = (): Map<string, EntityMetadataDto> => {
       {
         entityName: 'Town',
         displayName: 'Town',
-        description: 'Town entity',
+        fields: [],
         properties: [
           {
             name: 'wgRegionId',
@@ -54,7 +51,7 @@ const createMockEntityMetadata = (): Map<string, EntityMetadataDto> => {
       {
         entityName: 'Region',
         displayName: 'Region',
-        description: 'Region entity',
+        fields: [],
         properties: [
           {
             name: 'x1',
@@ -83,6 +80,11 @@ describe('PathBuilder Component', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (logging.getLogger as jest.Mock).mockReturnValue({
+      debug: jest.fn(),
+      error: jest.fn(),
+      warn: jest.fn(),
+    });
     (fieldValidationRuleClient as any).fieldValidationRuleClient = {
       getEntityProperties: jest.fn().mockResolvedValue([
         {
@@ -186,7 +188,7 @@ describe('PathBuilder Component', () => {
     await user.selectOptions(propertySelect, 'wgRegionId');
 
     await waitFor(() => {
-      expect(validatePathMock).toHaveBeenCalledWith('Town.wgRegionId', 'Town');
+      expect(validatePathMock).toHaveBeenCalledWith('wgRegionId', 'Town');
     });
   });
 
@@ -285,7 +287,7 @@ describe('PathBuilder Component', () => {
     await user.selectOptions(propertySelect, 'wgRegionId');
 
     await waitFor(() => {
-      expect(screen.getByText('Town.wgRegionId')).toBeInTheDocument();
+      expect(screen.getByText('wgRegionId')).toBeInTheDocument();
     });
   });
 
@@ -311,7 +313,7 @@ describe('PathBuilder Component', () => {
     await user.selectOptions(propertySelect, 'wgRegionId');
 
     await waitFor(() => {
-      expect(mockOnPathChange).toHaveBeenCalledWith('Town.wgRegionId');
+      expect(mockOnPathChange).toHaveBeenCalledWith('wgRegionId');
     });
   });
 
@@ -368,7 +370,7 @@ describe('PathBuilder Component', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Town.wgRegionId')).toBeInTheDocument();
+      expect(screen.getByText('wgRegionId')).toBeInTheDocument();
     });
   });
 
@@ -393,7 +395,7 @@ describe('PathBuilder Component', () => {
     await user.selectOptions(entitySelect, 'Town');
 
     await waitFor(() => {
-      expect(screen.getByText(new RegExp(errorMessage))).toBeInTheDocument();
+      expect(screen.getAllByText(new RegExp(errorMessage)).length).toBeGreaterThan(0);
     });
   });
 

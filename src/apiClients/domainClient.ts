@@ -30,7 +30,7 @@ export class DomainClient extends ObjectManager {
         if (!data.id) {
             throw new Error('DomainDto id is required for update operation');
         }
-        return this.invokeServiceCall(data, data.id, Controllers.Domains, HttpMethod.Put);
+        return this.invokeServiceCall(data, `${data.id}`, Controllers.Domains, HttpMethod.Put);
     }
 
     delete(id: string): Promise<void> {

@@ -30,7 +30,7 @@ export class ItemBlueprintClient extends ObjectManager {
         if (!data.id) {
             throw new Error('ItemBlueprintDto id is required for update operation');
         }
-        return this.invokeServiceCall(data, data.id, Controllers.ItemBlueprints, HttpMethod.Put);
+        return this.invokeServiceCall(data, `${data.id}`, Controllers.ItemBlueprints, HttpMethod.Put);
     }
 
     delete(id: string): Promise<void> {

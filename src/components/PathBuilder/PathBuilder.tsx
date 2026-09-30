@@ -42,8 +42,12 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
   label = 'Dependency Path',
   required = false,
 }) => {
-  const [selectedEntity, setSelectedEntity] = useState<string>('');
-  const [selectedProperty, setSelectedProperty] = useState<string>('');
+  const [selectedEntity, setSelectedEntity] = useState<string>(() =>
+    initialPath && initialPath.includes('.') ? initialPath.split('.')[0] || '' : ''
+  );
+  const [selectedProperty, setSelectedProperty] = useState<string>(() =>
+    initialPath && initialPath.includes('.') ? initialPath.split('.')[1] || '' : ''
+  );
   const [validationStatus, setValidationStatus] = useState<PathValidationStatus>('pending');
   const [validationResult, setValidationResult] = useState<PathValidationResult | null>(null);
   const [suggestions, setSuggestions] = useState<EntityPropertySuggestion[]>([]);

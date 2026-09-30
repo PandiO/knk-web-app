@@ -1,7 +1,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAuth } from '../useAuth';
 import { authService } from '../../services/authService';
-import { UserDto } from '../../types/dtos/auth/UserDtos';
+import { UserDto, AccountCreationMethod } from '../../types/dtos/auth/UserDtos';
 
 // Mock authService
 jest.mock('../../services/authService');
@@ -13,16 +13,13 @@ describe('useAuth', () => {
     id: 1,
     email: 'test@example.com',
     username: 'testuser',
-    minecraftUUID: null,
-    minecraftUsername: null,
     emailVerified: true,
-    accountCreatedVia: 'email',
-    balanceGold: 100,
-    balanceSilver: 50,
-    balanceCopper: 25,
+    accountCreatedVia: AccountCreationMethod.WebApp,
+    coins: 100,
+    gems: 50,
+    experiencePoints: 25,
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: new Date(),
     deletedAt: null,
   };
 
@@ -182,6 +179,7 @@ describe('useAuth', () => {
           email: 'newuser@example.com',
           username: 'newuser',
           password: 'SecurePass123!',
+          passwordConfirmation: 'SecurePass123!',
         });
       });
 
@@ -211,6 +209,7 @@ describe('useAuth', () => {
             email: 'existing@example.com',
             username: 'newuser',
             password: 'SecurePass123!',
+            passwordConfirmation: 'SecurePass123!',
           });
         } catch (e) {
           // Expected to throw

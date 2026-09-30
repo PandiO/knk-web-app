@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { ValidationIssueDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
-import { FormConfigurationDto } from '../../types/dtos/forms/FormConfigurationDtos';
+import { FormConfigurationDto } from '../../types/dtos/forms/FormModels';
 import { AlertTriangle, CheckCircle2, RefreshCw, ShieldAlert, ShieldQuestion, Info, Wrench } from 'lucide-react';
 
 interface ConfigurationHealthPanelProps {
@@ -80,7 +80,13 @@ export const ConfigurationHealthPanel: React.FC<ConfigurationHealthPanelProps> =
         return 'general';
     };
 
-    const sectionDefinitions = useMemo(() => ([
+    const sectionDefinitions = useMemo((): {
+        key: string;
+        title: string;
+        severity: 'error' | 'warning' | 'info';
+        description: string;
+        canAutoFix?: boolean;
+    }[] => ([
         {
             key: 'fieldAlignment',
             title: 'Field Alignment',
