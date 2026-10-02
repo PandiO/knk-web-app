@@ -3,6 +3,7 @@ import { Loader2, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { roadClient } from '../../../apiClients/roadClient';
 import { townClient } from '../../../apiClients/townClient';
 import { SearchableDropdown } from '../../SearchableDropdown';
+import { FeedbackModal } from '../../FeedbackModal';
 import { toApiPagedQuery } from '../../../utils/entityApiMapping';
 import { TownDto } from '../../../types/dtos/town/TownDto';
 import { ROAD_CLASSES, ROAD_MATERIAL_ROLES, RoadClass, RoadMaterialRole, RoadProfileDto } from '../../../types/dtos/road/RoadDtos';
@@ -29,6 +30,14 @@ export const TOWN_PICKER_LIMIT = 1000;
 
 type Editing = { id: number | null; name: string };
 
+type ConfirmState = {
+  title: string;
+  message: string;
+  status: 'info' | 'error';
+  continueLabel: string;
+  onContinue?: () => Promise<void>;
+};
+
 const saveErrorMessage = (err: unknown): string => {
   const status = (err as { status?: number } | null)?.status;
   const message = err instanceof Error ? err.message : null;
@@ -53,7 +62,7 @@ export const RoadProfilesCard: React.FC<{
   const [errors, setErrors] = React.useState<string[]>([]);
   const [saving, setSaving] = React.useState(false);
   const [removingId, setRemovingId] = React.useState<number | null>(null);
-  const [removeError, setRemoveError] = React.useState<string | null>(null);
+  const [confirm, setConfirm] = React.useState<ConfirmState | null>(null);
 
   const [towns, setTowns] = React.useState<TownDto[] | null>(null);
   const [townsError, setTownsError] = React.useState<string | null>(null);
@@ -148,22 +157,37 @@ export const RoadProfilesCard: React.FC<{
     }
   };
 
-  const remove = async (profile: RoadProfileDto) => {
-    if (!window.confirm(`Delete the road profile "${profile.name}"? Stretches matched to it lose their class until the next build.`)) {
-      return;
-    }
+  const deleteProfile = async (profile: RoadProfileDto) => {
     setRemovingId(profile.id);
-    setRemoveError(null);
     try {
       await roadClient.deleteProfile(profile.id);
       if (editing?.id === profile.id) stopEdit();
       await onChanged();
     } catch (err) {
       console.error('Failed to delete road profile:', err);
-      setRemoveError(saveErrorMessage(err) === 'Could not save this profile.' ? 'Could not delete this profile.' : saveErrorMessage(err));
+      const message = saveErrorMessage(err);
+      setConfirm({
+        title: 'Delete failed',
+        message: message === 'Could not save this profile.' ? 'Could not delete this profile.' : message,
+        status: 'error',
+        continueLabel: 'Close',
+      });
+      // FeedbackModal stays open on a thrown error, showing the failure set above.
+      throw err;
     } finally {
       setRemovingId(null);
     }
+  };
+
+  // Destructive actions confirm through the app's FeedbackModal, like ObjectDashboard's delete.
+  const remove = (profile: RoadProfileDto) => {
+    setConfirm({
+      title: 'Delete road profile',
+      message: `Delete the road profile "${profile.name}"? Stretches matched to it lose their class until the next build.`,
+      status: 'info',
+      continueLabel: 'Delete',
+      onContinue: () => deleteProfile(profile),
+    });
   };
 
   const pickableTowns = (towns ?? [])
@@ -397,7 +421,7 @@ export const RoadProfilesCard: React.FC<{
                           title="Delete profile"
                           aria-label={`Delete ${profile.name} profile`}
                           disabled={removingId !== null}
-                          onClick={() => void remove(profile)}
+                          onClick={() => remove(profile)}
                         >
                           {removingId === profile.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                         </button>
@@ -410,9 +434,17 @@ export const RoadProfilesCard: React.FC<{
           </table>
         </div>
       )}
-      {removeError && <p className="mt-3 text-xs text-red-600">{removeError}</p>}
-
       {editor}
+
+      <FeedbackModal
+        open={confirm !== null}
+        title={confirm?.title ?? ''}
+        message={confirm?.message ?? ''}
+        status={confirm?.status ?? 'info'}
+        continueLabel={confirm?.continueLabel}
+        onContinue={confirm?.onContinue}
+        onClose={() => setConfirm(null)}
+      />
     </div>
   );
 };
