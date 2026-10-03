@@ -48,6 +48,7 @@ import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinit
 import { ScanConflictModal, ScanConflictField, ScanConflictChoice } from './ScanConflictModal';
 import { parsePickerFilterSettings, resolvePickerFilters } from '../../utils/forms/pickerFilters';
 import { hydrateJoinRowsForEdit, joinFieldSeedValues } from '../../utils/forms/manyToManyEditLoad';
+import { formFieldDefaultValue } from '../../utils/forms/formFieldDefaultValue';
 
 interface FormWizardProps {
     entityName: string;
@@ -275,7 +276,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 // overwrites the value parked in the stash.
                 if (visibleFieldNames && !visibleFieldNames.has(field.fieldName)) return;
                 const hasValue = data && Object.prototype.hasOwnProperty.call(data, field.fieldName);
-                const value = hasValue ? (data as StepData)[field.fieldName] : (field.defaultValue ?? null);
+                const value = hasValue
+                    ? (data as StepData)[field.fieldName]
+                    : formFieldDefaultValue(field);
                 result[field.fieldName] = value;
             });
         return result;
@@ -3020,4 +3023,3 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         </div>
     );
 };
-
