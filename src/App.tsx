@@ -33,6 +33,8 @@ import { LeaderboardsPage } from './pages/leaderboards/LeaderboardsPage';
 import { OwnerRoute } from './components/OwnerRoute';
 import { OwnerTelemetryPage } from './pages/owner/OwnerTelemetryPage';
 import { OwnerPrivacyPage } from './pages/owner/OwnerPrivacyPage';
+import { OwnerAnalyticsPage } from './pages/owner/OwnerAnalyticsPage';
+import { OWNER_ANALYTICS_VIEW_NODE } from './types/dtos/analytics/WorldAnalyticsDtos';
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from './types/dtos/telemetry/TelemetryDtos';
 import { PublicPlayerProfilePage } from './pages/players/PublicPlayerProfilePage';
 import React from 'react';
@@ -252,6 +254,12 @@ function AppContent() {
               <Route path="/owner/privacy" element={
                 <OwnerRoute node={OWNER_PRIVACY_MANAGE_NODE}>
                   <OwnerPrivacyPage />
+                </OwnerRoute>
+              } />
+              {/* World analytics (KNG-34 link 7): owner only - the API needs an exact grant. */}
+              <Route path="/owner/analytics" element={
+                <OwnerRoute node={OWNER_ANALYTICS_VIEW_NODE}>
+                  <OwnerAnalyticsPage />
                 </OwnerRoute>
               } />
               <Route path="/players/:username" element={<PublicPlayerProfilePage />} />

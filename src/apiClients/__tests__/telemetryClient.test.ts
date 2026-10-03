@@ -1,5 +1,6 @@
 import { TelemetryClient } from '../telemetryClient';
 import { PrivacyClient } from '../privacyClient';
+import { WorldAnalyticsClient } from '../worldAnalyticsClient';
 import { Controllers, HttpMethod } from '../../utils';
 
 describe('TelemetryClient (api/telemetry, KNG-34 link 6)', () => {
@@ -64,5 +65,28 @@ describe('PrivacyClient (api/privacy, KNG-34 link 6)', () => {
     expect(invokeSpy).toHaveBeenLastCalledWith({}, 'deletion-requests/3/execute', Controllers.Privacy, HttpMethod.Post);
     await client.cancel(3);
     expect(invokeSpy).toHaveBeenLastCalledWith({}, 'deletion-requests/3/cancel', Controllers.Privacy, HttpMethod.Post);
+  });
+});
+
+describe('WorldAnalyticsClient (api/world-analytics, KNG-34 link 7)', () => {
+  const client = WorldAnalyticsClient.getInstance();
+  let invokeSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    invokeSpy = jest.spyOn(client as any, 'invokeServiceCall').mockResolvedValue(null);
+  });
+
+  afterEach(() => invokeSpy.mockRestore());
+
+  it('reads worlds, heatmaps, funnels and domains with only the parameters that are set', async () => {
+    await client.getWorlds({});
+    expect(invokeSpy).toHaveBeenLastCalledWith(null, 'heatmap/worlds', Controllers.WorldAnalytics, HttpMethod.Get);
+    await client.getHeatmap('world', { from: '2026-10-01', to: '' }, 64);
+    expect(invokeSpy).toHaveBeenLastCalledWith({ world: 'world', from: '2026-10-01', cellSize: 64 }, 'heatmap', Controllers.WorldAnalytics, HttpMethod.Get);
+    await client.getMenuFunnels({ to: '2026-10-03' }, 'profile.main');
+    expect(invokeSpy).toHaveBeenLastCalledWith({ to: '2026-10-03', menuKey: 'profile.main' }, 'menu-funnels', Controllers.WorldAnalytics, HttpMethod.Get);
+    await client.getDomains({}, 'discover');
+    expect(invokeSpy).toHaveBeenLastCalledWith({ kind: 'discover' }, 'domains', Controllers.WorldAnalytics, HttpMethod.Get);
+    expect(Controllers.WorldAnalytics).toBe('world-analytics');
   });
 });

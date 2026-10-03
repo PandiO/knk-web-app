@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermission, useStaffAccess } from '../hooks/useStaffAccess';
 import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
 import { DISCOVERY_ADMIN_NODE } from '../types/dtos/discovery/DiscoveryDtos';
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from '../types/dtos/telemetry/TelemetryDtos';
+import { OWNER_ANALYTICS_VIEW_NODE } from '../types/dtos/analytics/WorldAnalyticsDtos';
 import { NavLayout, pickNavLayout } from './navLayout';
 
 // added: explicit types for object types prop
@@ -35,6 +36,8 @@ const NAV_LINKS: NavLink[] = [
   // KNG-34 link 6: owner-only pages (shown to holders of the node; the API wants an exact grant).
   { to: '/owner/telemetry', label: 'Diagnostics', Icon: Activity, node: OWNER_TELEMETRY_VIEW_NODE },
   { to: '/owner/privacy', label: 'Data deletion', Icon: ShieldOff, node: OWNER_PRIVACY_MANAGE_NODE },
+  // KNG-34 link 7: anonymous world analytics (heatmaps, menu funnels, domain interactions).
+  { to: '/owner/analytics', label: 'World analytics', Icon: MapIcon, node: OWNER_ANALYTICS_VIEW_NODE },
 ];
 
 const LINK_CLASS = 'inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-2 py-1.5 text-sm font-medium transition-colors';
