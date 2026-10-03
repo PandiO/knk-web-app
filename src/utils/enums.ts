@@ -126,7 +126,11 @@ export enum Controllers {
     SiegeObjectives = 'SiegeObjectives',
     SiegeLobbies = 'SiegeLobbies',
     SiegeConfiguration = 'SiegeConfiguration',
-    TitleBrackets = 'TitleBrackets'
+    TitleBrackets = 'TitleBrackets',
+    // Player statistics (KNG-34)
+    Statistics = 'statistics',
+    Leaderboards = 'leaderboards',
+    Players = 'players'
 }
 
 

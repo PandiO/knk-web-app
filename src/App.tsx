@@ -29,6 +29,8 @@ import { TransactionDetailPage } from './pages/admin/economy/TransactionDetailPa
 import { CurrencyPolicyPage } from './pages/admin/economy/CurrencyPolicyPage';
 import { CurrencyAlertsPage } from './pages/admin/economy/CurrencyAlertsPage';
 import { CURRENCY_NODES } from './types/dtos/currency/CurrencyDtos';
+import { LeaderboardsPage } from './pages/leaderboards/LeaderboardsPage';
+import { PublicPlayerProfilePage } from './pages/players/PublicPlayerProfilePage';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -234,6 +236,10 @@ function AppContent() {
                   <CurrencyAlertsPage />
                 </StaffRoute>
               } />
+              {/* Player statistics (KNG-34): public pages - signed out they show only the
+                  always-public fields and boards; the API filters every read for the viewer. */}
+              <Route path="/leaderboards" element={<LeaderboardsPage />} />
+              <Route path="/players/:username" element={<PublicPlayerProfilePage />} />
               {/* User management Phase 1 (docs/specs/user-management/IMPLEMENTATION_PLAN.md).
                   Moderation pages are staff only (knk.admin.user.manage), see StaffRoute. */}
               <Route path="/admin/users/:id" element={

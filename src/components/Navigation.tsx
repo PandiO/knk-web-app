@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermission, useStaffAccess } from '../hooks/useStaffAccess';
 import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
@@ -18,6 +18,8 @@ type NavLink = { to: string; label: string; Icon: React.ComponentType<{ classNam
 // button's panel. Which one shows is decided by measuring - see pickNavLayout.
 const NAV_LINKS: NavLink[] = [
   { to: '/', label: 'Home', Icon: Home, exact: true },
+  // Player statistics (KNG-34): public leaderboards.
+  { to: '/leaderboards', label: 'Leaderboards', Icon: Trophy },
   // Smoke test 2026-09-26: the admin tools are staff only (hidden here, and the /admin pages are
   // StaffRoutes). Dashboard stays a route because login lands there. The form and display
   // builders have no link of their own: they're opened from the Forms page.

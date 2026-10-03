@@ -7,6 +7,7 @@ import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { KitClient } from '../../apiClients/kitClient';
 import { PlayerDiscoveriesPanel } from '../../components/admin/PlayerDiscoveriesPanel';
+import { PlayerStatisticsPanel } from '../../components/admin/PlayerStatisticsPanel';
 import { currencyClient } from '../../apiClients/currencyClient';
 import { usePermission } from '../../hooks/useStaffAccess';
 import { BalanceLedgerTable } from '../../components/currency/BalanceLedgerTable';
@@ -794,6 +795,9 @@ export const PlayerProfilePage: React.FC = () => {
                 {/* Discoveries (docs/specs/domain-discovery/DESIGN.md §3.9) - only for holders of
                     knk.admin.discovery; each reset adds a DiscoveryReset entry to Recent activity. */}
                 <PlayerDiscoveriesPanel key={userId} userId={userId} onReset={loadActivity} />
+
+                {/* Player statistics (KNG-34) - only for holders of knk.admin.statistics.view. */}
+                <PlayerStatisticsPanel key={`statistics-${userId}`} userId={userId} />
 
                 {/* Balance history (KNG-23, currency Phase 4): the balance event log filtered to this player. */}
                 {canReadLedger && (
