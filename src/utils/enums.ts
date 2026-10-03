@@ -134,6 +134,8 @@ export enum Controllers {
     // Diagnostic telemetry and GDPR deletion (KNG-34 link 6), owner only
     Telemetry = 'telemetry',
     Privacy = 'privacy',
+    // GDPR deletion requests by players and staff (KNG-34, 2026-10-03)
+    DataDeletion = 'data-deletion',
     // World analytics (KNG-34 link 7), owner only
     WorldAnalytics = 'world-analytics'
 }

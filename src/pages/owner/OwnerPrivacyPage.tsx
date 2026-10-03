@@ -6,22 +6,36 @@ import { PrivacyDeletionRequestDto, PrivacyRequestStatus } from '../../types/dto
 import { OWNER_PRIVACY_MANAGE_NODE } from '../../types/dtos/telemetry/TelemetryDtos';
 
 /**
- * GDPR deletion requests (KNG-34 D12, DESIGN.md §F.14, link 6). Record a player's request (due in
- * 30 days; executed automatically 3 days before that unless done earlier), preview exactly what an
- * erasure removes (counts only), execute it after typing the player id, or cancel it. Execution is
- * irreversible: statistics, diagnostics and discoveries are deleted and the account pseudonymized;
- * the ledger and Siege match rows stay. Owner only (exact grant).
+ * GDPR deletion requests (KNG-34 D12, DESIGN.md §F.14, link 6 + developer decisions 2026-10-03).
+ * Players request on their account page and confirm by email; staff file for players on the player
+ * profile; here the owner sees every request, can file one too, preview exactly what an erasure
+ * removes (counts only) and cancel. A confirmed request runs automatically five days later; "Delete
+ * now" is only possible once that grace period is over (when automatic execution is switched off).
+ * Execution is irreversible: the player's data is deleted and the account pseudonymized; the
+ * ledger and Siege match rows stay. Owner only (exact grant).
  */
 
 const STATUS_CLASS: Record<PrivacyRequestStatus, string> = {
+  AwaitingConfirmation: 'bg-blue-100 text-blue-800',
   Pending: 'bg-amber-100 text-amber-800',
   Completed: 'bg-green-100 text-green-800',
   Cancelled: 'bg-gray-100 text-gray-600',
+  Expired: 'bg-gray-100 text-gray-600',
+};
+
+const STATUS_LABEL: Record<PrivacyRequestStatus, string> = {
+  AwaitingConfirmation: 'Awaiting email confirmation',
+  Pending: 'Scheduled',
+  Completed: 'Completed',
+  Cancelled: 'Cancelled',
+  Expired: 'Link expired',
 };
 
 const isForbidden = (err: unknown) => (err as { status?: number })?.status === 403;
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : 'Request failed');
 const day = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString() : '-');
+const isOpen = (r: PrivacyDeletionRequestDto) => r.status === 'Pending' || r.status === 'AwaitingConfirmation';
+const graceOver = (r: PrivacyDeletionRequestDto) => r.status === 'Pending' && !!r.scheduledAt && new Date(r.scheduledAt) <= new Date();
 
 export const OwnerPrivacyPage: React.FC = () => {
   const [requests, setRequests] = useState<PrivacyDeletionRequestDto[] | null>(null);
@@ -81,9 +95,10 @@ export const OwnerPrivacyPage: React.FC = () => {
       </h1>
 
       <section className="bg-white rounded-lg border border-gray-200 p-4">
-        <h2 className="font-semibold text-gray-900">Record a request</h2>
+        <h2 className="font-semibold text-gray-900">File a request for a player</h2>
         <p className="text-xs text-gray-500">
-          GDPR: delete within one month. The request is due in 30 days and runs automatically 3 days before that.
+          No email confirmation. It runs automatically in five days unless the player or staff cancel it (GDPR deadline:
+          one month). Players can also request on their account page; staff on the player profile.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <input aria-label="Player id" type="number" value={userId} onChange={e => setUserId(e.target.value)} placeholder="Player id"
@@ -91,7 +106,7 @@ export const OwnerPrivacyPage: React.FC = () => {
           <input aria-label="Note" value={note} onChange={e => setNote(e.target.value)} maxLength={500}
             placeholder="Where the request came from (optional)" className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm" />
           <button type="button" disabled={busy || !userId} onClick={create}
-            className="rounded bg-primary px-3 py-1 text-sm font-medium text-white disabled:opacity-50">Record request</button>
+            className="rounded bg-primary px-3 py-1 text-sm font-medium text-white disabled:opacity-50">File request</button>
         </div>
       </section>
 
@@ -103,24 +118,29 @@ export const OwnerPrivacyPage: React.FC = () => {
           <select aria-label="Status" value={status} onChange={e => setStatus(e.target.value as PrivacyRequestStatus | '')}
             className="rounded border border-gray-300 px-2 py-1 text-sm">
             <option value="">All</option>
-            <option value="Pending">Pending</option>
+            <option value="AwaitingConfirmation">Awaiting email confirmation</option>
+            <option value="Pending">Scheduled</option>
             <option value="Completed">Completed</option>
             <option value="Cancelled">Cancelled</option>
+            <option value="Expired">Link expired</option>
           </select>
         </div>
         {requests && requests.length === 0 && <p className="px-4 py-3 text-sm text-gray-500">No requests.</p>}
         <ul className="divide-y divide-gray-100">
           {(requests ?? []).map(r => (
             <li key={r.id} className="px-4 py-3 text-sm flex flex-wrap items-center gap-3">
-              <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_CLASS[r.status]}`}>{r.status}</span>
+              <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_CLASS[r.status]}`}>{STATUS_LABEL[r.status]}</span>
               <span className="font-medium">{r.username ?? 'unknown'} (#{r.userId})</span>
               <span className="text-xs text-gray-500">
-                requested {day(r.requestedAt)} · due {day(r.dueAt)}
-                {r.autoExecuteAt && ` · runs automatically ${day(r.autoExecuteAt)}`}
+                by {r.source.toLowerCase()} · requested {day(r.requestedAt)}
+                {r.status === 'Pending' && r.scheduledAt && ` · runs ${r.autoExecute ? 'automatically ' : ''}${new Date(r.scheduledAt).toLocaleString()}`}
+                {r.status === 'Pending' && ` · deadline ${day(r.dueAt)}`}
+                {r.status === 'AwaitingConfirmation' && r.confirmationExpiresAt && ` · link valid until ${new Date(r.confirmationExpiresAt).toLocaleString()}`}
+                {r.cancelledAt && ` · cancelled ${day(r.cancelledAt)}${r.cancelledByUserId === r.userId ? ' by the player' : ''}`}
                 {r.executedAt && ` · executed ${day(r.executedAt)}${r.executedByUserId ? '' : ' (automatically)'}`}
               </span>
               {r.note && <span className="text-xs text-gray-600 italic">{r.note}</span>}
-              {r.status === 'Pending' && (
+              {isOpen(r) && (
                 <span className="ml-auto flex gap-2">
                   <button type="button" disabled={busy} onClick={() => showPreview(r.id)}
                     className="rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-700">Review &amp; delete</button>
@@ -157,8 +177,15 @@ export const OwnerPrivacyPage: React.FC = () => {
             <input aria-label="Confirm player id" value={confirmText} onChange={e => setConfirmText(e.target.value)}
               className="ml-2 w-24 rounded border border-red-300 px-2 py-1 text-sm" />
           </label>
+          {!graceOver(preview) && (
+            <p className="mt-2 text-sm text-red-800">
+              {preview.status === 'Pending'
+                ? `Grace period: the player can cancel until ${preview.scheduledAt ? new Date(preview.scheduledAt).toLocaleString() : '-'}; it can't be executed before then.`
+                : 'The player has not confirmed the request by email yet; it can\'t be executed.'}
+            </p>
+          )}
           <div className="mt-3 flex gap-2">
-            <button type="button" disabled={busy || confirmText.trim() !== String(preview.userId)} onClick={execute}
+            <button type="button" disabled={busy || !graceOver(preview) || confirmText.trim() !== String(preview.userId)} onClick={execute}
               className="rounded bg-red-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">Delete now</button>
             <button type="button" onClick={() => setPreview(null)} className="px-3 py-1.5 text-sm text-gray-700">Close</button>
           </div>

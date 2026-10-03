@@ -135,7 +135,8 @@ export type AuditAction =
   | 'TelemetryViewed'
   | 'PrivacyDeletionRequested'
   | 'PrivacyDeletionExecuted'
-  | 'PrivacyDeletionCancelled';
+  | 'PrivacyDeletionCancelled'
+  | 'PrivacyDeletionConfirmed';
 
 export interface AuditLogEntryDto {
   id: number;

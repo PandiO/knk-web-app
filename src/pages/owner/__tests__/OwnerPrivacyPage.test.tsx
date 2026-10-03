@@ -19,9 +19,12 @@ const pending: PrivacyDeletionRequestDto = {
   id: 5,
   userId: 7,
   username: 'alice',
+  source: 'Staff',
   requestedAt: '2026-10-03T10:00:00Z',
   dueAt: '2026-11-02T10:00:00Z',
-  autoExecuteAt: '2026-10-30T10:00:00Z',
+  confirmedAt: '2026-10-03T10:00:00Z',
+  scheduledAt: new Date(Date.now() - 86_400_000).toISOString(), // yesterday: the grace period is over
+  autoExecute: true,
   status: 'Pending',
   requestedByUserId: 1,
   note: 'email 12',
@@ -33,7 +36,7 @@ describe('OwnerPrivacyPage', () => {
     api.getRequests.mockResolvedValue([pending]);
   });
 
-  it('lists requests with their due and automatic dates, and records a new one', async () => {
+  it('lists requests with their scheduled and deadline dates, and files a new one', async () => {
     api.createRequest.mockResolvedValue({ ...pending, id: 6, userId: 8 });
     render(<OwnerPrivacyPage />);
 
@@ -41,7 +44,7 @@ describe('OwnerPrivacyPage', () => {
     expect(within(screen.getByRole('region', { name: 'Requests' })).getByText(/runs automatically/)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Player id'), '8');
     await userEvent.type(screen.getByLabelText('Note'), 'support ticket');
-    await userEvent.click(screen.getByRole('button', { name: 'Record request' }));
+    await userEvent.click(screen.getByRole('button', { name: 'File request' }));
 
     expect(api.createRequest).toHaveBeenCalledWith(8, 'support ticket');
     expect(api.getRequests).toHaveBeenCalledTimes(2);
@@ -88,6 +91,26 @@ describe('OwnerPrivacyPage', () => {
     expect(screen.getByText(/\(automatically\)/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel request' }));
     expect(api.cancel).toHaveBeenCalledWith(5);
+  });
+
+  it('refuses to delete during the grace period and shows unconfirmed player requests', async () => {
+    const future = new Date(Date.now() + 3 * 86_400_000).toISOString();
+    const inGrace = { ...pending, scheduledAt: future, source: 'Player' as const };
+    api.getRequests.mockResolvedValue([
+      inGrace,
+      { ...pending, id: 6, userId: 8, username: 'bob', status: 'AwaitingConfirmation', source: 'Player', scheduledAt: null,
+        confirmationExpiresAt: future, autoExecute: false },
+    ]);
+    api.execute.mockResolvedValue({ ...inGrace, result: { dryRun: true, userIds: [7], deleted: { a: 1 }, pseudonymizedUsers: 1 } });
+    render(<OwnerPrivacyPage />);
+
+    expect(await screen.findByText('Awaiting email confirmation')).toBeInTheDocument();
+    expect(screen.getByText(/link valid until/)).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole('button', { name: /review & delete/i })[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Deletion preview' });
+    expect(dialog).toHaveTextContent('Grace period: the player can cancel until');
+    await userEvent.type(within(dialog).getByLabelText('Confirm player id'), '7');
+    expect(within(dialog).getByRole('button', { name: 'Delete now' })).toBeDisabled();
   });
 
   it('shows the owner-only notice on 403', async () => {

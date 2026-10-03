@@ -7,6 +7,7 @@ import { FeedbackModal } from '../components/FeedbackModal';
 import { validateEmailFormat } from '../utils/passwordValidator';
 import { MyDiscoveriesSection } from '../components/discovery/MyDiscoveriesSection';
 import { MyStatisticsSection } from './statistics/MyStatisticsSection';
+import { MyDataDeletionSection } from '../components/privacy/MyDataDeletionSection';
 
 export const AccountManagementPage: React.FC = () => {
   const { user, refresh } = useAuth();
@@ -422,6 +423,9 @@ export const AccountManagementPage: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Delete my data (KNG-34 GDPR deletion, 2026-10-03): request, email confirmation, 5-day grace period. */}
+            <MyDataDeletionSection hasEmail={!!user.email} />
 
             {/* Minecraft Account Already Linked */}
             {user.uuid && (

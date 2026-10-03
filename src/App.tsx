@@ -33,6 +33,7 @@ import { LeaderboardsPage } from './pages/leaderboards/LeaderboardsPage';
 import { OwnerRoute } from './components/OwnerRoute';
 import { OwnerTelemetryPage } from './pages/owner/OwnerTelemetryPage';
 import { OwnerPrivacyPage } from './pages/owner/OwnerPrivacyPage';
+import { ConfirmDataDeletionPage } from './pages/privacy/ConfirmDataDeletionPage';
 import { OwnerAnalyticsPage } from './pages/owner/OwnerAnalyticsPage';
 import { OWNER_ANALYTICS_VIEW_NODE } from './types/dtos/analytics/WorldAnalyticsDtos';
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from './types/dtos/telemetry/TelemetryDtos';
@@ -136,6 +137,8 @@ function AppContent() {
               <Route path="/auth/login" element={<LoginPage />} />
               <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+              {/* Emailed GDPR deletion confirmation link; no sign-in needed (KNG-34). */}
+              <Route path="/account/delete-data/confirm" element={<ConfirmDataDeletionPage />} />
               <Route path="/account" element={
                 <ProtectedRoute>
                   <AccountManagementPage />

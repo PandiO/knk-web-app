@@ -17,6 +17,7 @@ import {
     TransferLockDto,
 } from '../../types/dtos/currency/CurrencyDtos';
 import { PrivateMessagesPanel } from '../../components/admin/PrivateMessagesPanel';
+import { StaffDataDeletionCard } from '../../components/admin/StaffDataDeletionCard';
 import {
     ActiveMode,
     AuditLogEntryDto,
@@ -813,6 +814,10 @@ export const PlayerProfilePage: React.FC = () => {
                 {/* Private messages (docs/specs/private-messages/DESIGN.md §3.4) - only for holders of
                     knk.pmlog.read; each read adds a PrivateMessagesViewed entry to Recent activity. */}
                 <PrivateMessagesPanel key={userId} userId={userId} onViewed={loadActivity} />
+
+                {/* GDPR data deletion (KNG-34, 2026-10-03) - only for holders of knk.admin.privacy.request:
+                    file a request for the player (no email step, 5-day grace period) or cancel one. */}
+                <StaffDataDeletionCard key={`deletion-${userId}`} userId={userId} username={account.username} onChanged={loadActivity} />
 
                 {/* Recent activity (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 2) */}
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
