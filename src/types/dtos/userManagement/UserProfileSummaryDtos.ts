@@ -130,7 +130,12 @@ export type AuditAction =
   | 'CurrencyTransferLocked'
   | 'CurrencyTransferUnlocked'
   // Someone read this player's private messages (docs/specs/private-messages/DESIGN.md §3.2).
-  | 'PrivateMessagesViewed';
+  | 'PrivateMessagesViewed'
+  // Diagnostics and GDPR deletion (KNG-34 link 6, knk-web-api AuditAction 30-33).
+  | 'TelemetryViewed'
+  | 'PrivacyDeletionRequested'
+  | 'PrivacyDeletionExecuted'
+  | 'PrivacyDeletionCancelled';
 
 export interface AuditLogEntryDto {
   id: number;
