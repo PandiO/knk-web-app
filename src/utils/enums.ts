@@ -130,7 +130,10 @@ export enum Controllers {
     // Player statistics (KNG-34)
     Statistics = 'statistics',
     Leaderboards = 'leaderboards',
-    Players = 'players'
+    Players = 'players',
+    // Diagnostic telemetry and GDPR deletion (KNG-34 link 6), owner only
+    Telemetry = 'telemetry',
+    Privacy = 'privacy'
 }
 
 
