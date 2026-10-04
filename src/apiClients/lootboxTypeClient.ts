@@ -48,6 +48,16 @@ export class LootboxTypeClient extends ObjectManager {
     getOdds(id: number, boxStars?: number): Promise<LootboxOddsDto> {
         return this.invokeServiceCall(boxStars ? { boxStars } : null, `${id}/odds`, Controllers.LootboxTypes, HttpMethod.Get);
     }
+
+    /**
+     * The odds of every type in one request (KNG-45): one entry per type and requested box grade (none: each type's
+     * highest), computed like {@link getOdds}. All types unless `enabledOnly`. The grades go in as repeated
+     * `boxStars` parameters, which the GET data object of invokeServiceCall can't express, so the query is built here.
+     */
+    getAllOdds(boxStars: number[] = [], enabledOnly = false): Promise<LootboxOddsDto[]> {
+        const query = [...boxStars.map(stars => `boxStars=${encodeURIComponent(stars)}`), ...(enabledOnly ? ['enabledOnly=true'] : [])].join('&');
+        return this.invokeServiceCall(null, query ? `odds?${query}` : 'odds', Controllers.LootboxTypes, HttpMethod.Get);
+    }
 }
 
 export const lootboxTypeClient = LootboxTypeClient.getInstance();

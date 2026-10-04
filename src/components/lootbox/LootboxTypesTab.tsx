@@ -2,8 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, Loader2, Pencil, Percent, Plus, RefreshCcw } from 'lucide-react';
 import { lootboxTypeClient } from '../../apiClients/lootboxTypeClient';
-import { LootboxTypeDto } from '../../types/dtos/lootbox/LootboxDtos';
-import { apiErrorMessage, coveringBoxStars, emptyWindowStars, poolCountsByStars, reachableItemStars, starLabel } from '../../utils/lootbox';
+import { LootboxOddsDto, LootboxTypeDto } from '../../types/dtos/lootbox/LootboxDtos';
+import { apiErrorMessage, coveringBoxStars, coveringBoxStarsOf, emptyWindowStars, poolCountsByStars, reachableItemStars, starLabel } from '../../utils/lootbox';
 
 /**
  * One row per lootbox type (one per item Category, docs/specs/lootboxes/DESIGN.md §3.2): whether it
@@ -27,17 +27,32 @@ export const LootboxTypesTab: React.FC<Props> = ({ onShowOdds }) => {
     const [rowError, setRowError] = React.useState<{ id: number; text: string } | null>(null);
 
     // The pool sizes come from the odds preview - the same pool rules the claim rolls with - a
-    // couple of box grades per type, enough to cover every item grade its windows reach.
-    const loadPool = React.useCallback(async (type: LootboxTypeDto) => {
-        if (!type.id) return;
-        const id = type.id;
+    // couple of box grades per type, enough to cover every item grade its windows reach. One batch
+    // request serves every type (KNG-45); each type then reads the grades that cover its own windows.
+    const loadPools = React.useCallback(async (loaded: LootboxTypeDto[]) => {
+        const withId = loaded.filter(type => type.id);
+        if (withId.length === 0) return;
         try {
-            const odds = await Promise.all(coveringBoxStars(type).map(stars => lootboxTypeClient.getOdds(id, stars)));
-            const counts = poolCountsByStars(odds);
-            setPools(prev => ({ ...prev, [id]: { counts, empty: emptyWindowStars(type, counts) } }));
+            const all = await lootboxTypeClient.getAllOdds(coveringBoxStarsOf(withId));
+            const byType = new Map<number, LootboxOddsDto[]>();
+            all.forEach(odds => byType.set(odds.lootboxTypeId, [...(byType.get(odds.lootboxTypeId) ?? []), odds]));
+            const next: Record<number, PoolState> = {};
+            withId.forEach(type => {
+                const covering = coveringBoxStars(type);
+                const odds = (byType.get(type.id!) ?? []).filter(o => covering.includes(o.boxStars));
+                if (odds.length === 0) {
+                    next[type.id!] = 'error';
+                    return;
+                }
+                const counts = poolCountsByStars(odds);
+                next[type.id!] = { counts, empty: emptyWindowStars(type, counts) };
+            });
+            setPools(prev => ({ ...prev, ...next }));
         } catch (err) {
-            console.error(`Failed to load the pool of lootbox type ${id}:`, err);
-            setPools(prev => ({ ...prev, [id]: 'error' }));
+            console.error('Failed to load the pools of the lootbox types:', err);
+            const failed: Record<number, PoolState> = {};
+            withId.forEach(type => { failed[type.id!] = 'error'; });
+            setPools(prev => ({ ...prev, ...failed }));
         }
     }, []);
 
@@ -49,13 +64,13 @@ export const LootboxTypesTab: React.FC<Props> = ({ onShowOdds }) => {
             const loaded = await lootboxTypeClient.getAll();
             const sorted = [...loaded].sort((a, b) => a.name.localeCompare(b.name));
             setTypes(sorted);
-            sorted.forEach(type => void loadPool(type));
+            void loadPools(sorted);
         } catch (err) {
             setError(apiErrorMessage(err, 'Could not load the lootbox types.'));
         } finally {
             setLoading(false);
         }
-    }, [loadPool]);
+    }, [loadPools]);
 
     React.useEffect(() => {
         void load();
