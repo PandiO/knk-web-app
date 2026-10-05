@@ -15,7 +15,36 @@ export interface PermissionGroupDto {
   chatPrefix?: string | null;
   chatSuffix?: string | null;
   parentGroupId?: number | null;
+  /**
+   * KNG-41: teleport fees and cooldowns per kind (/tpa = Request, /warp, /spawn). Each kind's
+   * price mode is its switch on update: omitted keeps that kind's stored fields, sent sets all of
+   * them (null = not set here). Authored on the PermissionGroup FormConfiguration.
+   */
+  teleportRequestPriceMode?: TeleportPriceMode | null;
+  teleportRequestPriceMultiplier?: number | null;
+  teleportRequestPriceCoins?: number | null;
+  teleportRequestPriceGems?: number | null;
+  teleportRequestPriceExperience?: number | null;
+  teleportRequestCooldownSeconds?: number | null;
+  teleportWarpPriceMode?: TeleportPriceMode | null;
+  teleportWarpPriceMultiplier?: number | null;
+  teleportWarpPriceCoins?: number | null;
+  teleportWarpPriceGems?: number | null;
+  teleportWarpPriceExperience?: number | null;
+  teleportWarpCooldownSeconds?: number | null;
+  /** /spawn has no default price, so only None or Fixed. */
+  teleportSpawnPriceMode?: TeleportPriceMode | null;
+  teleportSpawnPriceCoins?: number | null;
+  teleportSpawnPriceGems?: number | null;
+  teleportSpawnPriceExperience?: number | null;
+  teleportSpawnCooldownSeconds?: number | null;
 }
+
+/**
+ * Mirrors knk-web-api's Enums/TeleportPriceMode.cs (serialized as its name): None = the default
+ * price, Fixed = exact coins/gems/XP, Multiplier = the default price times a factor.
+ */
+export type TeleportPriceMode = 'None' | 'Fixed' | 'Multiplier';
 
 // Row shape returned by GET /api/PermissionGroups/{id}/expiring-memberships
 // (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 3 "premium expiring soon" view).
