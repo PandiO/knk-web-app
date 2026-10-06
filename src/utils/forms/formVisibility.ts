@@ -137,6 +137,27 @@ export const reconcileVisibility = (
     };
 };
 
+/**
+ * Flat submission values keyed by field name, from visible steps and fields only. A hidden field is
+ * left out entirely, not sent as null or as its authored default: the API then treats it as omitted,
+ * and a hidden field can't clash with a same-named visible field of another step.
+ */
+export const flattenVisibleStepsData = (
+    config: FormConfigurationDto,
+    stepsData: AllStepsData,
+    visibility: FormVisibility
+): Record<string, unknown> => {
+    const flat: Record<string, unknown> = {};
+    visibility.visibleStepIndices.forEach(stepIndex => {
+        const visibleNames = visibility.visibleFieldNames[stepIndex];
+        orderFormFields(config.steps[stepIndex]).forEach(field => {
+            if (!visibleNames?.has(field.fieldName)) return;
+            flat[field.fieldName] = stepsData[stepIndex]?.[field.fieldName] ?? field.defaultValue ?? null;
+        });
+    });
+    return flat;
+};
+
 export const nextVisibleStepIndex = (visibility: FormVisibility, from: number): number | null => {
     const next = visibility.visibleStepIndices.find(i => i > from);
     return next === undefined ? null : next;
