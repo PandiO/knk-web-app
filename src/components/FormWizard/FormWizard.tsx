@@ -49,6 +49,7 @@ import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinit
 import { ScanConflictModal, ScanConflictField, ScanConflictChoice } from './ScanConflictModal';
 import { parsePickerFilterSettings, resolvePickerFilters } from '../../utils/forms/pickerFilters';
 import { hydrateJoinRowsForEdit, joinFieldSeedValues } from '../../utils/forms/manyToManyEditLoad';
+import { withManyToManyCarrierFields } from '../../utils/forms/manyToManyCarrierField';
 import { formFieldDefaultValue } from '../../utils/forms/formFieldDefaultValue';
 
 interface FormWizardProps {
@@ -696,7 +697,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     setEntityId(progress.entityId);
                 }
 
-                const fetchedCfg = await formConfigClient.getById(progress.formConfigurationId);
+                const fetchedCfg = withManyToManyCarrierFields(await formConfigClient.getById(progress.formConfigurationId));
                 debug('loadConfiguration:from-progress', {
                     progressId: progress.id,
                     progressEntityId: progress.entityId,
@@ -765,6 +766,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         return config;
                     });
                 }
+                fetchedConfig = withManyToManyCarrierFields(fetchedConfig);
                 setConfig(fetchedConfig);
                 debug('loadConfiguration:fetched-config', {
                     configurationId: fetchedConfig.id,
