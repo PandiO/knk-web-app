@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, RefreshCcw, ArrowLeft, ShieldCheck, Users, Award, Coins, EyeOff, X, Plus, History, Gift, Lock, Unlock } from 'lucide-react';
 import { logging } from '../../utils';
 import { auditActionLabel, describeAuditDetails } from '../../utils/auditDetails';
+import { dateTimeLocalDaysFromNow } from '../../utils/dateTimeLocal';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { KitClient } from '../../apiClients/kitClient';
@@ -45,6 +46,11 @@ const activeModeLabel = (mode: ActiveMode): string => {
     }
 };
 
+// KNG-59 safeguard: a direct grant/deny defaults to expiring a day from now, so a permanent one
+// takes an explicit "clear the expiry" from the admin.
+const GRANT_DEFAULT_EXPIRY_DAYS = 1;
+const defaultGrantExpiry = (): string => dateTimeLocalDaysFromNow(GRANT_DEFAULT_EXPIRY_DAYS);
+
 const formatDate = (iso?: string | null): string => {
     if (!iso) return '-';
     const date = new Date(iso);
@@ -79,7 +85,7 @@ export const PlayerProfilePage: React.FC = () => {
 
     const [grantNode, setGrantNode] = React.useState('');
     const [grantValue, setGrantValue] = React.useState<'true' | 'false'>('true');
-    const [grantExpiresAt, setGrantExpiresAt] = React.useState('');
+    const [grantExpiresAt, setGrantExpiresAt] = React.useState(defaultGrantExpiry);
     const [grantingNode, setGrantingNode] = React.useState(false);
     const [grantActionError, setGrantActionError] = React.useState<string | null>(null);
     const [revokingNode, setRevokingNode] = React.useState<string | null>(null);
@@ -238,7 +244,7 @@ export const PlayerProfilePage: React.FC = () => {
                 expiresAt: grantExpiresAt ? new Date(grantExpiresAt).toISOString() : null,
             });
             setGrantNode('');
-            setGrantExpiresAt('');
+            setGrantExpiresAt(defaultGrantExpiry());
             await refreshAfterAction();
         } catch (err) {
             console.error('Failed to grant node:', err);
@@ -719,7 +725,8 @@ export const PlayerProfilePage: React.FC = () => {
                     )}
                     {revokeNodeError && <p className="text-xs text-red-600 mt-2">{revokeNodeError}</p>}
 
-                    {/* Quick action: grant/deny a node directly on the player (DESIGN.md §3) */}
+                    {/* Quick action: grant/deny a node directly on the player (DESIGN.md §3). Saving a node
+                        the player already has directly updates its value and expiry (KNG-59). */}
                     <form className="flex flex-wrap items-end gap-3 pt-4 border-t border-gray-100" onSubmit={(e) => void handleGrantNode(e)}>
                         <div className="flex-1 min-w-[12rem]">
                             <label className="block text-xs text-gray-500 mb-1">Grant/deny node</label>
@@ -743,13 +750,26 @@ export const PlayerProfilePage: React.FC = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs text-gray-500 mb-1">Expires (optional)</label>
-                            <input
-                                type="datetime-local"
-                                className="text-sm border border-gray-300 rounded-md px-2 py-1.5"
-                                value={grantExpiresAt}
-                                onChange={(e) => setGrantExpiresAt(e.target.value)}
-                            />
+                            <label className="block text-xs text-gray-500 mb-1">
+                                Expires {grantExpiresAt ? '(clear for permanent)' : <span className="font-medium text-amber-700">(permanent)</span>}
+                            </label>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="datetime-local"
+                                    className="text-sm border border-gray-300 rounded-md px-2 py-1.5"
+                                    value={grantExpiresAt}
+                                    onChange={(e) => setGrantExpiresAt(e.target.value)}
+                                />
+                                {grantExpiresAt ? (
+                                    <button type="button" className="text-xs text-gray-500 hover:text-red-600 underline" onClick={() => setGrantExpiresAt('')}>
+                                        Clear
+                                    </button>
+                                ) : (
+                                    <button type="button" className="text-xs text-gray-500 hover:text-gray-800 underline" onClick={() => setGrantExpiresAt(defaultGrantExpiry())}>
+                                        Reset to 1 day
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         <button type="submit" className="btn-primary text-sm" disabled={!grantNode.trim() || grantingNode}>
                             {grantingNode ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
