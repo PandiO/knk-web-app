@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, RefreshCcw, ArrowLeft, ShieldCheck, Users, Award, Coins, EyeOff, X, Plus, History, Gift, Lock, Unlock } from 'lucide-react';
 import { logging } from '../../utils';
-import { auditActionLabel, describeAuditDetails } from '../../utils/auditDetails';
+import { auditActionLabel, auditTags, describeAuditDetails } from '../../utils/auditDetails';
 import { dateTimeLocalDaysFromNow } from '../../utils/dateTimeLocal';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
@@ -902,6 +902,17 @@ export const PlayerProfilePage: React.FC = () => {
                                         {describeAuditDetails(entry).map((line, i) => (
                                             <p key={i} className="text-xs text-gray-700 mt-0.5 break-words">{line}</p>
                                         ))}
+                                        {auditTags(entry).length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {auditTags(entry).map(tag => (
+                                                    <span key={tag.label} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                        tag.tone === 'red' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                                                    }`}>
+                                                        {tag.label}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                     <span className="text-xs text-gray-400 whitespace-nowrap">{formatDate(entry.timestamp)}</span>
                                 </li>

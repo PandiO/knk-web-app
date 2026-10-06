@@ -2,7 +2,8 @@ export type LocationReferenceSourceType = 'Location' | 'Town' | 'District' | 'St
 
 export type JoinSpawnMode = 'WorldSpawn' | 'CustomReference';
 
-export type RespawnMode = 'WorldSpawn' | 'ConfiguredReference' | 'NearestTown';
+/** JoinSpawn = respawn where the player would join ("synced" with the join spawn, KNG-52). */
+export type RespawnMode = 'WorldSpawn' | 'ConfiguredReference' | 'NearestTown' | 'JoinSpawn';
 
 export type WeatherMode = 'Normal' | 'Constant' | 'Blocked' | 'Weighted';
 
@@ -62,6 +63,21 @@ export interface MinecraftWorldRuntimeDto {
   isPrimary: boolean;
 }
 
+/**
+ * One permission group's overrides (KNG-52). null = no override: the player's next group, else the
+ * global/world setting. A blank joinAnnouncement means "no join broadcast" for the group.
+ */
+export interface PermissionGroupGameSettingsDto {
+  permissionGroupId: number;
+  /** Read-only, filled in by the API. */
+  groupName?: string | null;
+  /** Read-only: 1 = considered first (hierarchy, then weight). */
+  precedence?: number;
+  joinAnnouncement?: string | null;
+  joinSpawnReference?: LocationReferenceDto | null;
+  respawnPolicy?: RespawnPolicyDto | null;
+}
+
 export interface GameSettingsDto {
   id: string;
   settingsVersion: string;
@@ -73,6 +89,9 @@ export interface GameSettingsDto {
   worldSettings: WorldGameSettingsDto[];
   runtimeWorlds: MinecraftWorldRuntimeDto[];
   runtimeWorldsLastUpdatedAt?: string | null;
+  /** Server-list MOTD (two lines, & codes, {online}/{max}); null = server.properties. */
+  motd?: string | null;
+  groupOverrides?: PermissionGroupGameSettingsDto[];
   createdAt: string;
   updatedAt: string;
 }
@@ -85,6 +104,10 @@ export interface GameSettingsUpdateDto {
   joinSpawnReference?: LocationReferenceDto | null;
   defaultRespawnPolicy?: RespawnPolicyDto | null;
   worldSettings: WorldGameSettingsDto[];
+  /** null/undefined keeps the stored MOTD; '' clears it. */
+  motd?: string | null;
+  /** null/undefined keeps the stored overrides; a list (also empty) replaces them. */
+  groupOverrides?: PermissionGroupGameSettingsDto[] | null;
 }
 
 export interface GameSettingsRuntimeWorldsUpdateDto {
