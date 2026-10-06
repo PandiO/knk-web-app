@@ -237,10 +237,10 @@ describe('LoginForm', () => {
         expect(screen.getByText(/login successful/i)).toBeInTheDocument();
       });
 
-      // Success callback should be called after delay
+      // Success callback fires from LoginForm's 1000ms navigation timeout; wait longer than that delay
       await waitFor(() => {
         expect(mockOnSuccess).toHaveBeenCalled();
-      }, { timeout: 1000 });
+      }, { timeout: 2000 });
     });
 
     it('should disable submit button while submitting', async () => {
