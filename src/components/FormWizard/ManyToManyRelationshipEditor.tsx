@@ -4,12 +4,10 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { FormStepDto, FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldRenderer } from './FieldRenderers';
-import { ChildFormModal } from './ChildFormModal';
 import { RelationshipDraftCard } from './RelationshipDraftCard';
 import { SortableRelationshipCard } from './SortableRelationshipCard';
 import { useRelationshipDrafts, RelationshipDraft } from '../../hooks/useRelationshipDrafts';
 import { metadataClient } from '../../apiClients/metadataClient';
-import { getCreateFunctionForEntity, getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 
@@ -30,8 +28,6 @@ interface Props {
     entityId?: string; // Parent entity's own id, once saved - used to look up its join-entry drafts
     joinFormConfigurationId?: string;
     onOpenJoinEntry?: (relationshipIndex: number) => void;
-    userId: string;
-    parentProgressId?: string;
     // Validation support
     validationRules?: Record<number, FieldValidationRuleDto[]>;
     validationResults?: Record<number, ValidationResultDto>;
@@ -52,8 +48,6 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     entityId,
     joinFormConfigurationId,
     onOpenJoinEntry,
-    userId,
-    parentProgressId,
     validationResults = {},
     onValidateField
 }) => {
@@ -69,7 +63,6 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     const [metadataError, setMetadataError] = useState<string>('');
     const [relationshipErrors, setRelationshipErrors] = useState<Record<number, Record<string, string>>>({});
     const [missingEntityWarnings, setMissingEntityWarnings] = useState<Record<number, string>>({});
-    const [showCreateRelatedModal, setShowCreateRelatedModal] = useState(false);
 
     // Draggable reordering (developer request, 2026-09-23): a step whose join entity carries a
     // SequenceNumber field (currently just ItemBlueprintOrigin) gets a drag-to-reorder UI - same
@@ -270,44 +263,6 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         debug('relationshipWarnings:updated', warnings);
     }, [value, relatedEntityIdField]);
 
-    const handleAddRelationship = (selectedEntities: Record<string, unknown>[]) => {
-        debug('handleAddRelationship:input', {
-            selectedCount: selectedEntities.length,
-            selectedEntities,
-            existingCount: value.length,
-            relatedEntityIdField
-        });
-        if (!relatedEntityIdField) {
-            setMetadataError('Join entity mapping is not configured. Please verify join entity metadata before adding relationships.');
-            debug('handleAddRelationship:blocked-no-related-id-field');
-            return;
-        }
-
-        console.log('[M2M] Selection changed', {
-            selectedEntities,
-            existingRelationshipCount: value.length,
-            relatedEntityIdField
-        });
-
-        // Create new join entity instances for each selected related entity
-        const newRelationships = selectedEntities
-            .filter(entity => !value.some(v => v.relatedEntityId === entity.id))
-            .map(entity => ({
-                id: undefined, // New relationship
-                relatedEntityId: entity.id,
-                [relatedEntityIdField]: entity.id,
-                relatedEntity: entity, // Store for display
-                // Initialize join entity fields from child step defaults
-                ...getDefaultJoinEntityFields()
-            }));
-
-        onChange([...value, ...newRelationships]);
-        debug('handleAddRelationship:output', {
-            addedCount: newRelationships.length,
-            newRelationships
-        });
-    };
-
     const handleRemoveRelationship = (index: number) => {
         debug('handleRemoveRelationship', {
             index,
@@ -372,99 +327,6 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         }, 0);
 
         debug('handleContinueDraft', { newIndex, draft });
-    };
-
-    const handleCreateRelatedEntity = async (createdEntity: Record<string, unknown>) => {
-        debug('handleCreateRelatedEntity:start', {
-            createdEntity,
-            relatedEntityType,
-                relationshipCount: value.length
-        });
-        if (!createdEntity || typeof createdEntity !== 'object') {
-            debug('handleCreateRelatedEntity:invalid-created-entity', createdEntity);
-            return;
-        }
-
-        try {
-            setMetadataError('');
-            let persisted = createdEntity;
-            const existingId = persisted.id;
-
-            if (existingId === undefined || existingId === null || existingId === '') {
-                const createFn = getCreateFunctionForEntity(relatedEntityType);
-                const createdFromApi = await createFn(createdEntity);
-                debug('handleCreateRelatedEntity:create-response', createdFromApi);
-                if (createdFromApi && typeof createdFromApi === 'object') {
-                    persisted = createdFromApi as Record<string, unknown>;
-                }
-
-                if (persisted.id === undefined || persisted.id === null || persisted.id === '') {
-                    const searchFn = getSearchFunctionForEntity(relatedEntityType);
-                    const searchTerm = String(
-                        createdEntity.key ?? createdEntity.displayName ?? createdEntity.name ?? ''
-                    );
-
-                    if (searchTerm) {
-                        const searchResult = await searchFn({
-                            page: 1,
-                            pageSize: 20,
-                            searchTerm,
-                            sortBy: undefined,
-                            sortDescending: false,
-                            filters: {}
-                        });
-                        debug('handleCreateRelatedEntity:search-fallback-result', {
-                            searchTerm,
-                            resultCount: searchResult.items.length,
-                            items: searchResult.items
-                        });
-
-                        const matched = searchResult.items.find((item: Record<string, unknown>) => {
-                            const itemKey = String((item as Record<string, unknown>).key ?? '').toLowerCase();
-                            const itemDisplayName = String((item as Record<string, unknown>).displayName ?? (item as Record<string, unknown>).name ?? '').toLowerCase();
-                            const expectedKey = String(createdEntity.key ?? '').toLowerCase();
-                            const expectedDisplayName = String(createdEntity.displayName ?? createdEntity.name ?? '').toLowerCase();
-
-                            return (expectedKey && itemKey === expectedKey) ||
-                                (expectedDisplayName && itemDisplayName === expectedDisplayName);
-                        }) as Record<string, unknown> | undefined;
-
-                        if (matched) {
-                            persisted = matched;
-                            debug('handleCreateRelatedEntity:search-fallback-matched', matched);
-                        }
-                    }
-                }
-            }
-
-            if (persisted.id === undefined || persisted.id === null || persisted.id === '') {
-                setMetadataError(`Created ${relatedEntityType}, but it has no identifier yet. Please select it from the table after refresh.`);
-                debug('handleCreateRelatedEntity:missing-id-after-create', {
-                    persisted,
-                    createdEntity
-                });
-                return;
-            }
-
-            handleAddRelationship([persisted]);
-            // Open join-entry editor for the newly added relationship
-            if (onOpenJoinEntry) {
-                window.setTimeout(() => onOpenJoinEntry(value.length), 0);
-            }
-            debug('handleCreateRelatedEntity:success', {
-                persisted,
-                newRelationshipIndex: value.length
-            });
-        } catch (error) {
-            console.error('[M2M] Failed to create related entity:', error);
-            setMetadataError(`Failed to create ${relatedEntityType}. Please try again.`);
-            debug('handleCreateRelatedEntity:error', error);
-        } finally {
-            setShowCreateRelatedModal(false);
-            debug('handleCreateRelatedEntity:complete', {
-                showCreateRelatedModal: false
-            });
-        }
     };
 
     const handleUpdateRelationship = async (index: number, fieldName: string, fieldValue: unknown) => {
@@ -818,17 +680,6 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                     </div>
                 </div>
             )}
-
-            <ChildFormModal
-                open={showCreateRelatedModal}
-                entityTypeName={relatedEntityType}
-                parentProgressId={parentProgressId}
-                userId={userId}
-                fieldName={`__m2m_related_${step.relatedEntityPropertyName || 'relationships'}`}
-                currentStepIndex={0}
-                onComplete={handleCreateRelatedEntity}
-                onClose={() => setShowCreateRelatedModal(false)}
-            />
         </div>
     );
 };
