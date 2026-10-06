@@ -439,11 +439,13 @@ export function useEnrichedFormContext(
 
         // Load field metadata from form configuration
         const fieldMeta = await buildFieldMetadataMap(config);
-        setFieldMetadata(fieldMeta);
 
         // Load base entity metadata
         const baseMetadata = await metadataClient.getAllEntityMetadata();
         const metaMap = new Map(baseMetadata.map(m => [m.entityName, m]));
+
+        // Publish both only once everything loaded, so a failure leaves no half-built context
+        setFieldMetadata(fieldMeta);
         setEntityMetadata(metaMap);
 
         logger.info(`Loaded metadata: ${fieldMeta.size} fields, ${metaMap.size} entities`);
@@ -546,7 +548,9 @@ export function useEnrichedFormContext(
    */
   const refresh = useCallback(async () => {
     const fieldMeta = await buildFieldMetadataMap(config);
+    const baseMetadata = await metadataClient.getAllEntityMetadata();
     setFieldMetadata(fieldMeta);
+    setEntityMetadata(new Map(baseMetadata.map(m => [m.entityName, m])));
 
     // Re-resolve all dependencies
     const fieldIds = Array.from(fieldMeta.keys());
