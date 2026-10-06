@@ -1,6 +1,6 @@
 import { AllStepsData, FormConfigurationDto, FormFieldDto, FormStepDto } from '../../../types/dtos/forms/FormModels';
 import { ConditionOperator, DisplayConditionLogic, DisplayConditionTargetType, FieldType } from '../../enums';
-import { reconcileVisibility, nextVisibleStepIndex, previousVisibleStepIndex } from '../formVisibility';
+import { reconcileVisibility, nextVisibleStepIndex, previousVisibleStepIndex, flattenVisibleStepsData } from '../formVisibility';
 
 const GATE_TYPE_GUID = 'guid-gate-type';
 const WIDTH_GUID = 'guid-width';
@@ -184,6 +184,47 @@ describe('reconcileVisibility', () => {
         expect(result.visibility.visibleStepIndices).toContain(2);
         expect(result.visibility.visibleFieldNames[2].has('name')).toBe(false);
         expect(result.hiddenStash[2]).toEqual({ name: 'Main gate' });
+    });
+
+    it('leaves hidden steps and fields out of the flat submission, defaults included', () => {
+        const config = buildConfig();
+        config.steps[1].fields[0].defaultValue = 'X';
+        config.steps[2].fields.push(field('guid-note', 'note', {
+            defaultValue: 'n/a',
+            displayConditionGroups: [{
+                targetType: DisplayConditionTargetType.FormField,
+                innerLogic: DisplayConditionLogic.And,
+                combineWithPreviousLogic: DisplayConditionLogic.Or,
+                order: 0,
+                isActive: true,
+                conditions: [{
+                    sourceFieldGuid: GATE_TYPE_GUID,
+                    operator: ConditionOperator.Equals,
+                    valueJson: '"TRAP"',
+                    order: 0
+                }]
+            }]
+        }));
+        const data: AllStepsData = { 0: { gateType: 'SLIDING' }, 2: { name: 'Main gate', note: 'stale' } };
+        const { visibility } = reconcileVisibility(config, data, {});
+
+        expect(flattenVisibleStepsData(config, data, visibility)).toEqual({
+            gateType: 'SLIDING',
+            geometryWidth: null,
+            name: 'Main gate'
+        });
+    });
+
+    it('does not let a hidden field override a visible field of the same name', () => {
+        const config = buildConfig();
+        config.steps[1].fields.push(field('guid-width-copy', 'GeometryWidth', { defaultValue: '1,0' }));
+        const data: AllStepsData = { 0: { gateType: 'SLIDING', geometryWidth: 5 } };
+        const { visibility } = reconcileVisibility(config, data, {});
+
+        const flat = flattenVisibleStepsData(config, data, visibility);
+
+        expect(flat.geometryWidth).toBe(5);
+        expect(flat).not.toHaveProperty('GeometryWidth');
     });
 
     it('skips hidden steps when navigating', () => {

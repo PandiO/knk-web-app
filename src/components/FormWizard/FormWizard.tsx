@@ -16,6 +16,7 @@ import { resolveObjectFieldValueForEdit } from '../../utils/forms/objectFieldEdi
 import { normalizeFormSubmission } from '../../utils/forms/normalizeFormSubmission';
 import {
     FormVisibility,
+    flattenVisibleStepsData,
     nearestVisibleStepIndex,
     nextVisibleStepIndex,
     previousVisibleStepIndex,
@@ -2521,7 +2522,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     reconciled.visibility.visibleFieldNames[stepIndex]
                 );
             });
-            const flattenedDto = flattenAllStepsData(config!, normalizedAll);
+            const flattenedDto = flattenVisibleStepsData(config!, normalizedAll, reconciled.visibility);
 
             // changed: normalize the form data before sending to API
             // This converts nested objects (e.g., parentCategory) to foreign keys (e.g., parentCategoryId)
