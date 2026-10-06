@@ -319,9 +319,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 const hasExistingValue = existing !== undefined && existing !== null && existing !== '';
                 // A value that is still just the field's authored default is not "existing" data -
                 // an initial value (e.g. a saved siege gate's InitialState when editing its join
-                // entry) must win over it.
-                const isUntouchedDefault = field.defaultValue !== undefined && field.defaultValue !== null
-                    && existing === field.defaultValue;
+                // entry) must win over it. Compare against the normalized default normalizeStepData
+                // filled in (a Boolean's "true" default is stored as true), not the raw string.
+                const isUntouchedDefault = existing === formFieldDefaultValue(field);
 
                 if (incoming !== undefined && (!hasExistingValue || isUntouchedDefault)) {
                     next[field.fieldName] = incoming;
