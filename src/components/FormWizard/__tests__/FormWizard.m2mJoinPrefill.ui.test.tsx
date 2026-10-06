@@ -36,30 +36,36 @@ jest.mock('../../../apiClients/fieldValidationRuleClient', () => ({
     }
 }));
 
+const relationship = (id: number, displayName: string) => ({
+    relatedEntityId: id,
+    relatedEntity: { id, displayName, key: `minecraft:${displayName.toLowerCase()}` }
+});
+
 jest.mock('../ManyToManyRelationshipEditor', () => ({
-    ManyToManyRelationshipEditor: ({ onChange, onOpenJoinEntry }: { onChange: (value: Record<string, unknown>[]) => void; onOpenJoinEntry?: (relationshipIndex: number) => void }) => (
+    ManyToManyRelationshipEditor: ({ value, onChange, onOpenJoinEntry }: {
+        value: Record<string, unknown>[];
+        onChange: (value: Record<string, unknown>[]) => void;
+        onOpenJoinEntry?: (relationshipIndex: number) => void;
+    }) => (
         <div>
-            <button
-                type="button"
-                data-testid="seed-relationship"
-                onClick={() => onChange([
-                    {
-                        relatedEntityId: 99,
-                        relatedEntity: {
-                            id: 99,
-                            displayName: 'Sharpness',
-                            key: 'minecraft:sharpness'
-                        }
-                    }
-                ])}
-            >
+            <div data-testid="editor-value">{JSON.stringify(value.map(r => r.relatedEntityId))}</div>
+            <button type="button" data-testid="seed-relationship" onClick={() => onChange([relationship(99, 'Sharpness')])}>
                 seed relationship
             </button>
             <button
                 type="button"
-                data-testid="open-join-entry"
-                onClick={() => onOpenJoinEntry?.(0)}
+                data-testid="seed-three"
+                onClick={() => onChange([relationship(1, 'Sharpness'), relationship(2, 'Unbreaking'), relationship(3, 'Mending')])}
             >
+                seed three
+            </button>
+            <button type="button" data-testid="remove-first" onClick={() => onChange(value.slice(1))}>
+                remove first
+            </button>
+            <button type="button" data-testid="reverse" onClick={() => onChange([...value].reverse())}>
+                reverse
+            </button>
+            <button type="button" data-testid="open-join-entry" onClick={() => onOpenJoinEntry?.(0)}>
                 open join entry
             </button>
         </div>
@@ -75,6 +81,46 @@ jest.mock('../JoinEntityFormModal', () => ({
     )
 }));
 
+// Authored M2M steps carry a List field named after relatedEntityPropertyName (knk-workspace
+// docs/specs/*/PHASE_*_FORMCONFIGS.md); FormWizard adds that field itself when a step lacks it.
+const CARRIER_FIELD = {
+    id: '111', fieldName: 'DefaultEnchantments', label: 'Default Enchantments', fieldType: 'List',
+    objectType: 'ItemBlueprintDefaultEnchantment', isRequired: false, isReadOnly: false, order: 0
+};
+
+const itemBlueprintConfig = (fields: Record<string, unknown>[]) => ({
+    id: '5',
+    entityTypeName: 'ItemBlueprint',
+    configurationName: 'ItemBlueprint Default',
+    description: '',
+    isDefault: true,
+    isActive: true,
+    steps: [
+        {
+            id: '11',
+            stepName: 'Default Enchantments',
+            description: '',
+            order: 0,
+            fieldOrderJson: '[]',
+            isReusable: false,
+            isLinkedToSource: false,
+            hasCompatibilityIssues: false,
+            isManyToManyRelationship: true,
+            relatedEntityPropertyName: 'DefaultEnchantments',
+            joinEntityType: 'ItemBlueprintDefaultEnchantment',
+            subConfigurationId: '6',
+            childFormSteps: [],
+            fields,
+            conditions: []
+        }
+    ]
+});
+
+const STEP_SHAPES: Array<[string, Record<string, unknown>[]]> = [
+    ['an authored carrier field', [CARRIER_FIELD]],
+    ['no carrier field', []]
+];
+
 describe('FormWizard M2M join-entry prefill UI', () => {
     beforeEach(() => {
         jest.clearAllMocks();
@@ -85,41 +131,6 @@ describe('FormWizard M2M join-entry prefill UI', () => {
             formConfigurationId: '5',
             currentStepIndex: 0,
             status: FormSubmissionStatus.InProgress
-        });
-    });
-
-    it('prefills join modal with related entity id and unsaved parent placeholder id', async () => {
-        (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue({
-            id: '5',
-            entityTypeName: 'ItemBlueprint',
-            configurationName: 'ItemBlueprint Default',
-            description: '',
-            isDefault: true,
-            isActive: true,
-            steps: [
-                {
-                    id: '11',
-                    stepName: 'Default Enchantments',
-                    description: '',
-                    order: 0,
-                    fieldOrderJson: '[]',
-                    isReusable: false,
-                    isLinkedToSource: false,
-                    hasCompatibilityIssues: false,
-                    isManyToManyRelationship: true,
-                    relatedEntityPropertyName: 'DefaultEnchantments',
-                    joinEntityType: 'ItemBlueprintDefaultEnchantment',
-                    subConfigurationId: '6',
-                    childFormSteps: [],
-                    // Authored M2M steps carry a List field named after relatedEntityPropertyName
-                    // (see knk-workspace docs/specs/*/PHASE_*_FORMCONFIGS.md); FormWizard keeps step
-                    // data per declared field, so a fieldless step would drop the relationships.
-                    fields: [
-                        { id: '111', fieldName: 'DefaultEnchantments', label: 'Default Enchantments', fieldType: 'List', objectType: 'ItemBlueprintDefaultEnchantment', isRequired: false, isReadOnly: false, order: 0 }
-                    ],
-                    conditions: []
-                }
-            ]
         });
 
         (metadataClient.getEntityMetadata as jest.Mock).mockImplementation(async (entityName: string) => {
@@ -142,7 +153,9 @@ describe('FormWizard M2M join-entry prefill UI', () => {
                 fields: []
             };
         });
+    });
 
+    const renderWizard = async () => {
         render(
             <FormWizard
                 entityName="ItemBlueprint"
@@ -154,6 +167,11 @@ describe('FormWizard M2M join-entry prefill UI', () => {
         await waitFor(() => {
             expect(screen.queryByTestId('seed-relationship')).not.toBeNull();
         });
+    };
+
+    it.each(STEP_SHAPES)('prefills join modal with related entity id and unsaved parent placeholder id (step with %s)', async (_shape, fields) => {
+        (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(itemBlueprintConfig(fields));
+        await renderWizard();
 
         fireEvent.click(screen.getByTestId('seed-relationship'));
         fireEvent.click(screen.getByTestId('open-join-entry'));
@@ -171,5 +189,29 @@ describe('FormWizard M2M join-entry prefill UI', () => {
 
         expect(parsed.ItemBlueprintId).toBe(-1);
         expect(parsed.EnchantmentDefinitionId).toBe(99);
+    });
+
+    it('keeps added, removed and reordered relationships on a step without a carrier field, through to the saved draft', async () => {
+        (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(itemBlueprintConfig([]));
+        await renderWizard();
+
+        fireEvent.click(screen.getByTestId('seed-three'));
+        expect(screen.getByTestId('editor-value').textContent).toBe('[1,2,3]');
+
+        fireEvent.click(screen.getByTestId('remove-first'));
+        expect(screen.getByTestId('editor-value').textContent).toBe('[2,3]');
+
+        fireEvent.click(screen.getByTestId('reverse'));
+        expect(screen.getByTestId('editor-value').textContent).toBe('[3,2]');
+
+        // Opening a join entry saves a draft of the parent form - the relationships must be in it.
+        fireEvent.click(screen.getByTestId('open-join-entry'));
+        await waitFor(() => {
+            expect((formSubmissionClient.create as jest.Mock).mock.calls.length).toBeGreaterThan(0);
+        });
+
+        const draft = (formSubmissionClient.create as jest.Mock).mock.calls[0][0] as { currentStepDataJson: string };
+        const saved = JSON.parse(draft.currentStepDataJson) as Record<string, Array<{ relatedEntityId: number }>>;
+        expect(saved.DefaultEnchantments.map(r => r.relatedEntityId)).toEqual([3, 2]);
     });
 });
