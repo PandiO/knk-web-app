@@ -1,9 +1,9 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ManyToManyRelationshipEditor } from '../ManyToManyRelationshipEditor';
-import { FieldType } from '../../../utils/enums';
 import { metadataClient } from '../../../apiClients/metadataClient';
-import { getCreateFunctionForEntity } from '../../../utils/entityApiMapping';
+import { formSubmissionClient } from '../../../apiClients/formSubmissionClient';
+import { FieldType } from '../../../utils/enums';
 
 jest.mock('../../../apiClients/metadataClient', () => ({
     metadataClient: {
@@ -11,43 +11,34 @@ jest.mock('../../../apiClients/metadataClient', () => ({
     }
 }));
 
-jest.mock('../../../utils/entityApiMapping', () => ({
-    getCreateFunctionForEntity: jest.fn()
+jest.mock('../../../apiClients/formConfigClient', () => ({
+    formConfigClient: {
+        getByEntityTypeName: jest.fn().mockResolvedValue(null)
+    }
 }));
 
-jest.mock('../../PagedEntityTable/PagedEntityTable', () => ({
-    PagedEntityTable: ({ refreshKey }: { refreshKey?: number }) => (
-        <div>
-            <div data-testid="paged-table">paged-table</div>
-            <div data-testid="refresh-key">{String(refreshKey ?? 0)}</div>
-        </div>
-    )
+jest.mock('../../../apiClients/formSubmissionClient', () => ({
+    formSubmissionClient: {
+        getByEntityTypeNameFiltered: jest.fn()
+    }
 }));
 
-jest.mock('../ChildFormModal', () => ({
-    ChildFormModal: ({ open, onComplete }: { open: boolean; onComplete: (data: Record<string, unknown>) => void }) => (
-        open ? (
-            <button
-                type="button"
-                data-testid="complete-create-related"
-                onClick={() => onComplete({
-                    displayName: 'Sharpness',
-                    key: 'minecraft:sharpness',
-                    maxLevel: 5
-                })}
-            >
-                complete related form
-            </button>
-        ) : null
-    )
+jest.mock('../FieldRenderers', () => ({
+    FieldRenderer: () => <div data-testid="field-renderer" />
 }));
 
+/**
+ * "Create New Join Entry" is the M2M editor's add flow since c3b77a6 replaced the related-entity
+ * picker table: it appends a pending relationship row and then opens the join-entry form for it
+ * (FormWizard.handleOpenJoinEntry), which picks the related entity and fills the join fields.
+ */
 describe('ManyToManyRelationshipEditor UI', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        (formSubmissionClient.getByEntityTypeNameFiltered as jest.Mock).mockResolvedValue([]);
     });
 
-    it('creates missing related entity, adds it as relationship, and refreshes selection table', async () => {
+    it('appends a pending join entry with child-step defaults and opens the join-entry form for it', async () => {
         (metadataClient.getEntityMetadata as jest.Mock).mockResolvedValue({
             entityName: 'ItemBlueprintDefaultEnchantment',
             displayName: 'Item Blueprint Default Enchantment',
@@ -58,15 +49,9 @@ describe('ManyToManyRelationshipEditor UI', () => {
             ]
         });
 
-        const createEntity = jest.fn().mockResolvedValue({
-            id: 321,
-            displayName: 'Sharpness',
-            key: 'minecraft:sharpness',
-            maxLevel: 5
-        });
-        (getCreateFunctionForEntity as jest.Mock).mockReturnValue(createEntity);
-
+        const existing = { relatedEntityId: 7, EnchantmentDefinitionId: 7, relatedEntity: { id: 7, displayName: 'Unbreaking' }, __dndKey: 'k1' };
         const onChange = jest.fn();
+        const onOpenJoinEntry = jest.fn();
 
         render(
             <ManyToManyRelationshipEditor
@@ -80,50 +65,50 @@ describe('ManyToManyRelationshipEditor UI', () => {
                     isLinkedToSource: false,
                     hasCompatibilityIssues: false,
                     isManyToManyRelationship: true,
-                    relatedEntityPropertyName: 'defaultEnchantments',
+                    relatedEntityPropertyName: 'DefaultEnchantments',
                     joinEntityType: 'ItemBlueprintDefaultEnchantment',
                     subConfigurationId: '6',
-                    childFormSteps: [],
+                    childFormSteps: [
+                        {
+                            id: '12',
+                            stepName: 'Join fields',
+                            order: 0,
+                            isReusable: false,
+                            isLinkedToSource: false,
+                            hasCompatibilityIssues: false,
+                            isManyToManyRelationship: false,
+                            childFormSteps: [],
+                            conditions: [],
+                            fields: [
+                                { id: '13', fieldName: 'Level', label: 'Level', fieldType: FieldType.Integer, defaultValue: '1', isRequired: true, isReadOnly: false, order: 0, isReusable: false, isLinkedToSource: false, hasCompatibilityIssues: false, validations: [] }
+                            ]
+                        }
+                    ],
                     fields: [],
                     conditions: []
                 }}
-                value={[]}
+                value={[existing]}
                 onChange={onChange}
                 entityName="ItemBlueprint"
                 userId="1"
                 parentProgressId="progress-1"
+                onOpenJoinEntry={onOpenJoinEntry}
                 validationRules={{}}
                 validationResults={{}}
                 onValidateField={async () => {}}
             />
         );
 
-        await waitFor(() => {
-            expect(screen.queryByText('Create New EnchantmentDefinition')).not.toBeNull();
-        });
+        // Enabled once join metadata has resolved the related entity type.
+        const createButton = await screen.findByRole('button', { name: 'Create New Join Entry' });
+        await waitFor(() => expect(createButton).toBeEnabled());
 
-        fireEvent.click(screen.getByText('Create New EnchantmentDefinition'));
-        fireEvent.click(screen.getByTestId('complete-create-related'));
+        fireEvent.click(createButton);
 
-        await waitFor(() => {
-            expect(createEntity).toHaveBeenCalledTimes(1);
-        });
-
-        await waitFor(() => {
-            expect(onChange).toHaveBeenCalledWith([
-                expect.objectContaining({
-                    relatedEntityId: 321,
-                    EnchantmentDefinitionId: 321,
-                    relatedEntity: expect.objectContaining({
-                        id: 321,
-                        displayName: 'Sharpness'
-                    })
-                })
-            ]);
-        });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('refresh-key').textContent).toBe('1');
-        });
+        expect(onChange).toHaveBeenCalledWith([
+            existing,
+            expect.objectContaining({ __pendingJoinEntry: true, Level: '1' })
+        ]);
+        await waitFor(() => expect(onOpenJoinEntry).toHaveBeenCalledWith(1));
     });
 });

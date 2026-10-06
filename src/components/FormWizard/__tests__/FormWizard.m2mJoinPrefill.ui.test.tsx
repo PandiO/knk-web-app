@@ -107,11 +107,16 @@ describe('FormWizard M2M join-entry prefill UI', () => {
                     isLinkedToSource: false,
                     hasCompatibilityIssues: false,
                     isManyToManyRelationship: true,
-                    relatedEntityPropertyName: 'defaultEnchantments',
+                    relatedEntityPropertyName: 'DefaultEnchantments',
                     joinEntityType: 'ItemBlueprintDefaultEnchantment',
                     subConfigurationId: '6',
                     childFormSteps: [],
-                    fields: [],
+                    // Authored M2M steps carry a List field named after relatedEntityPropertyName
+                    // (see knk-workspace docs/specs/*/PHASE_*_FORMCONFIGS.md); FormWizard keeps step
+                    // data per declared field, so a fieldless step would drop the relationships.
+                    fields: [
+                        { id: '111', fieldName: 'DefaultEnchantments', label: 'Default Enchantments', fieldType: 'List', objectType: 'ItemBlueprintDefaultEnchantment', isRequired: false, isReadOnly: false, order: 0 }
+                    ],
                     conditions: []
                 }
             ]
