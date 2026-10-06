@@ -46,6 +46,13 @@ class UserManagementClient extends ObjectManager {
     return this.invokeServiceCall(request, `${userId}/grants`, Controllers.Users, HttpMethod.Post);
   }
 
+  // KNG-59: removes the player's direct grant/deny for this exact node (every active row for it).
+  // Group-inherited nodes are not touched - those change on the group itself. serviceCall drops
+  // the request data on DELETE, so the node rides in the operation's query string.
+  revokeNode(userId: number, node: string): Promise<void> {
+    return this.invokeServiceCall(null, `${userId}/grants?node=${encodeURIComponent(node)}`, Controllers.Users, HttpMethod.Delete);
+  }
+
   toggleVanishMode(userId: number, activeMode: ActiveMode): Promise<void> {
     return this.invokeServiceCall({ activeMode }, `${userId}/vanish-mode`, Controllers.Users, HttpMethod.Post);
   }

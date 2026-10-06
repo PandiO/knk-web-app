@@ -82,6 +82,8 @@ export const PlayerProfilePage: React.FC = () => {
     const [grantExpiresAt, setGrantExpiresAt] = React.useState('');
     const [grantingNode, setGrantingNode] = React.useState(false);
     const [grantActionError, setGrantActionError] = React.useState<string | null>(null);
+    const [revokingNode, setRevokingNode] = React.useState<string | null>(null);
+    const [revokeNodeError, setRevokeNodeError] = React.useState<string | null>(null);
 
     // "Adjust balance" card (AdjustBalanceCard): the title change its last adjustment caused.
     const [titleChangeNotice, setTitleChangeNotice] = React.useState<TitleChangeResultDto | null>(null);
@@ -243,6 +245,22 @@ export const PlayerProfilePage: React.FC = () => {
             setGrantActionError('Could not save this permission node.');
         } finally {
             setGrantingNode(false);
+        }
+    };
+
+    // KNG-59: remove a node granted/denied directly on the player (group-inherited rows have no
+    // remove button - removing those would change the group for every member).
+    const handleRevokeNode = async (node: string) => {
+        setRevokingNode(node);
+        setRevokeNodeError(null);
+        try {
+            await userManagementClient.revokeNode(userId, node);
+            await refreshAfterAction();
+        } catch (err) {
+            console.error('Failed to remove node:', err);
+            setRevokeNodeError(`Could not remove ${node}.`);
+        } finally {
+            setRevokingNode(null);
         }
     };
 
@@ -652,6 +670,7 @@ export const PlayerProfilePage: React.FC = () => {
                                         <th className="py-2 pr-4">Node</th>
                                         <th className="py-2 pr-4">Value</th>
                                         <th className="py-2 pr-4">Source</th>
+                                        <th className="py-2 pr-4" />
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -670,12 +689,35 @@ export const PlayerProfilePage: React.FC = () => {
                                                     ? 'Direct grant'
                                                     : (p.sourceHolderName || `Group #${p.sourceHolderId}`)}
                                             </td>
+                                            <td className="py-2 pr-4 text-right">
+                                                {p.sourceHolderType === 'User' ? (
+                                                    <button
+                                                        className="text-gray-400 hover:text-red-600 disabled:opacity-50"
+                                                        disabled={revokingNode !== null}
+                                                        onClick={() => void handleRevokeNode(p.node)}
+                                                        title={`Remove direct ${p.value ? 'grant' : 'deny'}`}
+                                                        aria-label={`Remove direct ${p.value ? 'grant' : 'deny'} of ${p.node}`}
+                                                    >
+                                                        {revokingNode === p.node
+                                                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                                                            : <X className="h-4 w-4" />}
+                                                    </button>
+                                                ) : (
+                                                    <span
+                                                        className="text-xs text-gray-400"
+                                                        title="Inherited from a group: remove the node on the group, or remove the group membership above"
+                                                    >
+                                                        Inherited
+                                                    </span>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                     )}
+                    {revokeNodeError && <p className="text-xs text-red-600 mt-2">{revokeNodeError}</p>}
 
                     {/* Quick action: grant/deny a node directly on the player (DESIGN.md §3) */}
                     <form className="flex flex-wrap items-end gap-3 pt-4 border-t border-gray-100" onSubmit={(e) => void handleGrantNode(e)}>
