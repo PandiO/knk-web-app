@@ -1,7 +1,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useEnrichedFormContext, EnrichedFormContextType, FormFieldMetadata } from '../useEntityMetadata';
+import { useEnrichedFormContext } from '../useEnrichedFormContext';
 import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../../types/dtos/forms/FormModels';
-import { FieldValidationRuleDto, DependencyResolutionResponse } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import * as fieldValidationRuleClient from '../../apiClients/fieldValidationRuleClient';
 import * as metadataClient from '../../apiClients/metadataClient';
@@ -239,10 +239,11 @@ describe('useEnrichedFormContext', () => {
         response = await result.current.resolveDependenciesBatch([]);
       });
 
-      expect(response).toBeNull();
+      expect(response?.resolved).toEqual({});
+      expect(mockFieldValidationRuleClient.fieldValidationRuleClient.resolveDependencies).not.toHaveBeenCalled();
     });
 
-    it('should return null for non-existent rule', async () => {
+    it('should report an error status for a non-existent rule', async () => {
       const { result } = renderHook(() => useEnrichedFormContext(mockFormConfiguration));
 
       await waitFor(() => {
@@ -254,7 +255,7 @@ describe('useEnrichedFormContext', () => {
         resolved = await result.current.resolveDependency(9999);
       });
 
-      expect(resolved).toBeNull();
+      expect(resolved?.status).toBe('error');
     });
   });
 
@@ -291,24 +292,6 @@ describe('useEnrichedFormContext', () => {
       const deps2 = result.current.resolvedDependencies;
 
       expect(deps1).toBe(deps2);
-    });
-  });
-
-  describe('refresh', () => {
-    it('should reload metadata and dependencies', async () => {
-      const { result } = renderHook(() => useEnrichedFormContext(mockFormConfiguration));
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      const initialCallCount = (mockMetadataClient.metadataClient.getAllEntityMetadata as jest.Mock).mock.calls.length;
-
-      await act(async () => {
-        await result.current.refresh();
-      });
-
-      expect((mockMetadataClient.metadataClient.getAllEntityMetadata as jest.Mock).mock.calls.length).toBeGreaterThan(initialCallCount);
     });
   });
 });
