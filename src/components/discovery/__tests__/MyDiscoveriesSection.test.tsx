@@ -55,6 +55,19 @@ describe('MyDiscoveriesSection', () => {
     expect(screen.getByText(/\+2,600 coins, \+10 gems$/)).toBeInTheDocument();
   });
 
+  it('leaves out a type switched off in the Discovery settings, without a Disabled tag', async () => {
+    mockedSummary.mockResolvedValue({
+      ...summary,
+      byType: [...summary.byType, { domainType: 'Structure', discovered: 0, total: 0, enabled: false }],
+    });
+    mockedProgress.mockResolvedValue({ items: [], totalCount: 0, pageNumber: 1, pageSize: RECENT_DISCOVERIES });
+    render(<MyDiscoveriesSection userId={7} />);
+
+    expect(await screen.findByRole('progressbar', { name: 'Town discovered' })).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar', { name: 'Structure discovered' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Disabled')).not.toBeInTheDocument();
+  });
+
   it('invites the player to explore when nothing is discovered yet', async () => {
     mockedSummary.mockResolvedValue({ ...summary, totalDiscovered: 0, totalCoins: 0, totalGems: 0, totalExp: 0 });
     mockedProgress.mockResolvedValue({ items: [], totalCount: 0, pageNumber: 1, pageSize: RECENT_DISCOVERIES });

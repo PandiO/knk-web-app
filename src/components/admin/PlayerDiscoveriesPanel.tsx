@@ -9,6 +9,7 @@ import {
   DiscoveryProgressRowDto,
   DiscoverySummaryDto,
   discoveryTypeLabel,
+  isDiscoveryTypeDisabled,
 } from '../../types/dtos/discovery/DiscoveryDtos';
 import { DiscoverySummaryBars, formatDiscoveryDate, formatDiscoveryRewards } from '../discovery/DiscoverySummaryBars';
 
@@ -29,6 +30,11 @@ export const PlayerDiscoveriesPanel: React.FC<{
 
   const [forbidden, setForbidden] = React.useState(false);
   const [summary, setSummary] = React.useState<DiscoverySummaryDto | null>(null);
+  // Types switched off in the Discovery settings: their places aren't discoverable or listed.
+  const disabledTypes = React.useMemo(
+    () => new Set((summary?.byType ?? []).filter(isDiscoveryTypeDisabled).map((type) => type.domainType)),
+    [summary],
+  );
   const [page, setPage] = React.useState<DiscoveryPagedResultDto<DiscoveryProgressRowDto> | null>(null);
   const [domainType, setDomainType] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -117,12 +123,14 @@ export const PlayerDiscoveriesPanel: React.FC<{
         >
           <option value="">All types</option>
           {DISCOVERY_DOMAIN_TYPES.map((type) => (
-            <option key={type} value={type}>{discoveryTypeLabel(type)}</option>
+            <option key={type} value={type}>
+              {discoveryTypeLabel(type)}{disabledTypes.has(type) ? ' (disabled)' : ''}
+            </option>
           ))}
         </select>
       </div>
 
-      {summary && <div className="mb-4"><DiscoverySummaryBars summary={summary} /></div>}
+      {summary && <div className="mb-4"><DiscoverySummaryBars summary={summary} showDisabled /></div>}
 
       {loading && !page ? (
         <div className="flex items-center text-sm text-gray-500">
@@ -132,7 +140,11 @@ export const PlayerDiscoveriesPanel: React.FC<{
       ) : error ? (
         <p className="text-sm text-red-600">{error}</p>
       ) : !page || page.items.length === 0 ? (
-        <p className="text-sm text-gray-500">No discoveries{domainType ? ` of this type` : ''} yet.</p>
+        <p className="text-sm text-gray-500">
+          {disabledTypes.has(domainType)
+            ? 'This type is disabled in the Discovery settings, so its places are not listed.'
+            : `No discoveries${domainType ? ' of this type' : ''} yet.`}
+        </p>
       ) : (
         <>
           <div className="overflow-x-auto">

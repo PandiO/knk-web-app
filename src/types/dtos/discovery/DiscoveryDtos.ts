@@ -67,7 +67,12 @@ export interface DiscoveryTypeCountDto {
   domainType: string;
   discovered: number;
   total: number;
+  /** The type's reward rule is enabled; missing (older API) counts as enabled. */
+  enabled?: boolean;
 }
+
+/** A type switched off in the Discovery settings (its total is 0 unless overrides enable some domains). */
+export const isDiscoveryTypeDisabled = (type: DiscoveryTypeCountDto): boolean => type.enabled === false;
 
 export interface DiscoverySummaryDto {
   byType: DiscoveryTypeCountDto[];
