@@ -110,6 +110,7 @@ export enum Controllers {
     AuditLogRetentionConfiguration = 'AuditLogRetentionConfiguration',
     PrivateMessageLog = 'private-message-log',
     PermissionGroups = 'PermissionGroups',
+    PermissionHolders = 'PermissionHolders',
     // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.3)
     LootboxTypes = 'LootboxTypes',
     LootboxSpecialEntries = 'LootboxSpecialEntries',
@@ -370,4 +371,3 @@ export enum UsersOperation {
     Delete = '',
     SearchPaged = 'search'
 }
-

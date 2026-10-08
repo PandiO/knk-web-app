@@ -57,6 +57,11 @@ export function coveringBoxStars(type: Pick<LootboxTypeDto, 'minBoxStars' | 'max
     return result;
 }
 
+/** The box grades to ask the batch odds for: every type's covering grades together, high to low, without repeats. */
+export function coveringBoxStarsOf(types: Pick<LootboxTypeDto, 'minBoxStars' | 'maxBoxStars' | 'itemStarSpread'>[]): number[] {
+    return Array.from(new Set(types.flatMap(coveringBoxStars))).sort((a, b) => b - a);
+}
+
 /** Pool size per item-grade stars, merged from odds responses (a grade with no items never appears in them). */
 export function poolCountsByStars(odds: Pick<LootboxOddsDto, 'itemGrades'>[]): Record<number, number> {
     const counts: Record<number, number> = {};

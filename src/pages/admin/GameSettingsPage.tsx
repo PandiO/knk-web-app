@@ -7,34 +7,34 @@ import { locationClient } from '../../apiClients/locationClient';
 import { townClient } from '../../apiClients/townClient';
 import { districtClient } from '../../apiClients/districtClient';
 import { structureClient } from '../../apiClients/structureClient';
+import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { DataRetentionCard } from '../../components/admin/DataRetentionCard';
+import { GroupOverridesCard } from '../../components/admin/gameSettings/GroupOverridesCard';
+import { LocationReferencePicker } from '../../components/admin/gameSettings/LocationReferencePicker';
+import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
+import { RespawnPolicyEditor } from '../../components/admin/gameSettings/RespawnPolicyEditor';
+import { LocationOption, buildLocationOptions } from '../../components/admin/gameSettings/locationReferenceOptions';
+import { PermissionGroupDto } from '../../types/dtos/userManagement/PermissionGroupDto';
 import {
     GameSettingsDto,
     GameSettingsUpdateDto,
     JoinSpawnMode,
-    LocationReferenceDto,
-    LocationReferenceSourceType,
-    LocationSnapshotDto,
-    RespawnMode,
     RespawnPolicyDto,
     WeatherMode,
     WeatherType,
     WorldGameSettingsDto,
 } from '../../types/dtos/gameSettings/GameSettingsModels';
 
-type LocationOption = {
-    key: string;
-    sourceType: LocationReferenceSourceType;
-    sourceId: number;
-    displayLabel: string;
-    location: LocationSnapshotDto;
-};
-
 const WEATHER_TYPES: WeatherType[] = ['CLEAR', 'RAIN', 'THUNDER'];
 const WEATHER_MODES: WeatherMode[] = ['Normal', 'Constant', 'Blocked', 'Weighted'];
-const RESPAWN_MODES: RespawnMode[] = ['WorldSpawn', 'ConfiguredReference', 'NearestTown'];
 const JOIN_SPAWN_MODES: JoinSpawnMode[] = ['WorldSpawn', 'CustomReference'];
-const SOURCE_TYPES: LocationReferenceSourceType[] = ['Location', 'Town', 'District', 'Structure'];
+const JOIN_SPAWN_MODE_LABELS: Record<JoinSpawnMode, string> = {
+    WorldSpawn: "The main world's spawn",
+    CustomReference: 'A chosen spot (Location, Town, District or Structure)',
+};
+/** The settings' own placeholder names for the previews. */
+const fillPreview = (text: string, player: string, group: string) =>
+    (text || '').split('{player}').join(player).split('{group}').join(group).split('{online}').join('12').split('{max}').join('100');
 const GAMEMODES = ['SURVIVAL', 'CREATIVE', 'ADVENTURE', 'SPECTATOR'];
 
 const buildDefaultWorldSettings = (worldName: string, worldFolderName?: string | null): WorldGameSettingsDto => ({
@@ -76,6 +76,8 @@ const buildDefaultSettings = (): GameSettingsDto => ({
     worldSettings: [],
     runtimeWorlds: [],
     runtimeWorldsLastUpdatedAt: null,
+    motd: null,
+    groupOverrides: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
 });
@@ -112,6 +114,7 @@ const normalizeSettings = (settings: GameSettingsDto): GameSettingsDto => {
     });
 
     next.worldSettings = Array.from(byWorld.values()).sort((a, b) => a.worldName.localeCompare(b.worldName));
+    next.groupOverrides = next.groupOverrides || [];
 
     if (!next.defaultRespawnPolicy) {
         next.defaultRespawnPolicy = {
@@ -125,93 +128,11 @@ const normalizeSettings = (settings: GameSettingsDto): GameSettingsDto => {
     return next;
 };
 
-const toLocationSnapshot = (location: any): LocationSnapshotDto | null => {
-    if (!location) {
-        return null;
-    }
-
-    const x = Number(location.x ?? location.X);
-    const y = Number(location.y ?? location.Y);
-    const z = Number(location.z ?? location.Z);
-
-    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
-        return null;
-    }
-
-    return {
-        locationId: location.id ?? location.Id ?? null,
-        name: location.name ?? location.Name ?? null,
-        x,
-        y,
-        z,
-        yaw: Number(location.yaw ?? location.Yaw ?? 0),
-        pitch: Number(location.pitch ?? location.Pitch ?? 0),
-        world: String(location.world ?? location.World ?? 'world'),
-    };
-};
-
-const buildLocationOptions = (
-    locations: any[],
-    towns: any[],
-    districts: any[],
-    structures: any[]
-): LocationOption[] => {
-    const options: LocationOption[] = [];
-
-    const locationMap = new Map<number, LocationSnapshotDto>();
-    locations.forEach(raw => {
-        const snapshot = toLocationSnapshot(raw);
-        if (!snapshot || snapshot.locationId == null) {
-            return;
-        }
-        locationMap.set(snapshot.locationId, snapshot);
-        options.push({
-            key: `Location-${snapshot.locationId}`,
-            sourceType: 'Location',
-            sourceId: snapshot.locationId,
-            displayLabel: `Location: ${snapshot.name || `#${snapshot.locationId}`} (${snapshot.world} ${snapshot.x}, ${snapshot.y}, ${snapshot.z})`,
-            location: snapshot,
-        });
-    });
-
-    const addFromDomain = (sourceType: LocationReferenceSourceType, values: any[]) => {
-        values.forEach(raw => {
-            const sourceId = Number(raw.id ?? raw.Id);
-            if (!Number.isFinite(sourceId) || sourceId <= 0) {
-                return;
-            }
-
-            const direct = toLocationSnapshot(raw.location ?? raw.Location);
-            const fallbackLocationId = Number(raw.locationId ?? raw.LocationId);
-            const fallback = Number.isFinite(fallbackLocationId) ? locationMap.get(fallbackLocationId) : undefined;
-            const location = direct ?? fallback ?? null;
-
-            if (!location) {
-                return;
-            }
-
-            const name = String(raw.name ?? raw.Name ?? `${sourceType} #${sourceId}`);
-            options.push({
-                key: `${sourceType}-${sourceId}`,
-                sourceType,
-                sourceId,
-                displayLabel: `${sourceType}: ${name} (${location.world} ${location.x}, ${location.y}, ${location.z})`,
-                location,
-            });
-        });
-    };
-
-    addFromDomain('Town', towns || []);
-    addFromDomain('District', districts || []);
-    addFromDomain('Structure', structures || []);
-
-    return options.sort((a, b) => a.displayLabel.localeCompare(b.displayLabel));
-};
-
 export const GameSettingsPage: React.FC = () => {
     const navigate = useNavigate();
     const [settings, setSettings] = React.useState<GameSettingsDto | null>(null);
     const [locationOptions, setLocationOptions] = React.useState<LocationOption[]>([]);
+    const [groups, setGroups] = React.useState<PermissionGroupDto[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [saving, setSaving] = React.useState(false);
 
@@ -222,13 +143,15 @@ export const GameSettingsPage: React.FC = () => {
     const loadAll = async () => {
         try {
             setLoading(true);
-            const [settingsData, locations, towns, districts, structures] = await Promise.all([
+            const [settingsData, locations, towns, districts, structures, permissionGroups] = await Promise.all([
                 gameSettingsClient.get(),
                 locationClient.getAll().catch(() => []),
                 townClient.getAll().catch(() => []),
                 districtClient.getAll().catch(() => []),
                 structureClient.getAll().catch(() => []),
+                permissionGroupClient.getAll().catch(() => [] as PermissionGroupDto[]),
             ]);
+            setGroups(permissionGroups as PermissionGroupDto[]);
 
             setSettings(normalizeSettings(settingsData));
             setLocationOptions(buildLocationOptions(locations as any[], towns as any[], districts as any[], structures as any[]));
@@ -273,6 +196,8 @@ export const GameSettingsPage: React.FC = () => {
             joinSpawnReference: settings.joinSpawnReference ?? null,
             defaultRespawnPolicy: settings.defaultRespawnPolicy ?? null,
             worldSettings: settings.worldSettings,
+            motd: settings.motd ?? '',
+            groupOverrides: settings.groupOverrides ?? [],
         };
 
         try {
@@ -366,7 +291,10 @@ export const GameSettingsPage: React.FC = () => {
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 space-y-4">
                     <h2 className="text-lg font-semibold text-gray-900">Join/Leave Announcements</h2>
                     <p className="text-sm text-gray-600">
-                        Supports Minecraft legacy color codes such as <code>&amp;a</code>, <code>&amp;c</code>, and hex formatting.
+                        Minecraft colour codes such as <code>&amp;a</code> and <code>&amp;c</code> (several per line), styles like
+                        {' '}<code>&amp;l</code>, and hex as <code>&amp;x&amp;f&amp;f&amp;a&amp;a&amp;0&amp;0</code>.
+                        Placeholders: <code>{'{player}'}</code> and <code>{'{group}'}</code> (the player's group). Leave a text empty
+                        for no message. A permission group can have its own join message (Permission Group Overrides below).
                     </p>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div>
@@ -377,10 +305,9 @@ export const GameSettingsPage: React.FC = () => {
                                 rows={3}
                                 className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
                             />
-                            <p className="text-xs text-gray-500 mt-1">Use <code>{'{player}'}</code> placeholder for player name.</p>
                             <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-2">
                                 <p className="text-xs text-gray-500 mb-1">Preview</p>
-                                <MinecraftLegacyPreview text={settings.joinAnnouncement.replace('{player}', 'Steve')} />
+                                <MinecraftLegacyPreview dark text={fillPreview(settings.joinAnnouncement, 'Steve', 'Default')} />
                             </div>
                         </div>
                         <div>
@@ -391,17 +318,40 @@ export const GameSettingsPage: React.FC = () => {
                                 rows={3}
                                 className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
                             />
-                            <p className="text-xs text-gray-500 mt-1">Use <code>{'{player}'}</code> placeholder for player name.</p>
                             <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-2">
                                 <p className="text-xs text-gray-500 mb-1">Preview</p>
-                                <MinecraftLegacyPreview text={settings.leaveAnnouncement.replace('{player}', 'Alex')} />
+                                <MinecraftLegacyPreview dark text={fillPreview(settings.leaveAnnouncement, 'Alex', 'Default')} />
                             </div>
                         </div>
                     </div>
                 </div>
 
+                <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 space-y-3">
+                    <h2 className="text-lg font-semibold text-gray-900">Server List MOTD</h2>
+                    <p className="text-sm text-gray-600">
+                        The message under the server's name in the Minecraft server list: two lines, colour codes as above,
+                        {' '}<code>{'{online}'}</code> and <code>{'{max}'}</code> for the player counts. Empty = the server's own
+                        {' '}<code>server.properties</code> motd.
+                    </p>
+                    <textarea
+                        aria-label="MOTD"
+                        value={settings.motd || ''}
+                        onChange={e => updateSettings(prev => ({ ...prev, motd: e.target.value.split('\n').slice(0, 2).join('\n') }))}
+                        rows={2}
+                        className="block w-full rounded-md border-gray-300 font-mono focus:border-primary focus:ring-primary"
+                    />
+                    <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
+                        <p className="text-xs text-gray-500 mb-1">Preview</p>
+                        <MinecraftLegacyPreview dark text={fillPreview(settings.motd || '', 'Steve', 'Default')} />
+                    </div>
+                </div>
+
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 space-y-4">
                     <h2 className="text-lg font-semibold text-gray-900">Join Spawn Settings</h2>
+                    <p className="text-sm text-gray-600">
+                        Where players arrive on join; also where <code>/spawn</code> goes. Respawn can be synced with it per world
+                        ("Same as the join spawn") or set separately. A permission group can have its own spawn.
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Join Spawn Mode</label>
@@ -411,14 +361,14 @@ export const GameSettingsPage: React.FC = () => {
                                 className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
                             >
                                 {JOIN_SPAWN_MODES.map(mode => (
-                                    <option key={mode} value={mode}>{mode}</option>
+                                    <option key={mode} value={mode}>{JOIN_SPAWN_MODE_LABELS[mode]}</option>
                                 ))}
                             </select>
                         </div>
                     </div>
 
                     {settings.joinSpawnMode === 'CustomReference' && (
-                        <LocationReferenceSelector
+                        <LocationReferencePicker
                             value={settings.joinSpawnReference || null}
                             options={locationOptions}
                             onChange={reference => updateSettings(prev => ({ ...prev, joinSpawnReference: reference }))}
@@ -426,6 +376,14 @@ export const GameSettingsPage: React.FC = () => {
                         />
                     )}
                 </div>
+
+                <GroupOverridesCard
+                    overrides={settings.groupOverrides || []}
+                    groups={groups}
+                    options={locationOptions}
+                    onChange={groupOverrides => updateSettings(prev => ({ ...prev, groupOverrides }))}
+                    onCreateLocation={() => navigate('/forms/location?autoOpen=true')}
+                />
 
                 <div className="space-y-4">
                     <h2 className="text-lg font-semibold text-gray-900">Per-World Minecraft Settings</h2>
@@ -593,8 +551,8 @@ export const GameSettingsPage: React.FC = () => {
                                     )}
 
                                     <div className="border-t border-gray-200 pt-4">
-                                        <p className="text-sm font-semibold text-gray-800 mb-2">World Spawn Reference</p>
-                                        <LocationReferenceSelector
+                                        <p className="text-sm font-semibold text-gray-800 mb-2">World Spawn Point</p>
+                                        <LocationReferencePicker
                                             value={world.worldSpawnReference || null}
                                             options={locationOptions}
                                             onChange={reference => updateWorldSetting(world.worldName, current => ({ ...current, worldSpawnReference: reference }))}
@@ -603,76 +561,13 @@ export const GameSettingsPage: React.FC = () => {
                                     </div>
 
                                     <div className="border-t border-gray-200 pt-4 space-y-3">
-                                        <p className="text-sm font-semibold text-gray-800">Respawn Policy</p>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Mode</label>
-                                                <select
-                                                    value={respawn.mode}
-                                                    onChange={e => updateWorldSetting(world.worldName, current => ({
-                                                        ...current,
-                                                        respawnPolicy: {
-                                                            ...(current.respawnPolicy || { useWorldSpawnFallback: true }),
-                                                            mode: e.target.value as RespawnMode,
-                                                        },
-                                                    }))}
-                                                    className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
-                                                >
-                                                    {RESPAWN_MODES.map(mode => (
-                                                        <option key={mode} value={mode}>{mode}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Fallback To World Spawn</label>
-                                                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={respawn.useWorldSpawnFallback}
-                                                        onChange={e => updateWorldSetting(world.worldName, current => ({
-                                                            ...current,
-                                                            respawnPolicy: {
-                                                                ...(current.respawnPolicy || { mode: 'WorldSpawn' as RespawnMode }),
-                                                                useWorldSpawnFallback: e.target.checked,
-                                                            },
-                                                        }))}
-                                                        className="rounded border-gray-300"
-                                                    />
-                                                    Use world spawn if policy cannot resolve location
-                                                </label>
-                                            </div>
-                                        </div>
-
-                                        {respawn.mode === 'ConfiguredReference' && (
-                                            <LocationReferenceSelector
-                                                value={respawn.locationReference || null}
-                                                options={locationOptions}
-                                                onChange={reference => updateWorldSetting(world.worldName, current => ({
-                                                    ...current,
-                                                    respawnPolicy: { ...(current.respawnPolicy || respawn), locationReference: reference },
-                                                }))}
-                                                onCreateLocation={() => navigate('/forms/location?autoOpen=true')}
-                                            />
-                                        )}
-
-                                        {respawn.mode === 'NearestTown' && (
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Max Nearest-Town Distance (optional, blocks beyond this)</label>
-                                                <input
-                                                    type="number"
-                                                    min={0}
-                                                    value={respawn.maxNearestTownDistance ?? ''}
-                                                    onChange={e => updateWorldSetting(world.worldName, current => ({
-                                                        ...current,
-                                                        respawnPolicy: {
-                                                            ...(current.respawnPolicy || respawn),
-                                                            maxNearestTownDistance: e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0),
-                                                        },
-                                                    }))}
-                                                    className="block w-full md:w-80 rounded-md border-gray-300 focus:border-primary focus:ring-primary"
-                                                />
-                                            </div>
-                                        )}
+                                        <p className="text-sm font-semibold text-gray-800">Respawn after dying in this world</p>
+                                        <RespawnPolicyEditor
+                                            value={respawn}
+                                            options={locationOptions}
+                                            onChange={policy => updateWorldSetting(world.worldName, current => ({ ...current, respawnPolicy: policy }))}
+                                            onCreateLocation={() => navigate('/forms/location?autoOpen=true')}
+                                        />
                                     </div>
                                 </div>
                             );
@@ -684,244 +579,5 @@ export const GameSettingsPage: React.FC = () => {
                 <DataRetentionCard />
             </div>
         </div>
-    );
-};
-
-const LocationReferenceSelector: React.FC<{
-    value: LocationReferenceDto | null;
-    options: LocationOption[];
-    onChange: (value: LocationReferenceDto | null) => void;
-    onCreateLocation: () => void;
-}> = ({ value, options, onChange, onCreateLocation }) => {
-    const selectedType: LocationReferenceSourceType = value?.sourceType || 'Location';
-    const typedOptions = options.filter(option => option.sourceType === selectedType);
-
-    const selectedOption = typedOptions.find(
-        option => option.sourceId === value?.sourceId && option.sourceType === value?.sourceType
-    );
-
-    return (
-        <div className="space-y-3 rounded-md border border-gray-200 p-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Reference Type</label>
-                    <select
-                        value={selectedType}
-                        onChange={e => {
-                            const nextType = e.target.value as LocationReferenceSourceType;
-                            const firstOption = options.find(option => option.sourceType === nextType) || null;
-                            if (!firstOption) {
-                                onChange(null);
-                                return;
-                            }
-                            onChange({
-                                sourceType: firstOption.sourceType,
-                                sourceId: firstOption.sourceId,
-                                displayLabel: firstOption.displayLabel,
-                                location: firstOption.location,
-                            });
-                        }}
-                        className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
-                    >
-                        {SOURCE_TYPES.map(type => (
-                            <option key={type} value={type}>{type}</option>
-                        ))}
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Reference</label>
-                    <select
-                        value={selectedOption?.key || ''}
-                        onChange={e => {
-                            const option = typedOptions.find(candidate => candidate.key === e.target.value) || null;
-                            if (!option) {
-                                onChange(null);
-                                return;
-                            }
-                            onChange({
-                                sourceType: option.sourceType,
-                                sourceId: option.sourceId,
-                                displayLabel: option.displayLabel,
-                                location: option.location,
-                            });
-                        }}
-                        className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
-                    >
-                        <option value="">Select reference...</option>
-                        {typedOptions.map(option => (
-                            <option key={option.key} value={option.key}>{option.displayLabel}</option>
-                        ))}
-                    </select>
-                </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-                <button type="button" className="btn-secondary text-xs" onClick={onCreateLocation}>
-                    Create/Select Location via Form Wizard
-                </button>
-                <button type="button" className="btn-secondary text-xs" onClick={() => onChange(null)}>
-                    Clear Reference
-                </button>
-            </div>
-
-            {value?.location && (
-                <p className="text-xs text-gray-600">
-                    Resolved position: {value.location.world} {value.location.x}, {value.location.y}, {value.location.z}
-                </p>
-            )}
-        </div>
-    );
-};
-
-type LegacyStyleState = {
-    color?: string;
-    bold?: boolean;
-    italic?: boolean;
-    underline?: boolean;
-    strikethrough?: boolean;
-};
-
-type LegacySegment = {
-    text: string;
-    style: LegacyStyleState;
-};
-
-const LEGACY_SECTION_CHAR = '§';
-const LEGACY_ALT_CHAR = '&';
-const LEGACY_TRANSLATABLE_CODES = '0123456789AaBbCcDdEeFfKkLlMmNnOoRrXx';
-
-const LEGACY_COLOR_MAP: Record<string, string> = {
-    '0': '#000000',
-    '1': '#0000AA',
-    '2': '#00AA00',
-    '3': '#00AAAA',
-    '4': '#AA0000',
-    '5': '#AA00AA',
-    '6': '#FFAA00',
-    '7': '#AAAAAA',
-    '8': '#555555',
-    '9': '#5555FF',
-    a: '#55FF55',
-    b: '#55FFFF',
-    c: '#FF5555',
-    d: '#FF55FF',
-    e: '#FFFF55',
-    f: '#FFFFFF',
-};
-
-const translateAlternateColorCodes = (altColorChar: string, textToTranslate: string): string => {
-    if (!textToTranslate) {
-        return '';
-    }
-
-    const chars = textToTranslate.split('');
-    for (let i = 0; i < chars.length - 1; i++) {
-        if (chars[i] === altColorChar && LEGACY_TRANSLATABLE_CODES.indexOf(chars[i + 1]) > -1) {
-            chars[i] = LEGACY_SECTION_CHAR;
-            chars[i + 1] = chars[i + 1].toLowerCase();
-        }
-    }
-    return chars.join('');
-};
-
-const toStyle = (state: LegacyStyleState): React.CSSProperties => ({
-    color: state.color,
-    fontWeight: state.bold ? 700 : undefined,
-    fontStyle: state.italic ? 'italic' : undefined,
-    textDecoration: [
-        state.underline ? 'underline' : '',
-        state.strikethrough ? 'line-through' : '',
-    ]
-        .filter(Boolean)
-        .join(' ') || undefined,
-});
-
-const deserializeLegacyText = (input: string): LegacySegment[] => {
-    if (!input) {
-        return [];
-    }
-
-    const segments: LegacySegment[] = [];
-    let state: LegacyStyleState = {};
-    let currentText = '';
-
-    const flush = () => {
-        if (!currentText) {
-            return;
-        }
-        segments.push({ text: currentText, style: { ...state } });
-        currentText = '';
-    };
-
-    for (let i = 0; i < input.length; i++) {
-        if (input.charAt(i) === LEGACY_SECTION_CHAR && i + 1 < input.length) {
-            const code = input.charAt(i + 1).toLowerCase();
-
-            if (code in LEGACY_COLOR_MAP) {
-                flush();
-                state = { color: LEGACY_COLOR_MAP[code] };
-                i++;
-                continue;
-            }
-
-            if (code === 'l') {
-                flush();
-                state = { ...state, bold: true };
-                i++;
-                continue;
-            }
-
-            if (code === 'm') {
-                flush();
-                state = { ...state, strikethrough: true };
-                i++;
-                continue;
-            }
-
-            if (code === 'n') {
-                flush();
-                state = { ...state, underline: true };
-                i++;
-                continue;
-            }
-
-            if (code === 'o') {
-                flush();
-                state = { ...state, italic: true };
-                i++;
-                continue;
-            }
-
-            if (code === 'r') {
-                flush();
-                state = {};
-                i++;
-                continue;
-            }
-        }
-
-        currentText += input.charAt(i);
-    }
-
-    flush();
-    return segments;
-};
-
-const MinecraftLegacyPreview: React.FC<{ text: string }> = ({ text }) => {
-    const translated = translateAlternateColorCodes(LEGACY_ALT_CHAR, text);
-    const segments = deserializeLegacyText(translated);
-
-    if (segments.length === 0) {
-        return <p className="text-sm text-gray-700 whitespace-pre-wrap">{text || ' '}</p>;
-    }
-
-    return (
-        <p className="text-sm whitespace-pre-wrap">
-            {segments.map((segment, index) => (
-                <span key={`${segment.text}-${index}`} style={toStyle(segment.style)}>
-                    {segment.text}
-                </span>
-            ))}
-        </p>
     );
 };

@@ -114,6 +114,20 @@ describe('PlayerDiscoveriesPanel', () => {
     expect(within(rows[1]).getByText('Rivia')).toBeInTheDocument();
   });
 
+  it('tags a type switched off in the Discovery settings as Disabled', async () => {
+    mockedSummary.mockResolvedValue({
+      ...summary,
+      byType: summary.byType.map((type) =>
+        type.domainType === 'GateStructure' ? { ...type, total: 0, enabled: false } : { ...type, enabled: true }),
+    });
+    render(<PlayerDiscoveriesPanel userId={PLAYER} />);
+    await screen.findByText('Old Quarter');
+
+    expect(screen.getByRole('progressbar', { name: 'Gate discovered' })).toHaveAttribute('aria-valuemax', '0');
+    expect(screen.getAllByText('Disabled')).toHaveLength(1);
+    expect(screen.getByRole('option', { name: 'Gate (disabled)' })).toBeInTheDocument();
+  });
+
   it('filters by type', async () => {
     render(<PlayerDiscoveriesPanel userId={PLAYER} />);
     await screen.findByText('Old Quarter');

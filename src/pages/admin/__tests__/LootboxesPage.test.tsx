@@ -15,7 +15,7 @@ jest.mock('react-router-dom', () => ({
     Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode }) => <a href={to} {...rest}>{children}</a>,
 }), { virtual: true });
 jest.mock('../../../apiClients/lootboxTypeClient', () => ({
-    lootboxTypeClient: { getAll: jest.fn(), getById: jest.fn(), update: jest.fn(), getOdds: jest.fn() },
+    lootboxTypeClient: { getAll: jest.fn(), getById: jest.fn(), update: jest.fn(), getOdds: jest.fn(), getAllOdds: jest.fn() },
 }));
 jest.mock('../../../apiClients/lootboxSpawnClient', () => ({
     lootboxSpawnClient: { getActive: jest.fn(), despawn: jest.fn() },
@@ -97,6 +97,7 @@ beforeEach(() => {
     jest.clearAllMocks();
     typeClient.getAll.mockResolvedValue([weapons]);
     typeClient.getOdds.mockImplementation(async (_id: number, stars?: number) => weaponsOdds(stars ?? 5));
+    typeClient.getAllOdds.mockImplementation(async (stars: number[] = []) => stars.map(s => weaponsOdds(s)));
     getGrades.mockResolvedValue([{ id: 5, name: 'Legendary', stars: 5 }, { id: 1, name: 'Common', stars: 1 }]);
     configClient.get.mockResolvedValue({
         enabled: true, globalMaxActive: 15, maxClaimsPerPlayerPerDay: 10, announceMinItemStars: 5, announceSpawnMinBoxStars: 6,
@@ -109,14 +110,43 @@ describe('LootboxesPage', () => {
     it('lists the types with their pool per item grade and warns about empty grades', async () => {
         render(<LootboxesPage />);
         expect(await screen.findByText('Weapons Lootbox')).toBeInTheDocument();
-        // ★5 and ★2 cover every window of a ★1-5 type with spread 2.
-        await waitFor(() => expect(typeClient.getOdds).toHaveBeenCalledTimes(2));
-        expect(typeClient.getOdds).toHaveBeenCalledWith(3, 5);
-        expect(typeClient.getOdds).toHaveBeenCalledWith(3, 2);
+        // ★5 and ★2 cover every window of a ★1-5 type with spread 2; one request serves every type.
+        await waitFor(() => expect(typeClient.getAllOdds).toHaveBeenCalledTimes(1));
+        expect(typeClient.getAllOdds).toHaveBeenCalledWith([5, 2]);
+        expect(typeClient.getOdds).not.toHaveBeenCalled();
         expect(await screen.findByText('★3: 3')).toBeInTheDocument();
         expect(screen.getByText('★1: 0')).toBeInTheDocument();
         expect(screen.getByText(/No ★1 items/)).toBeInTheDocument();
         expect(screen.getByText('Weapons (+ subcategories)')).toBeInTheDocument();
+    });
+
+    it('reads every type\'s pool from ONE batch request, each type from its own covering grades (KNG-45)', async () => {
+        const food: LootboxTypeDto = { ...weapons, id: 4, name: 'Food Lootbox', category: { id: 3, name: 'Food' }, minBoxStars: 2, maxBoxStars: 2, itemStarSpread: 0 };
+        typeClient.getAll.mockResolvedValue([weapons, food]);
+        typeClient.getAllOdds.mockImplementation(async (stars: number[] = []) => [
+            ...stars.map(s => weaponsOdds(s)),
+            { ...weaponsOdds(2), lootboxTypeId: 4, lootboxTypeName: 'Food Lootbox', itemGrades: [{ gradeId: 2, name: 'Uncommon', stars: 2, percent: 100, itemCount: 9 }] },
+        ]);
+
+        render(<LootboxesPage />);
+
+        expect(await screen.findByText('Food Lootbox')).toBeInTheDocument();
+        expect(await screen.findByText('★2: 9')).toBeInTheDocument(); // food's own ★2 box, not weapons' ★2 (2 items)
+        expect(screen.getByText('★3: 3')).toBeInTheDocument();
+        expect(typeClient.getAllOdds).toHaveBeenCalledTimes(1);
+        expect(typeClient.getAllOdds).toHaveBeenCalledWith([5, 2]);
+        expect(typeClient.getOdds).not.toHaveBeenCalled();
+    });
+
+    it('shows the pool as unavailable when the batch odds request fails, without breaking the list', async () => {
+        const quiet = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        typeClient.getAllOdds.mockRejectedValue(new Error('boom'));
+
+        render(<LootboxesPage />);
+
+        expect(await screen.findByText('Weapons Lootbox')).toBeInTheDocument();
+        expect(await screen.findByText('Unavailable')).toBeInTheDocument();
+        quiet.mockRestore();
     });
 
     it('enables a type by re-sending it whole with only Enabled flipped', async () => {

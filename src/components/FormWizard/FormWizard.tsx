@@ -16,6 +16,7 @@ import { resolveObjectFieldValueForEdit } from '../../utils/forms/objectFieldEdi
 import { normalizeFormSubmission } from '../../utils/forms/normalizeFormSubmission';
 import {
     FormVisibility,
+    flattenVisibleStepsData,
     nearestVisibleStepIndex,
     nextVisibleStepIndex,
     previousVisibleStepIndex,
@@ -48,6 +49,7 @@ import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinit
 import { ScanConflictModal, ScanConflictField, ScanConflictChoice } from './ScanConflictModal';
 import { parsePickerFilterSettings, resolvePickerFilters } from '../../utils/forms/pickerFilters';
 import { hydrateJoinRowsForEdit, joinFieldSeedValues } from '../../utils/forms/manyToManyEditLoad';
+import { formFieldDefaultValue } from '../../utils/forms/formFieldDefaultValue';
 
 interface FormWizardProps {
     entityName: string;
@@ -275,7 +277,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 // overwrites the value parked in the stash.
                 if (visibleFieldNames && !visibleFieldNames.has(field.fieldName)) return;
                 const hasValue = data && Object.prototype.hasOwnProperty.call(data, field.fieldName);
-                const value = hasValue ? (data as StepData)[field.fieldName] : (field.defaultValue ?? null);
+                const value = hasValue
+                    ? (data as StepData)[field.fieldName]
+                    : formFieldDefaultValue(field);
                 result[field.fieldName] = value;
             });
         return result;
@@ -2518,7 +2522,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     reconciled.visibility.visibleFieldNames[stepIndex]
                 );
             });
-            const flattenedDto = flattenAllStepsData(config!, normalizedAll);
+            const flattenedDto = flattenVisibleStepsData(config!, normalizedAll, reconciled.visibility);
 
             // changed: normalize the form data before sending to API
             // This converts nested objects (e.g., parentCategory) to foreign keys (e.g., parentCategoryId)
@@ -3020,4 +3024,3 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         </div>
     );
 };
-

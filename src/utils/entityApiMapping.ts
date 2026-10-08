@@ -18,6 +18,7 @@ import { LocationClient } from '../apiClients/locationClient';
 import { MinecraftEnchantmentRefClient } from '../apiClients/minecraftEnchantmentRefClient';
 import { UserClient } from '../apiClients/userClient';
 import { PermissionGroupClient } from '../apiClients/permissionGroupClient';
+import { PermissionHolderClient } from '../apiClients/permissionHolderClient';
 import { LootboxTypeClient } from '../apiClients/lootboxTypeClient';
 import { LootboxSpecialEntryClient } from '../apiClients/lootboxSpecialEntryClient';
 import { LootboxSpawnAreaClient } from '../apiClients/lootboxSpawnAreaClient';
@@ -102,6 +103,8 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => MinecraftEnchantmentRefClient.getInstance().searchPaged(query));
         case 'permissiongroup':
             return withPagedQueryMapping((query) => PermissionGroupClient.getInstance().searchPaged(query));
+        case 'permissionholder':
+            return withPagedQueryMapping((query) => PermissionHolderClient.getInstance().searchPaged(query));
         // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.6). The join entities (grade weights, pool
         // entries, enchant rolls, area types) have no case: they are only edited inside their
         // parent's wizard and travel with it, like KitContent.
@@ -174,6 +177,8 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => UserClient.getInstance().getById(Number(id));
         case 'permissiongroup':
             return (id) => PermissionGroupClient.getInstance().getById(Number(id));
+        case 'permissionholder':
+            return (id) => PermissionHolderClient.getInstance().getById(Number(id));
         case 'lootboxtype':
             return (id) => LootboxTypeClient.getInstance().getById(id);
         case 'lootboxspecialentry':
