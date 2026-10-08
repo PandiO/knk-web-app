@@ -1,22 +1,73 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Pencil, Trash2 } from 'lucide-react';
 import ObjectTypeExplorer from '../ObjectTypeExplorer';
+import type { ObjectTypeExplorerGroup } from '../ObjectTypeExplorer';
 import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 // @ts-ignore: side-effect import for CSS without type declarations
 import './ObjectDashboard.css';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 import { FeedbackModal } from '../FeedbackModal';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
+import { displayConfigClient } from '../../apiClients/displayConfigClient';
+import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
+import { logging } from '../../utils';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
+
+/** Lower-cased names of entity types that have a published (non-draft) default display configuration. */
+export const getEntityNamesWithPublishedDefaultDisplay = (configs: DisplayConfigurationDto[]): Set<string> =>
+    new Set(
+        configs
+            .filter(config => config.isDefault && !config.isDraft && config.entityTypeName)
+            .map(config => config.entityTypeName.toLowerCase())
+    );
 
 const ObjectDashboard = ({ objectTypes }: Props) => {
     const navigate = useNavigate();
     const [selectedType, setSelectedType] = useState<string>('');
     const { baseMetadata, loading: metadataLoading } = useEntityMetadata();
     const hasMetadata = baseMetadata.length > 0;
+    // null while loading or after a failure: the explorer then shows one flat list.
+    const [displayConfiguredEntities, setDisplayConfiguredEntities] = useState<Set<string> | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        displayConfigClient.getAll(false)
+            .then(configs => {
+                if (!cancelled) {
+                    setDisplayConfiguredEntities(getEntityNamesWithPublishedDefaultDisplay(configs ?? []));
+                }
+            })
+            .catch(error => {
+                if (cancelled) return;
+                console.error('Failed to load display configurations for the entity navigator', error);
+                logging.errorHandler.next('ErrorMessage.DisplayConfiguration.LoadFailed');
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const explorerGroups = useMemo<ObjectTypeExplorerGroup[] | undefined>(() => {
+        if (!displayConfiguredEntities) return undefined;
+        return [
+            {
+                id: 'with-display-configuration',
+                title: 'Entities',
+                entityNames: displayConfiguredEntities,
+                defaultExpanded: true,
+                collapsible: false,
+            },
+            {
+                id: 'without-display-configuration',
+                title: 'Without display configuration',
+                defaultExpanded: false,
+                collapsible: true,
+            },
+        ];
+    }, [displayConfiguredEntities]);
 
     useEffect(() => {
         if (hasMetadata) {
@@ -155,6 +206,8 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                     entityMetadata={baseMetadata}
                     onSelect={(type) => setSelectedType(type)}
                     selectedId={selectedType}
+                    groups={explorerGroups}
+                    storageKey="dashboard"
                 />
             </div>
             <div className="dashboard-content">
