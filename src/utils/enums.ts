@@ -95,6 +95,7 @@ export enum Controllers {
     RoadEdges = 'road-edges',
     RoadNetwork = 'road-network',
     RoadNodes = 'road-nodes',
+    NavigationSettings = 'navigation-settings',
     EnchantmentDefinitions = 'EnchantmentDefinitions',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs',

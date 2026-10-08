@@ -222,3 +222,22 @@ export const roadClassLabel = (roadClass: string): string => roadClass;
 /** "Oneway, NoGps" - or "-" for an edge without flags. */
 export const formatRoadFlags = (flags: string[] | null | undefined): string =>
   flags && flags.length > 0 ? flags.join(', ') : '-';
+
+// ===== Navigation defaults (KNG-73, knk-web-api Dtos/NavigationSettingsDtos.cs)
+
+/** Where `/navigate <domain>` leads without `spawn`/`region`: the spawn Location or the region. */
+export const NAVIGATION_DESTINATION_MODES = ['Spawn', 'Region'] as const;
+export type NavigationDestinationMode = typeof NAVIGATION_DESTINATION_MODES[number];
+
+/** One domain type's default (Town, District, Structure, GateStructure). */
+export interface DomainNavigationDefaultDto {
+  domainType: string;
+  defaultMode: NavigationDestinationMode;
+  /** Domains of this type with their own choice, which this default doesn't change. */
+  overrideCount: number;
+  updatedAt?: string | null;
+}
+
+export interface UpdateDomainNavigationDefaultDto {
+  defaultMode: NavigationDestinationMode;
+}

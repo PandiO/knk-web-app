@@ -31,6 +31,8 @@ export interface GateStructureDto {
   allowExit?: boolean;
   wgRegionId?: string;
   locationId?: number | null;
+  // /navigate default of this gate (KNG-73): null = the GateStructure type's; "" clears it.
+  navigationDefaultOverride?: 'Spawn' | 'Region' | '' | null;
   streetId: number;
   districtId: number;
   houseNumber: number;
