@@ -15,8 +15,10 @@ import { FeedbackModal } from '../FeedbackModal';
 import { ReusableStepSelector } from './ReusableStepSelector';
 import { ConfigurationHealthPanel } from './ConfigurationHealthPanel';
 import { detectProjectionCycles } from '../../utils/forms/valueProjection';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 export const FormConfigBuilder: React.FC = () => {
+    usePageTitle('Form builder');
     const { id } = useParams<{ id?: string }>();
     const navigate = useNavigate();
     const configId = id || 'new';

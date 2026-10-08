@@ -13,6 +13,7 @@ import {
     CurrencyAlertStatus,
     CurrencyReconciliationStatusDto,
 } from '../../../types/dtos/currency/CurrencyDtos';
+import { usePageTitle } from '../../../hooks/usePageTitle';
 
 const PAGE_SIZE = 25;
 const SEVERITIES: CurrencyAlertSeverity[] = ['Critical', 'High', 'Medium', 'Low'];
@@ -51,6 +52,7 @@ export const SeverityBadge: React.FC<{ severity: CurrencyAlertSeverity }> = ({ s
  * back on in the currency policy. Needs knk.admin.currency.alerts (StaffRoute node).
  */
 export const CurrencyAlertsPage: React.FC = () => {
+    usePageTitle('Currency alerts');
     const { allowed: canReadHistory } = usePermission(CURRENCY_NODES.history);
     const { allowed: canEditPolicy } = usePermission(CURRENCY_NODES.policy);
 

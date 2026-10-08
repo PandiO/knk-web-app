@@ -24,6 +24,7 @@ import {
     WeatherType,
     WorldGameSettingsDto,
 } from '../../types/dtos/gameSettings/GameSettingsModels';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const WEATHER_TYPES: WeatherType[] = ['CLEAR', 'RAIN', 'THUNDER'];
 const WEATHER_MODES: WeatherMode[] = ['Normal', 'Constant', 'Blocked', 'Weighted'];
@@ -129,6 +130,7 @@ const normalizeSettings = (settings: GameSettingsDto): GameSettingsDto => {
 };
 
 export const GameSettingsPage: React.FC = () => {
+    usePageTitle('Game settings');
     const navigate = useNavigate();
     const [settings, setSettings] = React.useState<GameSettingsDto | null>(null);
     const [locationOptions, setLocationOptions] = React.useState<LocationOption[]>([]);
