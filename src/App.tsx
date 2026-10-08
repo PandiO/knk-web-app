@@ -30,7 +30,7 @@ import { CurrencyPolicyPage } from './pages/admin/economy/CurrencyPolicyPage';
 import { CurrencyAlertsPage } from './pages/admin/economy/CurrencyAlertsPage';
 import { CURRENCY_NODES } from './types/dtos/currency/CurrencyDtos';
 import React from 'react';
-import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
+import { RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useEntityMetadata } from './hooks/useEntityMetadata';
 
@@ -124,7 +124,6 @@ function AppContent() {
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/auth/register" element={<RegisterPage />} />
-              <Route path="/auth/register/success" element={<RegisterSuccessPage />} />
               <Route path="/auth/login" element={<LoginPage />} />
               <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/auth/reset-password" element={<ResetPasswordPage />} />

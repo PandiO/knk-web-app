@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import { validateEmailFormat } from '../../utils/passwordValidator';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 export const ForgotPasswordPage: React.FC = () => {
+  usePageTitle('Forgot password');
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);

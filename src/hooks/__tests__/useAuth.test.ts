@@ -87,7 +87,7 @@ describe('useAuth', () => {
       let returnedUser: UserDto | undefined;
       await act(async () => {
         returnedUser = await result.current.login({
-          email: 'test@example.com',
+          login: 'test@example.com',
           password: 'password123',
           rememberMe: true,
         });
@@ -98,7 +98,7 @@ describe('useAuth', () => {
       expect(result.current.isLoggedIn).toBe(true);
       expect(result.current.error).toBeNull();
       expect(mockedAuthService.login).toHaveBeenCalledWith({
-        email: 'test@example.com',
+        login: 'test@example.com',
         password: 'password123',
         rememberMe: true,
       });
@@ -122,7 +122,7 @@ describe('useAuth', () => {
       await act(async () => {
         try {
           await result.current.login({
-            email: 'test@example.com',
+            login: 'test@example.com',
             password: 'wrongpassword',
             rememberMe: false,
           });
@@ -149,7 +149,7 @@ describe('useAuth', () => {
       await act(async () => {
         try {
           await result.current.login({
-            email: 'test@example.com',
+            login: 'test@example.com',
             password: 'password123',
             rememberMe: false,
           });
@@ -176,8 +176,8 @@ describe('useAuth', () => {
       let returnedUser: UserDto | undefined;
       await act(async () => {
         returnedUser = await result.current.register({
+          linkCode: 'ABCD1234',
           email: 'newuser@example.com',
-          username: 'newuser',
           password: 'SecurePass123!',
           passwordConfirmation: 'SecurePass123!',
         });
@@ -206,8 +206,8 @@ describe('useAuth', () => {
       await act(async () => {
         try {
           await result.current.register({
+            linkCode: 'ABCD1234',
             email: 'existing@example.com',
-            username: 'newuser',
             password: 'SecurePass123!',
             passwordConfirmation: 'SecurePass123!',
           });
@@ -342,7 +342,7 @@ describe('useAuth', () => {
 
       act(() => {
         result.current.login({
-          email: 'test@example.com',
+          login: 'test@example.com',
           password: 'password123',
           rememberMe: false,
         });
@@ -380,7 +380,7 @@ describe('useAuth', () => {
       await act(async () => {
         try {
           await result.current.login({
-            email: 'test@example.com',
+            login: 'test@example.com',
             password: 'wrongpassword',
             rememberMe: false,
           });
@@ -394,7 +394,7 @@ describe('useAuth', () => {
       // Second login succeeds
       await act(async () => {
         await result.current.login({
-          email: 'test@example.com',
+          login: 'test@example.com',
           password: 'correctpassword',
           rememberMe: false,
         });

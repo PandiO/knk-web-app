@@ -3,15 +3,15 @@ import { ObjectManager } from "./objectManager";
 import {
   LoginRequestDto,
   AuthLoginResponseDto,
-  AuthRefreshResponseDto,
   RegisterRequestDto,
+  AuthUpdateResponseDto,
   ForgotPasswordRequestDto,
   ForgotPasswordResponseDto,
   ResetPasswordRequestDto,
   ResetPasswordResponseDto,
-  LinkCodeResponseDto,
   AccountMergeDto,
   LinkMinecraftAccountDto,
+  ValidateLinkCodeResponseDto,
 } from "../types/dtos/auth/AuthDtos";
 import { UserDto, UserUpdateDto } from "../types/dtos/auth/UserDtos";
 
@@ -26,26 +26,31 @@ export class AuthClient extends ObjectManager {
     return AuthClient.instance;
   }
 
-  // Auth endpoints (per roadmap Part G)
+  // Every call goes out with credentials: 'include' (serviceCall), so the HttpOnly refresh cookie
+  // the API sets on /api/Auth travels with login, register, refresh and logout.
+
+  /** `login` is an email address or a Minecraft username. */
   login(data: LoginRequestDto): Promise<AuthLoginResponseDto> {
     const loginRequest = {
-      email: data.email,
+      login: data.login,
       password: data.password,
       rememberMe: data.rememberMe ?? false,
     };
     return this.invokeServiceCall(loginRequest, "login", Controllers.Auth, HttpMethod.Post);
   }
 
-  register(data: RegisterRequestDto): Promise<UserDto> {
-    return this.invokeServiceCall(data, "", Controllers.Users, HttpMethod.Post);
+  /** Registration with a link code from `/account link`; answers like login (the player is logged in). */
+  register(data: RegisterRequestDto): Promise<AuthLoginResponseDto> {
+    return this.invokeServiceCall(data, "register", Controllers.Auth, HttpMethod.Post);
   }
 
   logout(): Promise<void> {
-    return this.invokeServiceCall(null, "logout", Controllers.Auth, HttpMethod.Post);
+    return this.invokeServiceCall({}, "logout", Controllers.Auth, HttpMethod.Post);
   }
 
-  refresh(): Promise<AuthRefreshResponseDto> {
-    return this.invokeServiceCall(null, "refresh", Controllers.Auth, HttpMethod.Post);
+  /** Ends every session of the logged-in user, on every device. */
+  logoutAll(): Promise<void> {
+    return this.invokeServiceCall({}, "logout-all", Controllers.Auth, HttpMethod.Post);
   }
 
   me(): Promise<UserDto> {
@@ -64,39 +69,25 @@ export class AuthClient extends ObjectManager {
     return this.invokeServiceCall(data, "merge", Controllers.Auth, HttpMethod.Post);
   }
 
-  updateUser(data: UserUpdateDto): Promise<UserDto> {
+  /** Changing the email needs `currentPassword`; the response may carry a fresh access token. */
+  updateUser(data: UserUpdateDto): Promise<AuthUpdateResponseDto> {
     return this.invokeServiceCall(data, "update", Controllers.Auth, HttpMethod.Put);
   }
 
-  // Link code operations - web app generates, minecraft plugin consumes
-  generateLinkCode(): Promise<LinkCodeResponseDto> {
-    return this.invokeServiceCall(null, "generate-link-code", Controllers.Users, HttpMethod.Post);
-  }
+  // Link codes go one way only: the game server generates them (/account link), the web app
+  // consumes them (register, or linking a legacy web-only account).
 
-  requestLinkCode(data: { email: string }): Promise<LinkCodeResponseDto> {
-    return this.invokeServiceCall(data, "request-link-code", Controllers.Users, HttpMethod.Post);
-  }
-
-  linkAccount(data: { linkCode: string; email: string; password: string }): Promise<UserDto> {
-    return this.invokeServiceCall(data, "link-account", Controllers.Users, HttpMethod.Post);
+  /** Which Minecraft account a code belongs to. Read-only: the code stays usable. */
+  validateLinkCode(code: string): Promise<ValidateLinkCodeResponseDto> {
+    return this.invokeServiceCall(null, `validate-link-code/${encodeURIComponent(code)}`, Controllers.Users, HttpMethod.Post);
   }
 
   /**
-   * Link an existing web app account to a Minecraft account using a link code
-   * Used in the web-app-first flow where user already has email/password set
-   * Requires authentication (JWT token)
+   * Link a legacy web-only account (email and password, no Minecraft account) to the Minecraft
+   * account a link code belongs to. Requires authentication.
    */
   linkMinecraftAccount(data: LinkMinecraftAccountDto): Promise<UserDto> {
     return this.invokeServiceCall(data, "link-minecraft-account", Controllers.Users, HttpMethod.Post);
-  }
-
-  // Availability checks (email/username)
-  checkEmailAvailable(email: string): Promise<{ available: boolean }> {
-    return this.invokeServiceCall({ email }, "check-duplicate", Controllers.Users, HttpMethod.Get);
-  }
-
-  checkUsernameAvailable(username: string): Promise<{ available: boolean }> {
-    return this.invokeServiceCall({ username }, "check-duplicate", Controllers.Users, HttpMethod.Get);
   }
 }
 

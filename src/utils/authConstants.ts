@@ -2,7 +2,6 @@ export const REMEMBER_ME_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export const STORAGE_KEYS = {
   AccessToken: "knk.accessToken",
-  RefreshToken: "knk.refreshToken",
   RememberMe: "knk.rememberMe",
   RememberMeExpiresAt: "knk.rememberMe.expiresAt"
 };
@@ -34,21 +33,22 @@ export const WEAK_PASSWORDS = new Set<string>([
 ]);
 
 export const ERROR_MESSAGES: Record<string, string> = {
-  DuplicateEmail: "Email is already in use",
+  DuplicateEmail: "This email is already used by another account. Log in, or use a different email.",
+  AlreadyRegistered: "This Minecraft account already has a web login. Log in or reset your password.",
+  InvalidLinkCode: "This code is invalid or has expired. Run /account link in game for a new one.",
+  TooManyAttempts: "Too many attempts. Wait a few minutes and try again.",
   DuplicateUsername: "Username is already taken",
   InvalidPassword: "Password is invalid",
   PasswordMismatch: "Passwords do not match",
   InvalidEmail: "Please enter a valid email address",
   InvalidUsername: "Username must be 3-16 alphanumeric characters (underscore allowed)",
   LinkCodeExpired: "Link code expired (valid for 20 minutes)",
-  InvalidCredentials: "Email or password is incorrect",
+  InvalidCredentials: "That email or Minecraft name and password don't match.",
   NetworkError: "Network error. Please try again",
   ServerError: "Something went wrong. Please try again",
   RegistrationFailed: "Registration failed. Please check your information and try again"
 };
 
 export const SUCCESS_MESSAGES: Record<string, string> = {
-  RegistrationComplete:
-    "Account created successfully. Your link code is ready. Use it on the Minecraft server to link your account.",
-  LinkCodeCopied: "Link code copied to clipboard."
+  RegistrationComplete: "Your web account is ready and you're logged in.",
 };

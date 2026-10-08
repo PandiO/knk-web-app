@@ -1,400 +1,133 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { LoginForm } from '../LoginForm';
+import { LoginForm, describeLoginError } from '../LoginForm';
 import { useAuth } from '../../../contexts/AuthContext';
+import { ERROR_MESSAGES } from '../../../utils/authConstants';
 
-// Mock useAuth hook
+// virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
+jest.mock('react-router-dom', () => ({
+  Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode }) => <a href={to} {...rest}>{children}</a>,
+}), { virtual: true });
 jest.mock('../../../contexts/AuthContext');
 
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 
 describe('LoginForm', () => {
   const mockLogin = jest.fn();
-  const defaultAuthValue = {
-    user: null,
-    isLoggedIn: false,
-    isLoading: false,
-    error: null,
-    login: mockLogin,
-    register: jest.fn(),
-    logout: jest.fn(),
-    refresh: jest.fn(),
-  };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedUseAuth.mockReturnValue(defaultAuthValue);
+    mockedUseAuth.mockReturnValue({
+      user: null,
+      isLoggedIn: false,
+      isLoading: false,
+      error: null,
+      login: mockLogin,
+      register: jest.fn(),
+      logout: jest.fn(),
+      logoutAll: jest.fn(),
+      refresh: jest.fn(),
+    });
   });
 
   describe('rendering', () => {
-    it('should render email and password fields', () => {
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
+    it('asks for an email or Minecraft name as a plain username field', () => {
+      render(<LoginForm />);
 
-      expect(screen.getByLabelText(/^email/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/^password/i)).toBeInTheDocument();
+      const login = screen.getByLabelText(/email or minecraft name/i);
+      expect(login).toHaveAttribute('type', 'text');
+      expect(login).toHaveAttribute('autocomplete', 'username');
+      expect(screen.getByLabelText(/^password/i)).toHaveAttribute('autocomplete', 'current-password');
     });
 
-    it('should render remember me checkbox', () => {
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
+    it('leaves remember me unchecked by default', () => {
+      render(<LoginForm />);
 
-      const rememberMeCheckbox = screen.getByRole('checkbox', { name: /remember me/i });
-      expect(rememberMeCheckbox).toBeInTheDocument();
-      expect(rememberMeCheckbox).toBeChecked(); // Default is true
+      expect(screen.getByRole('checkbox', { name: /remember me/i })).not.toBeChecked();
     });
 
-    it('should render submit button', () => {
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
+    it('links to registration and password reset', () => {
+      render(<LoginForm />);
 
-      expect(screen.getByRole('button', { name: /log in/i })).toBeInTheDocument();
-    });
-
-    it('should render password visibility toggle button', () => {
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
-
-        expect(screen.getByRole('button', { name: /show password/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /create an account/i })).toHaveAttribute('href', '/auth/register');
+      expect(screen.getByRole('link', { name: /forgot password/i })).toHaveAttribute('href', '/auth/forgot-password');
     });
   });
 
-  describe('form validation', () => {
-    it('should show error when email is empty on submit', async () => {
-      const user = userEvent.setup();
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
+  describe('validation', () => {
+    it('requires both fields', async () => {
+      render(<LoginForm />);
 
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
+      await userEvent.click(screen.getByRole('button', { name: /log in/i }));
 
-      // Check both the sr-only announcement and the visible error message
-      await waitFor(() => {
-        const srOnlyDiv = document.querySelector('.sr-only[role="alert"]');
-        expect(srOnlyDiv).toHaveTextContent(/email is required/i);
-      });
-
+      expect(await screen.findByText('Enter your email or Minecraft name', { selector: '#login-identifier-error' })).toBeInTheDocument();
+      expect(screen.getByText('Password is required', { selector: '#login-password-error' })).toBeInTheDocument();
       expect(mockLogin).not.toHaveBeenCalled();
     });
-
-    it('should show error when email format is invalid', async () => {
-      const user = userEvent.setup();
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
-
-      const emailInput = screen.getByLabelText(/^email/i);
-      await user.type(emailInput, 'invalid-email');
-
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
-
-      await waitFor(() => {
-        const srOnlyDiv = document.querySelector('.sr-only[role="alert"]');
-        expect(srOnlyDiv).toHaveTextContent(/please enter a valid email address/i);
-      });
-
-      expect(mockLogin).not.toHaveBeenCalled();
-    });
-
-    it('should show error when password is empty on submit', async () => {
-      const user = userEvent.setup();
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
-
-      const emailInput = screen.getByLabelText(/^email/i);
-      await user.type(emailInput, 'test@example.com');
-
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
-
-      await waitFor(() => {
-        const srOnlyDiv = document.querySelector('.sr-only[role="alert"]');
-        expect(srOnlyDiv).toHaveTextContent(/password is required/i);
-      });
-
-      expect(mockLogin).not.toHaveBeenCalled();
-    });
-
-    it('should clear validation errors when user corrects input', async () => {
-      const user = userEvent.setup();
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
-
-      // Submit with empty email to trigger error
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
-
-      await waitFor(() => {
-        const srOnlyDiv = document.querySelector('.sr-only[role="alert"]');
-        expect(srOnlyDiv).toHaveTextContent(/email is required/i);
-      });
-
-      // Type valid email
-      const emailInput = screen.getByLabelText(/^email/i);
-      await user.type(emailInput, 'test@example.com');
-
-      // Submit again
-      await user.click(submitButton);
-
-      // Email error should be gone (only password error remains)
-      expect(screen.queryByText(/email is required/i)).not.toBeInTheDocument();
-      await waitFor(() => {
-        const srOnlyDiv = document.querySelector('.sr-only[role="alert"]');
-        expect(srOnlyDiv).toHaveTextContent(/password is required/i);
-      });
-    });
   });
 
-  describe('password visibility toggle', () => {
-    it('should toggle password visibility when clicking eye icon', async () => {
-      const user = userEvent.setup();
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
+  describe('submitting', () => {
+    it('sends the identifier as `login`, trimmed, with remember-me off', async () => {
+      const onLoginSuccess = jest.fn();
+      mockLogin.mockResolvedValue({ id: 1 });
+      render(<LoginForm onLoginSuccess={onLoginSuccess} />);
 
-        const passwordInput = screen.getByLabelText(/^password/i) as HTMLInputElement;
-      expect(passwordInput.type).toBe('password');
+      await userEvent.type(screen.getByLabelText(/email or minecraft name/i), '  Steve ');
+      await userEvent.type(screen.getByLabelText(/^password/i), 'hunter22');
+      await userEvent.click(screen.getByRole('button', { name: /log in/i }));
 
-        const toggleButton = screen.getByRole('button', { name: /show password/i });
-      await user.click(toggleButton);
-
-      expect(passwordInput.type).toBe('text');
-        expect(screen.getByRole('button', { name: /hide password/i })).toBeInTheDocument();
-
-      await user.click(toggleButton);
-      expect(passwordInput.type).toBe('password');
-    });
-  });
-
-  describe('remember me checkbox', () => {
-    it('should toggle remember me state when clicking checkbox', async () => {
-      const user = userEvent.setup();
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
-
-      const rememberMeCheckbox = screen.getByRole('checkbox', { name: /remember me/i });
-      expect(rememberMeCheckbox).toBeChecked();
-
-      await user.click(rememberMeCheckbox);
-      expect(rememberMeCheckbox).not.toBeChecked();
-
-      await user.click(rememberMeCheckbox);
-      expect(rememberMeCheckbox).toBeChecked();
+      await waitFor(() => expect(mockLogin).toHaveBeenCalledWith({ login: 'Steve', password: 'hunter22', rememberMe: false }));
+      expect(onLoginSuccess).toHaveBeenCalled();
     });
 
-    it('should pass rememberMe value to login function', async () => {
-      const user = userEvent.setup();
-      mockLogin.mockResolvedValue({
-        id: 1,
-        email: 'test@example.com',
-        username: 'testuser',
-      } as any);
+    it('passes remember-me when checked', async () => {
+      mockLogin.mockResolvedValue({ id: 1 });
+      render(<LoginForm />);
 
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
+      await userEvent.type(screen.getByLabelText(/email or minecraft name/i), 'steve@example.com');
+      await userEvent.type(screen.getByLabelText(/^password/i), 'hunter22');
+      await userEvent.click(screen.getByRole('checkbox', { name: /remember me/i }));
+      await userEvent.click(screen.getByRole('button', { name: /log in/i }));
 
-  const emailInput = screen.getByLabelText(/^email/i);
-  const passwordInput = screen.getByLabelText(/^password/i);
-      const rememberMeCheckbox = screen.getByRole('checkbox', { name: /remember me/i });
-
-      await user.type(emailInput, 'test@example.com');
-      await user.type(passwordInput, 'password123');
-      await user.click(rememberMeCheckbox); // Uncheck (default is checked)
-
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
-
-      await waitFor(() => {
-        expect(mockLogin).toHaveBeenCalledWith({
-          email: 'test@example.com',
-          password: 'password123',
-          rememberMe: false,
-        });
-      });
-    });
-  });
-
-  describe('form submission', () => {
-    it('should successfully submit login with valid credentials and rememberMe=true', async () => {
-      const user = userEvent.setup();
-      const mockOnSuccess = jest.fn();
-      mockLogin.mockResolvedValue({
-        id: 1,
-        email: 'test@example.com',
-        username: 'testuser',
-      } as any);
-
-      render(<MemoryRouter><LoginForm onLoginSuccess={mockOnSuccess} /></MemoryRouter>);
-
-  const emailInput = screen.getByLabelText(/^email/i);
-  const passwordInput = screen.getByLabelText(/^password/i);
-
-      await user.type(emailInput, 'test@example.com');
-      await user.type(passwordInput, 'SecurePass123!');
-
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
-
-      await waitFor(() => {
-        expect(mockLogin).toHaveBeenCalledWith({
-          email: 'test@example.com',
-          password: 'SecurePass123!',
-          rememberMe: true, // Default
-        });
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText(/login successful/i)).toBeInTheDocument();
-      });
-
-      // Success callback should be called after delay
-      await waitFor(() => {
-        expect(mockOnSuccess).toHaveBeenCalled();
-      }, { timeout: 1000 });
+      await waitFor(() => expect(mockLogin).toHaveBeenCalledWith({ login: 'steve@example.com', password: 'hunter22', rememberMe: true }));
     });
 
-    it('should disable submit button while submitting', async () => {
-      const user = userEvent.setup();
-      let resolveLogin: any;
-      const loginPromise = new Promise((resolve) => {
-        resolveLogin = resolve;
-      });
-      mockLogin.mockReturnValue(loginPromise);
+    it('shows a generic message on bad credentials and clears the password', async () => {
+      mockLogin.mockRejectedValue({ status: 401, code: 'InvalidCredentials' });
+      render(<LoginForm />);
 
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
+      await userEvent.type(screen.getByLabelText(/email or minecraft name/i), 'Steve');
+      await userEvent.type(screen.getByLabelText(/^password/i), 'wrong');
+      await userEvent.click(screen.getByRole('button', { name: /log in/i }));
 
-  const emailInput = screen.getByLabelText(/^email/i);
-  const passwordInput = screen.getByLabelText(/^password/i);
-      await user.type(emailInput, 'test@example.com');
-      await user.type(passwordInput, 'password123');
-
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
-
-      // Button should be disabled during submission
-      await waitFor(() => {
-        expect(submitButton).toBeDisabled();
-      });
-
-      resolveLogin({ id: 1, email: 'test@example.com' });
-
-      await waitFor(() => {
-        expect(submitButton).not.toBeDisabled();
-      });
+      expect(await screen.findByTestId('login-error')).toHaveTextContent(ERROR_MESSAGES.InvalidCredentials);
+      expect(screen.getByLabelText(/email or minecraft name/i)).toHaveValue('Steve');
+      expect(screen.getByLabelText(/^password/i)).toHaveValue('');
     });
-  });
 
-  describe('error handling', () => {
-    it('should display error message on invalid credentials', async () => {
-      const user = userEvent.setup();
+    it('shows the lockout message', async () => {
       mockLogin.mockRejectedValue({
-        code: 'InvalidCredentials',
-        response: { code: 'InvalidCredentials', message: 'Invalid email or password' },
+        status: 429,
+        code: 'TooManyAttempts',
+        response: { error: 'TooManyAttempts', message: 'Too many attempts. Try again in 15 minutes.' },
       });
+      render(<LoginForm />);
 
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
+      await userEvent.type(screen.getByLabelText(/email or minecraft name/i), 'Steve');
+      await userEvent.type(screen.getByLabelText(/^password/i), 'wrong');
+      await userEvent.click(screen.getByRole('button', { name: /log in/i }));
 
-  const emailInput = screen.getByLabelText(/^email/i);
-  const passwordInput = screen.getByLabelText(/^password/i);
-      await user.type(emailInput, 'test@example.com');
-      await user.type(passwordInput, 'wrongpassword');
-
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
-
-      await waitFor(() => {
-        expect(screen.getAllByText(/email or password is incorrect/i).length).toBeGreaterThan(0);
-      });
-    });
-
-    it('should display custom error message from backend', async () => {
-      const user = userEvent.setup();
-      mockLogin.mockRejectedValue({
-        response: { message: 'Account is temporarily locked' },
-      });
-
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
-
-  const emailInput = screen.getByLabelText(/^email/i);
-  const passwordInput = screen.getByLabelText(/^password/i);
-      await user.type(emailInput, 'test@example.com');
-      await user.type(passwordInput, 'password123');
-
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
-
-      await waitFor(() => {
-        expect(screen.getAllByText(/account is temporarily locked/i).length).toBeGreaterThan(0);
-      });
-    });
-
-    it('should announce errors to screen readers', async () => {
-      const user = userEvent.setup();
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
-
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
-
-      await waitFor(() => {
-          const srOnlyDiv = document.querySelector('.sr-only[role="alert"]');
-          expect(srOnlyDiv).toHaveTextContent(/login form has errors/i);
-      });
-    });
-
-    it('should announce backend errors to screen readers', async () => {
-      const user = userEvent.setup();
-      mockLogin.mockRejectedValue({
-        response: { message: 'Invalid credentials' },
-      });
-
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
-
-      const emailInput = screen.getByLabelText(/^email/i);
-      const passwordInput = screen.getByLabelText(/^password/i);
-      await user.type(emailInput, 'test@example.com');
-      await user.type(passwordInput, 'wrongpassword');
-
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
-
-      await waitFor(() => {
-        const srOnlyDiv = document.querySelector('.sr-only[role="alert"]');
-        expect(srOnlyDiv).toHaveTextContent(/Invalid credentials/i);
-      });
+      expect(await screen.findByTestId('login-error')).toHaveTextContent('Too many attempts. Try again in 15 minutes.');
     });
   });
+});
 
-  describe('accessibility', () => {
-    it('should have proper ARIA attributes on inputs', () => {
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
-
-        const emailInput = screen.getByLabelText(/^email/i);
-        const passwordInput = screen.getByLabelText(/^password/i);
-
-      expect(emailInput).toHaveAttribute('aria-invalid', 'false');
-      expect(passwordInput).toHaveAttribute('aria-invalid', 'false');
-    });
-
-    it('should mark inputs as invalid when errors exist', async () => {
-      const user = userEvent.setup();
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
-
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
-
-      await waitFor(() => {
-          const emailInput = screen.getByLabelText(/^email/i);
-          const passwordInput = screen.getByLabelText(/^password/i);
-
-        expect(emailInput).toHaveAttribute('aria-invalid', 'true');
-        expect(passwordInput).toHaveAttribute('aria-invalid', 'true');
-      });
-    });
-
-    it('should associate error messages with inputs via aria-describedby', async () => {
-      const user = userEvent.setup();
-      render(<MemoryRouter><LoginForm /></MemoryRouter>);
-
-      const submitButton = screen.getByRole('button', { name: /log in/i });
-      await user.click(submitButton);
-
-      await waitFor(() => {
-          const emailInput = screen.getByLabelText(/^email/i);
-        expect(emailInput).toHaveAttribute('aria-describedby', 'login-email-error');
-        
-          const passwordInput = screen.getByLabelText(/^password/i);
-        expect(passwordInput).toHaveAttribute('aria-describedby', 'login-password-error');
-      });
-    });
+describe('describeLoginError', () => {
+  it('maps API errors to messages', () => {
+    expect(describeLoginError({ status: 401 })).toBe(ERROR_MESSAGES.InvalidCredentials);
+    expect(describeLoginError({ status: 429, retryAfter: '120' })).toBe('Too many attempts. Try again in 2 minutes.');
+    expect(describeLoginError(new TypeError('Failed to fetch'))).toBe(ERROR_MESSAGES.NetworkError);
+    expect(describeLoginError({ status: 500 })).toBe(ERROR_MESSAGES.ServerError);
   });
 });

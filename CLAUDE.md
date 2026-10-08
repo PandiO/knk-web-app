@@ -52,5 +52,9 @@ branches, issue, plan and tracker.
 
 **Talks to:** `knk-web-api` over REST (no GraphQL). Base URL resolves via
 `ConfigurationHelper.gatewayApiUrl` (`src/utils/config-helper.ts`) →
-`appConfig.api.baseUrl` (`src/config/appConfig.ts`) — not a `REACT_APP_*`
-environment variable.
+`appConfig.api.baseUrl` (`src/config/appConfig.ts`), which reads the
+build-time `REACT_APP_API_BASE_URL` (default `/api` in production builds,
+`http://localhost:5294/api` otherwise; see README "Configuration"). The
+refresh token is an HttpOnly cookie on `/api/Auth`; every refresh goes
+through the single-flight `src/services/sessionRefresh.ts`, which
+`serviceCall.ts` uses to retry a request once after a 401.
