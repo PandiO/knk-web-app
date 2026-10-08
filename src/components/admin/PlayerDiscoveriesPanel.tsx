@@ -12,6 +12,7 @@ import {
   isDiscoveryTypeDisabled,
 } from '../../types/dtos/discovery/DiscoveryDtos';
 import { DiscoverySummaryBars, formatDiscoveryDate, formatDiscoveryRewards } from '../discovery/DiscoverySummaryBars';
+import { FeedbackModal } from '../FeedbackModal';
 
 // docs/specs/domain-discovery/DESIGN.md §3.9 - a player's discoveries on their moderation
 // profile: per-type progress, the discovered places (newest first) with what each paid, and a
@@ -41,6 +42,8 @@ export const PlayerDiscoveriesPanel: React.FC<{
   const [error, setError] = React.useState<string | null>(null);
   const [resettingId, setResettingId] = React.useState<number | null>(null);
   const [resetError, setResetError] = React.useState<string | null>(null);
+  // The row whose Reset was clicked, awaiting confirmation in the modal.
+  const [pendingReset, setPendingReset] = React.useState<DiscoveryProgressRowDto | null>(null);
 
   // Only the newest request may update the panel (fast paging/filter clicks).
   const requestSeq = React.useRef(0);
@@ -87,9 +90,6 @@ export const PlayerDiscoveriesPanel: React.FC<{
   const totalPages = page ? Math.max(1, Math.ceil(page.totalCount / DISCOVERIES_PAGE_SIZE)) : 1;
 
   const handleReset = async (row: DiscoveryProgressRowDto) => {
-    if (!window.confirm(`Reset the discovery of ${row.name}? The player keeps the reward they got and can discover (and be rewarded for) it again.`)) {
-      return;
-    }
     setResettingId(row.domainId);
     setResetError(null);
     try {
@@ -171,7 +171,7 @@ export const PlayerDiscoveriesPanel: React.FC<{
                       <button
                         className="text-xs px-2 py-1 rounded-md border border-gray-200 text-gray-600 hover:text-red-700 hover:border-red-200 inline-flex items-center disabled:opacity-50"
                         disabled={resettingId !== null}
-                        onClick={() => void handleReset(row)}
+                        onClick={() => setPendingReset(row)}
                         title="Forget this discovery so it can be discovered again (the reward is not taken back)"
                       >
                         {resettingId === row.domainId
@@ -209,6 +209,16 @@ export const PlayerDiscoveriesPanel: React.FC<{
         </>
       )}
       {resetError && <p className="mt-3 text-xs text-red-600">{resetError}</p>}
+      <FeedbackModal
+        open={pendingReset !== null}
+        title="Reset discovery?"
+        message={`Reset the discovery of ${pendingReset?.name ?? ''}? The player keeps the reward they got and can discover (and be rewarded for) it again.`}
+        continueLabel="Reset"
+        onContinue={() => {
+          if (pendingReset) void handleReset(pendingReset);
+        }}
+        onClose={() => setPendingReset(null)}
+      />
     </div>
   );
 };

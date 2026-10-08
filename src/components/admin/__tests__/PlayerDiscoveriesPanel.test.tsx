@@ -75,6 +75,7 @@ describe('PlayerDiscoveriesPanel', () => {
       row({ domainId: 2, name: 'Old Quarter', domainType: 'District', parentName: 'Rivia', coins: 400, gems: 2, exp: 15 }),
       row({ domainId: 1 }),
     ]));
+    // The reset is confirmed in a FeedbackModal; window.confirm must never be used.
     confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
@@ -150,29 +151,50 @@ describe('PlayerDiscoveriesPanel', () => {
     await waitFor(() => expect(mockedProgress).toHaveBeenLastCalledWith(PLAYER, { ...firstQuery, pageNumber: 2 }));
   });
 
-  it('resets a discovery after confirmation, then reloads and reports it', async () => {
+  const clickRowReset = async () => {
+    await userEvent.click(within(screen.getAllByRole('row')[1]).getByRole('button', { name: /Reset/ }));
+  };
+
+  it('asks for confirmation in a modal instead of window.confirm', async () => {
+    render(<PlayerDiscoveriesPanel userId={PLAYER} />);
+    await screen.findByText('Old Quarter');
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await clickRowReset();
+
+    const dialog = screen.getByRole('dialog', { name: 'Reset discovery?' });
+    expect(within(dialog).getByText(/Reset the discovery of Old Quarter\?/)).toBeInTheDocument();
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(mockedReset).not.toHaveBeenCalled();
+  });
+
+  it('resets a discovery once after confirmation, then reloads and reports it', async () => {
     mockedReset.mockResolvedValue(null);
     const onReset = jest.fn();
     render(<PlayerDiscoveriesPanel userId={PLAYER} onReset={onReset} />);
     await screen.findByText('Old Quarter');
 
-    const row = screen.getAllByRole('row')[1];
-    await userEvent.click(within(row).getByRole('button', { name: /Reset/ }));
+    await clickRowReset();
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reset' }));
 
-    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Old Quarter'));
     await waitFor(() => expect(mockedReset).toHaveBeenCalledWith(PLAYER, 2));
     await waitFor(() => expect(onReset).toHaveBeenCalled());
+    expect(mockedReset).toHaveBeenCalledTimes(1);
     expect(mockedProgress).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(confirmSpy).not.toHaveBeenCalled();
   });
 
-  it('does nothing when the reset is not confirmed', async () => {
-    confirmSpy.mockReturnValue(false);
+  it('does nothing when the reset is cancelled', async () => {
     render(<PlayerDiscoveriesPanel userId={PLAYER} />);
     await screen.findByText('Old Quarter');
 
-    await userEvent.click(within(screen.getAllByRole('row')[1]).getByRole('button', { name: /Reset/ }));
+    await clickRowReset();
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
 
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(mockedReset).not.toHaveBeenCalled();
+    expect(mockedProgress).toHaveBeenCalledTimes(1);
   });
 
   it("shows the API's reason when a reset is refused", async () => {
@@ -180,7 +202,8 @@ describe('PlayerDiscoveriesPanel', () => {
     render(<PlayerDiscoveriesPanel userId={PLAYER} />);
     await screen.findByText('Old Quarter');
 
-    await userEvent.click(within(screen.getAllByRole('row')[1]).getByRole('button', { name: /Reset/ }));
+    await clickRowReset();
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reset' }));
 
     expect(await screen.findByText('User 7 has not discovered domain 2')).toBeInTheDocument();
   });
