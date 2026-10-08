@@ -92,17 +92,17 @@ export function LandingPage() {
     <div className="min-h-screen relative">
       {/* Background slideshow */}
       <div className="fixed inset-0">
-        <Slideshow images={SLIDES} />
+        <Slideshow images={SLIDES} decorative />
       </div>
 
-      {/* Content overlay: clicks outside the content reach the slideshow controls. */}
+      {/* Content overlay. index.css colours h1-h3 slate-900, so headings here set text-white themselves. */}
       <div className="relative z-30 pointer-events-none">
         <div className="min-h-screen flex items-center justify-center py-12">
           <div className="pointer-events-auto text-center text-white px-4 max-w-3xl">
             <span className="inline-block rounded-full bg-amber-500/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-black">
               Closed alpha
             </span>
-            <h1 className="mt-4 text-4xl sm:text-5xl font-bold drop-shadow-lg">
+            <h1 className="mt-4 text-4xl sm:text-5xl font-bold text-white drop-shadow-lg">
               Knights &amp; Kings
             </h1>
             <p className="mt-2 text-xl sm:text-2xl font-medium drop-shadow">
@@ -118,7 +118,7 @@ export function LandingPage() {
             </div>
 
             <section className="mt-10 text-left" aria-labelledby="how-to-join">
-              <h2 id="how-to-join" className="text-center text-lg font-semibold">How to join</h2>
+              <h2 id="how-to-join" className="text-center text-lg font-semibold text-white drop-shadow">How to join</h2>
               <ol className="mt-4 grid gap-4 sm:grid-cols-3">
                 {JOIN_STEPS.map((step, index) => (
                   <li key={step.title} className="rounded-lg bg-black/55 p-4 ring-1 ring-white/15">
@@ -126,7 +126,7 @@ export function LandingPage() {
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-sm font-bold text-black" aria-hidden="true">
                         {index + 1}
                       </span>
-                      <h3 className="font-semibold">{step.title}</h3>
+                      <h3 className="font-semibold text-white">{step.title}</h3>
                     </div>
                     <p className="mt-2 text-sm text-white/85">{step.body}</p>
                   </li>

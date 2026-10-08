@@ -26,10 +26,10 @@ branches, issue, plan and tracker.
   interactive runner)
 - Lint: there is no dedicated `npm run lint` script. ESLint runs
   automatically during `npm start`/`npm run build` via the `eslintConfig`
-  block embedded in `package.json` (extends `react-app`, `react-app/jest`).
-  A separate `eslint.config.js` (flat config, ESLint 9/Vite-style) also
-  exists at the repo root but isn't wired to any script — it appears to be
-  an unused leftover; don't assume it's what actually lints this project.
+  block embedded in `package.json` (extends `react-app`, `react-app/jest`,
+  plus a `no-console` override for `services/`, `apiClients/` and
+  `components/auth/`). The old unused flat `eslint.config.js` was removed
+  (KNG-71).
 
 **Structure:**
 - Pages/routes: `src/pages/` (with `admin/`, `auth/` subfolders)
@@ -41,9 +41,13 @@ branches, issue, plan and tracker.
 - Types: `src/types/` (`domain/`, `dtos/`, `uiObjectConfig/`)
 
 **Conventions:**
-- Styling: Tailwind CSS + Fluent UI React Components
-  (`@fluentui/react-components`) — both are used, no CSS modules or
-  styled-components found
+- Styling: Tailwind CSS only (Fluent UI was removed 2026-10-08, KNG-71:
+  only its provider was used). No CSS modules or styled-components.
+  Note `src/index.css` gives `h1`-`h3` `text-slate-900`, so headings on
+  dark backgrounds need an explicit text colour.
+- Dependency changes: the lock file is valid for **npm 11**; npm 10
+  rejects it and regenerating with npm 10 churns it (see `f077570`).
+  Use npm 11 (`npx npm@11 …`).
 - No Prettier config in the repo — formatting relies on ESLint only
 - Auth tokens: managed by `src/utils/tokenService.ts` — stored in
   `localStorage` if "remember me" was set at login, `sessionStorage`

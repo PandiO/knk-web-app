@@ -10,6 +10,8 @@ interface Image {
 interface SlideshowProps {
   images: Image[];
   interval?: number;
+  /** A pure background: no captions, arrows or dots (they would sit on top of page content). */
+  decorative?: boolean;
 }
 
 const TRANSITION_DURATION = 2500;
@@ -27,7 +29,7 @@ export function slidesToRender(count: number, current: number, fadingOut: number
   return indexes;
 }
 
-export function Slideshow({ images, interval = 6000 }: SlideshowProps) {
+export function Slideshow({ images, interval = 6000, decorative = false }: SlideshowProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [fadingOut, setFadingOut] = useState<number | null>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -90,16 +92,18 @@ export function Slideshow({ images, interval = 6000 }: SlideshowProps) {
               <div className="absolute inset-0 bg-black bg-opacity-40" />
             </div>
 
-            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black to-transparent text-white">
-              <div className="max-w-7xl mx-auto">
-                <p className="text-lg font-semibold">{image.title}</p>
+            {!decorative && (
+              <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black to-transparent text-white">
+                <div className="max-w-7xl mx-auto">
+                  <p className="text-lg font-semibold">{image.title}</p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         );
       })}
 
-      {images.length > 1 && (
+      {images.length > 1 && !decorative && (
         <>
           <button
             type="button"
