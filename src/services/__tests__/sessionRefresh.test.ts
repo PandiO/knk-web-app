@@ -1,4 +1,4 @@
-import { refreshAccessToken, setSessionExpiredHandler, singleFlight } from '../sessionRefresh';
+import { refreshAccessToken, refreshSession, setSessionExpiredHandler, singleFlight } from '../sessionRefresh';
 import { serviceCall } from '../serviceCall';
 import { tokenService } from '../../utils/tokenService';
 
@@ -113,6 +113,19 @@ describe('serviceCall refresh-and-retry', () => {
     expect(tokenService.getAccessToken()).toBeNull();
   });
 
+  it('keeps the session when the refresh fails transiently', async () => {
+    tokenService.setAccessToken('old', true);
+    fetchMock.mockImplementation(url =>
+      Promise.resolve(url.endsWith('/Auth/refresh') ? json(503, {}) : json(401, {})));
+
+    const result = await call('Towns', '');
+
+    expect(result.ok).toBe(false);
+    expect(result.value.status).toBe(401);
+    expect(expired).not.toHaveBeenCalled();
+    expect(tokenService.getAccessToken()).toBe('old');
+  });
+
   it('does not refresh for auth endpoints or anonymous requests', async () => {
     fetchMock.mockResolvedValue(json(401, { error: 'InvalidCredentials' }));
 
@@ -144,5 +157,25 @@ describe('serviceCall refresh-and-retry', () => {
 
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     await expect(refreshAccessToken()).resolves.toBe(false);
+  });
+
+  it('refreshSession tells a rejected session apart from an unreachable API', async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { accessToken: 'fresh', expiresIn: 1800 }));
+    await expect(refreshSession()).resolves.toBe('renewed');
+
+    fetchMock.mockResolvedValueOnce(json(401, { error: 'InvalidToken' }));
+    await expect(refreshSession()).resolves.toBe('rejected');
+
+    fetchMock.mockResolvedValueOnce(json(403, {}));
+    await expect(refreshSession()).resolves.toBe('rejected');
+
+    fetchMock.mockResolvedValueOnce(json(502, {}));
+    await expect(refreshSession()).resolves.toBe('unavailable');
+
+    fetchMock.mockResolvedValueOnce(json(429, {}));
+    await expect(refreshSession()).resolves.toBe('unavailable');
+
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await expect(refreshSession()).resolves.toBe('unavailable');
   });
 });

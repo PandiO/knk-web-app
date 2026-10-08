@@ -1,18 +1,19 @@
 import { authService } from '../authService';
 import { authClient } from '../../apiClients/authClient';
 import { tokenService } from '../../utils/tokenService';
-import { refreshAccessToken } from '../sessionRefresh';
+import { refreshAccessToken, refreshSession } from '../sessionRefresh';
 import { UserDto, AccountCreationMethod } from '../../types/dtos/auth/UserDtos';
 import { AuthLoginResponseDto } from '../../types/dtos/auth/AuthDtos';
 
 // Mock dependencies
 jest.mock('../../apiClients/authClient');
 jest.mock('../../utils/tokenService');
-jest.mock('../sessionRefresh', () => ({ refreshAccessToken: jest.fn() }));
+jest.mock('../sessionRefresh', () => ({ refreshAccessToken: jest.fn(), refreshSession: jest.fn() }));
 
 const mockedAuthClient = authClient as jest.Mocked<typeof authClient>;
 const mockedTokenService = tokenService as jest.Mocked<typeof tokenService>;
 const mockedRefresh = refreshAccessToken as jest.MockedFunction<typeof refreshAccessToken>;
+const mockedRefreshOutcome = refreshSession as jest.MockedFunction<typeof refreshSession>;
 
 const mockUser: UserDto = {
   id: 1,
@@ -160,7 +161,7 @@ describe('AuthService', () => {
 
       await expect(authService.autoLogin()).resolves.toBeNull();
       expect(mockedAuthClient.me).not.toHaveBeenCalled();
-      expect(mockedRefresh).not.toHaveBeenCalled();
+      expect(mockedRefreshOutcome).not.toHaveBeenCalled();
     });
 
     it('returns the user when the stored token is still valid', async () => {
@@ -168,25 +169,61 @@ describe('AuthService', () => {
       mockedAuthClient.me.mockResolvedValue(mockUser);
 
       await expect(authService.autoLogin()).resolves.toEqual(mockUser);
-      expect(mockedRefresh).not.toHaveBeenCalled();
+      expect(mockedRefreshOutcome).not.toHaveBeenCalled();
     });
 
     it('refreshes once when the stored token expired, also without remember-me', async () => {
       mockedTokenService.hasAccessToken.mockReturnValue(true);
       mockedTokenService.isRemembered.mockReturnValue(false);
       mockedAuthClient.me.mockRejectedValueOnce({ status: 401 }).mockResolvedValueOnce(mockUser);
-      mockedRefresh.mockResolvedValue(true);
+      mockedRefreshOutcome.mockResolvedValue('renewed');
 
       await expect(authService.autoLogin()).resolves.toEqual(mockUser);
-      expect(mockedRefresh).toHaveBeenCalledTimes(1);
+      expect(mockedRefreshOutcome).toHaveBeenCalledTimes(1);
       expect(mockedAuthClient.me).toHaveBeenCalledTimes(2);
     });
 
-    it('clears the stored session when the refresh fails', async () => {
+    it('clears the stored session when the API rejects the refresh', async () => {
       mockedTokenService.hasAccessToken.mockReturnValue(false);
       mockedTokenService.isRemembered.mockReturnValue(true);
       mockedAuthClient.me.mockRejectedValue({ status: 401 });
-      mockedRefresh.mockResolvedValue(false);
+      mockedRefreshOutcome.mockResolvedValue('rejected');
+
+      await expect(authService.autoLogin()).resolves.toBeNull();
+      expect(mockedTokenService.clearAll).toHaveBeenCalled();
+    });
+
+    it('keeps the stored session when the API cannot be reached', async () => {
+      mockedTokenService.hasAccessToken.mockReturnValue(true);
+      mockedAuthClient.me.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      await expect(authService.autoLogin()).resolves.toBeNull();
+      expect(mockedRefreshOutcome).not.toHaveBeenCalled();
+      expect(mockedTokenService.clearAll).not.toHaveBeenCalled();
+    });
+
+    it('keeps the stored session when Auth/me answers 5xx', async () => {
+      mockedTokenService.hasAccessToken.mockReturnValue(true);
+      mockedAuthClient.me.mockRejectedValue({ status: 503 });
+
+      await expect(authService.autoLogin()).resolves.toBeNull();
+      expect(mockedTokenService.clearAll).not.toHaveBeenCalled();
+    });
+
+    it('keeps the stored session when the refresh itself fails transiently', async () => {
+      mockedTokenService.hasAccessToken.mockReturnValue(false);
+      mockedTokenService.isRemembered.mockReturnValue(true);
+      mockedAuthClient.me.mockRejectedValue({ status: 401 });
+      mockedRefreshOutcome.mockResolvedValue('unavailable');
+
+      await expect(authService.autoLogin()).resolves.toBeNull();
+      expect(mockedTokenService.clearAll).not.toHaveBeenCalled();
+    });
+
+    it('clears the stored session when the renewed token is still refused', async () => {
+      mockedTokenService.hasAccessToken.mockReturnValue(true);
+      mockedAuthClient.me.mockRejectedValue({ status: 401 });
+      mockedRefreshOutcome.mockResolvedValue('renewed');
 
       await expect(authService.autoLogin()).resolves.toBeNull();
       expect(mockedTokenService.clearAll).toHaveBeenCalled();

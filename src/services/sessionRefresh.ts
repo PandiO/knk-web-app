@@ -19,10 +19,16 @@ export function singleFlight<T>(fn: () => Promise<T>): () => Promise<T> {
 }
 
 /**
- * POST Auth/refresh with the HttpOnly refresh cookie, and store the new access token. Resolves
- * false when the session is gone (401) or the call fails; never throws.
+ * How a refresh ended: `renewed` (new access token stored), `rejected` (the API says the session
+ * is gone: 401/403) or `unavailable` (network error, 5xx, rate limit, unreadable reply - the
+ * session may well still be valid, so callers must not end it).
  */
-async function requestNewAccessToken(): Promise<boolean> {
+export type RefreshOutcome = "renewed" | "rejected" | "unavailable";
+
+/**
+ * POST Auth/refresh with the HttpOnly refresh cookie, and store the new access token. Never throws.
+ */
+async function requestNewAccessToken(): Promise<RefreshOutcome> {
   try {
     const response = await fetch(`${ConfigurationHelper.gatewayApiUrl}/Auth/refresh`, {
       method: "POST",
@@ -30,17 +36,20 @@ async function requestNewAccessToken(): Promise<boolean> {
       headers: { Accept: "application/json", "Content-Type": "application/json" },
       body: "{}",
     });
+    if (response.status === 401 || response.status === 403) {
+      return "rejected";
+    }
     if (!response.ok) {
-      return false;
+      return "unavailable";
     }
     const body = await response.json().catch(() => null);
     if (!body || typeof body.accessToken !== "string" || !body.accessToken) {
-      return false;
+      return "unavailable";
     }
     tokenService.setAccessToken(body.accessToken, tokenService.isRemembered());
-    return true;
+    return "renewed";
   } catch {
-    return false;
+    return "unavailable";
   }
 }
 
@@ -49,7 +58,10 @@ async function requestNewAccessToken(): Promise<boolean> {
  * treats a reused one as stolen (it ends the whole session), so parallel 401s must share one
  * refresh.
  */
-export const refreshAccessToken = singleFlight(requestNewAccessToken);
+export const refreshSession = singleFlight(requestNewAccessToken);
+
+/** True when the refresh stored a new access token (shares the in-flight refresh). */
+export const refreshAccessToken = (): Promise<boolean> => refreshSession().then(outcome => outcome === "renewed");
 
 type SessionExpiredHandler = () => void;
 

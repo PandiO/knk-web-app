@@ -10,7 +10,7 @@ import {
   ForgotPasswordResponseDto,
   ResetPasswordResponseDto,
 } from "../types/dtos/auth/AuthDtos";
-import { refreshAccessToken } from "./sessionRefresh";
+import { refreshAccessToken, refreshSession as refreshSessionOutcome } from "./sessionRefresh";
 
 class AuthService {
   /**
@@ -59,12 +59,17 @@ class AuthService {
   }
 
   async getCurrentUser(): Promise<UserDto | null> {
+    return (await this.fetchCurrentUser()).user;
+  }
+
+  /** `Auth/me`, telling a confirmed authentication failure (401/403) apart from an outage. */
+  private async fetchCurrentUser(): Promise<{ user: UserDto | null; authFailed: boolean }> {
     try {
       const user = await authClient.me();
-      return user ?? null;
+      return { user: user ?? null, authFailed: !user };
     } catch (e) {
-       // Return null on any error (unauthorized, network, etc.)
-      return null;
+      const status = (e as { status?: number } | null)?.status;
+      return { user: null, authFailed: status === 401 || status === 403 };
     }
   }
 
@@ -107,17 +112,24 @@ class AuthService {
     if (!hadSession) {
       return null;
     }
-    let user = await this.getCurrentUser();
-    if (!user) {
-      const refreshed = await this.refreshSession();
-      if (refreshed) {
-        user = await this.getCurrentUser();
+    // Only a confirmed authentication failure ends the stored session. A network error or 5xx
+    // keeps it (the refresh cookie may still be valid), so the next page load tries again
+    // instead of forcing every player to log in after an API outage.
+    const first = await this.fetchCurrentUser();
+    if (first.user || !first.authFailed) {
+      return first.user;
+    }
+    const outcome = await refreshSessionOutcome();
+    if (outcome === 'renewed') {
+      const second = await this.fetchCurrentUser();
+      if (second.user || !second.authFailed) {
+        return second.user;
       }
+    } else if (outcome === 'unavailable') {
+      return null;
     }
-    if (!user) {
-      tokenService.clearAll();
-    }
-    return user;
+    tokenService.clearAll();
+    return null;
   }
 }
 

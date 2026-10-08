@@ -2,7 +2,7 @@ import { InvokeServiceArgs } from "../apiClients/interfaces";
 import ConfigurationHelper from "../utils/config-helper";
 import { HttpMethod } from "../utils/enums";
 import { tokenService } from "../utils/tokenService";
-import { handleSessionExpired, refreshAccessToken } from "./sessionRefresh";
+import { handleSessionExpired, refreshSession } from "./sessionRefresh";
 
 /**
  * Auth endpoints whose 401 means "wrong credentials" or "no session", not "access token expired":
@@ -112,14 +112,16 @@ export class ServiceCall {
             // retry. Only for requests that carried a token - an anonymous 401 has nothing to renew.
             if (response.status === 401 && sentToken && isRetryableAfterRefresh(args.controller, args.operation)) {
                 const currentToken = tokenService.getAccessToken();
-                const renewed = currentToken && currentToken !== sentToken
-                    ? true // another request already refreshed while this one was in flight
-                    : await refreshAccessToken();
-                if (renewed) {
+                const outcome = currentToken && currentToken !== sentToken
+                    ? 'renewed' // another request already refreshed while this one was in flight
+                    : await refreshSession();
+                if (outcome === 'renewed') {
                     response = await fetch(url, buildRequest(tokenService.getAccessToken()));
-                } else {
+                } else if (outcome === 'rejected') {
                     handleSessionExpired();
                 }
+                // 'unavailable' (API down, network error): keep the session and let this request
+                // fail with its own 401; the next request tries again.
             }
 
             // Handle APIs that return no content (204) without throwing on response.json()
