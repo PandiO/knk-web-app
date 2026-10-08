@@ -30,7 +30,9 @@ import { CurrencyPolicyPage } from './pages/admin/economy/CurrencyPolicyPage';
 import { CurrencyAlertsPage } from './pages/admin/economy/CurrencyAlertsPage';
 import { CURRENCY_NODES } from './types/dtos/currency/CurrencyDtos';
 import React from 'react';
-import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
+import { RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
+import { NotFoundPage } from './pages/NotFoundPage';
+import { CONTENT_PERMISSION_NODE } from './hooks/useStaffAccess';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useEntityMetadata } from './hooks/useEntityMetadata';
 
@@ -124,7 +126,6 @@ function AppContent() {
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/auth/register" element={<RegisterPage />} />
-              <Route path="/auth/register/success" element={<RegisterSuccessPage />} />
               <Route path="/auth/login" element={<LoginPage />} />
               <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
@@ -138,50 +139,52 @@ function AppContent() {
                   <AccountTransactionsPage />
                 </ProtectedRoute>
               } />
+              {/* Content tools (alpha hardening WP9.1): dashboard, forms, displays and the form/display
+                  builders need knk.admin.content, which the API enforces on the writes too. */}
               <Route path="/dashboard" element={
-                <ProtectedRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <ObjectDashboard objectTypes={objectTypes} />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               {/* changed: Use Case 3 - Browse forms (no auto-open) */}
               <Route path="/forms" element={
-                <ProtectedRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               {/* changed: Use Case 2 - Browse entity forms (no auto-open) */}
               <Route path="/forms/:entityName" element={
-                <ProtectedRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               {/* changed: Use Case 1 - Edit entity (no auto-open, loads default for edit) */}
               <Route path="/forms/:entityName/edit/:entityId" element={
-                <ProtectedRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               {/* The builders are opened from the Forms page; their old list pages redirect there. */}
               <Route path="/admin/form-configurations" element={<Navigate to="/forms" replace />} />
               <Route path="/admin/form-configurations/new" element={
-                <StaffRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <FormConfigBuilder />
                 </StaffRoute>
               } />
               <Route path="/admin/form-configurations/edit/:id" element={
-                <StaffRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <FormConfigBuilder />
                 </StaffRoute>
               } />
               {/* DisplayConfiguration routes */}
               <Route path="/admin/display-configurations" element={<Navigate to="/forms" replace />} />
               <Route path="/admin/display-configurations/new" element={
-                <StaffRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <DisplayConfigBuilder />
                 </StaffRoute>
               } />
               <Route path="/admin/display-configurations/edit/:id" element={
-                <StaffRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <DisplayConfigBuilder />
                 </StaffRoute>
               } />
@@ -251,10 +254,12 @@ function AppContent() {
               } />
               {/* DisplayWizard routes */}
               <Route path="/display/:entityName/:id" element={
-                <ProtectedRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <DisplayWizardPage />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
+              {/* Anything else: a Not Found page with links home and to the account page. */}
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </div>
         </div>

@@ -26,6 +26,7 @@ import {
 } from '../../types/dtos/userManagement/UserProfileSummaryDtos';
 import { PermissionGroupDto } from '../../types/dtos/userManagement/PermissionGroupDto';
 import { KitAvailabilityDto } from '../../types/dtos/kit/KitDtos';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 // docs/specs/user-management/DESIGN.md §2 - a read-first composite dashboard for one player,
 // distinct from the generic /forms/user edit screen. Phase 2 (docs/specs/user-management/
@@ -66,6 +67,7 @@ const clientErrorMessage = (err: unknown): string | null => {
 };
 
 export const PlayerProfilePage: React.FC = () => {
+    usePageTitle('Player profile');
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const userId = Number(id);

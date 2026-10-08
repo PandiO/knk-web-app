@@ -22,6 +22,7 @@ import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgress
 import { DisplayConfigurationDto } from '../types/dtos/displayConfig/DisplayModels';
 import { useEntityMetadata } from '../hooks/useEntityMetadata';
 import { getCreateFunctionForEntity, getFetchByIdFunctionForEntity, getUpdateFunctionForEntity } from '../utils/entityApiMapping';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { 
@@ -41,6 +42,7 @@ export const FormWizardPage: React.FC<Props> = ({
     entityMetadataFromApp,
     autoOpenDefaultForm = false 
 }: Props) => {
+    usePageTitle('Forms');
     const navigate = useNavigate();
     const { entityName, entityId: urlEntityId } = useParams<{ entityName: string; entityId?: string }>();
     // added: read query parameter for auto-open and parent context for child entity creation

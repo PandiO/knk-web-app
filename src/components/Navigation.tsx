@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { usePermission, useStaffAccess } from '../hooks/useStaffAccess';
+import { CONTENT_PERMISSION_NODE, usePermission, useStaffAccess } from '../hooks/useStaffAccess';
 import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
 import { DISCOVERY_ADMIN_NODE } from '../types/dtos/discovery/DiscoveryDtos';
 import { NavLayout, pickNavLayout } from './navLayout';
@@ -12,17 +12,18 @@ type ObjectType = { id: string; label: string; icon: React.ReactNode; createRout
 type Props = { objectTypes: ObjectType[] };
 
 // staffOnly: knk.admin.user.manage (useStaffAccess); node: only for holders of that node (checked in nodeAccess).
+// Players without any staff node only see Home; their own pages are in the account menu.
 type NavLink = { to: string; label: string; Icon: React.ComponentType<{ className?: string }>; exact?: boolean; staffOnly?: boolean; node?: string };
 
 // One list for every size: the inline bar (with labels, or icons only) and the menu
 // button's panel. Which one shows is decided by measuring - see pickNavLayout.
 const NAV_LINKS: NavLink[] = [
   { to: '/', label: 'Home', Icon: Home, exact: true },
-  // Smoke test 2026-09-26: the admin tools are staff only (hidden here, and the /admin pages are
-  // StaffRoutes). Dashboard stays a route because login lands there. The form and display
-  // builders have no link of their own: they're opened from the Forms page.
-  { to: '/dashboard', label: 'Dashboard', Icon: Table2, exact: true, staffOnly: true },
-  { to: '/forms', label: 'Forms', Icon: FileText, staffOnly: true },
+  // The content tools (dashboard, forms, displays, builders) need knk.admin.content, like their
+  // routes (alpha hardening WP9.1). The form and display builders have no link of their own:
+  // they're opened from the Forms page.
+  { to: '/dashboard', label: 'Dashboard', Icon: Table2, exact: true, node: CONTENT_PERMISSION_NODE },
+  { to: '/forms', label: 'Forms', Icon: FileText, node: CONTENT_PERMISSION_NODE },
   { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings, staffOnly: true },
   // Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables
   { to: '/admin/siege-configuration', label: 'Siege Settings', Icon: Swords, staffOnly: true },
@@ -47,12 +48,16 @@ export function Navigation({ objectTypes }: Props) {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
+  const accountItemRefs = useRef<Array<HTMLElement | null>>([]);
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout, isLoading } = useAuth();
+  const { logout, isLoading, user } = useAuth();
   const { isStaff } = useStaffAccess();
+  const canManageContent = usePermission(CONTENT_PERMISSION_NODE).allowed;
   // One check per node a link needs (checks are cached per login, see useStaffAccess).
   const nodeAccess: Record<string, boolean> = {
+    [CONTENT_PERMISSION_NODE]: canManageContent,
     [LOOTBOX_ADMIN_NODE]: usePermission(LOOTBOX_ADMIN_NODE).allowed,
     [DISCOVERY_ADMIN_NODE]: usePermission(DISCOVERY_ADMIN_NODE).allowed,
   };
@@ -135,10 +140,65 @@ export function Navigation({ objectTypes }: Props) {
     }
   };
 
-  // Close the small-screen menu after navigating.
+  // Close the small-screen menu and the account menu after navigating.
   useEffect(() => {
     setIsNavMenuOpen(false);
+    setIsAccountMenuOpen(false);
   }, [location.pathname]);
+
+  // Opening the account menu moves focus to its first item (WAI-ARIA menu button pattern).
+  useEffect(() => {
+    if (isAccountMenuOpen) {
+      accountItemRefs.current.find(Boolean)?.focus();
+    }
+  }, [isAccountMenuOpen]);
+
+  const closeAccountMenu = (returnFocus: boolean) => {
+    setIsAccountMenuOpen(false);
+    if (returnFocus) accountButtonRef.current?.focus();
+  };
+
+  const handleAccountButtonKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    // Enter and Space open it through the button's click; ArrowDown opens it too.
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setIsAccountMenuOpen(true);
+    } else if (e.key === 'Escape' && isAccountMenuOpen) {
+      e.preventDefault();
+      closeAccountMenu(true);
+    }
+  };
+
+  const handleAccountMenuKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = accountItemRefs.current.filter((item): item is HTMLElement => !!item);
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    switch (e.key) {
+      case 'Escape':
+        e.preventDefault();
+        closeAccountMenu(true);
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        items[(index + 1) % items.length]?.focus();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        items[(index - 1 + items.length) % items.length]?.focus();
+        break;
+      case 'Home':
+        e.preventDefault();
+        items[0]?.focus();
+        break;
+      case 'End':
+        e.preventDefault();
+        items[items.length - 1]?.focus();
+        break;
+      case 'Tab':
+        // Tabbing away leaves the menu: close it without stealing focus back.
+        setIsAccountMenuOpen(false);
+        break;
+    }
+  };
 
   const isActive = (link: NavLink) =>
     link.exact ? location.pathname === link.to : location.pathname.startsWith(link.to);
@@ -160,7 +220,7 @@ export function Navigation({ objectTypes }: Props) {
           <div ref={leftRef} className="relative flex min-w-0 flex-1 items-center gap-4">
             {/* Invisible copies, only there to be measured for pickNavLayout. */}
             <div aria-hidden="true" className="invisible pointer-events-none absolute left-0 top-0">
-              <span ref={titleMeasureRef} className={`${TITLE_CLASS} inline-block`}>Dashboard</span>
+              <span ref={titleMeasureRef} className={`${TITLE_CLASS} inline-block`}>Knights &amp; Kings</span>
               <div ref={labelsMeasureRef} className={`${LINKS_ROW_CLASS} w-max`}>
                 {navLinks.map(link => (
                   <span key={link.to} className={LINK_CLASS}>
@@ -213,15 +273,17 @@ export function Navigation({ objectTypes }: Props) {
               </div>
             )}
             <div className="flex flex-shrink-0 items-center">
-              <Link ref={logoRef} to="/" className="flex items-center">
+              <Link ref={logoRef} to="/" className="flex items-center" aria-label="Knights & Kings home">
                 <img
-                  src="https://www.dropbox.com/scl/fi/dshx4j5951wsc0dvxvk22/favicon.png?rlkey=te7efq8ukvzy8mx6uj654h54h&raw=1"
-                  alt="Logo"
-                  className="h-10 w-10 hover:opacity-90 transition-opacity"
+                  src={`${process.env.PUBLIC_URL}/brand/knk-shield.png`}
+                  alt=""
+                  width={43}
+                  height={40}
+                  className="h-10 w-auto hover:opacity-90 transition-opacity"
                 />
               </Link>
               {/* Phones hide it even in the menu layout - the logo is enough there. */}
-              {showTitle && <h1 className={`${TITLE_CLASS} ml-3 hidden sm:block`}>Dashboard</h1>}
+              {showTitle && <span className={`${TITLE_CLASS} ml-3 hidden sm:block`}>Knights &amp; Kings</span>}
             </div>
             {!showMenu && (
               <div className={`${LINKS_ROW_CLASS} min-w-0`}>
@@ -258,57 +320,71 @@ export function Navigation({ objectTypes }: Props) {
             )}
           </div>
           <div className="flex flex-shrink-0 items-center space-x-4">
-            {/* Account Menu Dropdown */}
+            {/* Account menu: opens on click (Enter/Space/ArrowDown from the keyboard), closes on
+                Escape (focus back on the button), on an outside click or after choosing an item. */}
             <div className="relative" ref={accountMenuRef}>
               <button
-                onMouseEnter={() => setIsAccountMenuOpen(true)}
-                onClick={() => {
-                  navigate('/account');
-                  setIsAccountMenuOpen(false);
-                }}
+                ref={accountButtonRef}
+                type="button"
+                id="account-menu-button"
+                onClick={() => setIsAccountMenuOpen(open => !open)}
+                onKeyDown={handleAccountButtonKeyDown}
+                aria-haspopup="menu"
+                aria-expanded={isAccountMenuOpen}
+                aria-controls={isAccountMenuOpen ? 'account-menu' : undefined}
+                aria-label="Account menu"
                 className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
-                title="Account"
               >
-                <UserCircle2 className="h-5 w-5" />
+                <UserCircle2 className="h-5 w-5" aria-hidden="true" />
               </button>
 
               {isAccountMenuOpen && (
                 <div
-                  onMouseLeave={() => setIsAccountMenuOpen(false)}
-                  className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
+                  id="account-menu"
                   role="menu"
+                  aria-labelledby="account-menu-button"
+                  onKeyDown={handleAccountMenuKeyDown}
+                  className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
                 >
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        navigate('/account');
-                        setIsAccountMenuOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                  {user?.username && (
+                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100" role="none">
+                      Signed in as <span className="font-medium text-gray-700">{user.username}</span>
+                    </div>
+                  )}
+                  <div className="py-1" role="none">
+                    <Link
+                      ref={el => { accountItemRefs.current[0] = el; }}
+                      to="/account"
                       role="menuitem"
+                      tabIndex={-1}
+                      onClick={() => setIsAccountMenuOpen(false)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none flex items-center"
                     >
-                      <UserCircle2 className="h-4 w-4 mr-3" />
-                      Account Settings
-                    </button>
+                      <UserCircle2 className="h-4 w-4 mr-3" aria-hidden="true" />
+                      Account settings
+                    </Link>
                     <button
+                      ref={el => { accountItemRefs.current[1] = el; }}
+                      type="button"
+                      role="menuitem"
+                      tabIndex={-1}
                       onClick={() => {
-                        handleLogout();
                         setIsAccountMenuOpen(false);
+                        handleLogout();
                       }}
                       disabled={isLoading}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center disabled:opacity-50"
-                      role="menuitem"
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none flex items-center disabled:opacity-50"
                     >
-                      <LogOut className="h-4 w-4 mr-3" />
-                      Logout
+                      <LogOut className="h-4 w-4 mr-3" aria-hidden="true" />
+                      Log out
                     </button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Creating objects goes through the forms: staff only, like the Forms link. */}
-            {isStaff && (
+            {/* Creating objects goes through the forms: content staff only, like the Forms link. */}
+            {canManageContent && (
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsOpen(!isOpen)}

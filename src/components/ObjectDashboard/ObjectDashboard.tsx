@@ -8,11 +8,13 @@ import './ObjectDashboard.css';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 import { FeedbackModal } from '../FeedbackModal';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
 
 const ObjectDashboard = ({ objectTypes }: Props) => {
+    usePageTitle('Dashboard');
     const navigate = useNavigate();
     const [selectedType, setSelectedType] = useState<string>('');
     const { baseMetadata, loading: metadataLoading } = useEntityMetadata();

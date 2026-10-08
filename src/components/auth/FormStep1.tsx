@@ -64,7 +64,6 @@ export const FormStep1: React.FC<FormStep1Props> = ({
         }
         setEmailAvailable(true);
       } catch (error) {
-        console.error('Failed to check email availability:', error);
         onError('email', 'Unable to verify email. Please try again.');
         setEmailAvailable(null);
         return;

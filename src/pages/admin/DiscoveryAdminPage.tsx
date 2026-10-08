@@ -10,6 +10,7 @@ import { DiscoveryRulesCard } from '../../components/admin/discovery/DiscoveryRu
 import { DiscoveryPreviewCard, PreviewTarget } from '../../components/admin/discovery/DiscoveryPreviewCard';
 import { DiscoveryOverridesCard } from '../../components/admin/discovery/DiscoveryOverridesCard';
 import { DiscoveryStatsCard } from '../../components/admin/discovery/DiscoveryStatsCard';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 // docs/specs/domain-discovery/DESIGN.md §3.9 / IMPLEMENTATION_PLAN.md Phase 4 - discovery reward
 // configuration and statistics (knk.admin.discovery, see the /admin/discovery route): the type
@@ -18,6 +19,7 @@ import { DiscoveryStatsCard } from '../../components/admin/discovery/DiscoverySt
 // in-game discovery - the API reads them on every grant.
 
 export const DiscoveryAdminPage: React.FC = () => {
+  usePageTitle('Discovery');
   const [rules, setRules] = React.useState<DiscoveryRewardRuleDto[]>([]);
   const [overrides, setOverrides] = React.useState<DomainDiscoveryOverrideDto[]>([]);
   const [loading, setLoading] = React.useState(true);

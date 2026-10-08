@@ -3,8 +3,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PasswordStrengthMeter } from '../../components/auth/PasswordStrengthMeter';
 import { validatePasswordPolicy } from '../../utils/passwordValidator';
 import { authService } from '../../services/authService';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 export const ResetPasswordPage: React.FC = () => {
+  usePageTitle('Reset password');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 

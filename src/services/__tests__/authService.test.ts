@@ -1,15 +1,40 @@
 import { authService } from '../authService';
 import { authClient } from '../../apiClients/authClient';
 import { tokenService } from '../../utils/tokenService';
+import { refreshAccessToken, refreshSession } from '../sessionRefresh';
 import { UserDto, AccountCreationMethod } from '../../types/dtos/auth/UserDtos';
-import { AuthLoginResponseDto, AuthRefreshResponseDto } from '../../types/dtos/auth/AuthDtos';
+import { AuthLoginResponseDto } from '../../types/dtos/auth/AuthDtos';
 
 // Mock dependencies
 jest.mock('../../apiClients/authClient');
 jest.mock('../../utils/tokenService');
+jest.mock('../sessionRefresh', () => ({ refreshAccessToken: jest.fn(), refreshSession: jest.fn() }));
 
 const mockedAuthClient = authClient as jest.Mocked<typeof authClient>;
 const mockedTokenService = tokenService as jest.Mocked<typeof tokenService>;
+const mockedRefresh = refreshAccessToken as jest.MockedFunction<typeof refreshAccessToken>;
+const mockedRefreshOutcome = refreshSession as jest.MockedFunction<typeof refreshSession>;
+
+const mockUser: UserDto = {
+  id: 1,
+  email: 'test@example.com',
+  username: 'Steve',
+  emailVerified: true,
+  accountCreatedVia: AccountCreationMethod.MinecraftServer,
+  coins: 0,
+  gems: 0,
+  experiencePoints: 0,
+  isActive: true,
+  createdAt: new Date(),
+  deletedAt: null,
+};
+
+const loginResponse: AuthLoginResponseDto = {
+  accessToken: 'access-token',
+  refreshToken: null,
+  expiresIn: 1800,
+  user: mockUser,
+};
 
 describe('AuthService', () => {
   beforeEach(() => {
@@ -17,168 +42,75 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    const mockUser: UserDto = {
-      id: 1,
-      email: 'test@example.com',
-      username: 'testuser',
-      emailVerified: true,
-      accountCreatedVia: AccountCreationMethod.WebApp,
-      coins: 0,
-      gems: 0,
-      experiencePoints: 0,
-      isActive: true,
-      createdAt: new Date(),
-      deletedAt: null,
-    };
+    it('sends the login identifier and stores the token with remember-me', async () => {
+      mockedAuthClient.login.mockResolvedValue(loginResponse);
 
-    const mockLoginResponse: AuthLoginResponseDto = {
-      accessToken: 'mock-access-token',
-      refreshToken: 'mock-refresh-token',
-      expiresIn: 3600,
-      user: mockUser,
-    };
-
-    it('should successfully login with rememberMe=true and store tokens', async () => {
-      mockedAuthClient.login.mockResolvedValue(mockLoginResponse);
-
-      const result = await authService.login({
-        email: 'test@example.com',
-        password: 'password123',
-        rememberMe: true,
-      });
+      const result = await authService.login({ login: 'Steve', password: 'password123', rememberMe: true });
 
       expect(result).toEqual(mockUser);
-      expect(mockedAuthClient.login).toHaveBeenCalledWith({
-        email: 'test@example.com',
-        password: 'password123',
-        rememberMe: true,
-      });
-      expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('mock-access-token', true);
+      expect(mockedAuthClient.login).toHaveBeenCalledWith({ login: 'Steve', password: 'password123', rememberMe: true });
+      expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('access-token', true);
       expect(mockedTokenService.setRememberMe).toHaveBeenCalledWith(true, expect.any(Number));
     });
 
-    it('should successfully login with rememberMe=false and store tokens in session', async () => {
-      mockedAuthClient.login.mockResolvedValue(mockLoginResponse);
+    it('keeps the token in the session without remember-me (the default)', async () => {
+      mockedAuthClient.login.mockResolvedValue(loginResponse);
 
-      const result = await authService.login({
-        email: 'test@example.com',
-        password: 'password123',
-        rememberMe: false,
-      });
+      await authService.login({ login: 'test@example.com', password: 'password123' });
 
-      expect(result).toEqual(mockUser);
-      expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('mock-access-token', false);
+      expect(mockedAuthClient.login).toHaveBeenCalledWith({ login: 'test@example.com', password: 'password123', rememberMe: false });
+      expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('access-token', false);
       expect(mockedTokenService.setRememberMe).not.toHaveBeenCalled();
+      expect(mockedTokenService.clearRememberMe).toHaveBeenCalled();
     });
 
-    it('should successfully login with rememberMe undefined (default false)', async () => {
-      mockedAuthClient.login.mockResolvedValue(mockLoginResponse);
+    it('never reads a refresh token from the body', async () => {
+      mockedAuthClient.login.mockResolvedValue({ ...loginResponse, refreshToken: 'leaked' as unknown as null });
 
-      const result = await authService.login({
-        email: 'test@example.com',
-        password: 'password123',
-      });
+      await authService.login({ login: 'Steve', password: 'password123' });
 
-      expect(result).toEqual(mockUser);
-      expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('mock-access-token', false);
+      expect(mockedTokenService.setAccessToken).toHaveBeenCalledTimes(1);
+      expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('access-token', false);
     });
 
-    it('should throw error on login failure (bad credentials)', async () => {
-      const mockError = {
-        code: 'InvalidCredentials',
-        message: 'Invalid email or password',
-        response: { code: 'InvalidCredentials', message: 'Invalid email or password' },
-      };
-      mockedAuthClient.login.mockRejectedValue(mockError);
+    it('stores nothing when the login fails', async () => {
+      const error = { code: 'InvalidCredentials', status: 401 };
+      mockedAuthClient.login.mockRejectedValue(error);
 
-      await expect(
-        authService.login({
-          email: 'test@example.com',
-          password: 'wrongpassword',
-          rememberMe: false,
-        })
-      ).rejects.toEqual(mockError);
+      await expect(authService.login({ login: 'Steve', password: 'wrong' })).rejects.toEqual(error);
 
       expect(mockedTokenService.setAccessToken).not.toHaveBeenCalled();
       expect(mockedTokenService.setRememberMe).not.toHaveBeenCalled();
     });
-
-    it('should throw error on network failure', async () => {
-      const networkError = new Error('Network error');
-      mockedAuthClient.login.mockRejectedValue(networkError);
-
-      await expect(
-        authService.login({
-          email: 'test@example.com',
-          password: 'password123',
-          rememberMe: false,
-        })
-      ).rejects.toThrow('Network error');
-    });
   });
 
   describe('register', () => {
-    const mockUser: UserDto = {
-      id: 2,
-      email: 'newuser@example.com',
-      username: 'newuser',
-      emailVerified: false,
-      accountCreatedVia: AccountCreationMethod.WebApp,
-      coins: 0,
-      gems: 0,
-      experiencePoints: 0,
-      isActive: true,
-      createdAt: new Date(),
-      deletedAt: null,
-    };
+    const request = { linkCode: 'ABCD1234', email: 'new@example.com', password: 'S3cure!pass', passwordConfirmation: 'S3cure!pass' };
 
-    it('should successfully register a new user', async () => {
-      mockedAuthClient.register.mockResolvedValue(mockUser);
-      mockedAuthClient.login.mockResolvedValue({
-        accessToken: 'mock-access-token',
-        refreshToken: 'mock-refresh-token',
-        expiresIn: 3600,
-        user: mockUser,
-      });
+    it('registers through Auth/register and starts a session without remember-me', async () => {
+      mockedAuthClient.register.mockResolvedValue(loginResponse);
 
-      const result = await authService.register({
-        email: 'newuser@example.com',
-        username: 'newuser',
-        password: 'SecurePass123!',
-        passwordConfirmation: 'SecurePass123!',
-      });
+      const user = await authService.register(request);
 
-      expect(result).toEqual(mockUser);
-      expect(mockedAuthClient.register).toHaveBeenCalledWith({
-        email: 'newuser@example.com',
-        username: 'newuser',
-        password: 'SecurePass123!',
-        passwordConfirmation: 'SecurePass123!',
-      });
+      expect(user).toEqual(mockUser);
+      expect(mockedAuthClient.register).toHaveBeenCalledWith(request);
+      expect(mockedAuthClient.login).not.toHaveBeenCalled();
+      expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('access-token', false);
+      expect(mockedTokenService.setRememberMe).not.toHaveBeenCalled();
     });
 
-    it('should throw error on duplicate email', async () => {
-      const duplicateError = {
-        code: 'DuplicateEmail',
-        message: 'Email already exists',
-        response: { code: 'DuplicateEmail', message: 'Email already exists' },
-      };
-      mockedAuthClient.register.mockRejectedValue(duplicateError);
+    it('passes API errors through', async () => {
+      const error = { code: 'DuplicateEmail', status: 409 };
+      mockedAuthClient.register.mockRejectedValue(error);
 
-      await expect(
-        authService.register({
-          email: 'existing@example.com',
-          username: 'newuser',
-          password: 'SecurePass123!',
-          passwordConfirmation: 'SecurePass123!',
-        })
-      ).rejects.toEqual(duplicateError);
+      await expect(authService.register(request)).rejects.toEqual(error);
+      expect(mockedTokenService.setAccessToken).not.toHaveBeenCalled();
     });
   });
 
   describe('logout', () => {
-    it('should successfully logout and clear all tokens', async () => {
-      mockedAuthClient.logout.mockResolvedValue();
+    it('logs out and clears local state', async () => {
+      mockedAuthClient.logout.mockResolvedValue(undefined);
 
       await authService.logout();
 
@@ -186,208 +118,135 @@ describe('AuthService', () => {
       expect(mockedTokenService.clearAll).toHaveBeenCalled();
     });
 
-    it('should clear tokens even if logout request fails', async () => {
+    it('clears local state even when the API call fails', async () => {
       mockedAuthClient.logout.mockRejectedValue(new Error('Network error'));
 
       await expect(authService.logout()).rejects.toThrow('Network error');
-      
-      // Note: clearAll should still be called in a proper implementation
-      // For now, the current implementation doesn't have try/catch
+      expect(mockedTokenService.clearAll).toHaveBeenCalled();
+    });
+
+    it('logs out everywhere and clears local state', async () => {
+      mockedAuthClient.logoutAll.mockRejectedValue(new Error('down'));
+
+      await expect(authService.logoutAll()).rejects.toThrow('down');
+      expect(mockedAuthClient.logoutAll).toHaveBeenCalled();
+      expect(mockedTokenService.clearAll).toHaveBeenCalled();
     });
   });
 
   describe('getCurrentUser', () => {
-    const mockUser: UserDto = {
-      id: 1,
-      email: 'test@example.com',
-      username: 'testuser',
-      emailVerified: true,
-      accountCreatedVia: AccountCreationMethod.WebApp,
-      coins: 100,
-      gems: 50,
-      experiencePoints: 25,
-      isActive: true,
-      createdAt: new Date(),
-      deletedAt: null,
-    };
-
-    it('should return current user when authenticated', async () => {
+    it('returns the current user', async () => {
       mockedAuthClient.me.mockResolvedValue(mockUser);
-
-      const result = await authService.getCurrentUser();
-
-      expect(result).toEqual(mockUser);
-      expect(mockedAuthClient.me).toHaveBeenCalled();
+      await expect(authService.getCurrentUser()).resolves.toEqual(mockUser);
     });
 
-    it('should return null on unauthorized error', async () => {
-      const unauthorizedError = { code: 'Unauthorized', message: 'Invalid token' };
-      mockedAuthClient.me.mockRejectedValue(unauthorizedError);
-
-      const result = await authService.getCurrentUser();
-
-      expect(result).toBeNull();
-    });
-
-    it('should return null on network error', async () => {
-      mockedAuthClient.me.mockRejectedValue(new Error('Network error'));
-
-      const result = await authService.getCurrentUser();
-
-      expect(result).toBeNull();
+    it('returns null on any error', async () => {
+      mockedAuthClient.me.mockRejectedValue({ status: 401 });
+      await expect(authService.getCurrentUser()).resolves.toBeNull();
     });
   });
 
   describe('refreshSession', () => {
-    const mockRefreshResponse: AuthRefreshResponseDto = {
-      accessToken: 'new-access-token',
-      refreshToken: 'new-refresh-token',
-      expiresIn: 3600,
-    };
-
-    it('should successfully refresh tokens when remembered', async () => {
-      mockedAuthClient.refresh.mockResolvedValue(mockRefreshResponse);
-      mockedTokenService.isRemembered.mockReturnValue(true);
-
-      const result = await authService.refreshSession();
-
-      expect(result).toBe(true);
-      expect(mockedAuthClient.refresh).toHaveBeenCalled();
-      expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('new-access-token', true);
-    });
-
-    it('should successfully refresh tokens when not remembered', async () => {
-      mockedAuthClient.refresh.mockResolvedValue(mockRefreshResponse);
-      mockedTokenService.isRemembered.mockReturnValue(false);
-
-      const result = await authService.refreshSession();
-
-      expect(result).toBe(true);
-      expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('new-access-token', false);
-    });
-
-    it('should return false when refresh response has no accessToken', async () => {
-      mockedAuthClient.refresh.mockResolvedValue({
-        accessToken: '',
-        expiresIn: 0,
-      } as AuthRefreshResponseDto);
-
-      const result = await authService.refreshSession();
-
-      expect(result).toBe(false);
-      expect(mockedTokenService.setAccessToken).not.toHaveBeenCalled();
-    });
-
-    it('should return false on refresh failure (expired refresh token)', async () => {
-      const expiredError = { code: 'TokenExpired', message: 'Refresh token expired' };
-      mockedAuthClient.refresh.mockRejectedValue(expiredError);
-
-      const result = await authService.refreshSession();
-
-      expect(result).toBe(false);
-    });
-
-    it('should return false on network error during refresh', async () => {
-      mockedAuthClient.refresh.mockRejectedValue(new Error('Network error'));
-
-      const result = await authService.refreshSession();
-
-      expect(result).toBe(false);
+    it('uses the shared single-flight refresh', async () => {
+      mockedRefresh.mockResolvedValue(true);
+      await expect(authService.refreshSession()).resolves.toBe(true);
+      expect(mockedRefresh).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('autoLogin', () => {
-    const mockUser: UserDto = {
-      id: 1,
-      email: 'test@example.com',
-      username: 'testuser',
-      emailVerified: true,
-      accountCreatedVia: AccountCreationMethod.WebApp,
-      coins: 0,
-      gems: 0,
-      experiencePoints: 0,
-      isActive: true,
-      createdAt: new Date(),
-      deletedAt: null,
-    };
+    it('does not call the API without any sign of a session', async () => {
+      mockedTokenService.hasAccessToken.mockReturnValue(false);
+      mockedTokenService.isRemembered.mockReturnValue(false);
 
-    it('should auto-login when user session is valid', async () => {
-      mockedTokenService.isRemembered.mockReturnValue(true);
-      mockedAuthClient.me.mockResolvedValue(mockUser);
-
-      const result = await authService.autoLogin();
-
-      expect(result).toEqual(mockUser);
-      expect(mockedAuthClient.me).toHaveBeenCalledTimes(1);
+      await expect(authService.autoLogin()).resolves.toBeNull();
+      expect(mockedAuthClient.me).not.toHaveBeenCalled();
+      expect(mockedRefreshOutcome).not.toHaveBeenCalled();
     });
 
-    it('should auto-login after refresh when initial getCurrentUser fails but remembered', async () => {
-      mockedTokenService.isRemembered.mockReturnValue(true);
-      
-      // First call fails (unauthorized), second succeeds after refresh
-      mockedAuthClient.me
-        .mockRejectedValueOnce({ code: 'Unauthorized' })
-        .mockResolvedValueOnce(mockUser);
-      
-      mockedAuthClient.refresh.mockResolvedValue({
-        accessToken: 'new-token',
-        expiresIn: 3600,
-      } as AuthRefreshResponseDto);
+    it('returns the user when the stored token is still valid', async () => {
+      mockedTokenService.hasAccessToken.mockReturnValue(true);
+      mockedAuthClient.me.mockResolvedValue(mockUser);
 
-      const result = await authService.autoLogin();
+      await expect(authService.autoLogin()).resolves.toEqual(mockUser);
+      expect(mockedRefreshOutcome).not.toHaveBeenCalled();
+    });
 
-      expect(result).toEqual(mockUser);
-      expect(mockedAuthClient.refresh).toHaveBeenCalled();
+    it('refreshes once when the stored token expired, also without remember-me', async () => {
+      mockedTokenService.hasAccessToken.mockReturnValue(true);
+      mockedTokenService.isRemembered.mockReturnValue(false);
+      mockedAuthClient.me.mockRejectedValueOnce({ status: 401 }).mockResolvedValueOnce(mockUser);
+      mockedRefreshOutcome.mockResolvedValue('renewed');
+
+      await expect(authService.autoLogin()).resolves.toEqual(mockUser);
+      expect(mockedRefreshOutcome).toHaveBeenCalledTimes(1);
       expect(mockedAuthClient.me).toHaveBeenCalledTimes(2);
     });
 
-    it('should return null when not remembered and session invalid', async () => {
-      mockedTokenService.isRemembered.mockReturnValue(false);
-      mockedAuthClient.me.mockRejectedValue({ code: 'Unauthorized' });
+    it('clears the stored session when the API rejects the refresh', async () => {
+      mockedTokenService.hasAccessToken.mockReturnValue(false);
+      mockedTokenService.isRemembered.mockReturnValue(true);
+      mockedAuthClient.me.mockRejectedValue({ status: 401 });
+      mockedRefreshOutcome.mockResolvedValue('rejected');
 
-      const result = await authService.autoLogin();
-
-      expect(result).toBeNull();
-      expect(mockedAuthClient.refresh).not.toHaveBeenCalled();
+      await expect(authService.autoLogin()).resolves.toBeNull();
+      expect(mockedTokenService.clearAll).toHaveBeenCalled();
     });
 
-    it('should return null when refresh fails', async () => {
+    it('keeps the stored session when the API cannot be reached', async () => {
+      mockedTokenService.hasAccessToken.mockReturnValue(true);
+      mockedAuthClient.me.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      await expect(authService.autoLogin()).resolves.toBeNull();
+      expect(mockedRefreshOutcome).not.toHaveBeenCalled();
+      expect(mockedTokenService.clearAll).not.toHaveBeenCalled();
+    });
+
+    it('keeps the stored session when Auth/me answers 5xx', async () => {
+      mockedTokenService.hasAccessToken.mockReturnValue(true);
+      mockedAuthClient.me.mockRejectedValue({ status: 503 });
+
+      await expect(authService.autoLogin()).resolves.toBeNull();
+      expect(mockedTokenService.clearAll).not.toHaveBeenCalled();
+    });
+
+    it('keeps the stored session when the refresh itself fails transiently', async () => {
+      mockedTokenService.hasAccessToken.mockReturnValue(false);
       mockedTokenService.isRemembered.mockReturnValue(true);
-      mockedAuthClient.me.mockRejectedValue({ code: 'Unauthorized' });
-      mockedAuthClient.refresh.mockRejectedValue({ code: 'TokenExpired' });
+      mockedAuthClient.me.mockRejectedValue({ status: 401 });
+      mockedRefreshOutcome.mockResolvedValue('unavailable');
 
-      const result = await authService.autoLogin();
+      await expect(authService.autoLogin()).resolves.toBeNull();
+      expect(mockedTokenService.clearAll).not.toHaveBeenCalled();
+    });
 
-      expect(result).toBeNull();
+    it('clears the stored session when the renewed token is still refused', async () => {
+      mockedTokenService.hasAccessToken.mockReturnValue(true);
+      mockedAuthClient.me.mockRejectedValue({ status: 401 });
+      mockedRefreshOutcome.mockResolvedValue('renewed');
+
+      await expect(authService.autoLogin()).resolves.toBeNull();
+      expect(mockedTokenService.clearAll).toHaveBeenCalled();
     });
   });
 
   describe('updateUser', () => {
-    const mockUser: UserDto = {
-      id: 1,
-      email: 'updated@example.com',
-      username: 'updateduser',
-      emailVerified: true,
-      accountCreatedVia: AccountCreationMethod.WebApp,
-      coins: 0,
-      gems: 0,
-      experiencePoints: 0,
-      isActive: true,
-      createdAt: new Date(),
-      deletedAt: null,
-    };
+    it('stores the fresh access token an email change returns', async () => {
+      mockedTokenService.isRemembered.mockReturnValue(true);
+      mockedAuthClient.updateUser.mockResolvedValue({ user: mockUser, accessToken: 'fresh-token' });
 
-    it('should successfully update user', async () => {
-      mockedAuthClient.updateUser.mockResolvedValue(mockUser);
+      await authService.updateUser({ email: 'new@example.com', currentPassword: 'pw' });
 
-      const result = await authService.updateUser({
-        email: 'updated@example.com',
-      });
+      expect(mockedAuthClient.updateUser).toHaveBeenCalledWith({ email: 'new@example.com', currentPassword: 'pw' });
+      expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('fresh-token', true);
+    });
 
-      expect(result).toEqual(mockUser);
-      expect(mockedAuthClient.updateUser).toHaveBeenCalledWith({
-        email: 'updated@example.com',
-      });
+    it('keeps the current token when none is returned', async () => {
+      mockedAuthClient.updateUser.mockResolvedValue({ user: mockUser });
+
+      await authService.updateUser({ newPassword: 'n', currentPassword: 'c' });
+
+      expect(mockedTokenService.setAccessToken).not.toHaveBeenCalled();
     });
   });
 });

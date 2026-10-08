@@ -5,75 +5,93 @@ import { UserDto, UserUpdateDto } from "../types/dtos/auth/UserDtos";
 import {
   LoginRequestDto,
   RegisterRequestDto,
-  AuthRefreshResponseDto,
+  AuthLoginResponseDto,
+  AuthUpdateResponseDto,
   ForgotPasswordResponseDto,
   ResetPasswordResponseDto,
 } from "../types/dtos/auth/AuthDtos";
+import { refreshAccessToken, refreshSession as refreshSessionOutcome } from "./sessionRefresh";
 
 class AuthService {
+  /**
+   * Stores the access token of a login-shaped response. The refresh token isn't in the body: the
+   * API keeps it in an HttpOnly cookie. Without remember-me the token lives in sessionStorage.
+   */
+  private startSession(res: AuthLoginResponseDto, rememberMe: boolean) {
+    tokenService.setAccessToken(res.accessToken, rememberMe);
+    if (rememberMe) {
+      tokenService.setRememberMe(true, Date.now() + REMEMBER_ME_DURATION_MS);
+    } else {
+      tokenService.clearRememberMe();
+    }
+  }
+
   async login(req: LoginRequestDto): Promise<UserDto> {
-    const res = await authClient.login(req);
-   // Store access token in memory/storage based on rememberMe flag
-   tokenService.setAccessToken(res.accessToken, req.rememberMe ?? false);
-   
-   // Track remember-me duration if enabled
-   if (req.rememberMe) {
-     const expiresAt = Date.now() + REMEMBER_ME_DURATION_MS;
-     tokenService.setRememberMe(true, expiresAt);
-   }
-   
-   return res.user;
+    const rememberMe = req.rememberMe ?? false;
+    const res = await authClient.login({ ...req, rememberMe });
+    this.startSession(res, rememberMe);
+    return res.user;
   }
 
+  /** Registers with a link code. The API answers like login, so the player is logged in (no remember-me). */
   async register(data: RegisterRequestDto): Promise<UserDto> {
-    const user = await authClient.register(data);
-    
-    // After successful registration, automatically log the user in
-    // This ensures they have a valid auth token and don't need to manually log in
-    await this.login({
-      email: data.email,
-      password: data.password,
-      rememberMe: true // Default to remember the user after registration
-    });
-    
-    return user;
+    const res = await authClient.register(data);
+    this.startSession(res, false);
+    return res.user;
   }
 
+  /** Ends this session. Local state is cleared even when the API call fails. */
   async logout(): Promise<void> {
-    await authClient.logout();
-     // Clear all authentication data (tokens and remember-me)
-     tokenService.clearAll();
+    try {
+      await authClient.logout();
+    } finally {
+      tokenService.clearAll();
+    }
+  }
+
+  /** Ends every session of this user, on every device. Local state is cleared even when the call fails. */
+  async logoutAll(): Promise<void> {
+    try {
+      await authClient.logoutAll();
+    } finally {
+      tokenService.clearAll();
+    }
   }
 
   async getCurrentUser(): Promise<UserDto | null> {
+    return (await this.fetchCurrentUser()).user;
+  }
+
+  /** `Auth/me`, telling a confirmed authentication failure (401/403) apart from an outage. */
+  private async fetchCurrentUser(): Promise<{ user: UserDto | null; authFailed: boolean }> {
     try {
       const user = await authClient.me();
-      return user ?? null;
+      return { user: user ?? null, authFailed: !user };
     } catch (e) {
-       // Return null on any error (unauthorized, network, etc.)
-      return null;
+      const status = (e as { status?: number } | null)?.status;
+      return { user: null, authFailed: status === 401 || status === 403 };
     }
   }
 
+  /**
+   * Gets a new access token with the refresh cookie. Shares the single in-flight refresh with
+   * serviceCall's retry: the API rotates the refresh token on every use, so two parallel refreshes
+   * would look like a stolen token and end the session.
+   */
   async refreshSession(): Promise<boolean> {
-    try {
-      const res: AuthRefreshResponseDto = await authClient.refresh();
-      
-      // Update access token with new one from refresh response
-      if (res && res.accessToken) {
-        const rememberMe = tokenService.isRemembered();
-        tokenService.setAccessToken(res.accessToken, rememberMe);
-        return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
+    return refreshAccessToken();
   }
 
-  async updateUser(data: UserUpdateDto): Promise<UserDto> {
-    const user = await authClient.updateUser(data);
-    return user;
+  /**
+   * Updates the email and/or password. An email change ends every session and the API answers
+   * with a fresh access token, which is stored so this tab stays logged in.
+   */
+  async updateUser(data: UserUpdateDto): Promise<AuthUpdateResponseDto> {
+    const res = await authClient.updateUser(data);
+    if (res?.accessToken) {
+      tokenService.setAccessToken(res.accessToken, tokenService.isRemembered());
+    }
+    return res;
   }
 
   async requestPasswordReset(email: string): Promise<ForgotPasswordResponseDto> {
@@ -84,18 +102,34 @@ class AuthService {
     return await authClient.resetPassword({ token, newPassword, passwordConfirmation });
   }
 
-  // Auto-login logic
+  /**
+   * Restores a session on page load. When there's a sign of an earlier session (a stored access
+   * token or remember-me), an expired access token is renewed with the refresh cookie once.
+   * Anonymous visitors don't call refresh: it shares the API's per-IP rate limit with login.
+   */
   async autoLogin(): Promise<UserDto | null> {
-    const remembered = tokenService.isRemembered();
-    // Try to fetch current user; if unauthorized and remembered, try refresh then retry
-    let user = await this.getCurrentUser();
-    if (!user && remembered) {
-      const refreshed = await this.refreshSession();
-      if (refreshed) {
-        user = await this.getCurrentUser();
-      }
+    const hadSession = tokenService.hasAccessToken() || tokenService.isRemembered();
+    if (!hadSession) {
+      return null;
     }
-    return user;
+    // Only a confirmed authentication failure ends the stored session. A network error or 5xx
+    // keeps it (the refresh cookie may still be valid), so the next page load tries again
+    // instead of forcing every player to log in after an API outage.
+    const first = await this.fetchCurrentUser();
+    if (first.user || !first.authFailed) {
+      return first.user;
+    }
+    const outcome = await refreshSessionOutcome();
+    if (outcome === 'renewed') {
+      const second = await this.fetchCurrentUser();
+      if (second.user || !second.authFailed) {
+        return second.user;
+      }
+    } else if (outcome === 'unavailable') {
+      return null;
+    }
+    tokenService.clearAll();
+    return null;
   }
 }
 

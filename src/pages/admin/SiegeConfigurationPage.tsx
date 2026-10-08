@@ -2,6 +2,7 @@ import React from 'react';
 import { Loader2, RefreshCcw, Save } from 'lucide-react';
 import { siegeConfigurationClient } from '../../apiClients/siegeConfigurationClient';
 import { SiegeConfigurationDto, UpdateSiegeConfigurationDto } from '../../types/dtos/siege/SiegeDtos';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 /**
  * Siege Phase 3: the global SiegeConfiguration singleton (docs/specs/siege-minigame/DESIGN.md §3.8).
@@ -109,6 +110,7 @@ const parseText = (text: string, kind: FieldKind): { value?: unknown; error?: st
 };
 
 export const SiegeConfigurationPage: React.FC = () => {
+    usePageTitle('Siege settings');
     const [config, setConfig] = React.useState<SiegeConfigurationDto | null>(null);
     const [drafts, setDrafts] = React.useState<Record<string, string>>({});
     const [loading, setLoading] = React.useState(true);
