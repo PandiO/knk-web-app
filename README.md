@@ -1,4 +1,33 @@
-# Getting Started with Create React App
+# Knights & Kings web app
+
+The player and staff web app for Knights & Kings (React + TypeScript, Create React App). It talks
+to `knk-web-api` over REST.
+
+## Configuration
+
+Settings are read from `REACT_APP_*` environment variables **at build time**: Create React App
+inlines them into the bundle, so a change needs a new `npm run build` (or a restart of
+`npm start`). Put them in the shell, in `.env.local` (not committed), or in the build command.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `REACT_APP_API_BASE_URL` | `http://localhost:5294/api` in development, `/api` in a production build | Base URL of `knk-web-api`. Use `/api` when the API is served on the same origin as the app (the closed-alpha setup). |
+| `REACT_APP_MC_SERVER_ADDRESS` | `play.knightsandkings.net` | The Minecraft server address shown on the landing and register pages. |
+
+Example production build for the alpha:
+
+```bash
+REACT_APP_API_BASE_URL=/api REACT_APP_MC_SERVER_ADDRESS=play.knightsandkings.net npm run build
+```
+
+Both values are resolved in `src/config/appConfig.ts`.
+
+Authentication: the API keeps the refresh token in an HttpOnly cookie scoped to `/api/Auth`, so
+the app sends API calls with `credentials: 'include'`. Serve the app and the API from the same
+origin in production; in development the API's CORS settings must allow `http://localhost:3000`
+with credentials.
+
+## Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
