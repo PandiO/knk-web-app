@@ -60,7 +60,6 @@ export const FormStep2: React.FC<FormStep2Props> = ({
           setUsernameAvailable(true);
         }
       } catch (error) {
-        console.error('Failed to check username availability:', error);
         onError('username', 'Unable to verify username. Please try again.');
         setUsernameAvailable(null);
       } finally {

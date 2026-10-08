@@ -42,11 +42,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
 
   // Cleanup timeout on component unmount
   useEffect(() => {
-    console.log('[LoginForm] Mounted and setting up cleanup for navigation timeout');
     return () => {
-      console.log('[LoginForm] Unmounting - cleaning up');
       if (navigationTimeoutRef.current) {
-        console.log('[LoginForm] Clearing pending navigation timeout on unmount');
         clearTimeout(navigationTimeoutRef.current);
         navigationTimeoutRef.current = null;
       }
@@ -89,11 +86,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
     
     // Reset success flag at start of new attempt
     isSuccessfulLoginRef.current = false;
-    console.log('[LoginForm] Starting new login attempt, reset success flag');
     
     // Clear any pending navigation timeout from previous attempts
     if (navigationTimeoutRef.current) {
-      console.log('[LoginForm] Clearing pending timeout from previous attempt');
       clearTimeout(navigationTimeoutRef.current);
       navigationTimeoutRef.current = null;
     }
@@ -101,9 +96,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
     setIsSubmitting(true);
     setLoginAttempted(true);
     try {
-      console.log('[LoginForm] Attempting login with email:', form.email);
       await login({ email: form.email, password: form.password, rememberMe: form.rememberMe });
-      console.log('[LoginForm] Login successful - setting success flag');
       
       // Mark login as successful BEFORE setting any callbacks
       isSuccessfulLoginRef.current = true;
@@ -112,38 +105,22 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
       
       // Only set navigation timeout after successful login AND with success flag set
       navigationTimeoutRef.current = setTimeout(() => {
-        console.log('[LoginForm] Navigation timeout fired, checking success flag:', isSuccessfulLoginRef.current);
         if (isSuccessfulLoginRef.current) {
-          console.log('[LoginForm] Success flag is true, proceeding with navigation');
           navigate('/dashboard');
-          console.log('[LoginForm] Calling onLoginSuccess callback');
           if (onLoginSuccess) {
             onLoginSuccess();
           }
-        } else {
-          console.warn('[LoginForm] Success flag is false, NOT navigating!');
         }
       }, 1000);
     } catch (error: any) {
-      console.error('[LoginForm] Login error caught - setting success flag to false');
       isSuccessfulLoginRef.current = false;
-      
-      console.error('[LoginForm] Login error:', error);
-      console.error('[LoginForm] Error details:', {
-        message: error?.message,
-        response: error?.response,
-        code: error?.code,
-        status: error?.status,
-      });
-      
+
       let message = ERROR_MESSAGES.InvalidCredentials;
       const code = error?.code || error?.response?.code;
       if (code === 'InvalidCredentials') message = ERROR_MESSAGES.InvalidCredentials;
       else if (error?.response?.message) message = error.response.message;
       else if (error?.message) message = error.message;
-      
-      console.log('[LoginForm] Setting error message:', message);
-      
+
       // Set inline error message
       setErrors({ 
         general: 'Invalid email or password. Please check your credentials and try again.'
@@ -153,7 +130,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
       
       // Clear password field for security, but keep email
       setForm(prev => ({ ...prev, password: '' }));
-      console.log('[LoginForm] Form state after error, email preserved:', form.email);
     } finally {
       setIsSubmitting(false);
     }

@@ -34,7 +34,7 @@ export const LinkCodeDisplay: React.FC<LinkCodeDisplayProps> = ({
       }, 2000);
       return () => clearTimeout(timer);
     } catch (error) {
-      console.error('Failed to copy code:', error);
+      console.warn('Copying the link code failed');
       setCopyAnnouncement('Failed to copy code. Please try again.');
       setCopied(false);
     }

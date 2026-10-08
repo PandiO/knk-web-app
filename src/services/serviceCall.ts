@@ -73,8 +73,8 @@ export class ServiceCall {
                 try {
                     const queryString = Object.keys(args.requestData).map(key => `${encodeURIComponent(key)}=${encodeURIComponent(args.requestData[key])}`).join('&');
                     url = `${url}?${queryString}`;
-                } catch (ex) {
-                    console.log((ex as any).ErrorMessage);
+                } catch {
+                    // Leave the URL without a query string; never log the request data.
                 }
             }
         } else if (args.httpMethod === HttpMethod.Delete) {} else{
@@ -109,8 +109,6 @@ export class ServiceCall {
         // }
 
         try {
-            console.log(url);
-            console.log(requestParams);
             const response = await fetch(url, requestParams);
 
             // Handle APIs that return no content (204) without throwing on response.json()
@@ -132,12 +130,13 @@ export class ServiceCall {
                     args.responseHandler.success(result);
                 }
             } else {
-                console.error(`[ServiceCall] HTTP ${response.status} error for ${args.controller}/${args.operation}:`, result);
+                // Status and controller only: the URL, headers and bodies can hold tokens, link codes
+                // or emails.
+                console.error(`[ServiceCall] HTTP ${response.status} from ${args.controller ?? 'api'}`);
                 if (args.responseHandler) {
                     const error = new Error(describeErrorBody(result, response.status, response.statusText));
                     (error as any).response = result;
                     (error as any).status = response.status;
-                    console.error('[ServiceCall] Calling error handler with:', error);
                     args.responseHandler.error(error);
                 } else {
                     throw new Error(describeErrorBody(result, response.status, response.statusText));

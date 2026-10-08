@@ -20,7 +20,6 @@ export class ObjectManager {
                 headers,
                 responseHandler: {
                     success: (result: any) => {
-                        console.log(result);
                         resolve(result);
                         clearTimeout(timeoutId);
                     },
