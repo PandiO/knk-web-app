@@ -1,5 +1,7 @@
 import { logging, Controllers, HttpMethod } from '../utils';
 import {
+  DomainNavigationDefaultDto,
+  UpdateDomainNavigationDefaultDto,
   RoadEdgeDto,
   RoadEdgeSearchQuery,
   RoadEdgeUpdateDto,
@@ -91,6 +93,17 @@ export class RoadClient extends ObjectManager {
   /** Locks the node unless `locked: false` is part of the update. */
   updateNode(id: number, update: RoadNodeUpdateDto): Promise<RoadNodeDto> {
     return this.invokeServiceCall(update, `${id}`, Controllers.RoadNodes, HttpMethod.Put);
+  }
+
+  // ===== Navigation defaults per domain type (api/navigation-settings, KNG-73)
+
+  getDomainNavigationDefaults(): Promise<DomainNavigationDefaultDto[]> {
+    return this.invokeServiceCall(null, 'domain-defaults', Controllers.NavigationSettings, HttpMethod.Get);
+  }
+
+  updateDomainNavigationDefault(domainType: string, change: UpdateDomainNavigationDefaultDto): Promise<DomainNavigationDefaultDto> {
+    return this.invokeServiceCall(change, `domain-defaults/${encodeURIComponent(domainType)}`,
+      Controllers.NavigationSettings, HttpMethod.Put);
   }
 
   // ===== Streets (api/Streets/{id}/road)
