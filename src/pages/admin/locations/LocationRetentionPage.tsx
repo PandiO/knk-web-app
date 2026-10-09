@@ -42,21 +42,14 @@ const coord = (value: number): string => (Math.round(value * 100) / 100).toStrin
 export const pluginTeleportCommand = (locationId: number): string => `/knk location tp ${locationId}`;
 
 /**
- * Vanilla dimension id of a Bukkit world name for /execute in: the server's main worlds map to the
- * vanilla dimensions, any other world to minecraft:<name> (Paper's key for extra worlds). Assumes
- * the default level-name "world".
+ * Coordinate fallback for when the plugin command is not available: a vanilla /tp in the current
+ * world. It deliberately has no "/execute in <dimension>": Paper names the main world's dimension
+ * minecraft:overworld whatever its folder is called (smoke test 2026-10-09: "world_knk-dev"), and
+ * the web app can't tell which world is the main one, so a guessed dimension can be wrong. The
+ * label tells staff which world to stand in.
  */
-export const dimensionFor = (world?: string | null): string => {
-    const name = (world || 'world').toLowerCase();
-    if (name === 'world') return 'minecraft:overworld';
-    if (name === 'world_nether') return 'minecraft:the_nether';
-    if (name === 'world_the_end') return 'minecraft:the_end';
-    return name.includes(':') ? name : `minecraft:${name}`;
-};
-
-/** Coordinate fallback for when the plugin command is not available. */
-export const executeTeleportCommand = (item: Pick<LocationOrphanDto, 'world' | 'x' | 'y' | 'z' | 'yaw' | 'pitch'>): string =>
-    `/execute in ${dimensionFor(item.world)} run tp @s ${coord(item.x)} ${coord(item.y)} ${coord(item.z)} ${coord(item.yaw)} ${coord(item.pitch)}`;
+export const coordinateTeleportCommand = (item: Pick<LocationOrphanDto, 'x' | 'y' | 'z' | 'yaw' | 'pitch'>): string =>
+    `/tp @s ${coord(item.x)} ${coord(item.y)} ${coord(item.z)} ${coord(item.yaw)} ${coord(item.pitch)}`;
 
 /**
  * A command with click-to-copy. Without the Clipboard API (plain-HTTP admin page) or when it
@@ -345,7 +338,7 @@ export const LocationRetentionPage: React.FC = () => {
                                     {teleportOpen === item.id && canTeleport && (
                                         <div className="grid gap-2 sm:grid-cols-2 bg-gray-50 border border-gray-200 rounded p-3">
                                             <CopyCommand label="In game (preferred)" command={pluginTeleportCommand(item.locationId)} />
-                                            <CopyCommand label="Coordinates (without the plugin)" command={executeTeleportCommand(item)} />
+                                            <CopyCommand label={`Coordinates, while in world ${item.world ?? 'world'} (without the plugin)`} command={coordinateTeleportCommand(item)} />
                                         </div>
                                     )}
                                 </li>

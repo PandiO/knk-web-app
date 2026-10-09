@@ -4,8 +4,7 @@ import '@testing-library/jest-dom';
 import {
     CopyCommand,
     LocationRetentionPage,
-    dimensionFor,
-    executeTeleportCommand,
+    coordinateTeleportCommand,
     pluginTeleportCommand,
 } from '../LocationRetentionPage';
 import { locationRetentionClient } from '../../../../apiClients/locationRetentionClient';
@@ -164,23 +163,17 @@ describe('LocationRetentionPage', () => {
         fireEvent.click(within(screen.getByTestId('orphan-4')).getByRole('button', { name: 'Teleport info' }));
 
         expect(screen.getByText('/knk location tp 42')).toBeInTheDocument();
-        expect(screen.getByText('/execute in minecraft:the_nether run tp @s 120.5 64 -33.25 90 0')).toBeInTheDocument();
+        expect(screen.getByText('/tp @s 120.5 64 -33.25 90 0')).toBeInTheDocument();
+        // The world to stand in, instead of a guessed /execute dimension (smoke test 2026-10-09).
+        expect(screen.getByText(/while in world world_nether/)).toBeInTheDocument();
     });
 });
 
 describe('teleport commands', () => {
-    it('maps Bukkit worlds to vanilla dimensions', () => {
-        expect(dimensionFor('world')).toBe('minecraft:overworld');
-        expect(dimensionFor('world_nether')).toBe('minecraft:the_nether');
-        expect(dimensionFor('world_the_end')).toBe('minecraft:the_end');
-        expect(dimensionFor('Siege_Arena')).toBe('minecraft:siege_arena');
-        expect(dimensionFor(null)).toBe('minecraft:overworld');
-    });
-
     it('builds the plugin and coordinate commands', () => {
         expect(pluginTeleportCommand(7)).toBe('/knk location tp 7');
-        expect(executeTeleportCommand({ world: 'world', x: 1.234, y: 70, z: -5, yaw: 0, pitch: 12.5 }))
-            .toBe('/execute in minecraft:overworld run tp @s 1.23 70 -5 0 12.5');
+        expect(coordinateTeleportCommand({ x: 1.234, y: 70, z: -5, yaw: 0, pitch: 12.5 }))
+            .toBe('/tp @s 1.23 70 -5 0 12.5');
     });
 });
 
