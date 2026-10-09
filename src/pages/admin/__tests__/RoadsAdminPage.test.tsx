@@ -23,6 +23,8 @@ jest.mock('../../../apiClients/roadClient', () => ({
     getMeta: jest.fn(),
     searchEdges: jest.fn(),
     updateEdge: jest.fn(),
+    getDomainNavigationDefaults: jest.fn(),
+    updateDomainNavigationDefault: jest.fn(),
   },
 }));
 jest.mock('../../../apiClients/streetClient', () => ({
@@ -90,6 +92,10 @@ describe('RoadsAdminPage', () => {
     client.getTiles.mockResolvedValue(tiles);
     client.getMeta.mockResolvedValue(meta);
     client.searchEdges.mockResolvedValue({ items: EDGES, totalCount: 2, pageNumber: 1, pageSize: 25 });
+    client.getDomainNavigationDefaults.mockResolvedValue([
+      { domainType: 'Town', defaultMode: 'Spawn', overrideCount: 0, roadAccess: 'Applies', roadAccessOverrideCount: 0 },
+      { domainType: 'GateStructure', defaultMode: 'Region', overrideCount: 1, roadAccess: 'Applies', roadAccessOverrideCount: 0 },
+    ]);
     streets.searchPaged.mockResolvedValue({ items: [{ id: 5, name: 'Market Street' }, { id: 6, name: 'Harbour Road' }], totalCount: 2, page: 1, pageSize: 1000, totalPages: 1 });
     towns.searchPaged.mockResolvedValue({ items: [{ id: 4, name: 'Kardenna', allowEntry: true, requiredTitle: 0 }], totalCount: 1, page: 1, pageSize: 1000, totalPages: 1 });
     materials.getHybrid.mockResolvedValue([]);
@@ -122,6 +128,9 @@ describe('RoadsAdminPage', () => {
     expect(screen.queryByText(/Cell cap hit/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Show warnings of tile 1, 0' }));
     expect(screen.getByText('Cell cap hit near 700, 64, 120')).toBeInTheDocument();
+
+    // Navigation defaults per domain type (KNG-73)
+    expect(await screen.findByLabelText('Gates navigation default')).toHaveValue('Region');
 
     // Edges: street name from the meta, tile coordinates from the tile list, a Rename link
     expect(await screen.findByText('#10')).toBeInTheDocument();
