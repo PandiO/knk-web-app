@@ -33,6 +33,8 @@ export interface GateStructureDto {
   locationId?: number | null;
   // /navigate default of this gate (KNG-73): null = the GateStructure type's; "" clears it.
   navigationDefaultOverride?: 'Spawn' | 'Region' | '' | null;
+  // Rev. 7 Part C (KNG-92): whether this gate's entry rule keeps routes off its roads; null = the type's.
+  roadAccessOverride?: 'Applies' | 'Ignored' | '' | null;
   streetId: number;
   districtId: number;
   houseNumber: number;

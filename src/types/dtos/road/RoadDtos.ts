@@ -229,15 +229,28 @@ export const formatRoadFlags = (flags: string[] | null | undefined): string =>
 export const NAVIGATION_DESTINATION_MODES = ['Spawn', 'Region'] as const;
 export type NavigationDestinationMode = typeof NAVIGATION_DESTINATION_MODES[number];
 
+/**
+ * Whether a domain's entry/exit rule keeps the road router off the roads in its region (rev. 7 Part C,
+ * KNG-92). `Ignored` is for domains along a public street, such as houses and shops: routes pass them,
+ * and the rule still holds at the border, for teleports and on the walk path to the door.
+ */
+export const ROAD_ACCESS_RULES = ['Applies', 'Ignored'] as const;
+export type RoadAccessRule = typeof ROAD_ACCESS_RULES[number];
+
 /** One domain type's default (Town, District, Structure, GateStructure). */
 export interface DomainNavigationDefaultDto {
   domainType: string;
   defaultMode: NavigationDestinationMode;
   /** Domains of this type with their own choice, which this default doesn't change. */
   overrideCount: number;
+  roadAccess: RoadAccessRule;
+  /** Domains of this type with their own road-access choice. */
+  roadAccessOverrideCount: number;
   updatedAt?: string | null;
 }
 
+/** Either or both; a field left out stays as it is. */
 export interface UpdateDomainNavigationDefaultDto {
-  defaultMode: NavigationDestinationMode;
+  defaultMode?: NavigationDestinationMode;
+  roadAccess?: RoadAccessRule;
 }

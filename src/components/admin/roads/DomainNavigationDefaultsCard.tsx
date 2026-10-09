@@ -5,6 +5,9 @@ import {
   DomainNavigationDefaultDto,
   NAVIGATION_DESTINATION_MODES,
   NavigationDestinationMode,
+  ROAD_ACCESS_RULES,
+  RoadAccessRule,
+  UpdateDomainNavigationDefaultDto,
 } from '../../../types/dtos/road/RoadDtos';
 
 // KNG-73 (docs/specs/navigation/DESIGN.md §6.1) - where `/navigate <town|district|structure>` leads
@@ -12,6 +15,10 @@ import {
 // One default per domain type here; a single domain overrides it with "Navigation Default Override"
 // on its own form. `spawn` / `region` after the name still pick either. The game server picks up a
 // change with its next catalogue refresh (about a minute).
+//
+// Rev. 7 Part C (KNG-92, docs/specs/navigation/REV7_PROPOSAL.md §4) - "Entry rule on roads": whether a
+// domain that won't let a player in also keeps that player's routes off the roads in its region. Off
+// ("Ignored") for domains along a public street; the rule still holds at the border and the door.
 
 const TYPE_LABELS: Record<string, string> = {
   Town: 'Towns',
@@ -23,6 +30,11 @@ const TYPE_LABELS: Record<string, string> = {
 const MODE_HELP: Record<NavigationDestinationMode, string> = {
   Spawn: "the domain's spawn Location",
   Region: 'the nearest edge of its region, along the cheapest road route',
+};
+
+const ROAD_ACCESS_HELP: Record<RoadAccessRule, string> = {
+  Applies: "routes avoid its roads for players it doesn't let in",
+  Ignored: 'routes pass along its roads; the rule still holds at its border',
 };
 
 const saveErrorMessage = (err: unknown): string => {
@@ -52,11 +64,11 @@ export const DomainNavigationDefaultsCard: React.FC = () => {
     return () => { cancelled = true; };
   }, []);
 
-  const change = async (domainType: string, defaultMode: NavigationDestinationMode) => {
+  const change = async (domainType: string, update: UpdateDomainNavigationDefaultDto) => {
     setSavingType(domainType);
     setSaveError(null);
     try {
-      const saved = await roadClient.updateDomainNavigationDefault(domainType, defaultMode);
+      const saved = await roadClient.updateDomainNavigationDefault(domainType, update);
       setDefaults((current) => (current ?? []).map((d) => (d.domainType === saved.domainType ? saved : d)));
     } catch (err) {
       console.error('Failed to save the navigation default:', err);
@@ -77,7 +89,9 @@ export const DomainNavigationDefaultsCard: React.FC = () => {
         doesn&apos;t add <code className="text-xs bg-gray-100 px-1 rounded">spawn</code> or{' '}
         <code className="text-xs bg-gray-100 px-1 rounded">region</code>. A domain can override its type with
         &quot;Navigation Default Override&quot; on its own form. A player already inside the domain is told so
-        either way.
+        either way. <span className="font-medium">Entry rule on roads</span> says whether a domain that won&apos;t
+        let a player in also keeps their routes off the roads in its region; turn it off for domains along a public
+        street. The rule still holds at the domain&apos;s border.
       </p>
 
       {loadError ? (
@@ -94,7 +108,9 @@ export const DomainNavigationDefaultsCard: React.FC = () => {
               <tr className="text-left border-b border-gray-200">
                 <th className="py-2 pr-4">Domain type</th>
                 <th className="py-2 pr-4">Default destination</th>
-                <th className="py-2 pr-4 text-right" title="Domains of this type with their own choice">Overrides</th>
+                <th className="py-2 pr-4 text-right" title="Domains of this type with their own destination">Overrides</th>
+                <th className="py-2 pr-4">Entry rule on roads</th>
+                <th className="py-2 pr-4 text-right" title="Domains of this type with their own entry rule on roads">Overrides</th>
               </tr>
             </thead>
             <tbody>
@@ -110,7 +126,7 @@ export const DomainNavigationDefaultsCard: React.FC = () => {
                           value={d.defaultMode}
                           aria-label={`${label} navigation default`}
                           disabled={savingType !== null}
-                          onChange={(e) => void change(d.domainType, e.target.value as NavigationDestinationMode)}
+                          onChange={(e) => void change(d.domainType, { defaultMode: e.target.value as NavigationDestinationMode })}
                         >
                           {NAVIGATION_DESTINATION_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
                         </select>
@@ -122,6 +138,21 @@ export const DomainNavigationDefaultsCard: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-2 pr-4 text-gray-700 text-right">{d.overrideCount}</td>
+                    <td className="py-2 pr-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                          value={d.roadAccess}
+                          aria-label={`${label} entry rule on roads`}
+                          disabled={savingType !== null}
+                          onChange={(e) => void change(d.domainType, { roadAccess: e.target.value as RoadAccessRule })}
+                        >
+                          {ROAD_ACCESS_RULES.map((rule) => <option key={rule} value={rule}>{rule}</option>)}
+                        </select>
+                        <span className="text-xs text-gray-500">{ROAD_ACCESS_HELP[d.roadAccess] ?? ''}</span>
+                      </div>
+                    </td>
+                    <td className="py-2 pr-4 text-gray-700 text-right">{d.roadAccessOverrideCount}</td>
                   </tr>
                 );
               })}

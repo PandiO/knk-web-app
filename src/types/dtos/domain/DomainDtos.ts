@@ -17,6 +17,9 @@ export interface DomainTeleportSettingsDto {
 // the road admin page). Sending "" (or "TypeDefault") clears it; leaving the field out keeps it.
 export interface DomainNavigationDefaultSettingsDto {
     navigationDefaultOverride?: 'Spawn' | 'Region' | '' | null;
+    // Rev. 7 Part C (KNG-92): whether this domain's entry rule keeps routes off its roads; null/absent =
+    // its type's choice. Same "" / leave-out rules as above.
+    roadAccessOverride?: 'Applies' | 'Ignored' | '' | null;
 }
 
 export interface DomainDto extends DomainTeleportSettingsDto, DomainNavigationDefaultSettingsDto {
@@ -52,4 +55,6 @@ export interface DomainListDto {
     domainType: string;
     // The effective /navigate default (the domain's override, else its type's) - what the game server uses.
     navigationDefault?: 'Spawn' | 'Region';
+    // The effective road access (the domain's override, else its type's) - what the game server's router uses.
+    roadAccess?: 'Applies' | 'Ignored';
 }

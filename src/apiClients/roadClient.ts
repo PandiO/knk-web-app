@@ -1,7 +1,7 @@
 import { logging, Controllers, HttpMethod } from '../utils';
 import {
   DomainNavigationDefaultDto,
-  NavigationDestinationMode,
+  UpdateDomainNavigationDefaultDto,
   RoadEdgeDto,
   RoadEdgeSearchQuery,
   RoadEdgeUpdateDto,
@@ -101,8 +101,8 @@ export class RoadClient extends ObjectManager {
     return this.invokeServiceCall(null, 'domain-defaults', Controllers.NavigationSettings, HttpMethod.Get);
   }
 
-  updateDomainNavigationDefault(domainType: string, defaultMode: NavigationDestinationMode): Promise<DomainNavigationDefaultDto> {
-    return this.invokeServiceCall({ defaultMode }, `domain-defaults/${encodeURIComponent(domainType)}`,
+  updateDomainNavigationDefault(domainType: string, change: UpdateDomainNavigationDefaultDto): Promise<DomainNavigationDefaultDto> {
+    return this.invokeServiceCall(change, `domain-defaults/${encodeURIComponent(domainType)}`,
       Controllers.NavigationSettings, HttpMethod.Put);
   }
 

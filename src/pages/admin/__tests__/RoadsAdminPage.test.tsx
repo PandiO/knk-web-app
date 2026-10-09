@@ -93,8 +93,8 @@ describe('RoadsAdminPage', () => {
     client.getMeta.mockResolvedValue(meta);
     client.searchEdges.mockResolvedValue({ items: EDGES, totalCount: 2, pageNumber: 1, pageSize: 25 });
     client.getDomainNavigationDefaults.mockResolvedValue([
-      { domainType: 'Town', defaultMode: 'Spawn', overrideCount: 0 },
-      { domainType: 'GateStructure', defaultMode: 'Region', overrideCount: 1 },
+      { domainType: 'Town', defaultMode: 'Spawn', overrideCount: 0, roadAccess: 'Applies', roadAccessOverrideCount: 0 },
+      { domainType: 'GateStructure', defaultMode: 'Region', overrideCount: 1, roadAccess: 'Applies', roadAccessOverrideCount: 0 },
     ]);
     streets.searchPaged.mockResolvedValue({ items: [{ id: 5, name: 'Market Street' }, { id: 6, name: 'Harbour Road' }], totalCount: 2, page: 1, pageSize: 1000, totalPages: 1 });
     towns.searchPaged.mockResolvedValue({ items: [{ id: 4, name: 'Kardenna', allowEntry: true, requiredTitle: 0 }], totalCount: 1, page: 1, pageSize: 1000, totalPages: 1 });
