@@ -65,7 +65,8 @@ export interface MinecraftWorldRuntimeDto {
 
 /**
  * One permission group's overrides (KNG-52). null = no override: the player's next group, else the
- * global/world setting. A blank joinAnnouncement means "no join broadcast" for the group.
+ * global/world setting. A blank joinAnnouncement/leaveAnnouncement means "no join/leave broadcast" for
+ * the group. Messages take {player}, {group} and {title} (alias {titlename}).
  */
 export interface PermissionGroupGameSettingsDto {
   permissionGroupId: number;
@@ -74,6 +75,8 @@ export interface PermissionGroupGameSettingsDto {
   /** Read-only: 1 = considered first (hierarchy, then weight). */
   precedence?: number;
   joinAnnouncement?: string | null;
+  /** null = not overridden; "" = the group's members leave silently. */
+  leaveAnnouncement?: string | null;
   joinSpawnReference?: LocationReferenceDto | null;
   respawnPolicy?: RespawnPolicyDto | null;
 }

@@ -5,6 +5,7 @@ import { PermissionGroupGameSettingsDto } from '../../../types/dtos/gameSettings
 import { LocationOption } from './locationReferenceOptions';
 import { LocationReferencePicker } from './LocationReferencePicker';
 import { MinecraftLegacyPreview } from './MinecraftLegacyPreview';
+import { PREVIEW_SAMPLE, fillMessagePlaceholders } from './messagePlaceholders';
 import { RespawnPolicyEditor, defaultRespawnPolicy } from './RespawnPolicyEditor';
 
 type GroupLike = Pick<PermissionGroupDto, 'id' | 'name' | 'weight' | 'parentGroupId'>;
@@ -38,8 +39,53 @@ export const orderByPrecedence = (
         || a.permissionGroupId - b.permissionGroupId);
 };
 
+const DEFAULT_GROUP_MESSAGE = {
+    join: '&6[{group}] &e{player} &7joined the server.',
+    leave: '&6[{group}] &e{player} &7left the server.',
+};
+
+/** A group's own join or leave message: null = not overridden, '' = the group's members are silent. */
+const GroupMessageField: React.FC<{
+    kind: 'join' | 'leave';
+    groupName: string;
+    value: string | null | undefined;
+    onChange: (value: string | null) => void;
+}> = ({ kind, groupName, value, onChange }) => {
+    const enabled = value != null;
+    return (
+        <div className="space-y-2">
+            <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input
+                    type="checkbox"
+                    checked={enabled}
+                    onChange={e => onChange(e.target.checked ? DEFAULT_GROUP_MESSAGE[kind] : null)}
+                    className="rounded border-gray-300"
+                />
+                Own {kind} message
+            </label>
+            {enabled && (
+                <>
+                    <textarea
+                        aria-label={`${groupName} ${kind} message`}
+                        value={value || ''}
+                        onChange={e => onChange(e.target.value)}
+                        rows={2}
+                        className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
+                    />
+                    <p className="text-xs text-gray-500">
+                        <code>{'{player}'}</code> = player name, <code>{'{title}'}</code> = their title (e.g. {PREVIEW_SAMPLE.title}; empty
+                        if none), <code>{'{group}'}</code> = {groupName}. Colour codes like <code>&amp;6</code>, several per line, and hex
+                        {' '}<code>&amp;x&amp;f&amp;f&amp;a&amp;a&amp;0&amp;0</code>. Empty = this group {kind === 'join' ? 'joins' : 'leaves'} silently.
+                    </p>
+                    <MinecraftLegacyPreview dark text={fillMessagePlaceholders(value || '', { ...PREVIEW_SAMPLE, group: groupName })} />
+                </>
+            )}
+        </div>
+    );
+};
+
 /**
- * Per-permission-group overrides of the join message, join spawn and respawn (KNG-52,
+ * Per-permission-group overrides of the join/leave message, join spawn and respawn (KNG-52,
  * docs/specs/game-settings/DESIGN.md §3.8). Saved with the rest of the page.
  */
 export const GroupOverridesCard: React.FC<{
@@ -50,6 +96,8 @@ export const GroupOverridesCard: React.FC<{
     onCreateLocation?: () => void;
 }> = ({ overrides, groups, options, onChange, onCreateLocation }) => {
     const [toAdd, setToAdd] = React.useState<string>('');
+    // Groups whose 'Own spawn' is ticked but no spot is chosen yet (nothing is saved until one is).
+    const [spawnPending, setSpawnPending] = React.useState<number[]>([]);
     const ordered = orderByPrecedence(overrides, groups);
     const available = groups
         .filter(g => g.id != null && !overrides.some(o => o.permissionGroupId === g.id))
@@ -65,7 +113,7 @@ export const GroupOverridesCard: React.FC<{
             <div>
                 <h2 className="text-lg font-semibold text-gray-900">Permission Group Overrides</h2>
                 <p className="mt-1 text-sm text-gray-600">
-                    Give a group its own join message, spawn or respawn. A player in several groups gets each setting
+                    Give a group its own join or leave message, spawn or respawn. A player in several groups gets each setting
                     from the first group in this list that sets it: deeper in the group hierarchy first (a group beats the
                     group it inherits from), then higher weight. Staff and owner-mode players are never redirected on
                     respawn, and owner-mode players are not moved on join.
@@ -93,7 +141,7 @@ export const GroupOverridesCard: React.FC<{
                     disabled={!toAdd}
                     onClick={() => {
                         const id = Number(toAdd);
-                        onChange([...overrides, { permissionGroupId: id, groupName: groupName(id), joinAnnouncement: null, joinSpawnReference: null, respawnPolicy: null }]);
+                        onChange([...overrides, { permissionGroupId: id, groupName: groupName(id), joinAnnouncement: null, leaveAnnouncement: null, joinSpawnReference: null, respawnPolicy: null }]);
                         setToAdd('');
                     }}
                 >
@@ -105,7 +153,7 @@ export const GroupOverridesCard: React.FC<{
 
             {ordered.map((o, index) => {
                 const name = groupName(o.permissionGroupId);
-                const hasJoin = o.joinAnnouncement != null;
+                const ownSpawn = o.joinSpawnReference != null || spawnPending.includes(o.permissionGroupId);
                 return (
                     <div key={o.permissionGroupId} className="rounded-md border border-gray-200 p-4 space-y-4" data-testid={`group-override-${o.permissionGroupId}`}>
                         <div className="flex items-center justify-between">
@@ -123,58 +171,46 @@ export const GroupOverridesCard: React.FC<{
                             </button>
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-                                <input
-                                    type="checkbox"
-                                    checked={hasJoin}
-                                    onChange={e => update(o.permissionGroupId, x => ({ ...x, joinAnnouncement: e.target.checked ? '&6[{group}] &e{player} &7joined the server.' : null }))}
-                                    className="rounded border-gray-300"
-                                />
-                                Own join message
-                            </label>
-                            {hasJoin && (
-                                <>
-                                    <textarea
-                                        aria-label={`${name} join message`}
-                                        value={o.joinAnnouncement || ''}
-                                        onChange={e => update(o.permissionGroupId, x => ({ ...x, joinAnnouncement: e.target.value }))}
-                                        rows={2}
-                                        className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
-                                    />
-                                    <p className="text-xs text-gray-500">
-                                        <code>{'{player}'}</code> = player name, <code>{'{group}'}</code> = {name}. Colour codes like <code>&amp;6</code>,
-                                        several per line, and hex <code>&amp;x&amp;f&amp;f&amp;a&amp;a&amp;0&amp;0</code>. Empty = this group joins silently.
-                                    </p>
-                                    <MinecraftLegacyPreview dark text={(o.joinAnnouncement || '').split('{player}').join('Steve').split('{group}').join(name)} />
-                                </>
-                            )}
-                        </div>
+                        <GroupMessageField
+                            kind="join"
+                            groupName={name}
+                            value={o.joinAnnouncement}
+                            onChange={joinAnnouncement => update(o.permissionGroupId, x => ({ ...x, joinAnnouncement }))}
+                        />
+
+                        <GroupMessageField
+                            kind="leave"
+                            groupName={name}
+                            value={o.leaveAnnouncement}
+                            onChange={leaveAnnouncement => update(o.permissionGroupId, x => ({ ...x, leaveAnnouncement }))}
+                        />
 
                         <div className="space-y-2">
                             <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
                                 <input
                                     type="checkbox"
-                                    checked={o.joinSpawnReference != null}
+                                    checked={ownSpawn}
                                     onChange={e => {
+                                        const id = o.permissionGroupId;
+                                        setSpawnPending(prev => (e.target.checked ? [...prev, id] : prev.filter(x => x !== id)));
                                         if (!e.target.checked) {
-                                            update(o.permissionGroupId, x => ({ ...x, joinSpawnReference: null }));
-                                        } else if (options[0]) {
-                                            const first = options[0];
-                                            update(o.permissionGroupId, x => ({ ...x, joinSpawnReference: { sourceType: first.sourceType, sourceId: first.sourceId, displayLabel: first.displayLabel, location: first.location } }));
+                                            update(id, x => ({ ...x, joinSpawnReference: null }));
                                         }
                                     }}
                                     className="rounded border-gray-300"
                                 />
                                 Own spawn (join and <code>/spawn</code>)
                             </label>
-                            {o.joinSpawnReference != null && (
+                            {ownSpawn && (
                                 <LocationReferencePicker
-                                    value={o.joinSpawnReference}
+                                    value={o.joinSpawnReference ?? null}
                                     options={options}
                                     onChange={reference => update(o.permissionGroupId, x => ({ ...x, joinSpawnReference: reference }))}
                                     onCreateLocation={onCreateLocation}
                                 />
+                            )}
+                            {ownSpawn && o.joinSpawnReference == null && (
+                                <p className="text-xs text-gray-500">Choose a spot - without one this group keeps the normal spawn.</p>
                             )}
                         </div>
 
