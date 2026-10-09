@@ -252,10 +252,13 @@ const ObjectTypeExplorer = ({
       .map(({ group, items: groupItems }) => {
         const expanded = isExpanded(group, groupItems.length);
         const listId = `object-type-explorer-group-${group.id}`;
+        // The title wraps rather than being cut off in the narrow sidebar; the count always shows
+        // (KNG-61 live test: "WITHOUT DISPLAY CONFIGURA..." hid the count).
         const heading = (
-          <span className="truncate">
-            {group.title} ({groupItems.length})
-          </span>
+          <>
+            <span className="min-w-0 break-words text-left">{group.title}</span>{' '}
+            <span className="ml-auto flex-shrink-0 pl-1 tabular-nums">({groupItems.length})</span>
+          </>
         );
 
         return (
@@ -266,7 +269,7 @@ const ObjectTypeExplorer = ({
                 onClick={() => toggleGroup(group, expanded)}
                 aria-expanded={expanded}
                 aria-controls={listId}
-                className="w-full flex items-center gap-1 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700"
+                className="w-full flex items-start gap-1 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700"
               >
                 {expanded
                   ? <ChevronDown className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
@@ -274,7 +277,7 @@ const ObjectTypeExplorer = ({
                 {heading}
               </button>
             ) : (
-              <h3 className="flex items-center px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <h3 className="flex items-start gap-1 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 {heading}
               </h3>
             )}

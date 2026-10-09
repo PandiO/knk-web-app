@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import ObjectDashboard, { getEntityNamesWithPublishedDefaultDisplay } from '../ObjectDashboard';
+import ObjectDashboard, { getDefaultEntityName, getEntityNamesWithPublishedDefaultDisplay } from '../ObjectDashboard';
 import { displayConfigClient } from '../../../apiClients/displayConfigClient';
 import { DisplayConfigurationDto } from '../../../types/dtos/displayConfig/DisplayModels';
 import { logging } from '../../../utils';
@@ -48,6 +48,43 @@ describe('ObjectDashboard entity navigator', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         window.localStorage.clear();
+    });
+
+    it('opens on the first type of the Entities group, A-Z, once the grouping is known', async () => {
+        // KNG-61 live test: the API's first type (often without a display configuration) was
+        // selected, which re-opened the collapsed group on every visit.
+        let answer: (configs: DisplayConfigurationDto[]) => void = () => undefined;
+        getAll.mockReturnValue(new Promise(resolve => { answer = resolve; }));
+
+        render(<ObjectDashboard objectTypes={[]} />);
+        expect(screen.queryByTestId('table')).not.toBeInTheDocument();
+
+        answer([config('Street', true, false), config('District', true, false)]);
+
+        expect(await screen.findByTestId('table')).toHaveTextContent('District');
+        const without = screen.getByRole('button', { name: /Without display configuration/ });
+        expect(without).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('falls back to the first type when the display configurations fail to load', async () => {
+        getAll.mockRejectedValue(new Error('offline'));
+
+        render(<ObjectDashboard objectTypes={[]} />);
+
+        expect(await screen.findByTestId('table')).toHaveTextContent('Town');
+    });
+
+    it('picks the default type by label, falling back to API order', () => {
+        const metadata = [
+            { entityName: 'Town', displayName: 'Town' },
+            { entityName: 'GateStructure', displayName: 'Gate structure' },
+            { entityName: 'Item', displayName: null },
+        ];
+        expect(getDefaultEntityName(metadata, new Set(['town', 'gatestructure']))).toBe('GateStructure');
+        expect(getDefaultEntityName(metadata, new Set(['item']))).toBe('Item');
+        expect(getDefaultEntityName(metadata, new Set())).toBe('Town');
+        expect(getDefaultEntityName(metadata, null)).toBe('Town');
+        expect(getDefaultEntityName([], null)).toBe('');
     });
 
     it('keeps only published default configurations', () => {

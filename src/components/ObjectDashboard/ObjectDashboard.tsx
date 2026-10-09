@@ -24,6 +24,23 @@ export const getEntityNamesWithPublishedDefaultDisplay = (configs: DisplayConfig
             .map(config => config.entityTypeName.toLowerCase())
     );
 
+/**
+ * The type the dashboard opens on: the first type of the "Entities" group (published default
+ * display configuration), A-Z by the label the navigator shows. Without that grouping (load failed,
+ * or no type has one) the first type in API order, as before.
+ */
+export const getDefaultEntityName = (
+    metadata: { entityName: string; displayName?: string | null }[],
+    displayConfigured: Set<string> | null,
+): string => {
+    const primary = displayConfigured
+        ? metadata.filter(meta => displayConfigured.has(meta.entityName.toLowerCase()))
+        : [];
+    if (primary.length === 0) return metadata[0]?.entityName ?? '';
+    const label = (meta: { entityName: string; displayName?: string | null }) => meta.displayName || meta.entityName;
+    return [...primary].sort((a, b) => label(a).localeCompare(label(b), undefined, { sensitivity: 'base' }))[0].entityName;
+};
+
 const ObjectDashboard = ({ objectTypes }: Props) => {
     const navigate = useNavigate();
     const [selectedType, setSelectedType] = useState<string>('');
@@ -31,6 +48,9 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     const hasMetadata = baseMetadata.length > 0;
     // null while loading or after a failure: the explorer then shows one flat list.
     const [displayConfiguredEntities, setDisplayConfiguredEntities] = useState<Set<string> | null>(null);
+    // True once the display configurations answered (or failed), so the default selection can
+    // prefer a type from the "Entities" group.
+    const [displayConfigsSettled, setDisplayConfigsSettled] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -38,10 +58,12 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
             .then(configs => {
                 if (!cancelled) {
                     setDisplayConfiguredEntities(getEntityNamesWithPublishedDefaultDisplay(configs ?? []));
+                    setDisplayConfigsSettled(true);
                 }
             })
             .catch(error => {
                 if (cancelled) return;
+                setDisplayConfigsSettled(true);
                 console.error('Failed to load display configurations for the entity navigator', error);
                 logging.errorHandler.next('ErrorMessage.DisplayConfiguration.LoadFailed');
             });
@@ -76,7 +98,11 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
             );
 
             if (!selectedExists && baseMetadata[0]?.entityName) {
-                setSelectedType(baseMetadata[0].entityName);
+                // KNG-61 live test: defaulting to the API's first type (often one without a display
+                // configuration) re-opened the collapsed group on every visit. Wait for the grouping
+                // and start on the first type of the "Entities" group instead.
+                if (!displayConfigsSettled) return;
+                setSelectedType(getDefaultEntityName(baseMetadata, displayConfiguredEntities));
             }
             return;
         }
@@ -87,7 +113,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         if (!selectedExists && objectTypes[0]?.id) {
             setSelectedType(objectTypes[0].id);
         }
-    }, [hasMetadata, baseMetadata, objectTypes, selectedType]);
+    }, [hasMetadata, baseMetadata, objectTypes, selectedType, displayConfigsSettled, displayConfiguredEntities]);
 
     // const fetchObjects = ({ type }: { type: string }) => {
     //     let list: any = [];
