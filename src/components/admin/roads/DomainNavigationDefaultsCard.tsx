@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, Navigation } from 'lucide-react';
+import { Info, Loader2, Navigation } from 'lucide-react';
 import { roadClient } from '../../../apiClients/roadClient';
 import {
   DomainNavigationDefaultDto,
@@ -36,6 +36,18 @@ const ROAD_ACCESS_HELP: Record<RoadAccessRule, string> = {
   Applies: "routes avoid its roads for players it doesn't let in",
   Ignored: 'routes pass along its roads; the rule still holds at its border',
 };
+
+const DESTINATION_OVERRIDES_HELP =
+  'Domains of this type with their own "Navigation Default Override" on their form. Changing the default here does not change them.';
+const ROAD_OVERRIDES_HELP =
+  'Domains of this type with their own "Road Access Override" on their form. Changing the rule here does not change them.';
+
+/** A small (i) whose explanation shows on hover (and is read out by screen readers). */
+const InfoTip: React.FC<{ text: string }> = ({ text }) => (
+  <span role="img" aria-label={text} title={text} className="inline-flex align-middle ml-1 text-gray-400 cursor-help">
+    <Info className="h-3.5 w-3.5" aria-hidden="true" />
+  </span>
+);
 
 const saveErrorMessage = (err: unknown): string => {
   const status = (err as { status?: number } | null)?.status;
@@ -108,9 +120,15 @@ export const DomainNavigationDefaultsCard: React.FC = () => {
               <tr className="text-left border-b border-gray-200">
                 <th className="py-2 pr-4">Domain type</th>
                 <th className="py-2 pr-4">Default destination</th>
-                <th className="py-2 pr-4 text-right" title="Domains of this type with their own destination">Overrides</th>
+                <th className="py-2 pr-4 text-right whitespace-nowrap">
+                  Overrides
+                  <InfoTip text={DESTINATION_OVERRIDES_HELP} />
+                </th>
                 <th className="py-2 pr-4">Entry rule on roads</th>
-                <th className="py-2 pr-4 text-right" title="Domains of this type with their own entry rule on roads">Overrides</th>
+                <th className="py-2 pr-4 text-right whitespace-nowrap">
+                  Overrides
+                  <InfoTip text={ROAD_OVERRIDES_HELP} />
+                </th>
               </tr>
             </thead>
             <tbody>

@@ -69,6 +69,14 @@ describe('DomainNavigationDefaultsCard', () => {
         expect(screen.getByLabelText('Towns navigation default')).toHaveValue('Spawn');
     });
 
+    it('explains both override counts with an (i)', async () => {
+        getDefaults.mockResolvedValue(defaults);
+        render(<DomainNavigationDefaultsCard />);
+
+        expect(await screen.findByLabelText(/own "Navigation Default Override"/)).toHaveAttribute('title');
+        expect(screen.getByLabelText(/own "Road Access Override"/)).toHaveAttribute('title');
+    });
+
     it('shows the API message when a save is refused', async () => {
         getDefaults.mockResolvedValue(defaults);
         updateDefault.mockRejectedValue(Object.assign(new Error('You may not change road settings.'), { status: 403 }));
