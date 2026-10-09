@@ -185,6 +185,39 @@ describe('PlayerDiscoveriesPanel', () => {
     expect(confirmSpy).not.toHaveBeenCalled();
   });
 
+  it('takes the row out and confirms the reset without waiting for the reload', async () => {
+    // KNG-40 live test: after a confirmed reset the row stayed until the page was reloaded, with
+    // no feedback. The panel now updates itself as soon as the API confirms the reset.
+    mockedReset.mockResolvedValue(null);
+    render(<PlayerDiscoveriesPanel userId={PLAYER} />);
+    await screen.findByText('Old Quarter');
+    // The reload after the reset never answers: the panel must not depend on it.
+    mockedProgress.mockReturnValue(new Promise(() => {}));
+    mockedSummary.mockReturnValue(new Promise(() => {}));
+
+    await clickRowReset();
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reset' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Reset the discovery of Old Quarter. The player keeps the reward and can discover it again.');
+    expect(screen.queryByText('Old Quarter')).not.toBeInTheDocument();
+    expect(screen.getByText('Rivia')).toBeInTheDocument();
+  });
+
+  it('shows the reloaded list after a reset', async () => {
+    mockedReset.mockResolvedValue(null);
+    render(<PlayerDiscoveriesPanel userId={PLAYER} />);
+    await screen.findByText('Old Quarter');
+    mockedProgress.mockResolvedValue(page([row({ domainId: 1 })]));
+
+    await clickRowReset();
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reset' }));
+
+    await waitFor(() => expect(mockedProgress).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText('Old Quarter')).not.toBeInTheDocument();
+    expect(screen.getByText('Rivia')).toBeInTheDocument();
+  });
+
   it('does nothing when the reset is cancelled', async () => {
     render(<PlayerDiscoveriesPanel userId={PLAYER} />);
     await screen.findByText('Old Quarter');
@@ -206,6 +239,8 @@ describe('PlayerDiscoveriesPanel', () => {
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reset' }));
 
     expect(await screen.findByText('User 7 has not discovered domain 2')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByText('Old Quarter')).toBeInTheDocument();
   });
 
   it('says so when the player has no discoveries', async () => {

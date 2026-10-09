@@ -21,6 +21,8 @@ import { FeedbackModal } from '../FeedbackModal';
 // discovered (and rewarded) again, and is written to the audit log as DiscoveryReset.
 
 export const DISCOVERIES_PAGE_SIZE = 25;
+/** How long the "Reset the discovery of …" confirmation stays visible. */
+export const RESET_NOTICE_MS = 6000;
 
 export const PlayerDiscoveriesPanel: React.FC<{
   userId: number;
@@ -42,6 +44,8 @@ export const PlayerDiscoveriesPanel: React.FC<{
   const [error, setError] = React.useState<string | null>(null);
   const [resettingId, setResettingId] = React.useState<number | null>(null);
   const [resetError, setResetError] = React.useState<string | null>(null);
+  // Confirmation after a reset (KNG-40 live test: a reset gave no visible feedback).
+  const [resetNotice, setResetNotice] = React.useState<string | null>(null);
   // The row whose Reset was clicked, awaiting confirmation in the modal.
   const [pendingReset, setPendingReset] = React.useState<DiscoveryProgressRowDto | null>(null);
 
@@ -79,6 +83,13 @@ export const PlayerDiscoveriesPanel: React.FC<{
     }
   }, [userId]);
 
+  // The success line clears itself after a few seconds.
+  React.useEffect(() => {
+    if (!resetNotice) return undefined;
+    const timer = window.setTimeout(() => setResetNotice(null), RESET_NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, [resetNotice]);
+
   // First page for a new player, permission or type filter.
   React.useEffect(() => {
     if (allowed) void load(1, domainType);
@@ -92,8 +103,24 @@ export const PlayerDiscoveriesPanel: React.FC<{
   const handleReset = async (row: DiscoveryProgressRowDto) => {
     setResettingId(row.domainId);
     setResetError(null);
+    setResetNotice(null);
     try {
       await discoveryClient.reset(userId, row.domainId);
+      // Show the result straight away instead of only after the reload below: the row leaves
+      // the list and its type's count drops (the reward totals stay - no claw-back).
+      setPage((current) => current && {
+        ...current,
+        items: current.items.filter((item) => item.domainId !== row.domainId),
+        totalCount: Math.max(0, current.totalCount - 1),
+      });
+      setSummary((current) => current && {
+        ...current,
+        totalDiscovered: Math.max(0, current.totalDiscovered - 1),
+        byType: current.byType.map((type) => type.domainType === row.domainType
+          ? { ...type, discovered: Math.max(0, type.discovered - 1) }
+          : type),
+      });
+      setResetNotice(`Reset the discovery of ${row.name}. The player keeps the reward and can discover it again.`);
       // Stay on this page unless it just became empty.
       const stayOn = page && page.items.length === 1 && pageNumber > 1 ? pageNumber - 1 : pageNumber;
       await load(stayOn, domainType);
@@ -208,6 +235,7 @@ export const PlayerDiscoveriesPanel: React.FC<{
           )}
         </>
       )}
+      {resetNotice && <p className="mt-3 text-xs text-green-700" role="status">{resetNotice}</p>}
       {resetError && <p className="mt-3 text-xs text-red-600">{resetError}</p>}
       <FeedbackModal
         open={pendingReset !== null}
