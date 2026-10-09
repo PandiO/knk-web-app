@@ -42,14 +42,13 @@ const coord = (value: number): string => (Math.round(value * 100) / 100).toStrin
 export const pluginTeleportCommand = (locationId: number): string => `/knk location tp ${locationId}`;
 
 /**
- * Coordinate fallback for when the plugin command is not available: a vanilla /tp in the current
- * world. It deliberately has no "/execute in <dimension>": Paper names the main world's dimension
- * minecraft:overworld whatever its folder is called (smoke test 2026-10-09: "world_knk-dev"), and
- * the web app can't tell which world is the main one, so a guessed dimension can be wrong. The
- * label tells staff which world to stand in.
+ * Coordinate fallback in the KNK staff /tp format (KNG-17: /tp <x> <y> <z> [world] [yaw pitch]):
+ * world-aware without a vanilla dimension id, and it needs no Location lookup through the API.
+ * (Smoke test 2026-10-09: "/execute in minecraft:<world>" failed - Paper calls the main world
+ * minecraft:overworld whatever its folder is named, and the web app can't tell which one it is.)
  */
-export const coordinateTeleportCommand = (item: Pick<LocationOrphanDto, 'x' | 'y' | 'z' | 'yaw' | 'pitch'>): string =>
-    `/tp @s ${coord(item.x)} ${coord(item.y)} ${coord(item.z)} ${coord(item.yaw)} ${coord(item.pitch)}`;
+export const coordinateTeleportCommand = (item: Pick<LocationOrphanDto, 'world' | 'x' | 'y' | 'z' | 'yaw' | 'pitch'>): string =>
+    `/tp ${coord(item.x)} ${coord(item.y)} ${coord(item.z)} ${item.world || 'world'} ${coord(item.yaw)} ${coord(item.pitch)}`;
 
 /**
  * A command with click-to-copy. Without the Clipboard API (plain-HTTP admin page) or when it
@@ -338,7 +337,7 @@ export const LocationRetentionPage: React.FC = () => {
                                     {teleportOpen === item.id && canTeleport && (
                                         <div className="grid gap-2 sm:grid-cols-2 bg-gray-50 border border-gray-200 rounded p-3">
                                             <CopyCommand label="In game (preferred)" command={pluginTeleportCommand(item.locationId)} />
-                                            <CopyCommand label={`Coordinates, while in world ${item.world ?? 'world'} (without the plugin)`} command={coordinateTeleportCommand(item)} />
+                                            <CopyCommand label="By coordinates (no API lookup)" command={coordinateTeleportCommand(item)} />
                                         </div>
                                     )}
                                 </li>

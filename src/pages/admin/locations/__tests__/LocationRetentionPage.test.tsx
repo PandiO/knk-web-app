@@ -163,17 +163,17 @@ describe('LocationRetentionPage', () => {
         fireEvent.click(within(screen.getByTestId('orphan-4')).getByRole('button', { name: 'Teleport info' }));
 
         expect(screen.getByText('/knk location tp 42')).toBeInTheDocument();
-        expect(screen.getByText('/tp @s 120.5 64 -33.25 90 0')).toBeInTheDocument();
-        // The world to stand in, instead of a guessed /execute dimension (smoke test 2026-10-09).
-        expect(screen.getByText(/while in world world_nether/)).toBeInTheDocument();
+        // KNK /tp with the world, instead of a guessed /execute dimension (smoke test 2026-10-09).
+        expect(screen.getByText('/tp 120.5 64 -33.25 world_nether 90 0')).toBeInTheDocument();
     });
 });
 
 describe('teleport commands', () => {
     it('builds the plugin and coordinate commands', () => {
         expect(pluginTeleportCommand(7)).toBe('/knk location tp 7');
-        expect(coordinateTeleportCommand({ x: 1.234, y: 70, z: -5, yaw: 0, pitch: 12.5 }))
-            .toBe('/tp @s 1.23 70 -5 0 12.5');
+        expect(coordinateTeleportCommand({ world: 'world_knk-dev', x: 1.234, y: 70, z: -5, yaw: 0, pitch: 12.5 }))
+            .toBe('/tp 1.23 70 -5 world_knk-dev 0 12.5');
+        expect(coordinateTeleportCommand({ world: null, x: 0, y: 64, z: 0, yaw: 0, pitch: 0 })).toBe('/tp 0 64 0 world 0 0');
     });
 });
 
