@@ -123,6 +123,8 @@ export enum Controllers {
     LootboxTokenGrants = 'LootboxTokenGrants',
     ItemInstances = 'ItemInstances',
     Currency = 'currency',
+    // Location retention (KNG-80)
+    LocationRetention = 'location-retention',
     // Siege Phase 1
     BannerDesigns = 'BannerDesigns',
     BannerLayers = 'BannerLayers',
