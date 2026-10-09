@@ -15,16 +15,16 @@ jest.mock('../../../apiClients/displayConfigClient', () => ({
     displayConfigClient: { getAll: jest.fn() },
 }));
 
+const loadedMetadata = [
+    { entityName: 'Town', displayName: 'Town', fields: [] },
+    { entityName: 'Street', displayName: 'Street', fields: [] },
+    { entityName: 'District', displayName: 'District', fields: [] },
+    { entityName: 'Category', displayName: 'Category', fields: [] },
+];
+// The live app starts with no metadata (loading) and the built-in objectTypes list.
+let mockMetadata: { baseMetadata: typeof loadedMetadata; loading: boolean } = { baseMetadata: loadedMetadata, loading: false };
 jest.mock('../../../hooks/useEntityMetadata', () => ({
-    useEntityMetadata: () => ({
-        baseMetadata: [
-            { entityName: 'Town', displayName: 'Town', fields: [] },
-            { entityName: 'Street', displayName: 'Street', fields: [] },
-            { entityName: 'District', displayName: 'District', fields: [] },
-            { entityName: 'Category', displayName: 'Category', fields: [] },
-        ],
-        loading: false,
-    }),
+    useEntityMetadata: () => mockMetadata,
 }));
 
 jest.mock('../../PagedEntityTable/PagedEntityTable', () => ({
@@ -48,6 +48,34 @@ describe('ObjectDashboard entity navigator', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         window.localStorage.clear();
+        mockMetadata = { baseMetadata: loadedMetadata, loading: false };
+    });
+
+    it('does not settle on the built-in list while the metadata is still loading', async () => {
+        // KNG-61 re-test: objectTypes[0] ("location") was picked during loading and kept afterwards.
+        getAll.mockResolvedValue([config('Street', true, false), config('District', true, false)]);
+        mockMetadata = { baseMetadata: [], loading: true };
+        const builtIn = [{ id: 'location', label: 'Location', icon: null, createRoute: '/forms/location' }];
+
+        const { rerender } = render(<ObjectDashboard objectTypes={builtIn as never} />);
+        await waitFor(() => expect(getAll).toHaveBeenCalled());
+        expect(screen.queryByTestId('table')).not.toBeInTheDocument();
+
+        mockMetadata = { baseMetadata: loadedMetadata, loading: false };
+        rerender(<ObjectDashboard objectTypes={builtIn as never} />);
+
+        expect(await screen.findByTestId('table')).toHaveTextContent('District');
+        expect(screen.getByRole('button', { name: /Without display configuration/ })).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('still uses the built-in list when there is no metadata at all', async () => {
+        getAll.mockResolvedValue([]);
+        mockMetadata = { baseMetadata: [], loading: false };
+        const builtIn = [{ id: 'location', label: 'Location', icon: null, createRoute: '/forms/location' }];
+
+        render(<ObjectDashboard objectTypes={builtIn as never} />);
+
+        expect(await screen.findByTestId('table')).toHaveTextContent('location');
     });
 
     it('opens on the first type of the Entities group, A-Z, once the grouping is known', async () => {

@@ -92,6 +92,10 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     }, [displayConfiguredEntities]);
 
     useEffect(() => {
+        // While the entity metadata loads, baseMetadata is empty: don't fall back to the built-in
+        // objectTypes list then - its first entry ("location") would stick as the selection once
+        // the metadata arrives (KNG-61 re-test).
+        if (metadataLoading) return;
         if (hasMetadata) {
             const selectedExists = baseMetadata.some(
                 metadata => metadata.entityName.toLowerCase() === selectedType.toLowerCase()
@@ -113,7 +117,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         if (!selectedExists && objectTypes[0]?.id) {
             setSelectedType(objectTypes[0].id);
         }
-    }, [hasMetadata, baseMetadata, objectTypes, selectedType, displayConfigsSettled, displayConfiguredEntities]);
+    }, [metadataLoading, hasMetadata, baseMetadata, objectTypes, selectedType, displayConfigsSettled, displayConfiguredEntities]);
 
     // const fetchObjects = ({ type }: { type: string }) => {
     //     let list: any = [];
