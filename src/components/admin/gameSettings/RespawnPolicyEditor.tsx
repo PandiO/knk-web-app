@@ -7,11 +7,13 @@ export const RESPAWN_MODE_LABELS: Record<RespawnMode, string> = {
     // Developer decision D1 (round 3): always the world spawn, the plugin ignores beds and anchors.
     WorldSpawn: 'World spawn (beds and anchors ignored)',
     JoinSpawn: 'Same as the join spawn (synced)',
+    // Round 4: not redirected, as for staff and owners.
+    ServerDefault: 'Server decides (bed / anchor, else world spawn)',
     ConfiguredReference: 'A chosen spot (separate)',
     NearestTown: 'Nearest town',
 };
 
-const RESPAWN_MODES: RespawnMode[] = ['WorldSpawn', 'JoinSpawn', 'ConfiguredReference', 'NearestTown'];
+const RESPAWN_MODES: RespawnMode[] = ['JoinSpawn', 'WorldSpawn', 'ServerDefault', 'ConfiguredReference', 'NearestTown'];
 
 export const defaultRespawnPolicy = (): RespawnPolicyDto => ({
     mode: 'WorldSpawn',
@@ -66,6 +68,10 @@ export const RespawnPolicyEditor: React.FC<{
             <p className="text-xs text-gray-500">
                 Players always respawn at the world spawn; beds and respawn anchors are ignored.
             </p>
+        )}
+
+        {value.mode === 'ServerDefault' && (
+            <p className="text-xs text-gray-500">Like staff and owners: beds and respawn anchors count.</p>
         )}
 
         {value.mode === 'JoinSpawn' && (

@@ -141,7 +141,7 @@ export const GroupOverridesCard: React.FC<{
                     disabled={!toAdd}
                     onClick={() => {
                         const id = Number(toAdd);
-                        onChange([...overrides, { permissionGroupId: id, groupName: groupName(id), joinAnnouncement: null, leaveAnnouncement: null, joinSpawnReference: null, respawnPolicy: null }]);
+                        onChange([...overrides, { permissionGroupId: id, groupName: groupName(id), joinAnnouncement: null, leaveAnnouncement: null, joinSpawnReference: null, joinAtLastLocation: null, respawnPolicy: null }]);
                         setToAdd('');
                     }}
                 >
@@ -153,7 +153,8 @@ export const GroupOverridesCard: React.FC<{
 
             {ordered.map((o, index) => {
                 const name = groupName(o.permissionGroupId);
-                const ownSpawn = o.joinSpawnReference != null || spawnPending.includes(o.permissionGroupId);
+                const atLastLocation = o.joinAtLastLocation === true;
+                const ownSpawn = o.joinSpawnReference != null || atLastLocation || spawnPending.includes(o.permissionGroupId);
                 return (
                     <div key={o.permissionGroupId} className="rounded-md border border-gray-200 p-4 space-y-4" data-testid={`group-override-${o.permissionGroupId}`}>
                         <div className="flex items-center justify-between">
@@ -194,7 +195,7 @@ export const GroupOverridesCard: React.FC<{
                                         const id = o.permissionGroupId;
                                         setSpawnPending(prev => (e.target.checked ? [...prev, id] : prev.filter(x => x !== id)));
                                         if (!e.target.checked) {
-                                            update(id, x => ({ ...x, joinSpawnReference: null }));
+                                            update(id, x => ({ ...x, joinSpawnReference: null, joinAtLastLocation: null }));
                                         }
                                     }}
                                     className="rounded border-gray-300"
@@ -202,15 +203,51 @@ export const GroupOverridesCard: React.FC<{
                                 Own spawn (join and <code>/spawn</code>)
                             </label>
                             {ownSpawn && (
-                                <LocationReferencePicker
-                                    value={o.joinSpawnReference ?? null}
-                                    options={options}
-                                    onChange={reference => update(o.permissionGroupId, x => ({ ...x, joinSpawnReference: reference }))}
-                                    onCreateLocation={onCreateLocation}
-                                />
-                            )}
-                            {ownSpawn && o.joinSpawnReference == null && (
-                                <p className="text-xs text-gray-500">Choose a spot - without one this group keeps the normal spawn.</p>
+                                <div className="ml-6 space-y-2">
+                                    <div className="flex flex-wrap gap-x-5 gap-y-1" role="radiogroup" aria-label={`${name} spawn`}>
+                                        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                                            <input
+                                                type="radio"
+                                                name={`group-spawn-${o.permissionGroupId}`}
+                                                checked={!atLastLocation}
+                                                onChange={() => {
+                                                    const id = o.permissionGroupId;
+                                                    setSpawnPending(prev => (prev.includes(id) ? prev : [...prev, id]));
+                                                    update(id, x => ({ ...x, joinAtLastLocation: null }));
+                                                }}
+                                                className="border-gray-300"
+                                            />
+                                            A chosen spot
+                                        </label>
+                                        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                                            <input
+                                                type="radio"
+                                                name={`group-spawn-${o.permissionGroupId}`}
+                                                checked={atLastLocation}
+                                                onChange={() => update(o.permissionGroupId, x => ({ ...x, joinAtLastLocation: true, joinSpawnReference: null }))}
+                                                className="border-gray-300"
+                                            />
+                                            Where they logged out (no join teleport)
+                                        </label>
+                                    </div>
+                                    {atLastLocation ? (
+                                        <p className="text-xs text-gray-500">
+                                            Members stay where they logged out, like owners. <code>/spawn</code> still takes them to the server spawn.
+                                        </p>
+                                    ) : (
+                                        <>
+                                            <LocationReferencePicker
+                                                value={o.joinSpawnReference ?? null}
+                                                options={options}
+                                                onChange={reference => update(o.permissionGroupId, x => ({ ...x, joinSpawnReference: reference, joinAtLastLocation: null }))}
+                                                onCreateLocation={onCreateLocation}
+                                            />
+                                            {o.joinSpawnReference == null && (
+                                                <p className="text-xs text-gray-500">Choose a spot - without one this group keeps the normal spawn.</p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
                             )}
                         </div>
 

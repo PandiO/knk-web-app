@@ -316,8 +316,11 @@ export const LocationReferencePicker: React.FC<{
                     }}
                 >
                     <div className="space-y-2 border-b border-gray-100 p-2">
-                        <div className="relative">
-                            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" aria-hidden />
+                        {/* The project has no @tailwindcss/forms: an input is preflight-reset (no border, no
+                            padding, 20px high, browser focus outline), so the box, padding and focus ring are
+                            all set here, and the icon is centred on the input instead of a fixed offset. */}
+                        <div className="relative flex items-center" data-testid="spawn-search-row">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden data-testid="spawn-search-icon" />
                             <input
                                 ref={inputRef}
                                 type="text"
@@ -335,7 +338,7 @@ export const LocationReferencePicker: React.FC<{
                                     setActiveKey(null);
                                 }}
                                 onKeyDown={onInputKeyDown}
-                                className="block w-full rounded-md border-gray-300 pl-8 text-sm focus:border-primary focus:ring-primary"
+                                className="block h-9 w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm leading-5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                             />
                         </div>
                         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by type">

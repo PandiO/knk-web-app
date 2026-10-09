@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { buildLocationOptions, filterLocationOptions, toReference } from '../locationReferenceOptions';
 import { GroupOverridesCard, groupDepth, orderByPrecedence } from '../GroupOverridesCard';
@@ -269,6 +269,64 @@ describe('group override precedence (KNG-52)', () => {
         rerender(<GroupOverridesCard overrides={overrides} groups={groups as any} options={options} onChange={onChange} />);
         expect(screen.getByTestId('location-reference-selected')).toHaveTextContent('Noble Lounge');
     });
+
+    it('own spawn can be "where they logged out" instead of a chosen spot (round 4)', () => {
+        const structure = options.find(o => o.key === 'Structure-9')!;
+        let overrides: PermissionGroupGameSettingsDto[] = [{ permissionGroupId: 2, joinSpawnReference: toReference(structure), joinAtLastLocation: null }];
+        const onChange = jest.fn((next: PermissionGroupGameSettingsDto[]) => { overrides = next; });
+        const card = () => <GroupOverridesCard overrides={overrides} groups={groups as any} options={options} onChange={onChange} />;
+        const { rerender } = render(card());
+
+        expect(screen.getByLabelText(/Own spawn/)).toBeChecked();
+        expect(screen.getByRole('radio', { name: 'A chosen spot' })).toBeChecked();
+
+        fireEvent.click(screen.getByRole('radio', { name: 'Where they logged out (no join teleport)' }));
+        expect(overrides[0]).toEqual(expect.objectContaining({ joinAtLastLocation: true, joinSpawnReference: null }));
+
+        rerender(card());
+        expect(screen.getByLabelText(/Own spawn/)).toBeChecked();
+        expect(screen.getByRole('radio', { name: 'Where they logged out (no join teleport)' })).toBeChecked();
+        expect(screen.getByText(/Members stay where they logged out, like owners\./)).toHaveTextContent(
+            'Members stay where they logged out, like owners. /spawn still takes them to the server spawn.');
+        expect(screen.queryByTestId('location-reference-selected')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Choose a spawn point/ })).not.toBeInTheDocument();
+
+        // Back to a chosen spot: the picker returns, nothing is chosen yet.
+        fireEvent.click(screen.getByRole('radio', { name: 'A chosen spot' }));
+        expect(overrides[0].joinAtLastLocation).toBeNull();
+        rerender(card());
+        expect(screen.getByRole('button', { name: /Choose a spawn point/ })).toBeInTheDocument();
+
+        // Unticked = both null.
+        fireEvent.click(screen.getByRole('radio', { name: 'Where they logged out (no join teleport)' }));
+        rerender(card());
+        fireEvent.click(screen.getByLabelText(/Own spawn/));
+        expect(overrides[0]).toEqual(expect.objectContaining({ joinAtLastLocation: null, joinSpawnReference: null }));
+        rerender(card());
+        expect(screen.getByLabelText(/Own spawn/)).not.toBeChecked();
+        expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    });
+
+    it('the picker\'s search box looks the same in the group card as anywhere else (round 4 layout)', () => {
+        // Ids from useId differ per instance.
+        const searchRow = () => screen.getByTestId('spawn-search-row').outerHTML
+            .replace(/id="[^"]*"|aria-(controls|activedescendant)="[^"]*"/g, '');
+        const { unmount } = render(<LocationReferencePicker value={null} options={options} onChange={jest.fn()} />);
+        fireEvent.click(screen.getByRole('button', { name: /Choose a spawn point/ }));
+        const standalone = searchRow();
+        unmount();
+
+        render(<GroupOverridesCard overrides={[{ permissionGroupId: 2, joinSpawnReference: null }]} groups={groups as any} options={options} onChange={jest.fn()} />);
+        fireEvent.click(screen.getByLabelText(/Own spawn/));
+        fireEvent.click(screen.getByRole('button', { name: /Choose a spawn point/ }));
+        expect(searchRow()).toBe(standalone);
+
+        // No @tailwindcss/forms here: the input brings its own box, padding and focus ring, and the
+        // icon is centred on it rather than offset from the top.
+        const search = screen.getByRole('combobox', { name: 'Search spawn points' });
+        ['border', 'py-2', 'pl-9', 'h-9', 'focus:outline-none', 'focus:ring-2'].forEach(c => expect(search).toHaveClass(c));
+        expect(screen.getByTestId('spawn-search-icon')).toHaveClass('top-1/2', '-translate-y-1/2', 'left-3');
+    });
 });
 
 describe('respawn mode and message placeholders (KNG-52 round 3)', () => {
@@ -276,8 +334,24 @@ describe('respawn mode and message placeholders (KNG-52 round 3)', () => {
         render(<RespawnPolicyEditor value={defaultRespawnPolicy()} options={options} onChange={jest.fn()} />);
         expect(screen.getByRole('option', { name: 'World spawn (beds and anchors ignored)' })).toBeInTheDocument();
         expect(screen.getByLabelText('Respawn mode')).toHaveDisplayValue('World spawn (beds and anchors ignored)');
-        expect(screen.queryByText(/bed \/ anchor/)).not.toBeInTheDocument();
         expect(screen.getByText(/beds and respawn anchors are ignored/)).toBeInTheDocument();
+        expect(screen.queryByText(/beds and respawn anchors count/)).not.toBeInTheDocument();
+    });
+
+    it('offers ServerDefault as "Server decides", in the agreed order (round 4)', () => {
+        const onChange = jest.fn();
+        const { rerender } = render(<RespawnPolicyEditor value={defaultRespawnPolicy()} options={options} onChange={onChange} />);
+        const modeOptions = within(screen.getByLabelText('Respawn mode')).getAllByRole('option') as HTMLOptionElement[];
+        expect(modeOptions.map(o => o.value)).toEqual(['JoinSpawn', 'WorldSpawn', 'ServerDefault', 'ConfiguredReference', 'NearestTown']);
+        expect(modeOptions[2]).toHaveTextContent('Server decides (bed / anchor, else world spawn)');
+
+        fireEvent.change(screen.getByLabelText('Respawn mode'), { target: { value: 'ServerDefault' } });
+        expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mode: 'ServerDefault' }));
+
+        rerender(<RespawnPolicyEditor value={{ ...defaultRespawnPolicy(), mode: 'ServerDefault' }} options={options} onChange={onChange} />);
+        expect(screen.getByText('Like staff and owners: beds and respawn anchors count.')).toBeInTheDocument();
+        // The fallback checkbox stays with the chosen-spot and nearest-town modes.
+        expect(screen.queryByText(/If no spot is found/)).not.toBeInTheDocument();
     });
 
     it('fills {title} and {titlename}, and an empty title takes a neighbouring space', () => {
