@@ -30,6 +30,8 @@ export interface DomainDto extends DomainTeleportSettingsDto, DomainNavigationDe
     allowEntry?: boolean;
     allowExit?: boolean;
     wgRegionId: string;
+    /** KNG-111: the Minecraft world of the domain and its region. */
+    worldName?: string | null;
     locationId?: number;
     parentDomainId?: number;
     parentDomain?: ParentDomainDto;
@@ -50,6 +52,8 @@ export interface DomainListDto {
     name: string;
     description: string;
     wgRegionId: string;
+    /** KNG-111: the Minecraft world of the domain and its region. */
+    worldName?: string | null;
     parentDomainId?: number;
     parentDomain?: ParentDomainDto;
     domainType: string;

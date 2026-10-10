@@ -30,6 +30,8 @@ export interface GateStructureDto {
   allowEntry?: boolean;
   allowExit?: boolean;
   wgRegionId?: string;
+  /** KNG-111: the Minecraft world of the domain and its region. */
+  worldName?: string | null;
   locationId?: number | null;
   // /navigate default of this gate (KNG-73): null = the GateStructure type's; "" clears it.
   navigationDefaultOverride?: 'Spawn' | 'Region' | '' | null;
@@ -80,6 +82,8 @@ export interface GateStructureListDto {
   name: string;
   description: string;
   wgRegionId: string;
+  /** KNG-111: the Minecraft world of the domain and its region. */
+  worldName?: string | null;
   houseNumber: number;
   streetId: number;
   streetName?: string;
@@ -98,6 +102,8 @@ export interface GateStructureCreateDto {
   allowEntry?: boolean;
   allowExit?: boolean;
   wgRegionId?: string;
+  /** KNG-111: the Minecraft world of the domain and its region. */
+  worldName?: string | null;
   locationId?: number | null;
   streetId: number;
   districtId: number;
@@ -132,4 +138,6 @@ export interface GateStructureDistrictNavDto {
   allowEntry?: boolean;
   allowExit?: boolean;
   wgRegionId?: string;
+  /** KNG-111: the Minecraft world of the domain and its region. */
+  worldName?: string | null;
 }
