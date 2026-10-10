@@ -42,6 +42,7 @@ import {
     parseValueProjection
 } from '../../utils/forms/valueProjection';
 import { deriveGateGeometryStepData, isDerivedGateGeometryField } from '../../utils/forms/gateGeometry';
+import { fillEmptySharedFieldValues, syncSharedFieldValues } from '../../utils/forms/sharedFieldSync';
 import { withLiveEnumOptions } from '../../utils/forms/enumFieldMetadata';
 import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
 import { ItemBlueprintClient } from '../../apiClients/itemBlueprintClient';
@@ -405,6 +406,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         cfg.steps.forEach((step, idx) => {
             getOrderedFields(step).forEach(field => {
                 const val = stepsData?.[idx]?.[field.fieldName];
+                // An empty copy of a field shared across steps must not overwrite a filled one (KNG-120).
+                if (isEffectivelyEmpty(val) && !isEffectivelyEmpty(flat[field.fieldName])) return;
                 flat[field.fieldName] = val ?? field.defaultValue ?? null;
             });
         });
@@ -714,7 +717,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     parsedAll,
                     progress.childProgresses || []
                 );
-                const normalizedAll = normalizeAllStepsData(fetchedCfg, mergedAll);
+                // A draft saved before KNG-120 can hold a value in only one copy of a shared field.
+                const normalizedAll = fillEmptySharedFieldValues(fetchedCfg, normalizeAllStepsData(fetchedCfg, mergedAll));
                 const derivedAll = Object.fromEntries(
                     Object.entries(normalizedAll).map(([stepIndex, stepData]) => [
                         stepIndex,
@@ -729,7 +733,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         progress.entityTypeName || entityName,
                         normalizeStepData(
                             fetchedCfg.steps[progress.currentStepIndex],
-                            mergedAll[progress.currentStepIndex] || parsedCurrent
+                            mergedAll[progress.currentStepIndex]
+                                ? normalizedAll[progress.currentStepIndex]
+                                : parsedCurrent
                         )
                     )
                 );
@@ -1145,14 +1151,22 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
         const projectionResult = applyFieldValueProjection(fieldName, value, updatedAllData);
 
+        // Fields in other steps that bind the same property (changed field and projection targets
+        // alike) take the new value too (KNG-120).
+        const allDataBeforeChange: AllStepsData = {
+            ...allStepsData,
+            [currentStepIndex]: { ...(allStepsData[currentStepIndex] || {}), ...currentStepData }
+        };
+        const syncedAllData = syncSharedFieldValues(config!, allDataBeforeChange, projectionResult.allData, currentStepIndex);
+
         // Re-evaluate display conditions: anything that just became hidden moves to the stash,
         // anything that just became visible gets its stashed value back.
-        const reconciled = reconcileVisibility(config!, projectionResult.allData, hiddenStash);
+        const reconciled = reconcileVisibility(config!, syncedAllData, hiddenStash);
         const visibleNow = reconciled.visibility.visibleFieldNames[currentStepIndex] ?? new Set<string>();
 
         setCurrentStepData(
             Object.fromEntries(
-                Object.entries(reconciled.allStepsData[currentStepIndex] || projectionResult.currentData)
+                Object.entries(reconciled.allStepsData[currentStepIndex] || syncedAllData[currentStepIndex] || projectionResult.currentData)
                     .filter(([key]) => visibleNow.has(key) || !currentStep.fields.some(f => f.fieldName === key))
             )
         );
@@ -1175,19 +1189,19 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
         const field = currentStep.fields.find(f => f.fieldName === fieldName);
         if (field) {
-            triggerFieldValidation(field, value, projectionResult.allData, true);
+            triggerFieldValidation(field, value, syncedAllData, true);
             if (field.id) {
-                revalidateDependents(Number(field.id), projectionResult.allData);
+                revalidateDependents(Number(field.id), syncedAllData);
             }
         }
 
         projectionResult.projectedTargets.forEach(targetFieldName => {
             const targetField = currentStep.fields.find(f => f.fieldName.toLowerCase() === targetFieldName.toLowerCase());
             if (!targetField) return;
-            const projectedValue = projectionResult.allData[currentStepIndex]?.[targetField.fieldName];
-            triggerFieldValidation(targetField, projectedValue, projectionResult.allData, true);
+            const projectedValue = syncedAllData[currentStepIndex]?.[targetField.fieldName];
+            triggerFieldValidation(targetField, projectedValue, syncedAllData, true);
             if (targetField.id) {
-                revalidateDependents(Number(targetField.id), projectionResult.allData);
+                revalidateDependents(Number(targetField.id), syncedAllData);
             }
         });
     };
@@ -1226,7 +1240,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             const prevStepData = prev[currentStepIndex] || {};
             const merged = { ...prevStepData, ...patch };
             const normalized = deriveGateGeometryStepData(entityName, normalizeStepData(currentStep, merged));
-            return { ...prev, [currentStepIndex]: normalized };
+            const next = { ...prev, [currentStepIndex]: normalized };
+            return config ? syncSharedFieldValues(config, prev, next, currentStepIndex) : next;
         });
     };
 
@@ -2471,7 +2486,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
         // Ensure current step includes all fields
         const normalizedCurrent = normalizeStepData(currentStep!, currentStepData, visibleFieldNamesForCurrentStep);
-        const reconciled = reconcileVisibility(config!, { ...allStepsData, [currentStepIndex]: normalizedCurrent }, hiddenStash);
+        const syncedAllData = syncSharedFieldValues(
+            config!,
+            allStepsData,
+            { ...allStepsData, [currentStepIndex]: normalizedCurrent },
+            currentStepIndex
+        );
+        const reconciled = reconcileVisibility(config!, syncedAllData, hiddenStash);
         const updatedAllData = reconciled.allStepsData;
 
         const validationResultsForStep = await runValidationsForStep(currentStep!, updatedAllData, currentStepIndex);
@@ -2575,13 +2596,19 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
         setError(null);
         // Persist normalized current step before going back
-        setAllStepsData(prev => ({
-            ...prev,
-            [currentStepIndex]: normalizeStepData(currentStep!, currentStepData, visibleFieldNamesForCurrentStep)
-        }));
+        const syncedAllData = syncSharedFieldValues(
+            config!,
+            allStepsData,
+            {
+                ...allStepsData,
+                [currentStepIndex]: normalizeStepData(currentStep!, currentStepData, visibleFieldNamesForCurrentStep)
+            },
+            currentStepIndex
+        );
+        setAllStepsData(syncedAllData);
         setCurrentStepData(normalizeStepData(
             config!.steps[previousIndex],
-            allStepsData[previousIndex] || {},
+            syncedAllData[previousIndex] || {},
             visibility.visibleFieldNames[previousIndex]
         ));
         setErrors({});

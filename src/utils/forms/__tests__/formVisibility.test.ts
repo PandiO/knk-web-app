@@ -227,6 +227,15 @@ describe('reconcileVisibility', () => {
         expect(flat).not.toHaveProperty('GeometryWidth');
     });
 
+    it('does not let an empty later copy of a shared field overwrite a filled one (KNG-120)', () => {
+        const config = buildConfig();
+        config.steps[2].fields.push(field('guid-gate-type-copy', 'gateType'));
+        const data: AllStepsData = { 0: { gateType: 'SLIDING' }, 2: { name: 'Main gate', gateType: null } };
+        const { visibility } = reconcileVisibility(config, data, {});
+
+        expect(flattenVisibleStepsData(config, data, visibility).gateType).toBe('SLIDING');
+    });
+
     it('skips hidden steps when navigating', () => {
         const config = buildConfig();
         const { visibility } = reconcileVisibility(config, { 0: { gateType: 'SLIDING' } }, {});

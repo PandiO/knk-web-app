@@ -1,5 +1,6 @@
 import { AllStepsData, FormConfigurationDto, FormFieldDto, FormStepDto, StepData } from '../../types/dtos/forms/FormModels';
 import { DisplayConditionEvaluator } from '../conditionEvaluator';
+import { isEffectivelyEmpty } from './valueProjection';
 
 export interface FormVisibility {
     /** Indices into `config.steps` that the user should be able to reach, in form order. */
@@ -152,7 +153,10 @@ export const flattenVisibleStepsData = (
         const visibleNames = visibility.visibleFieldNames[stepIndex];
         orderFormFields(config.steps[stepIndex]).forEach(field => {
             if (!visibleNames?.has(field.fieldName)) return;
-            flat[field.fieldName] = stepsData[stepIndex]?.[field.fieldName] ?? field.defaultValue ?? null;
+            const value = stepsData[stepIndex]?.[field.fieldName];
+            // An empty copy of a field shared across steps must not overwrite a filled one (KNG-120).
+            if (isEffectivelyEmpty(value) && !isEffectivelyEmpty(flat[field.fieldName])) return;
+            flat[field.fieldName] = value ?? field.defaultValue ?? null;
         });
     });
     return flat;
