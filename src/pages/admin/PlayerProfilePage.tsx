@@ -854,8 +854,11 @@ export const PlayerProfilePage: React.FC = () => {
                 </div>
 
                 {/* Discoveries (docs/specs/domain-discovery/DESIGN.md §3.9) - only for holders of
-                    knk.admin.discovery; each reset adds a DiscoveryReset entry to Recent activity. */}
-                <PlayerDiscoveriesPanel key={userId} userId={userId} onReset={loadActivity} />
+                    knk.admin.discovery; each reset adds a DiscoveryReset entry to Recent activity.
+                    Keyed per player so it starts fresh; sibling keys must differ (KNG-39: two
+                    panels keyed by the bare userId made React lose the old Discoveries panel,
+                    which stayed mounted and stacked up on every profile switch). */}
+                <PlayerDiscoveriesPanel key={`discoveries-${userId}`} userId={userId} onReset={loadActivity} />
 
                 {/* Balance history (KNG-23, currency Phase 4): the balance event log filtered to this player. */}
                 {canReadLedger && (
@@ -870,7 +873,7 @@ export const PlayerProfilePage: React.FC = () => {
 
                 {/* Private messages (docs/specs/private-messages/DESIGN.md §3.4) - only for holders of
                     knk.pmlog.read; each read adds a PrivateMessagesViewed entry to Recent activity. */}
-                <PrivateMessagesPanel key={userId} userId={userId} onViewed={loadActivity} />
+                <PrivateMessagesPanel key={`private-messages-${userId}`} userId={userId} onViewed={loadActivity} />
 
                 {/* Recent activity (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 2) */}
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
