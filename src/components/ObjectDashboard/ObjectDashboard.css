@@ -10,9 +10,10 @@
   gap: 1rem;
 }
 
-/* Sidebar stays visible */
+/* Sidebar stays visible. It is as wide as the ObjectTypeExplorer inside it (a panel or, collapsed
+   or on narrow screens, a rail) - KNG-94: a fixed 30% let the explorer cover the content. */
 .dashboard-sidebar {
-  width: 30%;
+  flex: none;
   display: flex;
   flex-direction: column;
   /* remove float; make sidebar stick within the dashboard-parent */
@@ -23,9 +24,10 @@
   overflow: auto; /* if sidebar content is taller than available height */
 }
 
-/* Content scrolls independently */
+/* Content scrolls independently and takes the rest of the row */
 .dashboard-content {
-  width: 70%;
+  flex: 1 1 0%;
+  min-width: 0;
   height: 100%;
   overflow-y: auto;
   padding-right: 1rem;

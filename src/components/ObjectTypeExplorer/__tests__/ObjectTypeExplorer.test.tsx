@@ -3,6 +3,8 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import ObjectTypeExplorer, {
+  DOCKED_MEDIA_QUERY,
+  getCollapsedStorageKey,
   getExpandedStorageKey,
   getSortStorageKey,
   ObjectTypeExplorerGroup,
@@ -305,6 +307,104 @@ describe('ObjectTypeExplorer', () => {
 
       expect(itemLabels(groupSection('Entities'))).toEqual(['Town', 'Street']);
       expect(itemLabels(groupSection('Without display configuration'))).toEqual(['Gate', 'District', 'category']);
+    });
+  });
+  // KNG-94: collapsible beside the content; a drawer on narrow screens.
+  describe('collapsing (KNG-94)', () => {
+    const setViewport = (docked: boolean) => {
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        writable: true,
+        value: (query: string) => ({
+          matches: query === DOCKED_MEDIA_QUERY ? docked : false,
+          media: query,
+          addEventListener: jest.fn(),
+          removeEventListener: jest.fn(),
+        }),
+      });
+    };
+    afterEach(() => {
+      delete (window as { matchMedia?: unknown }).matchMedia;
+    });
+
+    const toggle = (name: RegExp = /entity types/i) => screen.getByRole('button', { name });
+
+    it('collapses to a rail and back with an aria-expanded toggle that controls the panel', async () => {
+      setViewport(true);
+      render(<ObjectTypeExplorer entityMetadata={metadata} storageKey="dashboard" />);
+
+      const hide = toggle(/hide entity types/i);
+      expect(hide).toHaveAttribute('aria-expanded', 'true');
+      const panel = document.getElementById(hide.getAttribute('aria-controls')!);
+      expect(panel).toBeInTheDocument();
+      expect(itemLabels()).toHaveLength(5);
+
+      await userEvent.click(hide);
+      const show = toggle(/show entity types/i);
+      expect(show).toHaveAttribute('aria-expanded', 'false');
+      expect(show).toHaveAttribute('aria-controls', hide.getAttribute('aria-controls'));
+      expect(screen.getAllByRole('button', { name: /entity types/i, hidden: true })).toHaveLength(1);
+      expect(show).toHaveFocus();
+      expect(panel).not.toBeVisible();
+      expect(itemLabels()).toHaveLength(0);
+      expect(window.localStorage.getItem(getCollapsedStorageKey('dashboard'))).toBe('true');
+
+      await userEvent.click(show);
+      expect(toggle(/hide entity types/i)).toHaveAttribute('aria-expanded', 'true');
+      expect(itemLabels()).toHaveLength(5);
+      expect(window.localStorage.getItem(getCollapsedStorageKey('dashboard'))).toBe('false');
+    });
+
+    it('remembers the collapsed sidebar per page', () => {
+      setViewport(true);
+      window.localStorage.setItem(getCollapsedStorageKey('dashboard'), 'true');
+      const { unmount } = render(<ObjectTypeExplorer entityMetadata={metadata} storageKey="dashboard" />);
+      expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+      unmount();
+
+      render(<ObjectTypeExplorer entityMetadata={metadata} storageKey="forms" />);
+      expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it('still collapses when localStorage throws', async () => {
+      setViewport(true);
+      jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+      jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+      render(<ObjectTypeExplorer entityMetadata={metadata} storageKey="dashboard" />);
+
+      await userEvent.click(toggle(/hide entity types/i));
+      expect(toggle(/show entity types/i)).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('on a narrow screen starts closed and opens as a drawer that closes after picking a type', async () => {
+      setViewport(false);
+      // A desktop "expanded" preference doesn't open the drawer.
+      window.localStorage.setItem(getCollapsedStorageKey('dashboard'), 'false');
+      const onSelect = jest.fn();
+      render(<ObjectTypeExplorer entityMetadata={metadata} storageKey="dashboard" onSelect={onSelect} />);
+
+      expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+      expect(itemLabels()).toHaveLength(0);
+
+      await userEvent.click(toggle(/show entity types/i));
+      expect(toggle(/hide entity types/i)).toHaveAttribute('aria-expanded', 'true');
+      await userEvent.click(screen.getByRole('button', { name: 'Town' }));
+
+      expect(onSelect).toHaveBeenCalledWith('Town');
+      expect(toggle(/show entity types/i)).toHaveAttribute('aria-expanded', 'false');
+      expect(itemLabels()).toHaveLength(0);
+      // Opening/closing the drawer is not the desktop preference.
+      expect(window.localStorage.getItem(getCollapsedStorageKey('dashboard'))).toBe('false');
+    });
+
+    it('closes the drawer with Escape', async () => {
+      setViewport(false);
+      render(<ObjectTypeExplorer entityMetadata={metadata} />);
+
+      await userEvent.click(toggle(/show entity types/i));
+      expect(itemLabels()).toHaveLength(5);
+      await userEvent.keyboard('{Escape}');
+      expect(toggle(/show entity types/i)).toHaveAttribute('aria-expanded', 'false');
     });
   });
 });
