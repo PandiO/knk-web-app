@@ -15,8 +15,8 @@ function compact<T extends object>(params: T): Partial<T> | null {
   return entries.length ? (Object.fromEntries(entries) as Partial<T>) : null;
 }
 
-// knk-web-api WorldAnalyticsController (api/world-analytics, KNG-34 link 7). Every read needs an exact
-// grant of knk.owner.analytics.view; wildcard holders get 403. The data is anonymous (no player ids).
+// knk-web-api WorldAnalyticsController (api/world-analytics, KNG-34 link 7). Every read needs
+// knk.owner.analytics.view (wildcards such as knk.* count, D24). The data is anonymous (no player ids).
 export class WorldAnalyticsClient extends ObjectManager {
   private static instance: WorldAnalyticsClient;
 

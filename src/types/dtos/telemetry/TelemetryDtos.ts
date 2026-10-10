@@ -5,6 +5,16 @@ export const OWNER_TELEMETRY_VIEW_NODE = 'knk.owner.telemetry.view';
 export const OWNER_TELEMETRY_MANAGE_NODE = 'knk.owner.telemetry.manage';
 export const OWNER_PRIVACY_MANAGE_NODE = 'knk.owner.privacy.manage';
 
+/**
+ * Owner nodes a wildcard never unlocks (KNG-34 D24, OwnerPermissions.ExactGrantOnly): personal
+ * diagnostic data and GDPR deletion. World analytics and leaderboard exclusions accept knk.* etc.
+ */
+export const EXACT_GRANT_OWNER_NODES: ReadonlySet<string> = new Set([
+  OWNER_TELEMETRY_VIEW_NODE,
+  OWNER_TELEMETRY_MANAGE_NODE,
+  OWNER_PRIVACY_MANAGE_NODE,
+]);
+
 export type TelemetryOutcome = 'Succeeded' | 'Denied' | 'Failed' | 'Info';
 export type TelemetryLevel = 'Baseline' | 'Enhanced';
 export type TelemetrySource = 'Plugin' | 'Api';

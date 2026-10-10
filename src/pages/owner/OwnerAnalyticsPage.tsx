@@ -16,7 +16,7 @@ import {
 /**
  * World analytics (KNG-34 link 7, DESIGN.md D10/D11): a movement heatmap per world, menu funnels and
  * domain interactions over a range of local days. Anonymous aggregates from the plugin - nothing here
- * names a player. Owner only (exact grant of knk.owner.analytics.view; the API answers 403 otherwise).
+ * names a player. Owner only (knk.owner.analytics.view, wildcards count - D24; the API answers 403 otherwise).
  */
 
 const isForbidden = (err: unknown) => (err as { status?: number })?.status === 403;

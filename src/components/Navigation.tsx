@@ -36,7 +36,7 @@ const NAV_LINKS: NavLink[] = [
   // Road navigation Phase 5 (docs/specs/navigation/IMPLEMENTATION_PLAN.md): profiles, tiles, edges
   { to: '/admin/roads', label: 'Roads', Icon: Route, node: ROAD_ADMIN_NODE },
   { to: '/admin/users', label: 'Moderation', Icon: Users, exact: true, staffOnly: true },
-  // KNG-34 link 6: owner-only pages (shown to holders of the node; the API wants an exact grant).
+  // KNG-34 link 6: owner-only pages (shown only for an exact grant of the node, D24 - see usePermission).
   { to: '/owner/telemetry', label: 'Diagnostics', Icon: Activity, node: OWNER_TELEMETRY_VIEW_NODE },
   { to: '/owner/privacy', label: 'Data deletion', Icon: ShieldOff, node: OWNER_PRIVACY_MANAGE_NODE },
   // KNG-34 link 7: anonymous world analytics (heatmaps, menu funnels, domain interactions).

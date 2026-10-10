@@ -118,11 +118,13 @@ describe('OwnerAnalyticsPage (KNG-34 link 7)', () => {
     expect(api.getHeatmap).not.toHaveBeenCalled();
   });
 
-  it('shows "Owner only" when the API refuses a wildcard holder', async () => {
+  it('shows "Owner only" when the API refuses the caller', async () => {
     api.getWorlds.mockRejectedValue(Object.assign(new Error('Forbidden'), { status: 403 }));
     render(<OwnerAnalyticsPage />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('knk.owner.analytics.view');
+    // Wildcards do count for anonymous analytics (D24), so the notice doesn't say otherwise.
+    expect(screen.getByRole('alert')).not.toHaveTextContent("don't count");
   });
 
   it('lays out cells north-up with at least one pixel each, and log-scales the colour', () => {

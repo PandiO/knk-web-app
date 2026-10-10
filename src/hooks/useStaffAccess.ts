@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { userManagementClient } from '../apiClients/userManagementClient';
+import { EXACT_GRANT_OWNER_NODES } from '../types/dtos/telemetry/TelemetryDtos';
 
 /**
  * The permission that makes someone staff for the web moderation pages - the same node that
@@ -20,7 +21,8 @@ function checkPermission(userId: number, node: string): Promise<boolean> {
   if (!check) {
     check = userManagementClient
       .checkPermission(userId, node)
-      .then(result => result?.allowed === true)
+      // The API refuses wildcards for these owner nodes (D24), so a knk.* holder isn't shown them.
+      .then(result => result?.allowed === true && (!EXACT_GRANT_OWNER_NODES.has(node) || result.matchedNode === node))
       .catch(err => {
         permissionChecks.delete(key);
         throw err;
@@ -32,8 +34,8 @@ function checkPermission(userId: number, node: string): Promise<boolean> {
 
 /**
  * Whether the logged-in user holds `node` in the in-house permission system (wildcards
- * included); `isChecking` while that is being resolved. Only decides what the UI shows - the
- * API enforces the node on its own.
+ * included, except for EXACT_GRANT_OWNER_NODES); `isChecking` while that is being resolved. Only
+ * decides what the UI shows - the API enforces the node on its own.
  */
 export function usePermission(node: string): { allowed: boolean; isChecking: boolean } {
   const { user } = useAuth();

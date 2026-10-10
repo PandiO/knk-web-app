@@ -1,7 +1,7 @@
 // World analytics (KNG-34 link 7, knk-workspace docs/specs/player-statistics/IMPLEMENTATION_PLAN.md §3.4).
 // Mirrors knk-web-api Dtos/WorldAnalyticsDtos.cs. Anonymous aggregates: no shape carries a player.
 
-/** Owner node of the analytics page; the API needs an exact grant (wildcards get 403). */
+/** Owner node of the analytics page; wildcards such as knk.* count (D24). */
 export const OWNER_ANALYTICS_VIEW_NODE = 'knk.owner.analytics.view';
 
 /** Inclusive local days (yyyy-MM-dd, the API's statistics time zone); both optional (default: last 7 days). */

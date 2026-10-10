@@ -9,7 +9,7 @@ export const LEADERBOARD_PERIODS: readonly LeaderboardPeriod[] = ['weekly', 'mon
 export const leaderboardPeriodLabel = (period: LeaderboardPeriod): string =>
   ({ weekly: 'This week', monthly: 'This month', lifetime: 'All time' })[period];
 
-/** knk-web-api OwnerPermissions.LeaderboardManage - exclusions (exact grant only). */
+/** knk-web-api OwnerPermissions.LeaderboardManage - exclusions (wildcards count, D24). */
 export const LEADERBOARD_OWNER_NODE = 'knk.owner.leaderboard.manage';
 
 export interface LeaderboardBoardDto {
