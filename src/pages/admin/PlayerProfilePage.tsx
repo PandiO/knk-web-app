@@ -8,6 +8,7 @@ import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { KitClient } from '../../apiClients/kitClient';
 import { PlayerDiscoveriesPanel } from '../../components/admin/PlayerDiscoveriesPanel';
+import { PlayerStatisticsPanel } from '../../components/admin/PlayerStatisticsPanel';
 import { currencyClient } from '../../apiClients/currencyClient';
 import { usePermission } from '../../hooks/useStaffAccess';
 import { BalanceLedgerTable } from '../../components/currency/BalanceLedgerTable';
@@ -17,6 +18,7 @@ import {
     TransferLockDto,
 } from '../../types/dtos/currency/CurrencyDtos';
 import { PrivateMessagesPanel } from '../../components/admin/PrivateMessagesPanel';
+import { StaffDataDeletionCard } from '../../components/admin/StaffDataDeletionCard';
 import {
     ActiveMode,
     AuditLogEntryDto,
@@ -857,6 +859,9 @@ export const PlayerProfilePage: React.FC = () => {
                     knk.admin.discovery; each reset adds a DiscoveryReset entry to Recent activity. */}
                 <PlayerDiscoveriesPanel key={userId} userId={userId} onReset={loadActivity} />
 
+                {/* Player statistics (KNG-34) - only for holders of knk.admin.statistics.view. */}
+                <PlayerStatisticsPanel key={`statistics-${userId}`} userId={userId} />
+
                 {/* Balance history (KNG-23, currency Phase 4): the balance event log filtered to this player. */}
                 {canReadLedger && (
                     <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
@@ -871,6 +876,10 @@ export const PlayerProfilePage: React.FC = () => {
                 {/* Private messages (docs/specs/private-messages/DESIGN.md §3.4) - only for holders of
                     knk.pmlog.read; each read adds a PrivateMessagesViewed entry to Recent activity. */}
                 <PrivateMessagesPanel key={userId} userId={userId} onViewed={loadActivity} />
+
+                {/* GDPR data deletion (KNG-34, 2026-10-03) - only for holders of knk.admin.privacy.request:
+                    file a request for the player (no email step, 5-day grace period) or cancel one. */}
+                <StaffDataDeletionCard key={`deletion-${userId}`} userId={userId} username={account.username} onChanged={loadActivity} />
 
                 {/* Recent activity (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 2) */}
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">

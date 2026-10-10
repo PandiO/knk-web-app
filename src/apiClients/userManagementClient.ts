@@ -69,7 +69,7 @@ class UserManagementClient extends ObjectManager {
 
   // GET /api/users/{id}/permissions/check - resolves one node through the in-house permission
   // system (wildcards included). Used by useStaffAccess for the staff-only moderation pages.
-  checkPermission(userId: number, node: string): Promise<{ allowed: boolean }> {
+  checkPermission(userId: number, node: string): Promise<{ allowed: boolean; matchedNode?: string | null }> {
     return this.invokeServiceCall({ node }, `${userId}/permissions/check`, Controllers.Users, HttpMethod.Get);
   }
 

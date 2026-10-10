@@ -172,6 +172,10 @@ describe('auditActionLabel', () => {
     expect(auditActionLabel(entry('KitGranted', null))).toBe('Kit granted');
     expect(auditActionLabel(entry('LootboxSpawnedByAdmin', JSON.stringify({ event: 'AreaCreated' })))).toBe('Lootbox area created');
     expect(auditActionLabel(entry('PrivateMessagesViewed', null))).toBe('Private messages viewed');
+    expect(auditActionLabel(entry('TelemetryViewed', null))).toBe('Diagnostics viewed');
+    expect(auditActionLabel(entry('PrivacyDeletionRequested', null))).toBe('Data deletion requested');
+    expect(auditActionLabel(entry('PrivacyDeletionExecuted', null))).toBe('Data deleted');
+    expect(auditActionLabel(entry('PrivacyDeletionCancelled', null))).toBe('Data deletion cancelled');
     expect(auditActionLabel(entry('SomethingNew' as AuditLogEntryDto['action'], null))).toBe('SomethingNew');
   });
 });
