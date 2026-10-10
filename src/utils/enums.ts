@@ -89,6 +89,13 @@ export enum Controllers {
     Kits = 'Kits',
     Discoveries = 'discoveries',
     DiscoveryRewards = 'discovery-rewards',
+    // Road navigation (docs/specs/navigation/IMPLEMENTATION_PLAN.md Phase 1.5)
+    RoadProfiles = 'road-profiles',
+    RoadTiles = 'road-tiles',
+    RoadEdges = 'road-edges',
+    RoadNetwork = 'road-network',
+    RoadNodes = 'road-nodes',
+    NavigationSettings = 'navigation-settings',
     EnchantmentDefinitions = 'EnchantmentDefinitions',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs',
@@ -104,6 +111,7 @@ export enum Controllers {
     AuditLogRetentionConfiguration = 'AuditLogRetentionConfiguration',
     PrivateMessageLog = 'private-message-log',
     PermissionGroups = 'PermissionGroups',
+    PermissionHolders = 'PermissionHolders',
     // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.3)
     LootboxTypes = 'LootboxTypes',
     LootboxSpecialEntries = 'LootboxSpecialEntries',
@@ -115,6 +123,8 @@ export enum Controllers {
     LootboxTokenGrants = 'LootboxTokenGrants',
     ItemInstances = 'ItemInstances',
     Currency = 'currency',
+    // Location retention (KNG-80)
+    LocationRetention = 'location-retention',
     // Siege Phase 1
     BannerDesigns = 'BannerDesigns',
     BannerLayers = 'BannerLayers',
@@ -375,4 +385,3 @@ export enum UsersOperation {
     Delete = '',
     SearchPaged = 'search'
 }
-

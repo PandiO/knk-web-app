@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermission, useStaffAccess } from '../hooks/useStaffAccess';
 import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
 import { DISCOVERY_ADMIN_NODE } from '../types/dtos/discovery/DiscoveryDtos';
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from '../types/dtos/telemetry/TelemetryDtos';
 import { OWNER_ANALYTICS_VIEW_NODE } from '../types/dtos/analytics/WorldAnalyticsDtos';
+import { ROAD_ADMIN_NODE } from '../types/dtos/road/RoadDtos';
 import { NavLayout, pickNavLayout } from './navLayout';
 
 // added: explicit types for object types prop
@@ -32,6 +33,8 @@ const NAV_LINKS: NavLink[] = [
   { to: '/admin/siege-configuration', label: 'Siege Settings', Icon: Swords, staffOnly: true },
   { to: '/admin/lootboxes', label: 'Lootboxes', Icon: Gift, node: LOOTBOX_ADMIN_NODE },
   { to: '/admin/discovery', label: 'Discovery', Icon: Compass, node: DISCOVERY_ADMIN_NODE },
+  // Road navigation Phase 5 (docs/specs/navigation/IMPLEMENTATION_PLAN.md): profiles, tiles, edges
+  { to: '/admin/roads', label: 'Roads', Icon: Route, node: ROAD_ADMIN_NODE },
   { to: '/admin/users', label: 'Moderation', Icon: Users, exact: true, staffOnly: true },
   // KNG-34 link 6: owner-only pages (shown to holders of the node; the API wants an exact grant).
   { to: '/owner/telemetry', label: 'Diagnostics', Icon: Activity, node: OWNER_TELEMETRY_VIEW_NODE },
@@ -66,6 +69,8 @@ export function Navigation({ objectTypes }: Props) {
     [DISCOVERY_ADMIN_NODE]: usePermission(DISCOVERY_ADMIN_NODE).allowed,
     [OWNER_TELEMETRY_VIEW_NODE]: usePermission(OWNER_TELEMETRY_VIEW_NODE).allowed,
     [OWNER_PRIVACY_MANAGE_NODE]: usePermission(OWNER_PRIVACY_MANAGE_NODE).allowed,
+    [OWNER_ANALYTICS_VIEW_NODE]: usePermission(OWNER_ANALYTICS_VIEW_NODE).allowed,
+    [ROAD_ADMIN_NODE]: usePermission(ROAD_ADMIN_NODE).allowed,
   };
   const navLinks = NAV_LINKS.filter(link => (!link.staffOnly || isStaff) && (!link.node || nodeAccess[link.node]));
 

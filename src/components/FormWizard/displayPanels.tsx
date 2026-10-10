@@ -1,6 +1,7 @@
 import React from 'react';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { SiegeReadinessPanel } from '../siege/SiegeReadinessPanel';
+import { StreetRoadPanel } from '../roads/StreetRoadPanel';
 
 /**
  * Read-only "display panel" fields (siege Phase 3, verification item 4). A FormField whose
@@ -20,6 +21,11 @@ export interface DisplayPanelContext {
 const panels: Record<string, (context: DisplayPanelContext) => React.ReactElement> = {
     siegeScenarioReadiness: ({ field, entityId }) => (
         <SiegeReadinessPanel scenarioId={entityId} label={field.label} description={field.description} />
+    ),
+    // Road navigation Phase 5: the Street form's road stretches (a field on Id with
+    // settingsJson {"displayPanel":"streetRoad"} in the Street FormConfiguration).
+    streetRoad: ({ field, entityId }) => (
+        <StreetRoadPanel streetId={entityId} label={field.label} description={field.description} />
     )
 };
 

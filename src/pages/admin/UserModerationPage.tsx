@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Loader2, Search, Users, Clock, TrendingDown, List, ChevronLeft, ChevronRight, Coins, SlidersHorizontal, ShieldAlert } from 'lucide-react';
+import { Loader2, Search, Users, Clock, TrendingDown, List, ChevronLeft, ChevronRight, Coins, SlidersHorizontal, ShieldAlert, MapPinOff } from 'lucide-react';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { userClient } from '../../apiClients/userClient';
@@ -10,6 +10,7 @@ import { UserListDto } from '../../types/dtos/auth/UserDtos';
 import { toApiPagedQuery } from '../../utils/entityApiMapping';
 import { usePermission } from '../../hooks/useStaffAccess';
 import { CURRENCY_NODES } from '../../types/dtos/currency/CurrencyDtos';
+import { LOCATION_RETENTION_NODES } from '../../types/dtos/locationRetention/LocationRetentionDtos';
 
 // docs/specs/user-management/DESIGN.md §5, IMPLEMENTATION_PLAN.md Phase 3 - a moderation-oriented
 // list separate from the generic ObjectDashboard/PagedEntityTable system, since "users in group
@@ -32,6 +33,7 @@ export const UserModerationPage: React.FC = () => {
     const { allowed: canReadLedger } = usePermission(CURRENCY_NODES.history);
     const { allowed: canEditPolicy } = usePermission(CURRENCY_NODES.policy);
     const { allowed: canSeeAlerts } = usePermission(CURRENCY_NODES.alerts);
+    const { allowed: canReviewLocations } = usePermission(LOCATION_RETENTION_NODES.view);
 
     const [groups, setGroups] = React.useState<PermissionGroupDto[]>([]);
     const [groupsLoading, setGroupsLoading] = React.useState(true);
@@ -201,6 +203,12 @@ export const UserModerationPage: React.FC = () => {
                             <Link to="/admin/economy/alerts" className="btn-secondary text-sm whitespace-nowrap">
                                 <ShieldAlert className="h-4 w-4 mr-2" />
                                 Currency alerts
+                            </Link>
+                        )}
+                        {canReviewLocations && (
+                            <Link to="/admin/locations/orphans" className="btn-secondary text-sm whitespace-nowrap">
+                                <MapPinOff className="h-4 w-4 mr-2" />
+                                Orphaned Locations
                             </Link>
                         )}
                     </div>

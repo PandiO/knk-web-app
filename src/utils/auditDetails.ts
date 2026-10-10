@@ -223,12 +223,30 @@ function teleportLines(d: Details): string[] {
     lines.push(`${subject} → ${to}`);
   }
   if (from && to) lines.push(`From ${from} to ${to}`);
-  const flags: string[] = [];
-  if (d.silent === true) flags.push('silent');
-  if (d.via === 'console') flags.push('from the console');
-  if (flags.length > 0) lines.push(flags.map((f, i) => (i === 0 ? f[0].toUpperCase() + f.slice(1) : f)).join(', '));
+  // "Silent" and "From the console" are shown as tags (auditTags), not as lines.
   if (d.reason) lines.push(`Reason: ${d.reason}`);
   return lines;
+}
+
+/** A short flag shown as a pill next to an audit entry's lines; 'red' matches the Denied permission pill. */
+export interface AuditTag {
+  label: string;
+  tone: 'red' | 'gray';
+}
+
+/** Flags of an audit entry, shown as pills under its lines in Recent Activity (PlayerProfilePage). */
+export function auditTags(entry: AuditLogEntryDto): AuditTag[] {
+  const details = parse(entry.details);
+  if (!details) return [];
+  switch (entry.action) {
+    case 'PlayerTeleported': {
+      const tags: AuditTag[] = [];
+      if (details.silent === true) tags.push({ label: 'Silent', tone: 'red' });
+      if (details.via === 'console') tags.push({ label: 'From the console', tone: 'gray' });
+      return tags;
+    }
+    default: return [];
+  }
 }
 
 // ===== Lootboxes (docs/specs/lootboxes/DESIGN.md §3.2) =====

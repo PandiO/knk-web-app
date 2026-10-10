@@ -1,6 +1,7 @@
 import {
     apiErrorMessage,
     coveringBoxStars,
+    coveringBoxStarsOf,
     emptyWindowStars,
     formatPercent,
     gradeWindow,
@@ -42,6 +43,11 @@ describe('lootbox helpers', () => {
         expect(coveringBoxStars(type(5, 5, 2))).toEqual([5]);
         expect(reachableItemStars(type(2, 5, 2))).toEqual([1, 2, 3, 4, 5]);
         expect(reachableItemStars(type(4, 5, 1))).toEqual([3, 4, 5]);
+    });
+
+    it('merges the covering grades of several types for the batch request, high to low, without repeats', () => {
+        expect(coveringBoxStarsOf([type(1, 5, 2), type(2, 2, 0), type(1, 3, 0)])).toEqual([5, 3, 2, 1]);
+        expect(coveringBoxStarsOf([])).toEqual([]);
     });
 
     it('merges pool sizes and flags reachable grades without items', () => {

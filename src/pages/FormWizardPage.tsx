@@ -884,6 +884,7 @@ export const FormWizardPage: React.FC<Props> = ({
                         entityMetadata={resolvedBaseMetadata}
                         onSelect={handleSelectEntity}
                         selectedId={selectedTypeName}
+                        storageKey="forms"
                     />
                 </div>
                 <div className='dashboard-content'>

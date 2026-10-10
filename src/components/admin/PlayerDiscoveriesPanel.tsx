@@ -9,8 +9,10 @@ import {
   DiscoveryProgressRowDto,
   DiscoverySummaryDto,
   discoveryTypeLabel,
+  isDiscoveryTypeDisabled,
 } from '../../types/dtos/discovery/DiscoveryDtos';
 import { DiscoverySummaryBars, formatDiscoveryDate, formatDiscoveryRewards } from '../discovery/DiscoverySummaryBars';
+import { FeedbackModal } from '../FeedbackModal';
 
 // docs/specs/domain-discovery/DESIGN.md §3.9 - a player's discoveries on their moderation
 // profile: per-type progress, the discovered places (newest first) with what each paid, and a
@@ -19,6 +21,8 @@ import { DiscoverySummaryBars, formatDiscoveryDate, formatDiscoveryRewards } fro
 // discovered (and rewarded) again, and is written to the audit log as DiscoveryReset.
 
 export const DISCOVERIES_PAGE_SIZE = 25;
+/** How long the "Reset the discovery of …" confirmation stays visible. */
+export const RESET_NOTICE_MS = 6000;
 
 export const PlayerDiscoveriesPanel: React.FC<{
   userId: number;
@@ -29,12 +33,21 @@ export const PlayerDiscoveriesPanel: React.FC<{
 
   const [forbidden, setForbidden] = React.useState(false);
   const [summary, setSummary] = React.useState<DiscoverySummaryDto | null>(null);
+  // Types switched off in the Discovery settings: their places aren't discoverable or listed.
+  const disabledTypes = React.useMemo(
+    () => new Set((summary?.byType ?? []).filter(isDiscoveryTypeDisabled).map((type) => type.domainType)),
+    [summary],
+  );
   const [page, setPage] = React.useState<DiscoveryPagedResultDto<DiscoveryProgressRowDto> | null>(null);
   const [domainType, setDomainType] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [resettingId, setResettingId] = React.useState<number | null>(null);
   const [resetError, setResetError] = React.useState<string | null>(null);
+  // Confirmation after a reset (KNG-40 live test: a reset gave no visible feedback).
+  const [resetNotice, setResetNotice] = React.useState<string | null>(null);
+  // The row whose Reset was clicked, awaiting confirmation in the modal.
+  const [pendingReset, setPendingReset] = React.useState<DiscoveryProgressRowDto | null>(null);
 
   // Only the newest request may update the panel (fast paging/filter clicks).
   const requestSeq = React.useRef(0);
@@ -70,6 +83,13 @@ export const PlayerDiscoveriesPanel: React.FC<{
     }
   }, [userId]);
 
+  // The success line clears itself after a few seconds.
+  React.useEffect(() => {
+    if (!resetNotice) return undefined;
+    const timer = window.setTimeout(() => setResetNotice(null), RESET_NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, [resetNotice]);
+
   // First page for a new player, permission or type filter.
   React.useEffect(() => {
     if (allowed) void load(1, domainType);
@@ -81,13 +101,26 @@ export const PlayerDiscoveriesPanel: React.FC<{
   const totalPages = page ? Math.max(1, Math.ceil(page.totalCount / DISCOVERIES_PAGE_SIZE)) : 1;
 
   const handleReset = async (row: DiscoveryProgressRowDto) => {
-    if (!window.confirm(`Reset the discovery of ${row.name}? The player keeps the reward they got and can discover (and be rewarded for) it again.`)) {
-      return;
-    }
     setResettingId(row.domainId);
     setResetError(null);
+    setResetNotice(null);
     try {
       await discoveryClient.reset(userId, row.domainId);
+      // Show the result straight away instead of only after the reload below: the row leaves
+      // the list and its type's count drops (the reward totals stay - no claw-back).
+      setPage((current) => current && {
+        ...current,
+        items: current.items.filter((item) => item.domainId !== row.domainId),
+        totalCount: Math.max(0, current.totalCount - 1),
+      });
+      setSummary((current) => current && {
+        ...current,
+        totalDiscovered: Math.max(0, current.totalDiscovered - 1),
+        byType: current.byType.map((type) => type.domainType === row.domainType
+          ? { ...type, discovered: Math.max(0, type.discovered - 1) }
+          : type),
+      });
+      setResetNotice(`Reset the discovery of ${row.name}. The player keeps the reward and can discover it again.`);
       // Stay on this page unless it just became empty.
       const stayOn = page && page.items.length === 1 && pageNumber > 1 ? pageNumber - 1 : pageNumber;
       await load(stayOn, domainType);
@@ -117,12 +150,14 @@ export const PlayerDiscoveriesPanel: React.FC<{
         >
           <option value="">All types</option>
           {DISCOVERY_DOMAIN_TYPES.map((type) => (
-            <option key={type} value={type}>{discoveryTypeLabel(type)}</option>
+            <option key={type} value={type}>
+              {discoveryTypeLabel(type)}{disabledTypes.has(type) ? ' (disabled)' : ''}
+            </option>
           ))}
         </select>
       </div>
 
-      {summary && <div className="mb-4"><DiscoverySummaryBars summary={summary} /></div>}
+      {summary && <div className="mb-4"><DiscoverySummaryBars summary={summary} showDisabled /></div>}
 
       {loading && !page ? (
         <div className="flex items-center text-sm text-gray-500">
@@ -132,7 +167,11 @@ export const PlayerDiscoveriesPanel: React.FC<{
       ) : error ? (
         <p className="text-sm text-red-600">{error}</p>
       ) : !page || page.items.length === 0 ? (
-        <p className="text-sm text-gray-500">No discoveries{domainType ? ` of this type` : ''} yet.</p>
+        <p className="text-sm text-gray-500">
+          {disabledTypes.has(domainType)
+            ? 'This type is disabled in the Discovery settings, so its places are not listed.'
+            : `No discoveries${domainType ? ' of this type' : ''} yet.`}
+        </p>
       ) : (
         <>
           <div className="overflow-x-auto">
@@ -159,7 +198,7 @@ export const PlayerDiscoveriesPanel: React.FC<{
                       <button
                         className="text-xs px-2 py-1 rounded-md border border-gray-200 text-gray-600 hover:text-red-700 hover:border-red-200 inline-flex items-center disabled:opacity-50"
                         disabled={resettingId !== null}
-                        onClick={() => void handleReset(row)}
+                        onClick={() => setPendingReset(row)}
                         title="Forget this discovery so it can be discovered again (the reward is not taken back)"
                       >
                         {resettingId === row.domainId
@@ -196,7 +235,18 @@ export const PlayerDiscoveriesPanel: React.FC<{
           )}
         </>
       )}
+      {resetNotice && <p className="mt-3 text-xs text-green-700" role="status">{resetNotice}</p>}
       {resetError && <p className="mt-3 text-xs text-red-600">{resetError}</p>}
+      <FeedbackModal
+        open={pendingReset !== null}
+        title="Reset discovery?"
+        message={`Reset the discovery of ${pendingReset?.name ?? ''}? The player keeps the reward they got and can discover (and be rewarded for) it again.`}
+        continueLabel="Reset"
+        onContinue={() => {
+          if (pendingReset) void handleReset(pendingReset);
+        }}
+        onClose={() => setPendingReset(null)}
+      />
     </div>
   );
 };

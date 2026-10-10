@@ -23,11 +23,15 @@ import { LootboxesPage } from './pages/admin/LootboxesPage';
 import { LOOTBOX_ADMIN_NODE } from './types/dtos/lootbox/LootboxDtos';
 import { DiscoveryAdminPage } from './pages/admin/DiscoveryAdminPage';
 import { DISCOVERY_ADMIN_NODE } from './types/dtos/discovery/DiscoveryDtos';
+import { RoadsAdminPage } from './pages/admin/RoadsAdminPage';
+import { ROAD_ADMIN_NODE } from './types/dtos/road/RoadDtos';
 import { AccountTransactionsPage } from './pages/AccountTransactionsPage';
 import { BalanceLogPage } from './pages/admin/BalanceLogPage';
 import { TransactionDetailPage } from './pages/admin/economy/TransactionDetailPage';
 import { CurrencyPolicyPage } from './pages/admin/economy/CurrencyPolicyPage';
 import { CurrencyAlertsPage } from './pages/admin/economy/CurrencyAlertsPage';
+import { LocationRetentionPage } from './pages/admin/locations/LocationRetentionPage';
+import { LOCATION_RETENTION_NODES } from './types/dtos/locationRetention/LocationRetentionDtos';
 import { CURRENCY_NODES } from './types/dtos/currency/CurrencyDtos';
 import { LeaderboardsPage } from './pages/leaderboards/LeaderboardsPage';
 import { OwnerRoute } from './components/OwnerRoute';
@@ -221,6 +225,14 @@ function AppContent() {
                   <DiscoveryAdminPage />
                 </StaffRoute>
               } />
+              {/* Road navigation Phase 5 (docs/specs/navigation/IMPLEMENTATION_PLAN.md): road
+                  profiles, the tile overview and the edge table - knk.admin.road, which the API
+                  enforces on every write. */}
+              <Route path="/admin/roads" element={
+                <StaffRoute node={ROAD_ADMIN_NODE}>
+                  <RoadsAdminPage />
+                </StaffRoute>
+              } />
               {/* Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md, KNG-23):
                   the balance event log under Moderation, a transaction's detail/reversal and the
                   currency policy, each gated on its own knk.admin.currency.* node. */}
@@ -266,6 +278,12 @@ function AppContent() {
                 </OwnerRoute>
               } />
               <Route path="/players/:username" element={<PublicPlayerProfilePage />} />
+              {/* KNG-80: orphaned Locations found by the weekly retention check, reviewed by hand. */}
+              <Route path="/admin/locations/orphans" element={
+                <StaffRoute node={LOCATION_RETENTION_NODES.view}>
+                  <LocationRetentionPage />
+                </StaffRoute>
+              } />
               {/* User management Phase 1 (docs/specs/user-management/IMPLEMENTATION_PLAN.md).
                   Moderation pages are staff only (knk.admin.user.manage), see StaffRoute. */}
               <Route path="/admin/users/:id" element={

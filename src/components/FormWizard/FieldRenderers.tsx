@@ -417,7 +417,8 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
 const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onBlur }) => {
     const minecraftTextColorEnabled = parseMinecraftTextColorEnabled(field.settingsJson);
     const textValue = typeof value === 'string' ? value : '';
-    const enumValues = getEnumValues(field);
+    // Not getEnumValues: its legacy fallback would turn a default value or placeholder into the only option.
+    const enumValues = getConfiguredEnumValues(field) ?? [];
 
     return (
         <div>
@@ -811,7 +812,8 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
     );
 };
 
-const getEnumValues = (field: FormFieldDto): string[] => {
+/** Options from settingsJson.enumValues only; a String field is a dropdown only when these are configured. */
+const getConfiguredEnumValues = (field: FormFieldDto): string[] | null => {
     if (field.settingsJson) {
         try {
             const settings = JSON.parse(field.settingsJson) as { enumValues?: unknown };
@@ -822,9 +824,13 @@ const getEnumValues = (field: FormFieldDto): string[] => {
             // Existing configurations can omit or contain non-JSON settings.
         }
     }
+    return null;
+};
 
-    // Backwards compatibility for configurations that stored options in defaultValue or placeholder.
-    return (field.defaultValue || field.placeholder || '').split(',').map(v => v.trim()).filter(Boolean);
+const getEnumValues = (field: FormFieldDto): string[] => {
+    // Backwards compatibility for Enum configurations that stored options in defaultValue or placeholder.
+    return getConfiguredEnumValues(field)
+        ?? (field.defaultValue || field.placeholder || '').split(',').map(v => v.trim()).filter(Boolean);
 };
 
 const getObjectValue = (value: Record<string, any>, key: string): any => {

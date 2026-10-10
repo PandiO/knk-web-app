@@ -1,6 +1,6 @@
-import { DomainTeleportSettingsDto } from '../domain/DomainDtos';
+import { DomainNavigationDefaultSettingsDto, DomainTeleportSettingsDto } from '../domain/DomainDtos';
 
-export interface DomainBaseDto extends DomainTeleportSettingsDto {
+export interface DomainBaseDto extends DomainTeleportSettingsDto, DomainNavigationDefaultSettingsDto {
     id: number;
     name: string;
     description?: string;

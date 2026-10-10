@@ -1,4 +1,4 @@
-import { auditActionLabel, describeAuditDetails, formatAmount, lootboxSpawnAuditLabel } from './auditDetails';
+import { auditActionLabel, auditTags, describeAuditDetails, formatAmount, lootboxSpawnAuditLabel } from './auditDetails';
 import { AuditLogEntryDto } from '../types/dtos/userManagement/UserProfileSummaryDtos';
 
 const entry = (action: AuditLogEntryDto['action'], details: object | string | null): AuditLogEntryDto => ({
@@ -105,8 +105,9 @@ describe('describeAuditDetails', () => {
     }))).toEqual([
       'Alice → Bob',
       'From world 0, 64, -4 to world_nether 100, 70, 20',
-      'Silent',
     ]);
+    expect(auditTags(entry('PlayerTeleported', { silent: true, via: 'command' })))
+      .toEqual([{ label: 'Silent', tone: 'red' }]);
   });
 
   it('describes a staff teleport to coordinates from the console, with a reason', () => {
@@ -117,9 +118,13 @@ describe('describeAuditDetails', () => {
     }))).toEqual([
       'Carol → world 50, 70, 50',
       'From world 1, 64, 1 to world 50, 70, 50',
-      'From the console',
       'Reason: stuck in a wall',
     ]);
+    expect(auditTags(entry('PlayerTeleported', { silent: false, via: 'console' })))
+      .toEqual([{ label: 'From the console', tone: 'gray' }]);
+    expect(auditTags(entry('PlayerTeleported', { silent: true, via: 'console' })).map(t => t.label))
+      .toEqual(['Silent', 'From the console']);
+    expect(auditTags(entry('GrantAdded', { node: 'x', value: true }))).toEqual([]);
   });
 
   it('describes a private message log read: conversation, dates and what was shown', () => {

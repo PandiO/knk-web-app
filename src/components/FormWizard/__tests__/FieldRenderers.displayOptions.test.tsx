@@ -37,6 +37,25 @@ describe('FieldRenderer display options', () => {
         expect(screen.getByRole('option', { name: 'east' })).toBeInTheDocument();
     });
 
+    it('renders a string field with a default value and placeholder as a text input', () => {
+        render(
+            <FieldRenderer
+                field={baseField({
+                    fieldName: 'Name',
+                    label: 'Name',
+                    defaultValue: 'Location',
+                    placeholder: 'e.g. north, gate',
+                    settingsJson: '{"worldTask":{"enabled":false}}'
+                })}
+                value="Location"
+                onChange={jest.fn()}
+            />
+        );
+
+        expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+        expect(screen.getByRole('textbox')).toHaveValue('Location');
+    });
+
     it('renders configured enum options independently from the default value', () => {
         render(
             <FieldRenderer
