@@ -102,6 +102,30 @@ describe('OwnerTelemetryPage', () => {
     expect(api.search).toHaveBeenLastCalledWith({ correlationId: 'corr-1' });
   });
 
+  it('closes the drawer with its button, the backdrop and Escape', async () => {
+    // Smoke test 2026-10-10: the drawer sat under the fixed nav, which hid its close button.
+    api.search.mockResolvedValue({ items: [event()], nextBefore: null });
+    api.getEvent.mockResolvedValue({ event: event(), related: [], links: { ledgerTransactionPublicIds: [], siegeMatchId: null } });
+    render(<OwnerTelemetryPage />);
+    await userEvent.click(screen.getByRole('button', { name: /search events/i }));
+    const open = async () => {
+      await userEvent.click(await screen.findByText('siege.lobby_join_attempt'));
+      return screen.findByRole('dialog', { name: 'Event detail' });
+    };
+
+    await open();
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog', { name: 'Event detail' })).not.toBeInTheDocument();
+
+    await open();
+    await userEvent.click(screen.getByTestId('event-drawer-backdrop'));
+    expect(screen.queryByRole('dialog', { name: 'Event detail' })).not.toBeInTheDocument();
+
+    await open();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Event detail' })).not.toBeInTheDocument();
+  });
+
   it('shows a player timeline with ledger and Siege rows', async () => {
     api.getTimeline.mockResolvedValue({
       userId: 7, username: 'alice', from: 'a', to: 'b', truncated: true,

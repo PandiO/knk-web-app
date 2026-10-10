@@ -318,9 +318,18 @@ const EventDrawer: React.FC<{
     ['Source', `${e.source} · ${e.serverName} #${e.serverSeq} · ${e.appVersion}`],
     ['Level', e.level],
   ];
+  // Smoke test 2026-10-10: above the fixed nav (z-50), which hid the drawer's top and its close
+  // button; a click on the backdrop or Escape closes it too.
+  React.useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
   return (
+    <div className="fixed inset-0 z-[60]">
+      <div className="absolute inset-0 bg-black/20" onClick={onClose} data-testid="event-drawer-backdrop" />
     <aside role="dialog" aria-label="Event detail"
-      className="fixed inset-y-0 right-0 z-40 w-full max-w-md overflow-y-auto bg-white shadow-xl border-l border-gray-200 p-5">
+      className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto bg-white shadow-xl border-l border-gray-200 p-5">
       <div className="flex items-start justify-between">
         <h2 className="font-mono text-lg text-gray-900">{e.name}</h2>
         <button type="button" onClick={onClose} aria-label="Close"><X className="h-5 w-5 text-gray-500" /></button>
@@ -370,6 +379,7 @@ const EventDrawer: React.FC<{
         </div>
       )}
     </aside>
+    </div>
   );
 };
 
