@@ -11,6 +11,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableSectionItem } from './SortableSectionItem';
 import { FeedbackModal } from '../FeedbackModal';
+import { useConfirmModal } from '../../hooks/useConfirmModal';
 import { ReusableSectionSelector } from './ReusableSectionSelector';
 
 export const DisplayConfigBuilder: React.FC = () => {
@@ -45,6 +46,7 @@ export const DisplayConfigBuilder: React.FC = () => {
         message: string;
         status: 'success' | 'error' | 'info';
     };
+    const { confirm, modal: confirmModal } = useConfirmModal();
     const [saveFeedback, setSaveFeedback] = useState<SaveFeedbackState>({
         open: false,
         title: '',
@@ -415,7 +417,11 @@ export const DisplayConfigBuilder: React.FC = () => {
                 try {
                     const existingDefault = await displayConfigClient.getDefaultByEntityType(config.entityTypeName, true);
                     if (existingDefault && existingDefault.id && existingDefault.id !== config.id) {
-                        if (window.confirm(`There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.name}"?`)) {
+                        if (await confirm({
+                            title: 'Change default configuration?',
+                            message: `There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.name}"?`,
+                            continueLabel: 'Change default',
+                        })) {
                             await handleRemoveDefault(existingDefault);
                         } else {
                             setSaving(false);
@@ -791,6 +797,7 @@ export const DisplayConfigBuilder: React.FC = () => {
                 status={saveFeedback.status}
                 onClose={closeSaveModal}
             />
+            {confirmModal}
         </div>
     );
 };

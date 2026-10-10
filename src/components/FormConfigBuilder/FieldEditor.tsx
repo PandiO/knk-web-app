@@ -11,6 +11,7 @@ import { findParentFormFields, ParentFormField } from '../../utils/forms/parentF
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { CreateFieldValidationRuleDto, FieldValidationRuleDto, UpdateFieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { FeedbackModal } from '../FeedbackModal';
+import { useConfirmModal } from '../../hooks/useConfirmModal';
 import {
     PROJECTION_OVERWRITE_POLICIES,
     PROJECTION_TRANSFORMS,
@@ -89,6 +90,7 @@ export const FieldEditor: React.FC<Props> = ({
     const [rulesError, setRulesError] = useState<string | null>(null);
     type RuleFeedbackState = { open: boolean; title: string; message: string; status: 'success' | 'error' | 'info' };
     const [ruleFeedback, setRuleFeedback] = useState<RuleFeedbackState>({ open: false, title: '', message: '', status: 'info' });
+    const { confirm, modal: confirmModal } = useConfirmModal();
 
     // Fields of the forms this entity's form is opened from, offered as rule dependencies.
     const [parentFormFields, setParentFormFields] = useState<ParentFormField[]>([]);
@@ -450,7 +452,7 @@ export const FieldEditor: React.FC<Props> = ({
     };
 
     const handleDeleteRule = async (ruleId: number) => {
-        if (!window.confirm('Delete this validation rule?')) return;
+        if (!(await confirm({ title: 'Delete validation rule?', message: 'Delete this validation rule?', continueLabel: 'Delete' }))) return;
         try {
             await fieldValidationRuleClient.delete(ruleId);
             await loadValidationRules();
@@ -1279,6 +1281,7 @@ export const FieldEditor: React.FC<Props> = ({
                 status={ruleFeedback.status}
                 onClose={() => setRuleFeedback(prev => ({ ...prev, open: false }))}
             />
+            {confirmModal}
         </div>
     );
 };

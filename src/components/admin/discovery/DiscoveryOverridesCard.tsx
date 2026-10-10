@@ -13,6 +13,7 @@ import {
 } from '../../../types/dtos/discovery/DiscoveryDtos';
 import { OverrideDraft, RANGES, overrideToDraft, parseOverrideDraft } from './discoveryRuleForm';
 import { RangeInputs, formatRange } from './DiscoveryRulesCard';
+import { FeedbackModal } from '../../FeedbackModal';
 
 // docs/specs/domain-discovery/DESIGN.md §3.1/§3.9 (3) - per-domain overrides: any field left blank
 // inherits the domain type's rule, so one landmark can pay more or one structure be made
@@ -45,6 +46,8 @@ export const DiscoveryOverridesCard: React.FC<{
   const [saving, setSaving] = React.useState(false);
   const [removingId, setRemovingId] = React.useState<number | null>(null);
   const [removeError, setRemoveError] = React.useState<string | null>(null);
+  // The override whose Remove was clicked, awaiting confirmation in the modal (KNG-82).
+  const [pendingRemove, setPendingRemove] = React.useState<DomainDiscoveryOverrideDto | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -112,11 +115,10 @@ export const DiscoveryOverridesCard: React.FC<{
     }
   };
 
+  const overrideName = (domainOverride: DomainDiscoveryOverrideDto) =>
+    domainOverride.domainName ?? `domain #${domainOverride.domainId}`;
+
   const remove = async (domainOverride: DomainDiscoveryOverrideDto) => {
-    const name = domainOverride.domainName ?? `domain #${domainOverride.domainId}`;
-    if (!window.confirm(`Remove the discovery override of ${name}? It will use the ${discoveryTypeLabel(domainOverride.domainType ?? '')} rule again.`)) {
-      return;
-    }
     setRemovingId(domainOverride.domainId);
     setRemoveError(null);
     try {
@@ -256,7 +258,7 @@ export const DiscoveryOverridesCard: React.FC<{
                           title="Remove override"
                           aria-label={`Remove ${name} override`}
                           disabled={removingId !== null}
-                          onClick={() => void remove(o)}
+                          onClick={() => setPendingRemove(o)}
                         >
                           {removingId === o.domainId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                         </button>
@@ -289,6 +291,18 @@ export const DiscoveryOverridesCard: React.FC<{
           Add override
         </button>
       </div>
+      <FeedbackModal
+        open={pendingRemove !== null}
+        title="Remove override?"
+        message={pendingRemove
+          ? `Remove the discovery override of ${overrideName(pendingRemove)}? It will use the ${discoveryTypeLabel(pendingRemove.domainType ?? '')} rule again.`
+          : ''}
+        continueLabel="Remove"
+        onContinue={() => {
+          if (pendingRemove) void remove(pendingRemove);
+        }}
+        onClose={() => setPendingRemove(null)}
+      />
     </div>
   );
 };

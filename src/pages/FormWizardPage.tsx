@@ -21,6 +21,7 @@ import { logging } from '../utils';
 import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from '../types/dtos/forms/FormModels';
 import { DisplayConfigurationDto } from '../types/dtos/displayConfig/DisplayModels';
 import { useEntityMetadata } from '../hooks/useEntityMetadata';
+import { useConfirmModal } from '../hooks/useConfirmModal';
 import { getCreateFunctionForEntity, getFetchByIdFunctionForEntity, getUpdateFunctionForEntity } from '../utils/entityApiMapping';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -94,6 +95,7 @@ export const FormWizardPage: React.FC<Props> = ({
         onContinue?: () => void;
         autoCloseMs?: number;
     };
+    const { confirm, modal: confirmModal } = useConfirmModal();
     const [feedbackModal, setFeedbackModal] = useState<FeedbackState>({
         open: false,
         title: '',
@@ -422,7 +424,7 @@ export const FormWizardPage: React.FC<Props> = ({
         const existingDefault = formConfigs.find(c => c.id !== config.id && c.isDefault);
         
         if (existingDefault) {
-            if (!window.confirm(`There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
+            if (!(await confirm({ title: 'Change default configuration?', message: `There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`, continueLabel: 'Change default' }))) {
                 return;
             }
             await handleRemoveDefault(existingDefault);
@@ -473,7 +475,7 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Handler: Delete progress
     const handleDeleteProgress = async (progress: FormSubmissionProgressSummaryDto) => {
-        if (!window.confirm('Are you sure you want to delete this saved progress?')) return;
+        if (!(await confirm({ title: 'Delete saved progress?', message: 'Are you sure you want to delete this saved progress?', continueLabel: 'Delete' }))) return;
 
         try {
             await formSubmissionClient.delete(progress.id!);
@@ -499,7 +501,7 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Handler: Delete configuration
     const handleFormConfigDelete = async (config: FormConfigurationDto) => {
-        if (!window.confirm('Are you sure you want to delete this form configuration?')) return;
+        if (!(await confirm({ title: 'Delete form configuration?', message: 'Are you sure you want to delete this form configuration?', continueLabel: 'Delete' }))) return;
 
         try {
             await formConfigClient.delete(config.id!);
@@ -532,7 +534,7 @@ export const FormWizardPage: React.FC<Props> = ({
 
         const existingDefault = displayConfigs.find(c => c.id !== config.id && c.isDefault);
         if (existingDefault) {
-            if (!window.confirm(`There is already a default display configuration for "${selectedTypeName}". Change default to "${config.name}"?`)) {
+            if (!(await confirm({ title: 'Change default display configuration?', message: `There is already a default display configuration for "${selectedTypeName}". Change default to "${config.name}"?`, continueLabel: 'Change default' }))) {
                 return;
             }
             await handleDisplayRemoveDefault(existingDefault);
@@ -1083,6 +1085,7 @@ export const FormWizardPage: React.FC<Props> = ({
                 onContinue={handleFeedbackContinue}
                 autoCloseMs={feedbackModal.autoCloseMs}
             />
+            {confirmModal}
         </>
     );
 };

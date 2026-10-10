@@ -12,6 +12,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableStepItem } from './SortableStepItem';
 import { FeedbackModal } from '../FeedbackModal';
+import { useConfirmModal } from '../../hooks/useConfirmModal';
 import { ReusableStepSelector } from './ReusableStepSelector';
 import { ConfigurationHealthPanel } from './ConfigurationHealthPanel';
 import { detectProjectionCycles } from '../../utils/forms/valueProjection';
@@ -58,6 +59,7 @@ export const FormConfigBuilder: React.FC = () => {
         message: string;
         status: 'success' | 'error' | 'info';
     };
+    const { confirm, modal: confirmModal } = useConfirmModal();
     const [saveFeedback, setSaveFeedback] = useState<SaveFeedbackState>({
         open: false,
         title: '',
@@ -425,7 +427,11 @@ export const FormConfigBuilder: React.FC = () => {
                     const existingDefaults: FormConfigurationDto = await formConfigClient.getByEntityTypeName(config.entityTypeName, true) as FormConfigurationDto;
                     if (existingDefaults && existingDefaults.id && existingDefaults.id !== config.id) {
                         //Show same confirm dialog as the handleSetDefault const in the FormWizardPage.tsx and unset if confirmed
-                        if (window.confirm(`There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
+                        if (await confirm({
+                            title: 'Change default configuration?',
+                            message: `There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.configurationName}"?`,
+                            continueLabel: 'Change default',
+                        })) {
                             await handleRemoveDefault(existingDefaults);
                         } else {
                             return;
@@ -771,6 +777,7 @@ export const FormConfigBuilder: React.FC = () => {
                 onClose={closeSaveModal}
                 onContinue={handleSaveContinue}
             />
+            {confirmModal}
 
             {showStepSelector && (
                 <ReusableStepSelector
