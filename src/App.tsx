@@ -30,6 +30,8 @@ import { BalanceLogPage } from './pages/admin/BalanceLogPage';
 import { TransactionDetailPage } from './pages/admin/economy/TransactionDetailPage';
 import { CurrencyPolicyPage } from './pages/admin/economy/CurrencyPolicyPage';
 import { CurrencyAlertsPage } from './pages/admin/economy/CurrencyAlertsPage';
+import { LocationRetentionPage } from './pages/admin/locations/LocationRetentionPage';
+import { LOCATION_RETENTION_NODES } from './types/dtos/locationRetention/LocationRetentionDtos';
 import { CURRENCY_NODES } from './types/dtos/currency/CurrencyDtos';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
@@ -242,6 +244,12 @@ function AppContent() {
               <Route path="/admin/economy/alerts" element={
                 <StaffRoute node={CURRENCY_NODES.alerts}>
                   <CurrencyAlertsPage />
+                </StaffRoute>
+              } />
+              {/* KNG-80: orphaned Locations found by the weekly retention check, reviewed by hand. */}
+              <Route path="/admin/locations/orphans" element={
+                <StaffRoute node={LOCATION_RETENTION_NODES.view}>
+                  <LocationRetentionPage />
                 </StaffRoute>
               } />
               {/* User management Phase 1 (docs/specs/user-management/IMPLEMENTATION_PLAN.md).

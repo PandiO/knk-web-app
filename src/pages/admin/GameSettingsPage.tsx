@@ -13,6 +13,7 @@ import { GroupOverridesCard } from '../../components/admin/gameSettings/GroupOve
 import { LocationReferencePicker } from '../../components/admin/gameSettings/LocationReferencePicker';
 import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
 import { RespawnPolicyEditor } from '../../components/admin/gameSettings/RespawnPolicyEditor';
+import { PREVIEW_SAMPLE, fillMessagePlaceholders } from '../../components/admin/gameSettings/messagePlaceholders';
 import { LocationOption, buildLocationOptions } from '../../components/admin/gameSettings/locationReferenceOptions';
 import { PermissionGroupDto } from '../../types/dtos/userManagement/PermissionGroupDto';
 import {
@@ -32,9 +33,6 @@ const JOIN_SPAWN_MODE_LABELS: Record<JoinSpawnMode, string> = {
     WorldSpawn: "The main world's spawn",
     CustomReference: 'A chosen spot (Location, Town, District or Structure)',
 };
-/** The settings' own placeholder names for the previews. */
-const fillPreview = (text: string, player: string, group: string) =>
-    (text || '').split('{player}').join(player).split('{group}').join(group).split('{online}').join('12').split('{max}').join('100');
 const GAMEMODES = ['SURVIVAL', 'CREATIVE', 'ADVENTURE', 'SPECTATOR'];
 
 const buildDefaultWorldSettings = (worldName: string, worldFolderName?: string | null): WorldGameSettingsDto => ({
@@ -293,8 +291,10 @@ export const GameSettingsPage: React.FC = () => {
                     <p className="text-sm text-gray-600">
                         Minecraft colour codes such as <code>&amp;a</code> and <code>&amp;c</code> (several per line), styles like
                         {' '}<code>&amp;l</code>, and hex as <code>&amp;x&amp;f&amp;f&amp;a&amp;a&amp;0&amp;0</code>.
-                        Placeholders: <code>{'{player}'}</code> and <code>{'{group}'}</code> (the player's group). Leave a text empty
-                        for no message. A permission group can have its own join message (Permission Group Overrides below).
+                        Placeholders: <code>{'{player}'}</code>, <code>{'{title}'}</code> (the player's title, e.g. Knight; empty if
+                        none; <code>{'{titlename}'}</code> also works) and <code>{'{group}'}</code> (the player's group). Leave a text
+                        empty for no message. A permission group can have its own join and leave message (Permission Group
+                        Overrides below). Previews use {PREVIEW_SAMPLE.player}, title {PREVIEW_SAMPLE.title}, group {PREVIEW_SAMPLE.group}.
                     </p>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div>
@@ -307,7 +307,7 @@ export const GameSettingsPage: React.FC = () => {
                             />
                             <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-2">
                                 <p className="text-xs text-gray-500 mb-1">Preview</p>
-                                <MinecraftLegacyPreview dark text={fillPreview(settings.joinAnnouncement, 'Steve', 'Default')} />
+                                <MinecraftLegacyPreview dark text={fillMessagePlaceholders(settings.joinAnnouncement, PREVIEW_SAMPLE)} />
                             </div>
                         </div>
                         <div>
@@ -320,7 +320,7 @@ export const GameSettingsPage: React.FC = () => {
                             />
                             <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-2">
                                 <p className="text-xs text-gray-500 mb-1">Preview</p>
-                                <MinecraftLegacyPreview dark text={fillPreview(settings.leaveAnnouncement, 'Alex', 'Default')} />
+                                <MinecraftLegacyPreview dark text={fillMessagePlaceholders(settings.leaveAnnouncement, PREVIEW_SAMPLE)} />
                             </div>
                         </div>
                     </div>
@@ -342,7 +342,7 @@ export const GameSettingsPage: React.FC = () => {
                     />
                     <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
                         <p className="text-xs text-gray-500 mb-1">Preview</p>
-                        <MinecraftLegacyPreview dark text={fillPreview(settings.motd || '', 'Steve', 'Default')} />
+                        <MinecraftLegacyPreview dark text={fillMessagePlaceholders(settings.motd || '', PREVIEW_SAMPLE)} />
                     </div>
                 </div>
 

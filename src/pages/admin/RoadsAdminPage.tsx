@@ -5,11 +5,12 @@ import { RoadNetworkMetaDto, RoadProfileDto, RoadTileDto } from '../../types/dto
 import { RoadProfilesCard } from '../../components/admin/roads/RoadProfilesCard';
 import { RoadTilesCard } from '../../components/admin/roads/RoadTilesCard';
 import { RoadEdgesCard } from '../../components/admin/roads/RoadEdgesCard';
+import { DomainNavigationDefaultsCard } from '../../components/admin/roads/DomainNavigationDefaultsCard';
 
 // docs/specs/navigation/DESIGN.md §7 / IMPLEMENTATION_PLAN.md Phase 5 - the road network's admin
 // page (knk.admin.road, see the /admin/roads route): road profiles (what roads are made of), the
 // per-world tile overview (what was built, what is dirty, build warnings) and the edge table
-// (street labels, class, cost, flags). Everything in-world (surveys, builds, the overlay) is the
+// (street labels, class, cost, flags), plus where /navigate leads per domain type (KNG-73). Everything in-world (surveys, builds, the overlay) is the
 // plugin's `/knk road` command; this page is for naming, labelling, profiles, tuning and overviews.
 // Street names stay on the Street entity: an edge only references a street by id.
 
@@ -173,6 +174,7 @@ export const RoadsAdminPage: React.FC = () => {
                 onStreetsChanged={handleStreetsChanged}
               />
             </div>
+            <DomainNavigationDefaultsCard />
           </>
         )}
       </div>

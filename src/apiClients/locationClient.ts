@@ -4,7 +4,9 @@ import { LocationDto } from "../types/dtos/locations/LocationModels";
 import { ObjectManager } from "./objectManager";
 
 export enum LocationOperation {
-    GetAll = 'GetAll',
+    // GET api/Locations: the API has no "GetAll" route (it 404'd, so the Game Settings picker had no
+    // Locations and no Structures, which only carry a locationId). '' adds nothing to the URL.
+    GetAll = '',
     GetById = 'GetById/',
     Create = 'Create',
     SearchPaged = 'search'

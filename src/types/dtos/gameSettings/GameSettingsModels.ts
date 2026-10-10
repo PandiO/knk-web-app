@@ -2,8 +2,12 @@ export type LocationReferenceSourceType = 'Location' | 'Town' | 'District' | 'St
 
 export type JoinSpawnMode = 'WorldSpawn' | 'CustomReference';
 
-/** JoinSpawn = respawn where the player would join ("synced" with the join spawn, KNG-52). */
-export type RespawnMode = 'WorldSpawn' | 'ConfiguredReference' | 'NearestTown' | 'JoinSpawn';
+/**
+ * JoinSpawn = respawn where the player would join ("synced" with the join spawn, KNG-52). WorldSpawn is
+ * forced (beds and anchors ignored); ServerDefault = not redirected: bed / anchor, else the world spawn
+ * (what staff and owners get, round 4).
+ */
+export type RespawnMode = 'WorldSpawn' | 'ConfiguredReference' | 'NearestTown' | 'JoinSpawn' | 'ServerDefault';
 
 export type WeatherMode = 'Normal' | 'Constant' | 'Blocked' | 'Weighted';
 
@@ -65,7 +69,8 @@ export interface MinecraftWorldRuntimeDto {
 
 /**
  * One permission group's overrides (KNG-52). null = no override: the player's next group, else the
- * global/world setting. A blank joinAnnouncement means "no join broadcast" for the group.
+ * global/world setting. A blank joinAnnouncement/leaveAnnouncement means "no join/leave broadcast" for
+ * the group. Messages take {player}, {group} and {title} (alias {titlename}).
  */
 export interface PermissionGroupGameSettingsDto {
   permissionGroupId: number;
@@ -74,7 +79,14 @@ export interface PermissionGroupGameSettingsDto {
   /** Read-only: 1 = considered first (hierarchy, then weight). */
   precedence?: number;
   joinAnnouncement?: string | null;
+  /** null = not overridden; "" = the group's members leave silently. */
+  leaveAnnouncement?: string | null;
   joinSpawnReference?: LocationReferenceDto | null;
+  /**
+   * True: the group's members join where they logged out (no join teleport, like owners); /spawn still
+   * takes them to the server spawn. joinSpawnReference is then null (round 4).
+   */
+  joinAtLastLocation?: boolean | null;
   respawnPolicy?: RespawnPolicyDto | null;
 }
 

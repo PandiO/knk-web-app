@@ -95,6 +95,7 @@ export enum Controllers {
     RoadEdges = 'road-edges',
     RoadNetwork = 'road-network',
     RoadNodes = 'road-nodes',
+    NavigationSettings = 'navigation-settings',
     EnchantmentDefinitions = 'EnchantmentDefinitions',
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs',
@@ -122,6 +123,8 @@ export enum Controllers {
     LootboxTokenGrants = 'LootboxTokenGrants',
     ItemInstances = 'ItemInstances',
     Currency = 'currency',
+    // Location retention (KNG-80)
+    LocationRetention = 'location-retention',
     // Siege Phase 1
     BannerDesigns = 'BannerDesigns',
     BannerLayers = 'BannerLayers',
