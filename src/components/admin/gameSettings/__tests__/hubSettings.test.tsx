@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { HubSettingsCard, defaultHubSettings } from '../HubSettingsCard';
 import { GroupOverridesCard } from '../GroupOverridesCard';
-import { buildLocationOptions } from '../locationReferenceOptions';
+import { buildDomainOptions, buildLocationOptions } from '../locationReferenceOptions';
+import { gameSettingsErrorMessage } from '../gameSettingsErrors';
 import { gameSettingsClient } from '../../../../apiClients/gameSettingsClient';
 import { HubDomainDto, HubSettingsDto, PermissionGroupGameSettingsDto } from '../../../../types/dtos/gameSettings/GameSettingsModels';
 
@@ -21,6 +22,12 @@ const options = buildLocationOptions(
     [],
     [],
 );
+// Square has no Location of its own: it can still be flagged (Codex review of PR #6).
+const domains = buildDomainOptions(
+    [{ id: 4, name: 'Hubtown', locationId: 1 }, { id: 5, name: 'Oakhaven', locationId: 2 }],
+    [{ id: 6, name: 'Square', townId: 4 }],
+    [],
+);
 const hubtown: HubDomainDto = { id: 4, name: 'Hubtown', domainType: 'Town', worldName: 'hub', isHub: true, selected: false };
 
 describe('HubSettingsCard (hub DESIGN §16 Phase 4)', () => {
@@ -30,7 +37,7 @@ describe('HubSettingsCard (hub DESIGN §16 Phase 4)', () => {
         const onHubDomainsChange = jest.fn();
         let hub: HubSettingsDto = defaultHubSettings();
         const onChange = jest.fn((next: HubSettingsDto) => { hub = next; });
-        const { rerender } = render(<HubSettingsCard hub={hub} hubDomains={[]} domainOptions={options} options={options}
+        const { rerender } = render(<HubSettingsCard hub={hub} hubDomains={[]} domainOptions={domains} options={options}
             onChange={onChange} onHubDomainsChange={onHubDomainsChange} />);
 
         fireEvent.change(screen.getByLabelText('Domain to flag as hub'), { target: { value: '4' } });
@@ -38,7 +45,7 @@ describe('HubSettingsCard (hub DESIGN §16 Phase 4)', () => {
         await waitFor(() => expect(onHubDomainsChange).toHaveBeenCalledWith([hubtown]));
         expect(gameSettingsClient.setHubEligible).toHaveBeenCalledWith(4, true);
 
-        rerender(<HubSettingsCard hub={hub} hubDomains={[hubtown]} domainOptions={options} options={options}
+        rerender(<HubSettingsCard hub={hub} hubDomains={[hubtown]} domainOptions={domains} options={options}
             onChange={onChange} onHubDomainsChange={onHubDomainsChange} />);
         fireEvent.change(screen.getByLabelText('Selected hub'), { target: { value: '4' } });
         expect(hub.domainId).toBe(4);
@@ -53,7 +60,7 @@ describe('HubSettingsCard (hub DESIGN §16 Phase 4)', () => {
             domainId: 4,
             spawnReference: { sourceType: 'Location', sourceId: 2, displayLabel: 'Oak square', location: loc(2, 'Oak square', 'world') },
         };
-        render(<HubSettingsCard hub={hub} hubDomains={[{ ...hubtown, selected: true }]} domainOptions={options} options={options}
+        render(<HubSettingsCard hub={hub} hubDomains={[{ ...hubtown, selected: true }]} domainOptions={domains} options={options}
             onChange={jest.fn()} onHubDomainsChange={jest.fn()} />);
 
         expect(screen.getByText(/The spawn is in world 'world', but the hub is in world 'hub'/)).toBeInTheDocument();
@@ -62,6 +69,32 @@ describe('HubSettingsCard (hub DESIGN §16 Phase 4)', () => {
         fireEvent.change(screen.getByLabelText('Domain to flag as hub'), { target: { value: '5' } });
         fireEvent.click(screen.getByRole('button', { name: /Flag as hub/ }));
         expect(await screen.findByRole('alert')).toHaveTextContent('would be nested hubs');
+    });
+});
+
+describe('Hub-eligible domains (Codex review of PR #6)', () => {
+    it('lists every town, district and structure, also one without a Location', () => {
+        expect(domains.map(d => `${d.sourceType}:${d.name}:${d.parents.join('/')}`))
+            .toEqual(['Town:Hubtown:', 'Town:Oakhaven:', 'District:Square:Hubtown']);
+        expect(options.some(o => o.name === 'Square')).toBe(false);
+    });
+
+    it('says the flagged domains could not be loaded instead of "none flagged", and locks the hub', () => {
+        render(<HubSettingsCard hub={{ ...defaultHubSettings(), domainId: 4 }} hubDomains={[]} domainOptions={domains} options={options}
+            hubDomainsError="The hub-eligible domains could not be loaded" onChange={jest.fn()} onHubDomainsChange={jest.fn()} />);
+
+        expect(screen.getByRole('alert')).toHaveTextContent('could not be loaded');
+        expect(screen.queryByText('No domain is flagged yet.')).not.toBeInTheDocument();
+        expect(screen.getByLabelText('Selected hub')).toBeDisabled();
+        expect(screen.getByRole('button', { name: /Flag as hub/ })).toBeDisabled();
+    });
+
+    it('formats a refused save without the lootbox wording', () => {
+        expect(gameSettingsErrorMessage({ status: 400, response: "The hub spawn is in world 'world'" }, 'x')).toBe("The hub spawn is in world 'world'");
+        expect(gameSettingsErrorMessage({ status: 403 }, 'x')).toContain('knk.admin.config');
+        expect(gameSettingsErrorMessage({ status: 403 }, 'x')).not.toContain('lootbox');
+        expect(gameSettingsErrorMessage({ status: 400, response: { errors: { Hub: ['Pick a spawn'] } } }, 'x')).toBe('Pick a spawn');
+        expect(gameSettingsErrorMessage({ status: 500 }, 'Could not save')).toBe('Could not save');
     });
 });
 

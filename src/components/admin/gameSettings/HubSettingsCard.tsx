@@ -1,14 +1,14 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { gameSettingsClient } from '../../../apiClients/gameSettingsClient';
-import { apiErrorMessage } from '../../../utils/lootbox';
 import {
     HubDomainDto,
     HubOutageAction,
     HubRulesDto,
     HubSettingsDto,
 } from '../../../types/dtos/gameSettings/GameSettingsModels';
-import { LocationOption } from './locationReferenceOptions';
+import { DomainOption, LocationOption } from './locationReferenceOptions';
+import { gameSettingsErrorMessage } from './gameSettingsErrors';
 import { LocationReferencePicker } from './LocationReferencePicker';
 
 export const OUTAGE_ACTION_LABELS: Record<HubOutageAction, string> = {
@@ -75,12 +75,14 @@ export const HubSettingsCard: React.FC<{
     hub: HubSettingsDto;
     hubDomains: HubDomainDto[];
     /** Towns, districts and structures, for flagging a domain hub-eligible. */
-    domainOptions: LocationOption[];
+    domainOptions: DomainOption[];
+    /** Set when the flagged domains could not be loaded: the list below is then unknown, not empty. */
+    hubDomainsError?: string | null;
     options: LocationOption[];
     onChange: (hub: HubSettingsDto) => void;
     onHubDomainsChange: (domains: HubDomainDto[]) => void;
     onCreateLocation?: () => void;
-}> = ({ hub, hubDomains, domainOptions, options, onChange, onHubDomainsChange, onCreateLocation }) => {
+}> = ({ hub, hubDomains, hubDomainsError, domainOptions, options, onChange, onHubDomainsChange, onCreateLocation }) => {
     const [toFlag, setToFlag] = React.useState('');
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
@@ -89,7 +91,7 @@ export const HubSettingsCard: React.FC<{
     const spawnWorld = hub.spawnReference?.location?.world;
     const hubWorld = selected?.worldName ?? hub.worldName;
     const unflagged = domainOptions
-        .filter(o => o.sourceType !== 'Location' && !hubDomains.some(d => d.id === o.sourceId))
+        .filter(o => !hubDomains.some(d => d.id === o.sourceId))
         .sort((a, b) => a.name.localeCompare(b.name));
 
     const setEligible = async (domainId: number, isHub: boolean) => {
@@ -99,7 +101,7 @@ export const HubSettingsCard: React.FC<{
             await gameSettingsClient.setHubEligible(domainId, isHub);
             onHubDomainsChange(await gameSettingsClient.getHubDomains());
         } catch (err) {
-            setError(apiErrorMessage(err, isHub ? 'Could not flag the domain as a hub.' : 'Could not remove the hub flag.'));
+            setError(gameSettingsErrorMessage(err, isHub ? 'Could not flag the domain as a hub.' : 'Could not remove the hub flag.'));
         } finally {
             setBusy(false);
         }
@@ -123,7 +125,8 @@ export const HubSettingsCard: React.FC<{
                     Only a flagged domain can be selected as the hub. A flagged domain may not contain or sit inside another
                     flagged domain. Changes here are saved immediately.
                 </p>
-                {hubDomains.length === 0 && <p className="text-sm text-gray-500">No domain is flagged yet.</p>}
+                {hubDomainsError && <p className="text-sm text-red-600" role="alert">{hubDomainsError}</p>}
+                {!hubDomainsError && hubDomains.length === 0 && <p className="text-sm text-gray-500">No domain is flagged yet.</p>}
                 <ul className="space-y-1">
                     {hubDomains.map(d => (
                         <li key={d.id} className="flex items-center justify-between rounded border border-gray-200 px-3 py-1.5 text-sm">
@@ -161,7 +164,7 @@ export const HubSettingsCard: React.FC<{
                     <button
                         type="button"
                         className="btn-secondary text-sm"
-                        disabled={!toFlag || busy}
+                        disabled={!toFlag || busy || !!hubDomainsError}
                         onClick={() => {
                             const id = Number(toFlag);
                             setToFlag('');
@@ -180,6 +183,7 @@ export const HubSettingsCard: React.FC<{
                     <select
                         id="hub-domain"
                         value={hub.domainId ?? ''}
+                        disabled={!!hubDomainsError}
                         onChange={e => onChange({ ...hub, domainId: e.target.value ? Number(e.target.value) : null })}
                         className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
                     >

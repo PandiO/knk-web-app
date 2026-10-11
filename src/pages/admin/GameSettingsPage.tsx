@@ -15,7 +15,8 @@ import { LocationReferencePicker } from '../../components/admin/gameSettings/Loc
 import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
 import { RespawnPolicyEditor } from '../../components/admin/gameSettings/RespawnPolicyEditor';
 import { PREVIEW_SAMPLE, fillMessagePlaceholders } from '../../components/admin/gameSettings/messagePlaceholders';
-import { LocationOption, buildLocationOptions } from '../../components/admin/gameSettings/locationReferenceOptions';
+import { DomainOption, LocationOption, buildDomainOptions, buildLocationOptions } from '../../components/admin/gameSettings/locationReferenceOptions';
+import { gameSettingsErrorMessage } from '../../components/admin/gameSettings/gameSettingsErrors';
 import { PermissionGroupDto } from '../../types/dtos/userManagement/PermissionGroupDto';
 import {
     GameSettingsDto,
@@ -29,7 +30,6 @@ import {
     WorldGameSettingsDto,
 } from '../../types/dtos/gameSettings/GameSettingsModels';
 import { usePageTitle } from '../../hooks/usePageTitle';
-import { apiErrorMessage } from '../../utils/lootbox';
 
 const WEATHER_TYPES: WeatherType[] = ['CLEAR', 'RAIN', 'THUNDER'];
 const WEATHER_MODES: WeatherMode[] = ['Normal', 'Constant', 'Blocked', 'Weighted'];
@@ -143,6 +143,9 @@ export const GameSettingsPage: React.FC = () => {
     const [locationOptions, setLocationOptions] = React.useState<LocationOption[]>([]);
     const [groups, setGroups] = React.useState<PermissionGroupDto[]>([]);
     const [hubDomains, setHubDomains] = React.useState<HubDomainDto[]>([]);
+    /** Set when the flagged domains could not be loaded: never shown as "no domain is flagged". */
+    const [hubDomainsError, setHubDomainsError] = React.useState<string | null>(null);
+    const [domainOptions, setDomainOptions] = React.useState<DomainOption[]>([]);
     const [eligibility, setEligibility] = React.useState<HubExemptionEligibilityDto[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [saving, setSaving] = React.useState(false);
@@ -163,15 +166,22 @@ export const GameSettingsPage: React.FC = () => {
                 districtClient.getAll().catch(() => []),
                 structureClient.getAll().catch(() => []),
                 permissionGroupClient.getAll().catch(() => [] as PermissionGroupDto[]),
-                gameSettingsClient.getHubDomains().catch(() => [] as HubDomainDto[]),
+                gameSettingsClient.getHubDomains().catch(error => {
+                    console.error('Failed to load the hub-eligible domains:', error);
+                    return null;
+                }),
                 gameSettingsClient.getExemptionEligibility().catch(() => [] as HubExemptionEligibilityDto[]),
             ]);
             setGroups(permissionGroups as PermissionGroupDto[]);
-            setHubDomains(hubs);
+            setHubDomains(hubs ?? []);
+            setHubDomainsError(hubs == null
+                ? 'The hub-eligible domains could not be loaded, so the hub cannot be changed now. Reload the page to try again.'
+                : null);
             setEligibility(exemptions);
 
             setSettings(normalizeSettings(settingsData));
             setLocationOptions(buildLocationOptions(locations as any[], towns as any[], districts as any[], structures as any[]));
+            setDomainOptions(buildDomainOptions(towns as any[], districts as any[], structures as any[]));
         } catch (error) {
             console.error('Failed to load game settings:', error);
             logging.errorHandler.next('ErrorMessage.GameSettings.LoadFailed');
@@ -227,7 +237,7 @@ export const GameSettingsPage: React.FC = () => {
         } catch (error) {
             console.error('Failed to save game settings:', error);
             logging.errorHandler.next('ErrorMessage.GameSettings.SaveFailed');
-            setSaveError(apiErrorMessage(error, 'The settings could not be saved.'));
+            setSaveError(gameSettingsErrorMessage(error, 'The settings could not be saved.'));
         } finally {
             setSaving(false);
         }
@@ -404,7 +414,8 @@ export const GameSettingsPage: React.FC = () => {
                 <HubSettingsCard
                     hub={settings.hub ?? defaultHubSettings()}
                     hubDomains={hubDomains}
-                    domainOptions={locationOptions}
+                    hubDomainsError={hubDomainsError}
+                    domainOptions={domainOptions}
                     options={optionsInWorld(locationOptions,
                         hubDomains.find(d => d.id === settings.hub?.domainId)?.worldName ?? settings.hub?.worldName)}
                     onChange={hub => updateSettings(prev => ({ ...prev, hub }))}
