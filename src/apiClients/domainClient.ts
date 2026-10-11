@@ -1,6 +1,7 @@
 import { logging, Controllers, HttpMethod, DomainOperation } from "../utils";
 import { PagedQueryDto } from "../types/dtos/common/PagedQuery";
 import { DomainDto } from "../types/dtos/domain/DomainDtos";
+import { DomainWorldMissingDto, DomainWorldResolutionDto, DomainWorldResolveRequestDto } from "../types/dtos/domain/DomainWorldDtos";
 import { ObjectManager } from "./objectManager";
 
 export class DomainClient extends ObjectManager {
@@ -39,5 +40,15 @@ export class DomainClient extends ObjectManager {
 
     public searchPaged(queryParams: PagedQueryDto): Promise<any> {
         return this.invokeServiceCall(queryParams, DomainOperation.SearchPaged, Controllers.Domains, HttpMethod.Post);
+    }
+
+    /** KNG-111: the world a domain being saved would get, or that the form has to ask for it. */
+    public resolveWorld(request: DomainWorldResolveRequestDto): Promise<DomainWorldResolutionDto> {
+        return this.invokeServiceCall(request, 'world/resolve', Controllers.Domains, HttpMethod.Post);
+    }
+
+    /** KNG-111: domains created before worlds were stored that still have none. */
+    public getWithoutWorld(): Promise<DomainWorldMissingDto[]> {
+        return this.invokeServiceCall(null, 'world/missing', Controllers.Domains, HttpMethod.Get);
     }
 }

@@ -8,7 +8,24 @@ export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> =
   ]
 };
 
+// KNG-111: the same region name or coordinates can exist in several Minecraft worlds, so domain lists show the world.
+const worldColumn: ColumnDefinition<any> = {
+  key: 'worldName',
+  label: 'World',
+  sortable: false,
+  render: (row: any) => row?.worldName || row?.WorldName || '-'
+};
+
 export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefinition<any>[]>> = {
+  town: {
+    default: [...defaultColumnDefinitions.default, worldColumn]
+  },
+  district: {
+    default: [...defaultColumnDefinitions.default, worldColumn]
+  },
+  domain: {
+    default: [...defaultColumnDefinitions.default, worldColumn]
+  },
   category: {
     //Used for category listing in ObjectDashboard. Currently also used for FormWizard PagedEntityTable
     "default": [
@@ -84,6 +101,7 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
           sortable: false,
           render: (row: any) => row.Location ? `(${row.Location.x}, ${row.Location.y}, ${row.Location.z})` : '-'
       },
+      worldColumn,
       { 
           key: 'Created', 
           label: 'Created', 
@@ -111,7 +129,8 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       // many doors it has instead; per-door detail is available on the structure's display page.
       { key: 'doorCount', label: 'Doors', sortable: false },
       { key: 'districtName', label: 'District', sortable: false },
-      { key: 'streetName', label: 'Street', sortable: false }
+      { key: 'streetName', label: 'Street', sortable: false },
+      worldColumn
     ]
   },
   gatedoor: {
