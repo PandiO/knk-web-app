@@ -13,29 +13,16 @@ export const DisplayWizardPage: React.FC = () => {
   const handleActionClick = (action: DisplayAction) => {
     switch (action.type) {
       case 'edit':
-        navigate(`/form/${action.entityType}/${action.entityId}`);
+        navigate(`/forms/${action.entityType}/edit/${action.entityId}`);
         break;
       case 'view':
         navigate(`/display/${action.entityType}/${action.entityId}`);
         break;
       case 'create':
-        navigate(`/form/${action.entityType}/new`);
+        navigate(`/forms/${action.entityType}?autoOpen=true`);
         break;
-      case 'select':
-        // TODO: Implement select modal
-        console.log('Select action:', action);
-        break;
-      case 'unlink':
-        // TODO: Implement unlink confirmation
-        console.log('Unlink action:', action);
-        break;
-      case 'add':
-        // TODO: Implement add modal
-        console.log('Add action:', action);
-        break;
-      case 'remove':
-        // TODO: Implement remove confirmation
-        console.log('Remove action:', action);
+      // select / unlink / add / remove are not built yet; ActionButtons doesn't offer them (KNG-148).
+      default:
         break;
     }
   };

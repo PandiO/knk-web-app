@@ -14,6 +14,13 @@ interface ActionButtonsProps {
   onCreateNew?: () => void; // Callback for create action
 }
 
+/**
+ * Select, Unlink, Add and Remove are hidden until they really link and unlink (KNG-148). Until then
+ * Select/Unlink/Add did nothing, and Remove on a collection item deleted the related entity itself
+ * (CRUD-16: removing a town from a district's list deleted the town). Flip this when KNG-148 lands.
+ */
+const RELATIONSHIP_ACTIONS_AVAILABLE = false;
+
 export const ActionButtons: React.FC<ActionButtonsProps> = ({
   config,
   isCollection,
@@ -58,7 +65,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
       )}
 
       {/* Single relationship buttons */}
-      {!isCollection && (
+      {!isCollection && RELATIONSHIP_ACTIONS_AVAILABLE && (
         <>
           {config.showSelectButton && (
             <button 
@@ -83,7 +90,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
       )}
 
       {/* Collection relationship buttons */}
-      {isCollection && !isItemLevel && (
+      {isCollection && !isItemLevel && RELATIONSHIP_ACTIONS_AVAILABLE && (
         <>
           {config.showAddButton && (
             <button 
@@ -97,7 +104,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         </>
       )}
 
-      {isCollection && isItemLevel && config.showRemoveButton && (
+      {isCollection && isItemLevel && RELATIONSHIP_ACTIONS_AVAILABLE && config.showRemoveButton && (
         <button 
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded hover:bg-red-200 transition-colors"
           onClick={() => handleClick('remove')}

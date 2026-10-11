@@ -134,6 +134,9 @@ export const GameSettingsPage: React.FC = () => {
     const [locationOptions, setLocationOptions] = React.useState<LocationOption[]>([]);
     const [groups, setGroups] = React.useState<PermissionGroupDto[]>([]);
     const [loading, setLoading] = React.useState(true);
+    // SET-1 (KNG-141): a failed load must not become an editable page of defaults that one Save
+    // would write over the real MOTD, spawns and group overrides.
+    const [loadFailed, setLoadFailed] = React.useState(false);
     const [saving, setSaving] = React.useState(false);
 
     React.useEffect(() => {
@@ -143,6 +146,7 @@ export const GameSettingsPage: React.FC = () => {
     const loadAll = async () => {
         try {
             setLoading(true);
+            setLoadFailed(false);
             const [settingsData, locations, towns, districts, structures, permissionGroups] = await Promise.all([
                 gameSettingsClient.get(),
                 locationClient.getAll().catch(() => []),
@@ -157,8 +161,8 @@ export const GameSettingsPage: React.FC = () => {
             setLocationOptions(buildLocationOptions(locations as any[], towns as any[], districts as any[], structures as any[]));
         } catch (error) {
             console.error('Failed to load game settings:', error);
-            logging.errorHandler.next('ErrorMessage.GameSettings.LoadFailed');
-            setSettings(normalizeSettings(buildDefaultSettings()));
+            setSettings(null);
+            setLoadFailed(true);
         } finally {
             setLoading(false);
         }
@@ -213,6 +217,21 @@ export const GameSettingsPage: React.FC = () => {
     };
 
     const runtimeWorlds = settings?.runtimeWorlds || [];
+
+    if (loadFailed && !loading) {
+        return (
+            <div className="max-w-xl mx-auto mt-16 bg-white shadow-sm rounded-lg p-6 border border-red-200" role="alert">
+                <h1 className="text-xl font-semibold text-gray-900">Game settings could not be loaded</h1>
+                <p className="mt-2 text-sm text-gray-600">
+                    The settings are not shown, so nothing can be saved over the real values by accident.
+                    Check that the API is running, then try again.
+                </p>
+                <button type="button" className="btn-primary text-sm mt-4" onClick={() => void loadAll()}>
+                    Retry
+                </button>
+            </div>
+        );
+    }
 
     if (loading || !settings) {
         return (
