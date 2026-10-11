@@ -83,4 +83,15 @@ describe('GroupOverridesCard hub exemptions (KNG-116)', () => {
         fireEvent.click(screen.getByText('Exempt while in staff mode'));
         expect(overrides.find(o => o.permissionGroupId === 1)?.exemptInStaffMode).toBe(true);
     });
+
+    it('keeps a ticked box the group is no longer eligible for, so it can be unticked', () => {
+        let overrides: PermissionGroupGameSettingsDto[] = [{ permissionGroupId: 2, exemptInStaffMode: true }];
+        const onChange = jest.fn((next: PermissionGroupGameSettingsDto[]) => { overrides = next; });
+        render(<GroupOverridesCard overrides={overrides} groups={groups as any} options={options} onChange={onChange}
+            eligibility={[{ permissionGroupId: 2, groupName: 'Noble', canExemptStaffMode: false, canExemptOwnerMode: false }]} />);
+
+        expect(screen.getByText(/no longer has knk.mode.staff/)).toBeInTheDocument();
+        fireEvent.click(screen.getByText('Exempt while in staff mode'));
+        expect(overrides[0].exemptInStaffMode).toBeNull();
+    });
 });

@@ -57,10 +57,13 @@ const RULE_TOGGLES: { key: keyof HubRulesDto; label: string }[] = [
     { key: 'useItemFramesPaintings', label: 'Item frames and paintings' },
 ];
 
-const NUMBER_RULES: { amount: keyof HubRulesDto; interval: keyof HubRulesDto; label: string; unit: string }[] = [
-    { amount: 'healAmount', interval: 'healIntervalTicks', label: 'Healing', unit: 'health' },
-    { amount: 'feedAmount', interval: 'feedIntervalTicks', label: 'Feeding', unit: 'food' },
-    { amount: 'saturationAmount', interval: 'saturationIntervalTicks', label: 'Saturation', unit: 'saturation' },
+/** The API caps an outage delay at one day. */
+export const MAX_OUTAGE_DELAY_SECONDS = 86400;
+
+const NUMBER_RULES: { amount: keyof HubRulesDto; interval: keyof HubRulesDto; label: string; unit: string; whole: boolean }[] = [
+    { amount: 'healAmount', interval: 'healIntervalTicks', label: 'Healing', unit: 'health', whole: false },
+    { amount: 'feedAmount', interval: 'feedIntervalTicks', label: 'Feeding', unit: 'food', whole: true },
+    { amount: 'saturationAmount', interval: 'saturationIntervalTicks', label: 'Saturation', unit: 'saturation', whole: false },
 ];
 
 /**
@@ -227,8 +230,9 @@ export const HubSettingsCard: React.FC<{
                         id="hub-outage-delay"
                         type="number"
                         min={0}
+                        max={MAX_OUTAGE_DELAY_SECONDS}
                         value={hub.outageDelaySeconds}
-                        onChange={e => onChange({ ...hub, outageDelaySeconds: Math.max(0, Number(e.target.value) || 0) })}
+                        onChange={e => onChange({ ...hub, outageDelaySeconds: Math.min(MAX_OUTAGE_DELAY_SECONDS, Math.max(0, Math.round(Number(e.target.value)) || 0)) })}
                         className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
                     />
                     <p className="mt-1 text-xs text-gray-500">0 = Uit: the action runs as soon as the outage is detected.</p>
@@ -259,10 +263,13 @@ export const HubSettingsCard: React.FC<{
                                 <input
                                     type="number"
                                     min={0}
-                                    step="any"
+                                    step={r.whole ? 1 : 'any'}
                                     aria-label={`${r.label} amount`}
                                     value={rules[r.amount] as number}
-                                    onChange={e => setRule(r.amount, Math.max(0, Number(e.target.value) || 0))}
+                                    onChange={e => {
+                                        const value = Math.max(0, Number(e.target.value) || 0);
+                                        setRule(r.amount, r.whole ? Math.round(value) : value);
+                                    }}
                                     className="w-20 rounded-md border-gray-300 focus:border-primary focus:ring-primary"
                                 />
                                 {r.unit} every

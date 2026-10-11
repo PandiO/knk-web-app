@@ -6,7 +6,7 @@ import {
     HubOutageAction,
     PermissionGroupGameSettingsDto,
 } from '../../../types/dtos/gameSettings/GameSettingsModels';
-import { OUTAGE_ACTION_LABELS } from './HubSettingsCard';
+import { MAX_OUTAGE_DELAY_SECONDS, OUTAGE_ACTION_LABELS } from './HubSettingsCard';
 import { LocationOption } from './locationReferenceOptions';
 import { LocationReferencePicker } from './LocationReferencePicker';
 import { MinecraftLegacyPreview } from './MinecraftLegacyPreview';
@@ -332,38 +332,31 @@ const HubOutageOverride: React.FC<{
                     <input
                         type="number"
                         min={0}
+                        max={MAX_OUTAGE_DELAY_SECONDS}
                         aria-label={`${groupName} outage delay`}
                         value={o.outageDelaySeconds ?? 0}
-                        onChange={e => onChange({ outageDelaySeconds: Math.max(0, Number(e.target.value) || 0) })}
+                        onChange={e => onChange({ outageDelaySeconds: Math.min(MAX_OUTAGE_DELAY_SECONDS, Math.max(0, Math.round(Number(e.target.value)) || 0)) })}
                         className="w-24 rounded-md border-gray-300 focus:border-primary focus:ring-primary"
                     />
                     seconds (0 = immediately)
                 </div>
             )}
-            {eligibility?.canExemptStaffMode && (
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                        type="checkbox"
-                        checked={o.exemptInStaffMode === true}
-                        onChange={e => onChange({ exemptInStaffMode: e.target.checked ? true : null })}
-                        className="rounded border-gray-300"
-                    />
-                    Exempt while in staff mode
-                    <span className="text-xs text-gray-500">(knk.mode.staff from {eligibility.staffModeSource})</span>
-                </label>
-            )}
-            {eligibility?.canExemptOwnerMode && (
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                        type="checkbox"
-                        checked={o.exemptInOwnerMode === true}
-                        onChange={e => onChange({ exemptInOwnerMode: e.target.checked ? true : null })}
-                        className="rounded border-gray-300"
-                    />
-                    Exempt while in owner mode
-                    <span className="text-xs text-gray-500">(knk.mode.owner from {eligibility.ownerModeSource})</span>
-                </label>
-            )}
+            <ExemptionBox
+                label="Exempt while in staff mode"
+                node="knk.mode.staff"
+                eligible={eligibility?.canExemptStaffMode === true}
+                source={eligibility?.staffModeSource}
+                checked={o.exemptInStaffMode === true}
+                onChange={checked => onChange({ exemptInStaffMode: checked ? true : null })}
+            />
+            <ExemptionBox
+                label="Exempt while in owner mode"
+                node="knk.mode.owner"
+                eligible={eligibility?.canExemptOwnerMode === true}
+                source={eligibility?.ownerModeSource}
+                checked={o.exemptInOwnerMode === true}
+                onChange={checked => onChange({ exemptInOwnerMode: checked ? true : null })}
+            />
             {(eligibility?.canExemptStaffMode || eligibility?.canExemptOwnerMode) && (
                 <p className="ml-6 text-xs text-gray-500">
                     An exempt member in that active mode is not moved or kicked during an outage and may still enter gameplay.
@@ -371,5 +364,37 @@ const HubOutageOverride: React.FC<{
                 </p>
             )}
         </div>
+    );
+};
+
+/**
+ * One mode exemption box: shown when the group has the node, and also while it is still ticked after the group lost
+ * the node (marked, so it can be unticked - the API refuses to save it ticked).
+ */
+const ExemptionBox: React.FC<{
+    label: string;
+    node: string;
+    eligible: boolean;
+    source?: string | null;
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+}> = ({ label, node, eligible, source, checked, onChange }) => {
+    if (!eligible && !checked) {
+        return null;
+    }
+    return (
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+                type="checkbox"
+                checked={checked}
+                disabled={!eligible && !checked}
+                onChange={e => onChange(e.target.checked)}
+                className="rounded border-gray-300"
+            />
+            {label}
+            {eligible
+                ? <span className="text-xs text-gray-500">({node} from {source})</span>
+                : <span className="text-xs text-red-600">(the group no longer has {node}; untick to save)</span>}
+        </label>
     );
 };

@@ -29,6 +29,7 @@ import {
     WorldGameSettingsDto,
 } from '../../types/dtos/gameSettings/GameSettingsModels';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { apiErrorMessage } from '../../utils/lootbox';
 
 const WEATHER_TYPES: WeatherType[] = ['CLEAR', 'RAIN', 'THUNDER'];
 const WEATHER_MODES: WeatherMode[] = ['Normal', 'Constant', 'Blocked', 'Weighted'];
@@ -145,6 +146,8 @@ export const GameSettingsPage: React.FC = () => {
     const [eligibility, setEligibility] = React.useState<HubExemptionEligibilityDto[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [saving, setSaving] = React.useState(false);
+    /** The API's reason when a save was refused (e.g. a hub spawn in another world), shown under the buttons. */
+    const [saveError, setSaveError] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         void loadAll();
@@ -217,12 +220,14 @@ export const GameSettingsPage: React.FC = () => {
 
         try {
             setSaving(true);
+            setSaveError(null);
             const updated = await gameSettingsClient.update(payload);
             setSettings(normalizeSettings(updated));
             setHubDomains(await gameSettingsClient.getHubDomains().catch(() => hubDomains));
         } catch (error) {
             console.error('Failed to save game settings:', error);
             logging.errorHandler.next('ErrorMessage.GameSettings.SaveFailed');
+            setSaveError(apiErrorMessage(error, 'The settings could not be saved.'));
         } finally {
             setSaving(false);
         }
@@ -259,6 +264,7 @@ export const GameSettingsPage: React.FC = () => {
                                 Save Settings
                             </button>
                         </div>
+                        {saveError && <p className="mt-2 text-sm text-red-600" role="alert">{saveError}</p>}
                     </div>
                 </div>
 
