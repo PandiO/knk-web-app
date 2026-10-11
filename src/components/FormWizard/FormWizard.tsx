@@ -1946,6 +1946,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     const persisted = await createFn(entityData);
                     createdEntity = (persisted && typeof persisted === 'object') ? persisted : entityData;
                 }
+            } else if (childFormModal.entityId && /^\d+$/.test(childFormModal.entityId)) {
+                // KNG-130: an edited Location is saved by this form, not on its own. The nested wizard
+                // hands back its entityId prop, a string ("83"); keep the number the loaded value had.
+                createdEntity = { ...childData, id: Number(childFormModal.entityId) };
             }
 
             // If this is a child form (has parentProgressId), save to childProgresses
