@@ -3,8 +3,10 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DisplayWizard from '../components/DisplayWizard/DisplayWizard';
 import { DisplayAction } from '../types/displayConfiguration';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 export const DisplayWizardPage: React.FC = () => {
+  usePageTitle('Details');
   const { entityName, id } = useParams<{ entityName: string; id: string }>();
   const navigate = useNavigate();
 

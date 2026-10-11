@@ -11,6 +11,9 @@ interface AuthContextType {
   login: (req: LoginRequestDto) => Promise<UserDto>;
   register: (req: RegisterRequestDto) => Promise<UserDto>;
   logout: () => Promise<void>;
+  /** Ends every session of this user on every device, then this one. */
+  logoutAll: () => Promise<void>;
+  /** Reloads the current user, renewing an expired access token with the refresh cookie if needed. */
   refresh: () => Promise<boolean>;
 }
 
@@ -54,41 +57,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  // authService clears the stored tokens even when the API call fails; the user state goes too.
   const logout = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       await authService.logout();
-      setUser(null);
     } catch (err: any) {
-      // On logout failure, still clear user state but log error
-      const errorMsg = err?.response?.message || err?.message || 'Logout failed';
-      setError(errorMsg);
-      setUser(null);
+      setError(err?.response?.message || err?.message || 'Logout failed');
     } finally {
+      setUser(null);
+      setIsLoading(false);
+    }
+  }, []);
+
+  const logoutAll = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await authService.logoutAll();
+    } catch (err: any) {
+      setError(err?.response?.message || err?.message || 'Logout failed');
+    } finally {
+      setUser(null);
       setIsLoading(false);
     }
   }, []);
 
   const refresh = useCallback(async () => {
     try {
-      // Try to refresh the session using refresh token (if available)
-      // This may fail if no refresh token exists (e.g., right after registration)
-      await authService.refreshSession();
-      
-      // Whether refreshSession succeeds or not, try to fetch current user
-      // This works as long as we have a valid access token
-      const u = await authService.getCurrentUser();
-      if (u) {
-        setUser(u);
-        return true;
-      } else {
-        // Unable to get current user, clear auth state
-        setUser(null);
-        return false;
-      }
+      // GET Auth/me with the stored access token; refreshes once with the cookie if it expired.
+      // Without any sign of a session it doesn't call the API at all.
+      const u = await authService.autoLogin();
+      setUser(u);
+      return !!u;
     } catch (err) {
-      // On refresh failure (401/expired), auto-logout
       setUser(null);
       return false;
     }
@@ -122,6 +125,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     login,
     register,
     logout,
+    logoutAll,
     refresh,
   };
 

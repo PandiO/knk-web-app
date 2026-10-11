@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, SlidersHorizontal } from 'lucide-react';
 import { currencyClient } from '../../../apiClients/currencyClient';
 import { CurrencyPolicyDto } from '../../../types/dtos/currency/CurrencyDtos';
+import { usePageTitle } from '../../../hooks/usePageTitle';
 
 type NumberField = keyof Pick<CurrencyPolicyDto,
     'minTransfer' | 'maxTransfer' | 'dailySendCap' | 'dailyReceiveCap' | 'confirmThreshold' | 'confirmTtlSeconds'
@@ -49,6 +50,7 @@ const isWhole = (value: string): boolean => /^\d+$/.test(value.trim());
  * knk.admin.currency.policy (StaffRoute node); the API checks it too.
  */
 export const CurrencyPolicyPage: React.FC = () => {
+    usePageTitle('Currency policy');
     const [policies, setPolicies] = React.useState<CurrencyPolicyDto[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);

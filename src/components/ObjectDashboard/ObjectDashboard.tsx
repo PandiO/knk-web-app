@@ -9,6 +9,7 @@ import './ObjectDashboard.css';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 import { FeedbackModal } from '../FeedbackModal';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
+import { usePageTitle } from '../../hooks/usePageTitle';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
 import { logging } from '../../utils';
@@ -42,6 +43,7 @@ export const getDefaultEntityName = (
 };
 
 const ObjectDashboard = ({ objectTypes }: Props) => {
+    usePageTitle('Dashboard');
     const navigate = useNavigate();
     const [selectedType, setSelectedType] = useState<string>('');
     const { baseMetadata, loading: metadataLoading } = useEntityMetadata();

@@ -2,6 +2,18 @@ import { InvokeServiceArgs } from "../apiClients/interfaces";
 import ConfigurationHelper from "../utils/config-helper";
 import { HttpMethod } from "../utils/enums";
 import { tokenService } from "../utils/tokenService";
+import { handleSessionExpired, refreshSession } from "./sessionRefresh";
+
+/**
+ * Auth endpoints whose 401 means "wrong credentials" or "no session", not "access token expired":
+ * they never trigger a refresh and retry. `me` is here because autoLogin refreshes on its own.
+ */
+const AUTH_OPERATIONS_WITHOUT_RETRY = new Set([
+    'login', 'register', 'refresh', 'logout', 'forgot-password', 'reset-password', 'validate-token', 'me',
+]);
+
+export const isRetryableAfterRefresh = (controller?: string, operation?: string): boolean =>
+    !(controller?.toLowerCase() === 'auth' && AUTH_OPERATIONS_WITHOUT_RETRY.has((operation ?? '').toLowerCase()));
 
 /**
  * A readable message for a failed response. Many controllers answer a rule violation with
@@ -42,17 +54,6 @@ export class ServiceCall {
 
         let url = `${baseUrl}/${args.controller}`;
 
-        const authToken = tokenService.getAccessToken();
-
-        let requestParams: any = {
-            method: args.httpMethod,
-            credentials: 'include', // Include cookies for cross-origin requests (needed for refresh token)
-            headers:  {
-                'Accept': '*/*',
-                ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
-            }
-        };
-
         if (args.httpMethod 
             // && args.httpMethod != HttpMethod.Post
             && args.operation
@@ -68,50 +69,60 @@ export class ServiceCall {
             args.httpMethod = HttpMethod.Get;
         }
 
+        let body: string | undefined;
+        const sendsJson = args.httpMethod !== HttpMethod.Get && args.httpMethod !== HttpMethod.Delete;
         if (args.httpMethod === HttpMethod.Get) {
             if (args.requestData) {
                 try {
                     const queryString = Object.keys(args.requestData).map(key => `${encodeURIComponent(key)}=${encodeURIComponent(args.requestData[key])}`).join('&');
                     url = `${url}?${queryString}`;
-                } catch (ex) {
-                    console.log((ex as any).ErrorMessage);
+                } catch {
+                    // Leave the URL without a query string; never log the request data.
                 }
             }
-        } else if (args.httpMethod === HttpMethod.Delete) {} else{
-            requestParams = {
-                method: args.httpMethod,
-                credentials: 'include', // Include cookies for cross-origin requests (needed for refresh token)
-                headers: {
+        } else if (sendsJson && args.requestData) {
+            body = JSON.stringify(args.requestData);
+        }
+
+        // Built per attempt, so a retry after a refresh carries the new access token. Cookies
+        // (the HttpOnly refresh cookie on /api/Auth) always go along.
+        const buildRequest = (authToken: string | null): RequestInit => ({
+            method: args.httpMethod,
+            credentials: 'include',
+            headers: sendsJson
+                ? {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
                     ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
                     // e.g. Idempotency-Key on currency writes (see ObjectManager.invokeServiceCall)
                     ...(args.headers ?? {})
                 }
-            };
-        
-
-            if (args.requestData) {
-                requestParams.body = JSON.stringify(args.requestData);
-            }
-        }
-        // requestParams = {
-        //     method: args.httpMethod,
-        //     headers: {
-        //         'Accept': 'application/json',
-        //         'Content-Type': 'application/json'
-        //     }
-        // };
-    
-
-        // if (args.requestData) {
-        //     requestParams.body = JSON.stringify(args.requestData);
-        // }
+                : {
+                    'Accept': '*/*',
+                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+                },
+            ...(body !== undefined ? { body } : {}),
+        });
 
         try {
-            console.log(url);
-            console.log(requestParams);
-            const response = await fetch(url, requestParams);
+            const sentToken = tokenService.getAccessToken();
+            let response = await fetch(url, buildRequest(sentToken));
+
+            // An expired access token: refresh once (shared with every other 401 in flight) and
+            // retry. Only for requests that carried a token - an anonymous 401 has nothing to renew.
+            if (response.status === 401 && sentToken && isRetryableAfterRefresh(args.controller, args.operation)) {
+                const currentToken = tokenService.getAccessToken();
+                const outcome = currentToken && currentToken !== sentToken
+                    ? 'renewed' // another request already refreshed while this one was in flight
+                    : await refreshSession();
+                if (outcome === 'renewed') {
+                    response = await fetch(url, buildRequest(tokenService.getAccessToken()));
+                } else if (outcome === 'rejected') {
+                    handleSessionExpired();
+                }
+                // 'unavailable' (API down, network error): keep the session and let this request
+                // fail with its own 401; the next request tries again.
+            }
 
             // Handle APIs that return no content (204) without throwing on response.json()
             let result: any = null;
@@ -132,15 +143,24 @@ export class ServiceCall {
                     args.responseHandler.success(result);
                 }
             } else {
-                console.error(`[ServiceCall] HTTP ${response.status} error for ${args.controller}/${args.operation}:`, result);
+                // Status and controller only: the URL, headers and bodies can hold tokens, link codes
+                // or emails.
+                console.error(`[ServiceCall] HTTP ${response.status} from ${args.controller ?? 'api'}`);
+                const error = new Error(describeErrorBody(result, response.status, response.statusText));
+                (error as any).response = result;
+                (error as any).status = response.status;
+                // The API's `{ error, message }` code (InvalidCredentials, TooManyAttempts, ...).
+                if (result && typeof result === 'object' && typeof result.error === 'string') {
+                    (error as any).code = result.error;
+                }
+                const retryAfter = response.headers.get('retry-after');
+                if (retryAfter) {
+                    (error as any).retryAfter = retryAfter;
+                }
                 if (args.responseHandler) {
-                    const error = new Error(describeErrorBody(result, response.status, response.statusText));
-                    (error as any).response = result;
-                    (error as any).status = response.status;
-                    console.error('[ServiceCall] Calling error handler with:', error);
                     args.responseHandler.error(error);
                 } else {
-                    throw new Error(describeErrorBody(result, response.status, response.statusText));
+                    throw error;
                 }
             }
         } catch (ex) {
