@@ -62,6 +62,10 @@ const buildDefaultWorldSettings = (worldName: string, worldFolderName?: string |
     },
 });
 
+/** KNG-118 (U5): a world's own spawn point can only be in that world. */
+const optionsInWorld = (options: LocationOption[], worldName?: string | null): LocationOption[] =>
+    worldName ? options.filter(o => (o.location?.world || '').toLowerCase() === worldName.toLowerCase()) : options;
+
 const buildDefaultSettings = (): GameSettingsDto => ({
     id: 'global',
     settingsVersion: '1',
@@ -395,7 +399,8 @@ export const GameSettingsPage: React.FC = () => {
                     hub={settings.hub ?? defaultHubSettings()}
                     hubDomains={hubDomains}
                     domainOptions={locationOptions}
-                    options={locationOptions}
+                    options={optionsInWorld(locationOptions,
+                        hubDomains.find(d => d.id === settings.hub?.domainId)?.worldName ?? settings.hub?.worldName)}
                     onChange={hub => updateSettings(prev => ({ ...prev, hub }))}
                     onHubDomainsChange={setHubDomains}
                     onCreateLocation={() => navigate('/forms/location?autoOpen=true')}
@@ -579,7 +584,7 @@ export const GameSettingsPage: React.FC = () => {
                                         <p className="text-sm font-semibold text-gray-800 mb-2">World Spawn Point</p>
                                         <LocationReferencePicker
                                             value={world.worldSpawnReference || null}
-                                            options={locationOptions}
+                                            options={optionsInWorld(locationOptions, world.worldName)}
                                             onChange={reference => updateWorldSetting(world.worldName, current => ({ ...current, worldSpawnReference: reference }))}
                                             onCreateLocation={() => navigate('/forms/location?autoOpen=true')}
                                         />
