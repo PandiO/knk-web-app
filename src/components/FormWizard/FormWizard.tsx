@@ -41,7 +41,7 @@ import {
     isEffectivelyEmpty,
     parseValueProjection
 } from '../../utils/forms/valueProjection';
-import { deriveGateGeometryStepData, isDerivedGateGeometryField } from '../../utils/forms/gateGeometry';
+import { deriveGateGeometryStepData, gateGeometryFieldError, isDerivedGateGeometryField } from '../../utils/forms/gateGeometry';
 import { withLiveEnumOptions } from '../../utils/forms/enumFieldMetadata';
 import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
 import { ItemBlueprintClient } from '../../apiClients/itemBlueprintClient';
@@ -2324,6 +2324,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             return `${field.label} is required`;
         }
 
+        const geometryError = gateGeometryFieldError(entityName, field.fieldName, currentStepData);
+        if (geometryError) return geometryError;
+
         for (const validation of field.validations) {
             if (!validation.isActive) continue;
 
@@ -2835,7 +2838,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                             && !renderedField.isReadOnly;
                         const worldTaskActionButtonId = `worldtask-action-${currentStepIndex}-${field.fieldName}`;
                         const worldTaskStatusVisibleForField = worldTaskStatusVisibility[worldTaskActionButtonId] || false;
-                        const hasFieldError = !!errors[field.fieldName];
+                        // KNG-132: shown as soon as the points disagree, not only on Next.
+                        const fieldError = errors[field.fieldName]
+                            ?? gateGeometryFieldError(entityName, field.fieldName, currentStepData)
+                            ?? undefined;
+                        const hasFieldError = !!fieldError;
                         const fieldContainerClass = hasFieldError
                             ? 'space-y-3 rounded-lg border border-red-200 bg-red-50/40 p-4 md:p-5'
                             : 'space-y-3 rounded-lg border border-gray-200 bg-gray-50/60 p-4 md:p-5';
@@ -2889,7 +2896,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                     field={renderedField}
                                     value={currentStepData[field.fieldName]}
                                     onChange={value => handleFieldChange(field.fieldName, value)}
-                                    error={errors[field.fieldName]}
+                                    error={fieldError}
                                     onBlur={() => validateField(field)}
                                     onCreateNew={() => handleOpenChildForm(
                                         field,

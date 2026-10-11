@@ -1,4 +1,9 @@
-import { deriveGateGeometryStepData, isDerivedGateGeometryField } from '../gateGeometry';
+import {
+    deriveGateGeometryStepData,
+    gateGeometryFieldError,
+    gateReferencePoint2Error,
+    isDerivedGateGeometryField
+} from '../gateGeometry';
 
 describe('gate geometry derivation', () => {
     it('calculates inclusive width and height spans from the plane-grid locations', () => {
@@ -74,3 +79,63 @@ describe('gate geometry derivation', () => {
         expect(isDerivedGateGeometryField('GateDoor', 'GeometryDepth', data)).toBe(false);
     });
 });
+
+// KNG-132: the developer's door - Reference point 2 put above Reference point 1 instead of the anchor.
+describe('gate reference point 2 check', () => {
+    const anchor = { x: -972, y: 114, z: 1653, world: 'knk_hub' };
+    const ref1 = { x: -972, y: 114, z: 1651, world: 'knk_hub' };
+    const aboveRef1 = { x: -972, y: 121, z: 1651, world: 'knk_hub' };
+    const aboveAnchor = { x: -972, y: 121, z: 1653, world: 'knk_hub' };
+
+    it('refuses a Ref 2 above Ref 1 and names where it should be', () => {
+        const stepData = { AnchorPointId: anchor, ReferencePoint1Id: ref1, ReferencePoint2Id: aboveRef1 };
+
+        const error = gateReferencePoint2Error('GateDoor', stepData);
+
+        expect(error).toContain('straight above the anchor');
+        expect(error).toContain('use (-972, 121, 1653) instead');
+        expect(gateGeometryFieldError('GateDoor', 'ReferencePoint2Id', stepData)).toBe(error);
+        expect(gateGeometryFieldError('GateDoor', 'ReferencePoint1Id', stepData)).toBeNull();
+    });
+
+    it('derives no height from it and leaves the height editable', () => {
+        const stepData = { AnchorPointId: anchor, ReferencePoint1Id: ref1, ReferencePoint2Id: aboveRef1, GeometryHeight: 5 };
+
+        const result = deriveGateGeometryStepData('GateDoor', stepData);
+
+        expect(result.GeometryWidth).toBe(3);
+        expect(result.GeometryHeight).toBe(5);
+        expect(isDerivedGateGeometryField('GateDoor', 'GeometryHeight', stepData)).toBe(false);
+    });
+
+    it('accepts Ref 2 straight above the anchor: height 8', () => {
+        const stepData = { AnchorPointId: anchor, ReferencePoint1Id: ref1, ReferencePoint2Id: aboveAnchor };
+
+        expect(gateReferencePoint2Error('GateDoor', stepData)).toBeNull();
+        expect(deriveGateGeometryStepData('GateDoor', stepData).GeometryHeight).toBe(8);
+    });
+
+    it('accepts a diagonal door whose height is still at right angles to its width', () => {
+        expect(gateReferencePoint2Error('GateDoor', {
+            AnchorPointId: { x: 1375, y: 44, z: -585 },
+            ReferencePoint1Id: { x: 1378, y: 44, z: -588 },
+            ReferencePoint2Id: { x: 1375, y: 50, z: -585 }
+        })).toBeNull();
+    });
+
+    it('says only that the point is wrong when it is not above Ref 1 either', () => {
+        const error = gateReferencePoint2Error('GateDoor', {
+            AnchorPointId: anchor, ReferencePoint1Id: ref1, ReferencePoint2Id: { x: -972, y: 121, z: 1652 }
+        });
+
+        expect(error).toMatch(/This one is not\.$/);
+    });
+
+    it('waits until all three points are set, and only applies to gate doors', () => {
+        expect(gateReferencePoint2Error('GateDoor', { AnchorPointId: anchor, ReferencePoint2Id: aboveRef1 })).toBeNull();
+        expect(gateReferencePoint2Error('GateStructure', {
+            AnchorPointId: anchor, ReferencePoint1Id: ref1, ReferencePoint2Id: aboveRef1
+        })).toBeNull();
+    });
+});
+
