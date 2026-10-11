@@ -33,6 +33,15 @@ import { CurrencyAlertsPage } from './pages/admin/economy/CurrencyAlertsPage';
 import { LocationRetentionPage } from './pages/admin/locations/LocationRetentionPage';
 import { LOCATION_RETENTION_NODES } from './types/dtos/locationRetention/LocationRetentionDtos';
 import { CURRENCY_NODES } from './types/dtos/currency/CurrencyDtos';
+import { LeaderboardsPage } from './pages/leaderboards/LeaderboardsPage';
+import { OwnerRoute } from './components/OwnerRoute';
+import { OwnerTelemetryPage } from './pages/owner/OwnerTelemetryPage';
+import { OwnerPrivacyPage } from './pages/owner/OwnerPrivacyPage';
+import { ConfirmDataDeletionPage } from './pages/privacy/ConfirmDataDeletionPage';
+import { OwnerAnalyticsPage } from './pages/owner/OwnerAnalyticsPage';
+import { OWNER_ANALYTICS_VIEW_NODE } from './types/dtos/analytics/WorldAnalyticsDtos';
+import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from './types/dtos/telemetry/TelemetryDtos';
+import { PublicPlayerProfilePage } from './pages/players/PublicPlayerProfilePage';
 import React from 'react';
 import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -132,6 +141,8 @@ function AppContent() {
               <Route path="/auth/login" element={<LoginPage />} />
               <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+              {/* Emailed GDPR deletion confirmation link; no sign-in needed (KNG-34). */}
+              <Route path="/account/delete-data/confirm" element={<ConfirmDataDeletionPage />} />
               <Route path="/account" element={
                 <ProtectedRoute>
                   <AccountManagementPage />
@@ -246,6 +257,27 @@ function AppContent() {
                   <CurrencyAlertsPage />
                 </StaffRoute>
               } />
+              {/* Player statistics (KNG-34): public pages - signed out they show only the
+                  always-public fields and boards; the API filters every read for the viewer. */}
+              <Route path="/leaderboards" element={<LeaderboardsPage />} />
+              {/* Diagnostics and GDPR deletion (KNG-34 link 6): owner only - the API needs an exact grant. */}
+              <Route path="/owner/telemetry" element={
+                <OwnerRoute node={OWNER_TELEMETRY_VIEW_NODE}>
+                  <OwnerTelemetryPage />
+                </OwnerRoute>
+              } />
+              <Route path="/owner/privacy" element={
+                <OwnerRoute node={OWNER_PRIVACY_MANAGE_NODE}>
+                  <OwnerPrivacyPage />
+                </OwnerRoute>
+              } />
+              {/* World analytics (KNG-34 link 7): owner only - the API needs an exact grant. */}
+              <Route path="/owner/analytics" element={
+                <OwnerRoute node={OWNER_ANALYTICS_VIEW_NODE}>
+                  <OwnerAnalyticsPage />
+                </OwnerRoute>
+              } />
+              <Route path="/players/:username" element={<PublicPlayerProfilePage />} />
               {/* KNG-80: orphaned Locations found by the weekly retention check, reviewed by hand. */}
               <Route path="/admin/locations/orphans" element={
                 <StaffRoute node={LOCATION_RETENTION_NODES.view}>

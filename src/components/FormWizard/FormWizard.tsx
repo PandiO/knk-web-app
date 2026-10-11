@@ -49,7 +49,7 @@ import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinit
 import { ScanConflictModal, ScanConflictField, ScanConflictChoice } from './ScanConflictModal';
 import { parsePickerFilterSettings, resolvePickerFilters } from '../../utils/forms/pickerFilters';
 import { hydrateJoinRowsForEdit, joinFieldSeedValues } from '../../utils/forms/manyToManyEditLoad';
-import { formFieldDefaultValue } from '../../utils/forms/formFieldDefaultValue';
+import { seededFormFieldValue } from '../../utils/forms/formFieldDefaultValue';
 
 interface FormWizardProps {
     entityName: string;
@@ -276,11 +276,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 // Skip hidden fields so normalization never resurrects them as null and
                 // overwrites the value parked in the stash.
                 if (visibleFieldNames && !visibleFieldNames.has(field.fieldName)) return;
-                const hasValue = data && Object.prototype.hasOwnProperty.call(data, field.fieldName);
-                const value = hasValue
-                    ? (data as StepData)[field.fieldName]
-                    : formFieldDefaultValue(field);
-                result[field.fieldName] = value;
+                const hasValue = !!data && Object.prototype.hasOwnProperty.call(data, field.fieldName);
+                result[field.fieldName] = seededFormFieldValue(
+                    field,
+                    hasValue,
+                    hasValue ? (data as StepData)[field.fieldName] : undefined
+                );
             });
         return result;
     };
@@ -318,11 +319,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 const incoming = incomingKey ? values[incomingKey] : undefined;
                 const existing = next[field.fieldName];
                 const hasExistingValue = existing !== undefined && existing !== null && existing !== '';
-                // A value that is still just the field's authored default is not "existing" data -
-                // an initial value (e.g. a saved siege gate's InitialState when editing its join
-                // entry) must win over it.
-                const isUntouchedDefault = field.defaultValue !== undefined && field.defaultValue !== null
-                    && existing === field.defaultValue;
+                // A value that is still just the field's seeded default is not "existing" data -
+                // an initial value (e.g. a saved siege gate's InitialState or Damageable=false when
+                // editing its join entry) must win over it. Compare against the seeded default, not
+                // the raw string: a Boolean's "true" default is seeded as true (KNG-53).
+                const hasSeededDefault = field.fieldType === FieldType.Boolean
+                    || (field.defaultValue !== undefined && field.defaultValue !== null);
+                const isUntouchedDefault = hasSeededDefault && existing === seededFormFieldValue(field, false, undefined);
 
                 if (incoming !== undefined && (!hasExistingValue || isUntouchedDefault)) {
                     next[field.fieldName] = incoming;
@@ -906,7 +909,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 getOrderedFields(step).forEach(field => {
                     // Use utility function for case-insensitive lookup
                     const value = findValueByFieldName(entityData, field.fieldName);
-                    stepData[field.fieldName] = resolveObjectFieldValueForEdit(entityData, field, value);
+                    // An entity without a value for a Boolean still shows an unchecked box, so it
+                    // must hold false like a new form does, or Required blocks Next (KNG-53).
+                    stepData[field.fieldName] = seededFormFieldValue(
+                        field,
+                        true,
+                        resolveObjectFieldValueForEdit(entityData, field, value)
+                    );
                 });
                 // A many-to-many step's saved join rows arrive as plain DTO rows; give them the
                 // relationship shape the editor and join-entry modal expect (see

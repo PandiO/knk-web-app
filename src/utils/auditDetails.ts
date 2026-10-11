@@ -31,6 +31,12 @@ export const auditActionLabel = (entry: AuditLogEntryDto): string => {
     case 'CurrencyPolicyChanged': return 'Currency policy changed';
     // Written by PrivateMessageLogService on every read of the PM log (see PrivateMessagesPanel).
     case 'PrivateMessagesViewed': return 'Private messages viewed';
+    // KNG-34 link 6: owner diagnostics reads and GDPR deletion requests.
+    case 'TelemetryViewed': return 'Diagnostics viewed';
+    case 'PrivacyDeletionRequested': return 'Data deletion requested';
+    case 'PrivacyDeletionExecuted': return 'Data deleted';
+    case 'PrivacyDeletionCancelled': return 'Data deletion cancelled';
+    case 'PrivacyDeletionConfirmed': return 'Data deletion confirmed by email';
     default: return entry.action;
   }
 };
