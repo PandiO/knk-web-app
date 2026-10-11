@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { userManagementClient } from '../apiClients/userManagementClient';
+import { EXACT_GRANT_OWNER_NODES } from '../types/dtos/telemetry/TelemetryDtos';
 
 /**
  * The permission that makes someone staff for the web moderation pages - the same node that
@@ -43,7 +44,11 @@ function checkPermission(userId: number, node: string): Promise<CheckResult> {
   if (!check) {
     check = userManagementClient
       .checkPermission(userId, node)
-      .then((result): CheckResult => (result?.allowed === true ? 'allowed' : 'denied'))
+      // The API refuses wildcards for these owner nodes (D24), so a knk.* holder isn't shown them.
+      .then((result): CheckResult =>
+        result?.allowed === true && (!EXACT_GRANT_OWNER_NODES.has(node) || result.matchedNode === node)
+          ? 'allowed'
+          : 'denied')
       .catch((err): CheckResult => {
         const status = classifyPermissionError(err);
         if (status !== 'denied') permissionChecks.delete(key);
@@ -64,9 +69,9 @@ export interface PermissionState {
 
 /**
  * Whether the logged-in user holds `node` in the in-house permission system (wildcards
- * included); `isChecking` while that is being resolved. `status` tells a real "no" (denied)
- * apart from an expired session or a failed check. Only decides what the UI shows - the API
- * enforces the node on its own.
+ * included, except for EXACT_GRANT_OWNER_NODES); `isChecking` while that is being resolved.
+ * `status` tells a real "no" (denied) apart from an expired session or a failed check. Only
+ * decides what the UI shows - the API enforces the node on its own.
  */
 export function usePermission(node: string): PermissionState {
   const { user } = useAuth();

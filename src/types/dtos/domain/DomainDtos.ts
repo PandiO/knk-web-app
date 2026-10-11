@@ -12,7 +12,17 @@ export interface DomainTeleportSettingsDto {
     teleportRequiresDiscovery?: boolean;
 }
 
-export interface DomainDto extends DomainTeleportSettingsDto {
+// Where `/navigate <domain>` leads when the player names no mode (KNG-73, docs/specs/navigation
+// DESIGN.md §6.1). The domain's own choice on its form; null/absent = its type's default (set on
+// the road admin page). Sending "" (or "TypeDefault") clears it; leaving the field out keeps it.
+export interface DomainNavigationDefaultSettingsDto {
+    navigationDefaultOverride?: 'Spawn' | 'Region' | '' | null;
+    // Rev. 7 Part C (KNG-92): whether this domain's entry rule keeps routes off its roads; null/absent =
+    // its type's choice. Same "" / leave-out rules as above.
+    roadAccessOverride?: 'Applies' | 'Ignored' | '' | null;
+}
+
+export interface DomainDto extends DomainTeleportSettingsDto, DomainNavigationDefaultSettingsDto {
     id?: number;
     name: string;
     description: string;
@@ -43,4 +53,8 @@ export interface DomainListDto {
     parentDomainId?: number;
     parentDomain?: ParentDomainDto;
     domainType: string;
+    // The effective /navigate default (the domain's override, else its type's) - what the game server uses.
+    navigationDefault?: 'Spawn' | 'Region';
+    // The effective road access (the domain's override, else its type's) - what the game server's router uses.
+    roadAccess?: 'Applies' | 'Ignored';
 }

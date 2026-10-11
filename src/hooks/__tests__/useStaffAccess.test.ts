@@ -2,6 +2,8 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { usePermission, useStaffAccess, STAFF_PERMISSION_NODE, classifyPermissionError } from '../useStaffAccess';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { useAuth } from '../../contexts/AuthContext';
+import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from '../../types/dtos/telemetry/TelemetryDtos';
+import { OWNER_ANALYTICS_VIEW_NODE } from '../../types/dtos/analytics/WorldAnalyticsDtos';
 
 jest.mock('../../apiClients/userManagementClient', () => ({
   userManagementClient: { checkPermission: jest.fn() },
@@ -83,6 +85,21 @@ describe('usePermission', () => {
     mockedCheck.mockRejectedValueOnce({ status: 401 });
     const expired = renderHook(() => usePermission('knk.admin.content'));
     await waitFor(() => expect(expired.result.current).toMatchObject({ allowed: false, isChecking: false, status: 'unauthenticated' }));
+  });
+
+  it('needs an exact grant for the telemetry and privacy owner nodes (D24)', async () => {
+    mockedUseAuth.mockReturnValue({ user: { id: 104 } });
+    mockedCheck.mockImplementation((_id: number, node: string) =>
+      Promise.resolve({ allowed: true, matchedNode: node === OWNER_TELEMETRY_VIEW_NODE ? node : 'knk.*' }));
+
+    const telemetry = renderHook(() => usePermission(OWNER_TELEMETRY_VIEW_NODE));
+    const privacy = renderHook(() => usePermission(OWNER_PRIVACY_MANAGE_NODE));
+    const analytics = renderHook(() => usePermission(OWNER_ANALYTICS_VIEW_NODE));
+
+    await waitFor(() => expect(telemetry.result.current).toMatchObject({ allowed: true, isChecking: false }));
+    await waitFor(() => expect(privacy.result.current).toMatchObject({ allowed: false, isChecking: false }));
+    // Anonymous world analytics accepts a wildcard, like any other node.
+    await waitFor(() => expect(analytics.result.current).toMatchObject({ allowed: true, isChecking: false }));
   });
 
   it('denies without a logged-in user', () => {

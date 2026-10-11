@@ -10,6 +10,8 @@ import { MyDiscoveriesSection } from '../components/discovery/MyDiscoveriesSecti
 import { LINK_CODE_LENGTH, normalizeLinkCode } from '../utils/linkCode';
 import { appConfig } from '../config/appConfig';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { MyStatisticsSection } from './statistics/MyStatisticsSection';
+import { MyDataDeletionSection } from '../components/privacy/MyDataDeletionSection';
 
 export const AccountManagementPage: React.FC = () => {
   usePageTitle('Account');
@@ -235,6 +237,8 @@ export const AccountManagementPage: React.FC = () => {
             {/* Discoveries (docs/specs/domain-discovery/DESIGN.md §3.9) - only once the account is
                 linked to Minecraft, since discoveries are made in-game. */}
             {user.uuid && <MyDiscoveriesSection userId={user.id} />}
+            {/* Player statistics (KNG-34): gathered in-game, so also only when linked. */}
+            {user.uuid && <MyStatisticsSection userId={user.id} username={user.username} />}
 
             {/* Email Management */}
             <div className="border-b pb-6">
@@ -464,6 +468,9 @@ export const AccountManagementPage: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Delete my data (KNG-34 GDPR deletion, 2026-10-03): request, email confirmation, 5-day grace period. */}
+            <MyDataDeletionSection hasEmail={!!user.email} />
 
             {/* Minecraft Account Already Linked */}
             {user.uuid && (
