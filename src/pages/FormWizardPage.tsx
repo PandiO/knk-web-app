@@ -8,6 +8,9 @@ import { displayConfigClient } from '../apiClients/displayConfigClient';
 import { formConfigClient } from '../apiClients/formConfigClient';
 import { formSubmissionClient } from '../apiClients/formSubmissionClient';
 import { FeedbackModal } from '../components/FeedbackModal';
+import { DomainWorldPromptModal } from '../components/DomainWorldPromptModal';
+import { DomainClient } from '../apiClients/domainClient';
+import { buildDomainWorldResolveRequest, isDomainEntityType } from '../utils/forms/domainWorld';
 import { DisplayConfigurationTable } from '../components/FormWizard/DisplayConfigurationTable';
 import { EntityMetadataNavigator } from '../components/FormWizard/EntityMetadataNavigator';
 import { FormConfigurationTable } from '../components/FormWizard/FormConfigurationTable';
@@ -102,6 +105,15 @@ export const FormWizardPage: React.FC<Props> = ({
         onContinue: undefined,
         autoCloseMs: undefined,
     });
+
+    // KNG-111: asks which world a domain is in when the API can't tell from its region, location or parent.
+    const [worldPrompt, setWorldPrompt] = useState<{ entityLabel: string; resolve: (world: string | null) => void } | null>(null);
+    const askForWorld = (entityLabel: string) =>
+        new Promise<string | null>(resolve => setWorldPrompt({ entityLabel, resolve }));
+    const answerWorldPrompt = (world: string | null) => {
+        worldPrompt?.resolve(world);
+        setWorldPrompt(null);
+    };
 
     const showFeedback = (payload: Omit<FeedbackState, 'open'>) => {
         setFeedbackModal({ ...payload, open: true });
@@ -784,6 +796,28 @@ export const FormWizardPage: React.FC<Props> = ({
                 const entityIdToUse = entityId || progress.entityId;
                 const entityData = { ...data, id: entityIdToUse ?? undefined };
 
+                // KNG-111: a domain is saved with its world. The API takes it from the region world task, the Location
+                // or the parent; when none of those gives one, ask, and stop on a conflict the save would refuse.
+                if (isDomainEntityType(progress.entityTypeName)) {
+                    const resolution = await DomainClient.getInstance().resolveWorld(
+                        buildDomainWorldResolveRequest(progress.entityTypeName, entityData, entityIdToUse)
+                    );
+                    if (resolution?.error) {
+                        showFeedback({
+                            title: 'Submit failed',
+                            message: resolution.error,
+                            status: 'error',
+                            onContinue: undefined
+                        });
+                        return;
+                    }
+                    if (resolution?.needsWorld) {
+                        const chosenWorld = await askForWorld(toLabel(progress.entityTypeName).toLowerCase() || 'domain');
+                        if (!chosenWorld) return;
+                        entityData.worldName = chosenWorld;
+                    }
+                }
+
                 let createdEntityId: any;
                 if (entityIdToUse) {
                     await updateFn(entityData);
@@ -1073,6 +1107,13 @@ export const FormWizardPage: React.FC<Props> = ({
                     )}
                 </div>
             </div>
+
+            <DomainWorldPromptModal
+                open={worldPrompt !== null}
+                entityLabel={worldPrompt?.entityLabel ?? 'domain'}
+                onConfirm={world => answerWorldPrompt(world)}
+                onCancel={() => answerWorldPrompt(null)}
+            />
 
             <FeedbackModal
                 open={feedbackModal.open}

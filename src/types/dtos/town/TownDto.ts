@@ -6,6 +6,8 @@ export interface DomainBaseDto extends DomainTeleportSettingsDto, DomainNavigati
     description?: string;
     allowEntry: boolean;
     created?: Date;
+    /** KNG-111: the Minecraft world of the domain and its region. */
+    worldName?: string | null;
 }
 
 export interface TownDto extends DomainBaseDto {
