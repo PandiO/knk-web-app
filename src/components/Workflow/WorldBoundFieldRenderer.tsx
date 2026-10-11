@@ -5,6 +5,7 @@ import { FormFieldDto, FormConfigurationDto } from '../../types/dtos/forms/FormM
 import { FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { Copy, Check, MapPin } from 'lucide-react';
 import { useEnrichedFormContext } from '../../hooks/useEnrichedFormContext';
+import { resolveWorldTaskDependencyValue } from '../../utils/forms/worldTaskDependency';
 
 interface WorldBoundFieldRendererProps {
     field: FormFieldDto;
@@ -554,7 +555,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             // Phase 7: Include enriched validation context if form configuration is available
             if (formContext) {
                 // Enrich validation rules with dependency values from form
-                const enrichedRules = validationRules?.map(rule => {
+                const enrichedRules = await Promise.all((validationRules ?? []).map(async rule => {
                     const enriched: any = { ...rule };
                     
                     // Get dependency field name and look up its value
@@ -565,11 +566,14 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                         const fieldName = depFieldName.includes('.') 
                             ? depFieldName.split('.').pop() 
                             : depFieldName;
-                        enriched.dependencyFieldValue = currentFormValues[fieldName || ''];
+                        // KNG-131: an edit-loaded reference (e.g. an existing door's GateStructureId = 21)
+                        // becomes the saved record, so the plugin can read its region.
+                        enriched.dependencyFieldValue = await resolveWorldTaskDependencyValue(
+                            rule, currentFormValues[fieldName || ''], formConfiguration);
                     }
                     
                     return enriched;
-                }) || [];
+                }));
 
                 const validationContext = {
                     formContextValues: currentFormValues || formContext.values, // Use provided form values or hook values
