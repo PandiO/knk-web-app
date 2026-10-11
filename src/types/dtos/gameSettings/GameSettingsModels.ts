@@ -88,6 +88,72 @@ export interface PermissionGroupGameSettingsDto {
    */
   joinAtLastLocation?: boolean | null;
   respawnPolicy?: RespawnPolicyDto | null;
+  /** The hub's outage action for this group's members; null = not set (hub DESIGN §13). */
+  outageAction?: HubOutageAction | null;
+  /** Outage delay in seconds for this group's members; 0 = immediately; null = not set. */
+  outageDelaySeconds?: number | null;
+  /** Exempt from the outage action while in active staff mode. Only a ticked box counts (decision 5). */
+  exemptInStaffMode?: boolean | null;
+  /** Exempt from the outage action while in active owner mode. */
+  exemptInOwnerMode?: boolean | null;
+}
+
+/** What happens to online players when the API is lost (hub DESIGN §1, §2). */
+export type HubOutageAction = 'None' | 'SendToHub' | 'Kick' | 'SendToWorldSpawn';
+
+/** The hub's rules (§13), applied inside the selected hub's region only. */
+export interface HubRulesDto {
+  damagePlayers: boolean;
+  damageEntities: boolean;
+  takeDamage: boolean;
+  buildBreak: boolean;
+  dropPickup: boolean;
+  useDoors: boolean;
+  useNpcs: boolean;
+  useStorage: boolean;
+  useItemFramesPaintings: boolean;
+  healAmount: number;
+  healIntervalTicks: number;
+  feedAmount: number;
+  feedIntervalTicks: number;
+  saturationAmount: number;
+  saturationIntervalTicks: number;
+}
+
+/** The hub (hub DESIGN §16 Phase 4). No domainId = no hub: players join as before. */
+export interface HubSettingsDto {
+  domainId?: number | null;
+  /** Read-only, filled in by the API. */
+  domainName?: string | null;
+  domainType?: string | null;
+  worldName?: string | null;
+  wgRegionId?: string | null;
+  spawnReference?: LocationReferenceDto | null;
+  outageAction: HubOutageAction;
+  /** 0 = "Uit": immediately. */
+  outageDelaySeconds: number;
+  rules: HubRulesDto;
+}
+
+/** A hub-eligible domain (decision 4). */
+export interface HubDomainDto {
+  id: number;
+  name: string;
+  domainType: string;
+  worldName?: string | null;
+  wgRegionId?: string | null;
+  isHub: boolean;
+  selected: boolean;
+}
+
+/** Whether a group may carry the mode exemptions (KNG-116). */
+export interface HubExemptionEligibilityDto {
+  permissionGroupId: number;
+  groupName: string;
+  canExemptStaffMode: boolean;
+  staffModeSource?: string | null;
+  canExemptOwnerMode: boolean;
+  ownerModeSource?: string | null;
 }
 
 export interface GameSettingsDto {
@@ -104,6 +170,7 @@ export interface GameSettingsDto {
   /** Server-list MOTD (two lines, & codes, {online}/{max}); null = server.properties. */
   motd?: string | null;
   groupOverrides?: PermissionGroupGameSettingsDto[];
+  hub?: HubSettingsDto | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -120,6 +187,8 @@ export interface GameSettingsUpdateDto {
   motd?: string | null;
   /** null/undefined keeps the stored overrides; a list (also empty) replaces them. */
   groupOverrides?: PermissionGroupGameSettingsDto[] | null;
+  /** null/undefined keeps the stored hub settings. */
+  hub?: HubSettingsDto | null;
 }
 
 export interface GameSettingsRuntimeWorldsUpdateDto {

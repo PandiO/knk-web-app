@@ -1,7 +1,12 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { PermissionGroupDto } from '../../../types/dtos/userManagement/PermissionGroupDto';
-import { PermissionGroupGameSettingsDto } from '../../../types/dtos/gameSettings/GameSettingsModels';
+import {
+    HubExemptionEligibilityDto,
+    HubOutageAction,
+    PermissionGroupGameSettingsDto,
+} from '../../../types/dtos/gameSettings/GameSettingsModels';
+import { OUTAGE_ACTION_LABELS } from './HubSettingsCard';
 import { LocationOption } from './locationReferenceOptions';
 import { LocationReferencePicker } from './LocationReferencePicker';
 import { MinecraftLegacyPreview } from './MinecraftLegacyPreview';
@@ -94,7 +99,9 @@ export const GroupOverridesCard: React.FC<{
     options: LocationOption[];
     onChange: (overrides: PermissionGroupGameSettingsDto[]) => void;
     onCreateLocation?: () => void;
-}> = ({ overrides, groups, options, onChange, onCreateLocation }) => {
+    /** KNG-116: which groups may carry the hub's mode exemptions; absent = the exemption boxes are not shown. */
+    eligibility?: HubExemptionEligibilityDto[];
+}> = ({ overrides, groups, options, onChange, onCreateLocation, eligibility = [] }) => {
     const [toAdd, setToAdd] = React.useState<string>('');
     // Groups whose 'Own spawn' is ticked but no spot is chosen yet (nothing is saved until one is).
     const [spawnPending, setSpawnPending] = React.useState<number[]>([]);
@@ -270,9 +277,99 @@ export const GroupOverridesCard: React.FC<{
                                 />
                             )}
                         </div>
+
+                        <HubOutageOverride
+                            override={o}
+                            groupName={name}
+                            eligibility={eligibility.find(e => e.permissionGroupId === o.permissionGroupId)}
+                            onChange={change => update(o.permissionGroupId, x => ({ ...x, ...change }))}
+                        />
                     </div>
                 );
             })}
+        </div>
+    );
+};
+
+/**
+ * The hub's outage handling for one group (hub DESIGN §13): its own outage action and delay, and the staff/owner mode
+ * exemptions. An exemption box is only shown when the group effectively has the mode's node (KNG-116), and only a
+ * ticked box counts (decision 5).
+ */
+const HubOutageOverride: React.FC<{
+    override: PermissionGroupGameSettingsDto;
+    groupName: string;
+    eligibility?: HubExemptionEligibilityDto;
+    onChange: (change: Partial<PermissionGroupGameSettingsDto>) => void;
+}> = ({ override: o, groupName, eligibility, onChange }) => {
+    const ownAction = o.outageAction != null || o.outageDelaySeconds != null;
+    return (
+        <div className="space-y-2">
+            <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input
+                    type="checkbox"
+                    checked={ownAction}
+                    onChange={e => onChange(e.target.checked
+                        ? { outageAction: 'SendToHub', outageDelaySeconds: 0 }
+                        : { outageAction: null, outageDelaySeconds: null })}
+                    className="rounded border-gray-300"
+                />
+                Own action when the API is lost
+            </label>
+            {ownAction && (
+                <div className="ml-6 flex flex-wrap items-center gap-2 text-sm text-gray-700">
+                    <select
+                        aria-label={`${groupName} outage action`}
+                        value={o.outageAction ?? 'SendToHub'}
+                        onChange={e => onChange({ outageAction: e.target.value as HubOutageAction })}
+                        className="rounded-md border-gray-300 focus:border-primary focus:ring-primary"
+                    >
+                        {(Object.keys(OUTAGE_ACTION_LABELS) as HubOutageAction[]).map(a => (
+                            <option key={a} value={a}>{OUTAGE_ACTION_LABELS[a]}</option>
+                        ))}
+                    </select>
+                    after
+                    <input
+                        type="number"
+                        min={0}
+                        aria-label={`${groupName} outage delay`}
+                        value={o.outageDelaySeconds ?? 0}
+                        onChange={e => onChange({ outageDelaySeconds: Math.max(0, Number(e.target.value) || 0) })}
+                        className="w-24 rounded-md border-gray-300 focus:border-primary focus:ring-primary"
+                    />
+                    seconds (0 = immediately)
+                </div>
+            )}
+            {eligibility?.canExemptStaffMode && (
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                        type="checkbox"
+                        checked={o.exemptInStaffMode === true}
+                        onChange={e => onChange({ exemptInStaffMode: e.target.checked ? true : null })}
+                        className="rounded border-gray-300"
+                    />
+                    Exempt while in staff mode
+                    <span className="text-xs text-gray-500">(knk.mode.staff from {eligibility.staffModeSource})</span>
+                </label>
+            )}
+            {eligibility?.canExemptOwnerMode && (
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                        type="checkbox"
+                        checked={o.exemptInOwnerMode === true}
+                        onChange={e => onChange({ exemptInOwnerMode: e.target.checked ? true : null })}
+                        className="rounded border-gray-300"
+                    />
+                    Exempt while in owner mode
+                    <span className="text-xs text-gray-500">(knk.mode.owner from {eligibility.ownerModeSource})</span>
+                </label>
+            )}
+            {(eligibility?.canExemptStaffMode || eligibility?.canExemptOwnerMode) && (
+                <p className="ml-6 text-xs text-gray-500">
+                    An exempt member in that active mode is not moved or kicked during an outage and may still enter gameplay.
+                    Being in the group alone exempts no one.
+                </p>
+            )}
         </div>
     );
 };

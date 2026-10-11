@@ -10,6 +10,7 @@ import { structureClient } from '../../apiClients/structureClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { DataRetentionCard } from '../../components/admin/DataRetentionCard';
 import { GroupOverridesCard } from '../../components/admin/gameSettings/GroupOverridesCard';
+import { HubSettingsCard, defaultHubRules, defaultHubSettings } from '../../components/admin/gameSettings/HubSettingsCard';
 import { LocationReferencePicker } from '../../components/admin/gameSettings/LocationReferencePicker';
 import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
 import { RespawnPolicyEditor } from '../../components/admin/gameSettings/RespawnPolicyEditor';
@@ -19,6 +20,8 @@ import { PermissionGroupDto } from '../../types/dtos/userManagement/PermissionGr
 import {
     GameSettingsDto,
     GameSettingsUpdateDto,
+    HubDomainDto,
+    HubExemptionEligibilityDto,
     JoinSpawnMode,
     RespawnPolicyDto,
     WeatherMode,
@@ -114,6 +117,7 @@ const normalizeSettings = (settings: GameSettingsDto): GameSettingsDto => {
 
     next.worldSettings = Array.from(byWorld.values()).sort((a, b) => a.worldName.localeCompare(b.worldName));
     next.groupOverrides = next.groupOverrides || [];
+    next.hub = { ...defaultHubSettings(), ...(next.hub || {}), rules: { ...defaultHubRules(), ...(next.hub?.rules || {}) } };
 
     if (!next.defaultRespawnPolicy) {
         next.defaultRespawnPolicy = {
@@ -133,6 +137,8 @@ export const GameSettingsPage: React.FC = () => {
     const [settings, setSettings] = React.useState<GameSettingsDto | null>(null);
     const [locationOptions, setLocationOptions] = React.useState<LocationOption[]>([]);
     const [groups, setGroups] = React.useState<PermissionGroupDto[]>([]);
+    const [hubDomains, setHubDomains] = React.useState<HubDomainDto[]>([]);
+    const [eligibility, setEligibility] = React.useState<HubExemptionEligibilityDto[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [saving, setSaving] = React.useState(false);
 
@@ -143,15 +149,19 @@ export const GameSettingsPage: React.FC = () => {
     const loadAll = async () => {
         try {
             setLoading(true);
-            const [settingsData, locations, towns, districts, structures, permissionGroups] = await Promise.all([
+            const [settingsData, locations, towns, districts, structures, permissionGroups, hubs, exemptions] = await Promise.all([
                 gameSettingsClient.get(),
                 locationClient.getAll().catch(() => []),
                 townClient.getAll().catch(() => []),
                 districtClient.getAll().catch(() => []),
                 structureClient.getAll().catch(() => []),
                 permissionGroupClient.getAll().catch(() => [] as PermissionGroupDto[]),
+                gameSettingsClient.getHubDomains().catch(() => [] as HubDomainDto[]),
+                gameSettingsClient.getExemptionEligibility().catch(() => [] as HubExemptionEligibilityDto[]),
             ]);
             setGroups(permissionGroups as PermissionGroupDto[]);
+            setHubDomains(hubs);
+            setEligibility(exemptions);
 
             setSettings(normalizeSettings(settingsData));
             setLocationOptions(buildLocationOptions(locations as any[], towns as any[], districts as any[], structures as any[]));
@@ -198,12 +208,14 @@ export const GameSettingsPage: React.FC = () => {
             worldSettings: settings.worldSettings,
             motd: settings.motd ?? '',
             groupOverrides: settings.groupOverrides ?? [],
+            hub: settings.hub ?? defaultHubSettings(),
         };
 
         try {
             setSaving(true);
             const updated = await gameSettingsClient.update(payload);
             setSettings(normalizeSettings(updated));
+            setHubDomains(await gameSettingsClient.getHubDomains().catch(() => hubDomains));
         } catch (error) {
             console.error('Failed to save game settings:', error);
             logging.errorHandler.next('ErrorMessage.GameSettings.SaveFailed');
@@ -379,12 +391,23 @@ export const GameSettingsPage: React.FC = () => {
                     )}
                 </div>
 
+                <HubSettingsCard
+                    hub={settings.hub ?? defaultHubSettings()}
+                    hubDomains={hubDomains}
+                    domainOptions={locationOptions}
+                    options={locationOptions}
+                    onChange={hub => updateSettings(prev => ({ ...prev, hub }))}
+                    onHubDomainsChange={setHubDomains}
+                    onCreateLocation={() => navigate('/forms/location?autoOpen=true')}
+                />
+
                 <GroupOverridesCard
                     overrides={settings.groupOverrides || []}
                     groups={groups}
                     options={locationOptions}
                     onChange={groupOverrides => updateSettings(prev => ({ ...prev, groupOverrides }))}
                     onCreateLocation={() => navigate('/forms/location?autoOpen=true')}
+                    eligibility={eligibility}
                 />
 
                 <div className="space-y-4">
