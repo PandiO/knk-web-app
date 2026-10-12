@@ -57,6 +57,7 @@ import { isSeedableInstance, overlayChildEditValues } from '../../utils/forms/ch
 import { spreadTaskValueOntoFields } from '../../utils/forms/worldTaskFieldValue';
 import { validateListFieldCount } from '../../utils/forms/listFieldValidation';
 import { WizardStepProgress, WizardStepTitle } from './WizardStepHeader';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 interface FormWizardProps {
     entityName: string;
@@ -2470,14 +2471,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             return savedProgress;
         } catch (error: unknown) {
             console.error('Failed to save progress:', error);
-            // changed: set user-friendly error message from API or fallback
-            const errorMessage = 
-                (error && typeof error === 'object' && 'response' in error && 
-                 error.response && typeof error.response === 'object' && 'data' in error.response &&
-                 error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data &&
-                 typeof error.response.data.message === 'string')
-                    ? error.response.data.message
-                    : 'Failed to save your progress. Please try again.';
+            // KNG-169: the API's reason for a refused save, else the general text.
+            const errorMessage = apiRefusalReason(error) ?? 'Failed to save your progress. Please try again.';
             setError(errorMessage);
             logging.errorHandler.next('ErrorMessage.FormSubmission.SaveFailed');
             if (status === FormSubmissionStatus.Paused) {
