@@ -14,6 +14,10 @@ interface FeedbackModalProps {
     autoCloseMs?: number;
     onSecondary?: () => void;
     secondaryLabel?: string;
+    /** Label of the button that closes without continuing, shown next to the action (default "Close"). */
+    cancelLabel?: string;
+    /** The action destroys something (a delete): its button is red. */
+    danger?: boolean;
 }
 
 // Simple feedback modal with outside-click close and optional auto-close timer
@@ -27,7 +31,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     continueLabel,
     autoCloseMs,
     onSecondary,
-    secondaryLabel
+    secondaryLabel,
+    cancelLabel = 'Close',
+    danger = false
 }) => {
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
 
@@ -152,12 +158,12 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                             onClick={onClose}
                             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                         >
-                            Close
+                            {cancelLabel}
                         </button>
                     )}
                     <button
                         onClick={handleContinue}
-                        className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-md"
+                        className={`px-4 py-2 text-sm font-medium text-white rounded-md ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary-dark'}`}
                     >
                         {continueLabel ?? (onContinue ? 'Continue' : 'Close')}
                     </button>

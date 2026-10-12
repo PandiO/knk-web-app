@@ -21,6 +21,8 @@ import { CreatedEntitiesPrompt } from '../components/FormWizard/CreatedEntitiesP
 import { FormConfigurationImportPanel } from '../components/FormWizard/FormConfigurationImportPanel';
 import { downloadJson, exportFileName } from '../utils/forms/formConfigPortability';
 import { apiRefusalReason } from '../utils/apiRefusalReason';
+import { useConfirm } from '../hooks/useConfirm';
+import { formConfigDeleteMessage, savedDraftCount } from '../utils/forms/formConfigDeleteConfirm';
 import { FormSessionRoot } from '../contexts/FormSessionContext';
 import { CreatedEntityRecord, parseCreatedEntitiesJson } from '../utils/forms/createdEntities';
 import { deleteCreatedEntities } from '../utils/forms/deleteCreatedEntities';
@@ -133,22 +135,16 @@ export const FormWizardPage: React.FC<Props> = ({
         setWorldPrompt(null);
     };
 
-    // Confirmations use a FeedbackModal instead of the browser's window.confirm; Close answers no.
-    const [confirmPrompt, setConfirmPrompt] = useState<{
-        title: string;
-        message: string;
-        continueLabel: string;
-        resolve: (confirmed: boolean) => void;
-    } | null>(null);
-    const askToConfirm = (title: string, message: string, continueLabel: string) =>
-        new Promise<boolean>(resolve => setConfirmPrompt({ title, message, continueLabel, resolve }));
-    const answerConfirmPrompt = (confirmed: boolean) => {
-        confirmPrompt?.resolve(confirmed);
-        setConfirmPrompt(null);
-    };
+    // Confirmations use a FeedbackModal (useConfirm) instead of the browser's confirm box.
+    const [confirm, confirmModal] = useConfirm();
 
     const showFeedback = (payload: Omit<FeedbackState, 'open'>) => {
         setFeedbackModal({ ...payload, open: true });
+    };
+
+    /** A failed request: the API's reason for a refusal, else the fallback. */
+    const showFailure = (title: string, error: unknown, fallback: string) => {
+        showFeedback({ title, message: apiRefusalReason(error) ?? fallback, status: 'error', onContinue: undefined });
     };
 
     const closeFeedbackModal = () => {
@@ -466,11 +462,11 @@ export const FormWizardPage: React.FC<Props> = ({
         const existingDefault = formConfigs.find(c => c.id !== config.id && c.isDefault);
         
         if (existingDefault) {
-            if (!(await askToConfirm(
-                'Change the default configuration?',
-                `There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`,
-                'Change default'
-            ))) {
+            if (!(await confirm({
+                title: 'Change the default configuration?',
+                message: `There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`,
+                confirmLabel: 'Change default',
+            }))) {
                 return;
             }
             await handleRemoveDefault(existingDefault);
@@ -483,6 +479,7 @@ export const FormWizardPage: React.FC<Props> = ({
         } catch (error) {
             console.error('Failed to set default configuration:', error);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.SaveFailed');
+            showFailure('Save failed', error, 'The default configuration could not be changed.');
         }
     };
 
@@ -495,6 +492,7 @@ export const FormWizardPage: React.FC<Props> = ({
         } catch (error) {
             console.error('Failed to remove default configuration:', error);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.SaveFailed');
+            showFailure('Save failed', error, 'The default configuration could not be changed.');
         }
     };
 
@@ -527,7 +525,12 @@ export const FormWizardPage: React.FC<Props> = ({
             setDraftDeletePrompt({ progress, records });
             return;
         }
-        if (!(await askToConfirm('Delete this saved progress?', 'Are you sure you want to delete this saved progress?', 'Delete'))) return;
+        if (!(await confirm({
+            title: 'Delete this saved progress?',
+            message: 'Are you sure you want to delete this saved progress?',
+            confirmLabel: 'Delete',
+            danger: true,
+        }))) return;
         await removeProgress(progress, true);
     };
 
@@ -583,16 +586,28 @@ export const FormWizardPage: React.FC<Props> = ({
             console.error('Failed to export configuration:', error);
             showFeedback({
                 title: 'Export failed',
-                message: error instanceof Error && error.message ? error.message : 'Unable to export the form configuration.',
+                message: apiRefusalReason(error) ?? 'Unable to export the form configuration.',
                 status: 'error',
                 onContinue: undefined,
             });
         }
     };
 
-    // Handler: Delete configuration
+    // Handler: Delete configuration. KNG-172: the confirm says how many saved drafts go with it; when
+    // they can't be counted it asks without that sentence.
     const handleFormConfigDelete = async (config: FormConfigurationDto) => {
-        if (!(await askToConfirm('Delete this form configuration?', `Are you sure you want to delete "${config.configurationName}"?`, 'Delete'))) return;
+        let draftCount = 0;
+        try {
+            draftCount = savedDraftCount(await formSubmissionClient.getEntityReferences('FormConfiguration', config.id!));
+        } catch (error) {
+            console.warn('Could not count the saved drafts of the form configuration:', error);
+        }
+        if (!(await confirm({
+            title: 'Delete this form configuration?',
+            message: formConfigDeleteMessage(config.configurationName, draftCount),
+            confirmLabel: 'Delete',
+            danger: true,
+        }))) return;
 
         try {
             await formConfigClient.delete(config.id!);
@@ -625,11 +640,11 @@ export const FormWizardPage: React.FC<Props> = ({
 
         const existingDefault = displayConfigs.find(c => c.id !== config.id && c.isDefault);
         if (existingDefault) {
-            if (!(await askToConfirm(
-                'Change the default display configuration?',
-                `There is already a default display configuration for "${selectedTypeName}". Change default to "${config.name}"?`,
-                'Change default'
-            ))) {
+            if (!(await confirm({
+                title: 'Change the default display configuration?',
+                message: `There is already a default display configuration for "${selectedTypeName}". Change default to "${config.name}"?`,
+                confirmLabel: 'Change default',
+            }))) {
                 return;
             }
             await handleDisplayRemoveDefault(existingDefault);
@@ -641,6 +656,7 @@ export const FormWizardPage: React.FC<Props> = ({
         } catch (error) {
             console.error('Failed to set default display configuration:', error);
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.SaveFailed');
+            showFailure('Save failed', error, 'The default display configuration could not be changed.');
         }
     };
 
@@ -656,6 +672,7 @@ export const FormWizardPage: React.FC<Props> = ({
         } catch (error) {
             console.error('Failed to remove default display configuration:', error);
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.SaveFailed');
+            showFailure('Save failed', error, 'The default display configuration could not be changed.');
         }
     };
 
@@ -688,7 +705,7 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.PublishFailed');
             showFeedback({
                 title: 'Publish failed',
-                message: 'Unable to publish the display configuration. Please try again.',
+                message: apiRefusalReason(error) ?? 'Unable to publish the display configuration. Please try again.',
                 status: 'error',
                 onContinue: undefined,
                 autoCloseMs: 5000,
@@ -702,7 +719,12 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.DeleteFailed');
             return;
         }
-        if (!(await askToConfirm('Delete this display configuration?', `Are you sure you want to delete "${config.name}"?`, 'Delete'))) return;
+        if (!(await confirm({
+            title: 'Delete this display configuration?',
+            message: `Are you sure you want to delete "${config.name}"?`,
+            confirmLabel: 'Delete',
+            danger: true,
+        }))) return;
         try {
             await displayConfigClient.delete(idNumber);
             setDisplayConfigs(prev => prev.filter(c => c.id !== config.id));
@@ -848,7 +870,7 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.EntityTypeConfiguration.SaveFailed');
             showFeedback({
                 title: 'Save failed',
-                message: 'Unable to save default table columns. Please try again.',
+                message: apiRefusalReason(error) ?? 'Unable to save default table columns. Please try again.',
                 status: 'error',
                 onContinue: undefined,
             });
@@ -1239,15 +1261,7 @@ export const FormWizardPage: React.FC<Props> = ({
                 onClose={() => setDraftDeletePrompt(null)}
             />
 
-            <FeedbackModal
-                open={confirmPrompt !== null}
-                title={confirmPrompt?.title ?? ''}
-                message={confirmPrompt?.message ?? ''}
-                status="info"
-                onClose={() => answerConfirmPrompt(false)}
-                onContinue={() => answerConfirmPrompt(true)}
-                continueLabel={confirmPrompt?.continueLabel}
-            />
+            {confirmModal}
 
             <FeedbackModal
                 open={feedbackModal.open}
