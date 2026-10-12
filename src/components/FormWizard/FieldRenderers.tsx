@@ -737,21 +737,30 @@ const DecimalField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
     </div>
 );
 
+// KNG-137: the description goes under the checkbox label, like every other field type's.
 const BooleanField: React.FC<FieldRendererProps> = ({ field, value, onChange, error }) => (
-    <div className="flex items-center">
-        <input
-            type="checkbox"
-            id={field.fieldName}
-            checked={toBooleanFieldValue(value)}
-            onChange={e => onChange(e.target.checked)}
-            disabled={field.isReadOnly}
-            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-        />
-        <label htmlFor={field.fieldName} className="ml-2 block text-sm text-gray-900">
-            {field.label}
-            {field.isRequired && <span className="text-red-500 ml-1">*</span>}
-        </label>
-        {error && <p className="ml-2 text-sm text-red-600">{error}</p>}
+    <div>
+        <div className="flex items-center">
+            <input
+                type="checkbox"
+                id={field.fieldName}
+                checked={toBooleanFieldValue(value)}
+                onChange={e => onChange(e.target.checked)}
+                disabled={field.isReadOnly}
+                aria-describedby={field.description ? `${field.fieldName}-description` : undefined}
+                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+            />
+            <label htmlFor={field.fieldName} className="ml-2 block text-sm text-gray-900">
+                {field.label}
+                {field.isRequired && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            {error && <p className="ml-2 text-sm text-red-600">{error}</p>}
+        </div>
+        {field.description && (
+            <p id={`${field.fieldName}-description`} className="ml-6 mt-1 text-xs text-gray-500">
+                {field.description}
+            </p>
+        )}
     </div>
 );
 

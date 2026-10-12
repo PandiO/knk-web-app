@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Save, Check, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, AlertCircle } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, FormFieldDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { RelationshipDraft } from '../../hooks/useRelationshipDrafts';
 import { formConfigClient } from '../../apiClients/formConfigClient';
@@ -53,6 +53,7 @@ import { hydrateJoinRowsForEdit, joinFieldSeedValues } from '../../utils/forms/m
 import { seededFormFieldValue } from '../../utils/forms/formFieldDefaultValue';
 import { isSeedableInstance, overlayChildEditValues } from '../../utils/forms/childEditSeed';
 import { spreadTaskValueOntoFields } from '../../utils/forms/worldTaskFieldValue';
+import { WizardStepProgress, WizardStepTitle } from './WizardStepHeader';
 
 interface FormWizardProps {
     entityName: string;
@@ -2659,46 +2660,20 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     </div>
                 )}
 
-                {/* Progress Indicator */}
-                <div className="flex items-center justify-center mx-auto mb-6 w-full max-w-3xl px-2 md:px-4 gap-3 md:gap-4">
-                    {visibility.visibleStepIndices.map((stepIndex, position) => {
-                        const step = config.steps[stepIndex];
-                        const isDone = stepIndex < currentStepIndex || completedSteps.has(stepIndex);
-                        return (
-                            <div key={step.id ?? stepIndex} className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-                                <div
-                                    className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                                        isDone
-                                            ? 'bg-green-500 text-white'
-                                            : stepIndex === currentStepIndex
-                                            ? 'bg-primary text-white'
-                                            : 'bg-gray-200 text-gray-600'
-                                    }`}
-                                >
-                                    {isDone ? <Check className="h-4 w-4 md:h-5 md:w-5" /> : position + 1}
-                                </div>
-                                {position < visibility.visibleStepIndices.length - 1 && (
-                                    <div
-                                        className={`h-1 w-10 md:w-16 rounded-full transition-colors flex-shrink-0 ${
-                                            isDone ? 'bg-green-500' : 'bg-gray-200'
-                                        }`}
-                                    />
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-
-                {/* Title and Description */}
-                <div className="text-center mb-6">
-                    {/* changed: show edit mode in title */}
-                    <h2 className="text-xl md:text-2xl font-bold text-gray-900">
-                        {entityId ? `Edit ${entityName}` : currentStep.stepName}
-                    </h2>
-                    {currentStep.description && (
-                        <p className="mt-2 text-sm text-gray-600">{currentStep.description}</p>
-                    )}
-                </div>
+                {/* Progress Indicator and Title (KNG-137: step names, kept in edit mode) */}
+                <WizardStepProgress
+                    steps={visibility.visibleStepIndices.map(stepIndex => ({
+                        key: config.steps[stepIndex].id ?? stepIndex,
+                        name: config.steps[stepIndex].stepName,
+                        isDone: stepIndex < currentStepIndex || completedSteps.has(stepIndex),
+                        isCurrent: stepIndex === currentStepIndex
+                    }))}
+                />
+                <WizardStepTitle
+                    stepName={currentStep.stepName}
+                    description={currentStep.description}
+                    editingEntityName={entityId ? entityName : null}
+                />
 
                 {/* Navigation Buttons Toolbar */}
                 <div className="flex flex-col md:flex-row gap-3 md:gap-2 justify-between items-center">
