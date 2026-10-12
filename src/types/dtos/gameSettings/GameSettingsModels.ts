@@ -92,10 +92,6 @@ export interface PermissionGroupGameSettingsDto {
   outageAction?: HubOutageAction | null;
   /** Outage delay in seconds for this group's members; 0 = immediately; null = not set. */
   outageDelaySeconds?: number | null;
-  /** Exempt from the outage action while in active staff mode. Only a ticked box counts (decision 5). */
-  exemptInStaffMode?: boolean | null;
-  /** Exempt from the outage action while in active owner mode. */
-  exemptInOwnerMode?: boolean | null;
 }
 
 /** What happens to online players when the API is lost (hub DESIGN §1, §2). */
@@ -146,16 +142,6 @@ export interface HubDomainDto {
   wgRegionId?: string | null;
   isHub: boolean;
   selected: boolean;
-}
-
-/** Whether a group may carry the mode exemptions (KNG-116). */
-export interface HubExemptionEligibilityDto {
-  permissionGroupId: number;
-  groupName: string;
-  canExemptStaffMode: boolean;
-  staffModeSource?: string | null;
-  canExemptOwnerMode: boolean;
-  ownerModeSource?: string | null;
 }
 
 export interface GameSettingsDto {

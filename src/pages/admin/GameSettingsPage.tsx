@@ -22,7 +22,6 @@ import {
     GameSettingsDto,
     GameSettingsUpdateDto,
     HubDomainDto,
-    HubExemptionEligibilityDto,
     JoinSpawnMode,
     RespawnPolicyDto,
     WeatherMode,
@@ -146,7 +145,6 @@ export const GameSettingsPage: React.FC = () => {
     /** Set when the flagged domains could not be loaded: never shown as "no domain is flagged". */
     const [hubDomainsError, setHubDomainsError] = React.useState<string | null>(null);
     const [domainOptions, setDomainOptions] = React.useState<DomainOption[]>([]);
-    const [eligibility, setEligibility] = React.useState<HubExemptionEligibilityDto[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [saving, setSaving] = React.useState(false);
     /** The API's reason when a save was refused (e.g. a hub spawn in another world), shown under the buttons. */
@@ -159,7 +157,7 @@ export const GameSettingsPage: React.FC = () => {
     const loadAll = async () => {
         try {
             setLoading(true);
-            const [settingsData, locations, towns, districts, structures, permissionGroups, hubs, exemptions] = await Promise.all([
+            const [settingsData, locations, towns, districts, structures, permissionGroups, hubs] = await Promise.all([
                 gameSettingsClient.get(),
                 locationClient.getAll().catch(() => []),
                 townClient.getAll().catch(() => []),
@@ -170,14 +168,12 @@ export const GameSettingsPage: React.FC = () => {
                     console.error('Failed to load the hub-eligible domains:', error);
                     return null;
                 }),
-                gameSettingsClient.getExemptionEligibility().catch(() => [] as HubExemptionEligibilityDto[]),
             ]);
             setGroups(permissionGroups as PermissionGroupDto[]);
             setHubDomains(hubs ?? []);
             setHubDomainsError(hubs == null
                 ? 'The hub-eligible domains could not be loaded, so the hub cannot be changed now. Reload the page to try again.'
                 : null);
-            setEligibility(exemptions);
 
             setSettings(normalizeSettings(settingsData));
             setLocationOptions(buildLocationOptions(locations as any[], towns as any[], districts as any[], structures as any[]));
@@ -429,7 +425,6 @@ export const GameSettingsPage: React.FC = () => {
                     options={locationOptions}
                     onChange={groupOverrides => updateSettings(prev => ({ ...prev, groupOverrides }))}
                     onCreateLocation={() => navigate('/forms/location?autoOpen=true')}
-                    eligibility={eligibility}
                 />
 
                 <div className="space-y-4">

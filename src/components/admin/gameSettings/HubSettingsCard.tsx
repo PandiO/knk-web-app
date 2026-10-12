@@ -250,7 +250,7 @@ export const HubSettingsCard: React.FC<{
                             <option key={a} value={a}>{OUTAGE_ACTION_LABELS[a]}</option>
                         ))}
                     </select>
-                    <p className="mt-1 text-xs text-gray-500">Applies to players outside the hub while the API is down. Joins during an outage go to the hub, unless the player is exempt.</p>
+                    <p className="mt-1 text-xs text-gray-500">Applies to players outside the hub while the API is down; joins during an outage go to the hub. Players in staff or owner mode are never moved, kicked or sent to the hub.</p>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="hub-outage-delay">Delay (seconds)</label>

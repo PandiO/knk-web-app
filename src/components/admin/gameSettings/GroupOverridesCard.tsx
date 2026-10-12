@@ -2,7 +2,6 @@ import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { PermissionGroupDto } from '../../../types/dtos/userManagement/PermissionGroupDto';
 import {
-    HubExemptionEligibilityDto,
     HubOutageAction,
     PermissionGroupGameSettingsDto,
 } from '../../../types/dtos/gameSettings/GameSettingsModels';
@@ -117,9 +116,7 @@ export const GroupOverridesCard: React.FC<{
     options: LocationOption[];
     onChange: (overrides: PermissionGroupGameSettingsDto[]) => void;
     onCreateLocation?: () => void;
-    /** KNG-116: which groups may carry the hub's mode exemptions; absent = the exemption boxes are not shown. */
-    eligibility?: HubExemptionEligibilityDto[];
-}> = ({ overrides, groups, options, onChange, onCreateLocation, eligibility = [] }) => {
+}> = ({ overrides, groups, options, onChange, onCreateLocation }) => {
     const [toAdd, setToAdd] = React.useState<string>('');
     // Groups whose 'Own spawn' is ticked but no spot is chosen yet (nothing is saved until one is).
     const [spawnPending, setSpawnPending] = React.useState<number[]>([]);
@@ -299,7 +296,6 @@ export const GroupOverridesCard: React.FC<{
                         <HubOutageOverride
                             override={o}
                             groupName={name}
-                            eligibility={eligibility.find(e => e.permissionGroupId === o.permissionGroupId)}
                             onChange={change => update(o.permissionGroupId, x => ({ ...x, ...change }))}
                         />
                     </div>
@@ -310,16 +306,14 @@ export const GroupOverridesCard: React.FC<{
 };
 
 /**
- * The hub's outage handling for one group (hub DESIGN §13): its own outage action and delay, and the staff/owner mode
- * exemptions. An exemption box is only shown when the group effectively has the mode's node (KNG-116), and only a
- * ticked box counts (decision 5).
+ * The hub's outage handling for one group (hub DESIGN §13): its own outage action and delay. Players in staff or owner
+ * mode are exempt whatever their group (decision 2026-10-12), so there is nothing to set for that here.
  */
 const HubOutageOverride: React.FC<{
     override: PermissionGroupGameSettingsDto;
     groupName: string;
-    eligibility?: HubExemptionEligibilityDto;
     onChange: (change: Partial<PermissionGroupGameSettingsDto>) => void;
-}> = ({ override: o, groupName, eligibility, onChange }) => {
+}> = ({ override: o, groupName, onChange }) => {
     const ownAction = o.outageAction != null || o.outageDelaySeconds != null;
     return (
         <div className="space-y-2">
@@ -359,60 +353,6 @@ const HubOutageOverride: React.FC<{
                     seconds (0 = immediately)
                 </div>
             )}
-            <ExemptionBox
-                label="Exempt while in staff mode"
-                node="knk.mode.staff"
-                eligible={eligibility?.canExemptStaffMode === true}
-                source={eligibility?.staffModeSource}
-                checked={o.exemptInStaffMode === true}
-                onChange={checked => onChange({ exemptInStaffMode: checked ? true : null })}
-            />
-            <ExemptionBox
-                label="Exempt while in owner mode"
-                node="knk.mode.owner"
-                eligible={eligibility?.canExemptOwnerMode === true}
-                source={eligibility?.ownerModeSource}
-                checked={o.exemptInOwnerMode === true}
-                onChange={checked => onChange({ exemptInOwnerMode: checked ? true : null })}
-            />
-            {(eligibility?.canExemptStaffMode || eligibility?.canExemptOwnerMode) && (
-                <p className="ml-6 text-xs text-gray-500">
-                    An exempt member in that active mode is not moved or kicked during an outage and may still enter gameplay.
-                    Being in the group alone exempts no one.
-                </p>
-            )}
         </div>
-    );
-};
-
-/**
- * One mode exemption box: shown when the group has the node, and also while it is still ticked after the group lost
- * the node (marked, so it can be unticked - the API refuses to save it ticked).
- */
-const ExemptionBox: React.FC<{
-    label: string;
-    node: string;
-    eligible: boolean;
-    source?: string | null;
-    checked: boolean;
-    onChange: (checked: boolean) => void;
-}> = ({ label, node, eligible, source, checked, onChange }) => {
-    if (!eligible && !checked) {
-        return null;
-    }
-    return (
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input
-                type="checkbox"
-                checked={checked}
-                disabled={!eligible && !checked}
-                onChange={e => onChange(e.target.checked)}
-                className="rounded border-gray-300"
-            />
-            {label}
-            {eligible
-                ? <span className="text-xs text-gray-500">({node} from {source})</span>
-                : <span className="text-xs text-red-600">(the group no longer has {node}; untick to save)</span>}
-        </label>
     );
 };

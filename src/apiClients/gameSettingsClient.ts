@@ -4,7 +4,6 @@ import { Controllers, HttpMethod } from '../utils/enums';
 import {
   GameSettingsDto,
   HubDomainDto,
-  HubExemptionEligibilityDto,
   GameSettingsRuntimeWorldsUpdateDto,
   GameSettingsUpdateDto,
 } from '../types/dtos/gameSettings/GameSettingsModels';
@@ -40,11 +39,6 @@ class GameSettingsClient extends ObjectManager {
   /** Flags or unflags a domain as hub-eligible; the API refuses nested hubs and unflagging the selected hub. */
   setHubEligible(domainId: number, isHub: boolean): Promise<HubDomainDto> {
     return this.invokeServiceCall({ isHub }, `hub/domains/${domainId}`, Controllers.GameSettings, HttpMethod.Put);
-  }
-
-  /** Per group, whether it may carry the staff/owner mode exemptions (KNG-116). */
-  getExemptionEligibility(): Promise<HubExemptionEligibilityDto[]> {
-    return this.invokeServiceCall(null, 'hub/exemption-eligibility', Controllers.GameSettings, HttpMethod.Get);
   }
 }
 

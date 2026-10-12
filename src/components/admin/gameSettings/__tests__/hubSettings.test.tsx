@@ -6,7 +6,7 @@ import { GroupOverridesCard } from '../GroupOverridesCard';
 import { buildDomainOptions, buildLocationOptions } from '../locationReferenceOptions';
 import { gameSettingsErrorMessage } from '../gameSettingsErrors';
 import { gameSettingsClient } from '../../../../apiClients/gameSettingsClient';
-import { HubDomainDto, HubSettingsDto, PermissionGroupGameSettingsDto } from '../../../../types/dtos/gameSettings/GameSettingsModels';
+import { HubDomainDto, HubSettingsDto } from '../../../../types/dtos/gameSettings/GameSettingsModels';
 
 jest.mock('../../../../apiClients/gameSettingsClient', () => ({
     gameSettingsClient: {
@@ -111,33 +111,12 @@ describe('Hub-eligible domains (Codex review of PR #6)', () => {
     });
 });
 
-describe('GroupOverridesCard hub exemptions (KNG-116)', () => {
-    const groups = [{ id: 1, name: 'Staff', weight: 100, parentGroupId: null }, { id: 2, name: 'Noble', weight: 10, parentGroupId: null }];
+describe('GroupOverridesCard outage settings (decision 2026-10-12)', () => {
+    it('has no exemption boxes: staff and owner mode exempt by themselves', () => {
+        render(<GroupOverridesCard overrides={[{ permissionGroupId: 1, outageAction: 'Kick', outageDelaySeconds: 0 }]}
+            groups={[{ id: 1, name: 'Staff', weight: 100, parentGroupId: null }] as any} options={options} onChange={jest.fn()} />);
 
-    it('shows an exemption box only for a group that has the mode node, and stores only a ticked box', () => {
-        let overrides: PermissionGroupGameSettingsDto[] = [{ permissionGroupId: 1 }, { permissionGroupId: 2 }];
-        const onChange = jest.fn((next: PermissionGroupGameSettingsDto[]) => { overrides = next; });
-        render(<GroupOverridesCard overrides={overrides} groups={groups as any} options={options} onChange={onChange}
-            eligibility={[
-                { permissionGroupId: 1, groupName: 'Staff', canExemptStaffMode: true, staffModeSource: 'Staff', canExemptOwnerMode: false },
-                { permissionGroupId: 2, groupName: 'Noble', canExemptStaffMode: false, canExemptOwnerMode: false },
-            ]} />);
-
-        expect(screen.getAllByText('Exempt while in staff mode')).toHaveLength(1);
-        expect(screen.queryByText('Exempt while in owner mode')).not.toBeInTheDocument();
-
-        fireEvent.click(screen.getByText('Exempt while in staff mode'));
-        expect(overrides.find(o => o.permissionGroupId === 1)?.exemptInStaffMode).toBe(true);
-    });
-
-    it('keeps a ticked box the group is no longer eligible for, so it can be unticked', () => {
-        let overrides: PermissionGroupGameSettingsDto[] = [{ permissionGroupId: 2, exemptInStaffMode: true }];
-        const onChange = jest.fn((next: PermissionGroupGameSettingsDto[]) => { overrides = next; });
-        render(<GroupOverridesCard overrides={overrides} groups={groups as any} options={options} onChange={onChange}
-            eligibility={[{ permissionGroupId: 2, groupName: 'Noble', canExemptStaffMode: false, canExemptOwnerMode: false }]} />);
-
-        expect(screen.getByText(/no longer has knk.mode.staff/)).toBeInTheDocument();
-        fireEvent.click(screen.getByText('Exempt while in staff mode'));
-        expect(overrides[0].exemptInStaffMode).toBeNull();
+        expect(screen.getByLabelText('Staff outage action')).toHaveValue('Kick');
+        expect(screen.queryByText(/Exempt while in/)).not.toBeInTheDocument();
     });
 });
