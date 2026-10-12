@@ -9,6 +9,20 @@ import { minecraftBlockRefClient } from '../../apiClients/minecraftBlockRefClien
 import { minecraftEnchantmentRefClient } from '../../apiClients/minecraftEnchantmentRefClient';
 import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
+import { buildPinnedSection, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
+
+/** Green "Existing" / amber "New" pill, shared by the hybrid pickers and the pinned session rows. */
+const RowBadge: React.FC<{ isNew: boolean; label?: string }> = ({ isNew, label }) => (
+    <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${
+        isNew ? 'text-amber-700 bg-amber-100' : 'text-green-700 bg-green-100'
+    }`}>
+        {isNew ? (
+            <><PlusCircle className="h-3 w-3 mr-1" />{label ?? 'New'}</>
+        ) : (
+            <><CheckCircle className="h-3 w-3 mr-1" />{label ?? 'Existing'}</>
+        )}
+    </span>
+);
 
 /**
  * Configuration for row selection behavior in the table.
@@ -138,6 +152,14 @@ export interface PagedEntityTableProps<T> {
      * Useful for parent components to trigger a refresh after mutations.
      */
     refreshKey?: string | number;
+
+    /**
+     * KNG-136: rows created in this form session (useSessionPinnedRows), shown above the page
+     * results in a "Created in this form" section with a New badge. They obey the search term and
+     * the query's filters (client-side, see utils/forms/sessionPinnedRows.ts) and a row the page
+     * also holds is shown once, pinned, with the page's data.
+     */
+    pinnedRows?: Array<PinnedRow<T>>;
 }
 
 export function PagedEntityTable<T extends Record<string, any>>({
@@ -152,7 +174,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
     onSelectionChange,
     showSearchBar = true,
     showSelectionBanner = true,
-    refreshKey
+    refreshKey,
+    pinnedRows
 }: PagedEntityTableProps<T>) {
     const { baseMetadata, allMergedMetadata } = useEntityMetadata();
 
@@ -281,15 +304,16 @@ export function PagedEntityTable<T extends Record<string, any>>({
         fetchData();
     }, [query, entityTypeName, refreshKey]);
 
-    // Sync internal selection with prop changes (only if actually different)
+    // Sync internal selection with prop changes (only if actually different). Id-less items only
+    // match themselves (KNG-136), so two unsaved items no longer count as the same selection.
     useEffect(() => {
         const isDifferent = selectedItems.length !== internalSelection.length ||
-            selectedItems.some(item => !internalSelection.some(sel => sel.id === item.id));
+            selectedItems.some(item => !internalSelection.some(sel => isSameSelection(sel, item, entityTypeName)));
         
         if (isDifferent) {
             setInternalSelection(selectedItems);
         }
-    }, [selectedItems]);
+    }, [selectedItems, entityTypeName]);
 
     const fetchData = useCallback(async () => {
         try {
@@ -439,20 +463,9 @@ export function PagedEntityTable<T extends Record<string, any>>({
         }
     };
 
-    // added: check if row is selected
-    const isRowSelected = (row: T): boolean => {
-        const normalized = entityTypeName.toLowerCase();
-        
-        // For enchantment refs, compare by namespaceKey since that's the unique identifier
-        if (normalized === 'minecraftenchantmentref') {
-            return internalSelection.some(item => 
-                (item as any).namespaceKey === (row as any).namespaceKey
-            );
-        }
-        
-        // For other entities, compare by ID
-        return internalSelection.some(item => item.id === row.id);
-    };
+    // Enchantment refs compare by namespaceKey, other rows by id (see isSameSelection).
+    const isRowSelected = (row: T): boolean =>
+        internalSelection.some(item => isSameSelection(item, row, entityTypeName));
 
     // added: handle row selection with hybrid mode support
     const handleRowSelection = async (row: T, event?: React.MouseEvent) => {
@@ -476,16 +489,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
         } else {
             // Multiple selection mode
             if (isRowSelected(row)) {
-                // Deselect using appropriate comparison key
-                const normalized = entityTypeName.toLowerCase();
-                if (normalized === 'minecraftenchantmentref') {
-                    newSelection = internalSelection.filter(item => 
-                        (item as any).namespaceKey !== (row as any).namespaceKey
-                    );
-                } else {
-                    newSelection = internalSelection.filter(item => item.id !== row.id);
-                }
-                
+                newSelection = internalSelection.filter(item => !isSameSelection(item, row, entityTypeName));
+
                 // Check min constraint
                 if (selectionConfig.min && newSelection.length < selectionConfig.min) {
                     return; // Don't allow deselection if it violates min
@@ -526,6 +531,11 @@ export function PagedEntityTable<T extends Record<string, any>>({
 
     const allVisibleSelected = data.items.length > 0 && 
         data.items.every(row => isRowSelected(row));
+
+    const section = useMemo(
+        () => buildPinnedSection(pinnedRows, data.items, query.searchTerm, query.filters),
+        [pinnedRows, data.items, query.searchTerm, query.filters]
+    );
 
     // added: handle create and select for hybrid mode
     const handleCreateAndSelect = async (row: T) => {
@@ -610,6 +620,68 @@ export function PagedEntityTable<T extends Record<string, any>>({
         : 1;
     const isOnFirstPage = query.page <= 1;
     const isOnLastPage = query.page * query.pageSize >= data.totalCount || query.page >= totalPagesDerived;
+
+    const columnCount = effectiveColumns.length + (rowActions.length > 0 ? 1 : 0);
+
+    // One table row. Keys are stable (id, namespaceKey, ...) instead of the array index (KNG-136).
+    const renderRow = (row: T, rowKey: string, sessionBadge?: string) => {
+        const selected = isRowSelected(row);
+        return (
+            <tr
+                key={rowKey}
+                data-row-key={rowKey}
+                onClick={() => {
+                    if (selectionConfig.mode !== 'none') {
+                        handleRowSelection(row);
+                    } else {
+                        onRowClick?.(row);
+                    }
+                }}
+                className={`transition-all duration-150 ${
+                    selected
+                        ? 'bg-green-50 hover:bg-green-100 border-l-4 border-green-500'
+                        : 'hover:bg-slate-50 border-l-4 border-transparent'
+                } ${selectionConfig.mode !== 'none' || onRowClick ? 'cursor-pointer' : ''}`}
+            >
+                {effectiveColumns.map((column, colIndex) => (
+                    <td key={column.key} className={`px-6 py-4 whitespace-nowrap text-sm ${
+                        selected ? 'text-gray-900 font-medium' : 'text-gray-500'
+                    }`}>
+                        {/* check icon in the first column if selected, plus the New/Existing badge */}
+                        {colIndex === 0 ? (
+                            <div className="flex items-center space-x-2">
+                                {selected && selectionConfig.mode !== 'none' && (
+                                    <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                )}
+                                {sessionBadge ? (
+                                    <RowBadge isNew label={sessionBadge} />
+                                ) : isHybridMode && (
+                                    <RowBadge isNew={!(row as any).isPersisted} />
+                                )}
+                                {creatingKey && (row as any).namespaceKey === creatingKey && (
+                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                )}
+                                <span>{renderCellValue(row, column)}</span>
+                            </div>
+                        ) : (
+                            renderCellValue(row, column)
+                        )}
+                    </td>
+                ))}
+                {rowActions.length > 0 && (
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end space-x-2">
+                            {rowActions.map((action, actionIndex) => (
+                                <React.Fragment key={actionIndex}>
+                                    {action(row)}
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    </td>
+                )}
+            </tr>
+        );
+    };
 
     return (
         <div className="w-full space-y-4">
@@ -699,78 +771,31 @@ export function PagedEntityTable<T extends Record<string, any>>({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {data.items.length === 0 ? (
+                            {section.pinned.length > 0 && (
+                                <>
+                                    <tr className="bg-amber-50/60">
+                                        <td colSpan={columnCount} className="px-6 py-2 text-xs font-semibold uppercase tracking-wider text-amber-800">
+                                            Created in this form
+                                        </td>
+                                    </tr>
+                                    {section.pinned.map(pin => renderRow(pin.row, `pinned:${pin.key}`, pin.badge ?? 'New'))}
+                                    {section.pageItems.length > 0 && (
+                                        <tr className="bg-slate-50">
+                                            <td colSpan={columnCount} className="px-6 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                                Search results
+                                            </td>
+                                        </tr>
+                                    )}
+                                </>
+                            )}
+                            {section.pinned.length === 0 && section.pageItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan={effectiveColumns.length + (rowActions.length > 0 ? 1 : 0)} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={columnCount} className="px-6 py-12 text-center text-gray-500">
                                         No results found
                                     </td>
                                 </tr>
                             ) : (
-                                data.items.map((row, index) => {
-                                    const selected = isRowSelected(row);
-                                    return (
-                                        <tr
-                                            key={index}
-                                            onClick={() => {
-                                                if (selectionConfig.mode !== 'none') {
-                                                    handleRowSelection(row);
-                                                } else {
-                                                    onRowClick?.(row);
-                                                }
-                                            }}
-                                            className={`transition-all duration-150 ${
-                                                selected
-                                                    ? 'bg-green-50 hover:bg-green-100 border-l-4 border-green-500'
-                                                    : 'hover:bg-slate-50 border-l-4 border-transparent'
-                                            } ${selectionConfig.mode !== 'none' || onRowClick ? 'cursor-pointer' : ''}`}
-                                        >
-                                            {effectiveColumns.map((column, colIndex) => (
-                                                <td key={column.key} className={`px-6 py-4 whitespace-nowrap text-sm ${
-                                                    selected ? 'text-gray-900 font-medium' : 'text-gray-500'
-                                                }`}>
-                                                    {/* changed: add check icon to first column if selected, or badge if hybrid mode */}
-                                                    {colIndex === 0 ? (
-                                                        <div className="flex items-center space-x-2">
-                                                            {selected && selectionConfig.mode !== 'none' && (
-                                                                <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
-                                                            )}
-                                                            {isHybridMode && (
-                                                                <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${
-                                                                    (row as any).isPersisted
-                                                                        ? 'text-green-700 bg-green-100'
-                                                                        : 'text-amber-700 bg-amber-100'
-                                                                }`}>
-                                                                    {(row as any).isPersisted ? (
-                                                                        <><CheckCircle className="h-3 w-3 mr-1" />Existing</>
-                                                                    ) : (
-                                                                        <><PlusCircle className="h-3 w-3 mr-1" />New</>
-                                                                    )}
-                                                                </span>
-                                                            )}
-                                                            {creatingKey && (row as any).namespaceKey === creatingKey && (
-                                                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                                            )}
-                                                            <span>{renderCellValue(row, column)}</span>
-                                                        </div>
-                                                    ) : (
-                                                        renderCellValue(row, column)
-                                                    )}
-                                                </td>
-                                            ))}
-                                            {rowActions.length > 0 && (
-                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                    <div className="flex items-center justify-end space-x-2">
-                                                        {rowActions.map((action, actionIndex) => (
-                                                            <React.Fragment key={actionIndex}>
-                                                                {action(row)}
-                                                            </React.Fragment>
-                                                        ))}
-                                                    </div>
-                                                </td>
-                                            )}
-                                        </tr>
-                                    );
-                                })
+                                section.pageItems.map((row, index) => renderRow(row, tableRowKey(row, entityTypeName, index)))
                             )}
                         </tbody>
                     </table>
