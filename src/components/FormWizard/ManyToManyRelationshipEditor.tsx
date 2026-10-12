@@ -12,6 +12,7 @@ import { metadataClient } from '../../apiClients/metadataClient';
 import { getCreateFunctionForEntity, getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
+import { useFormSession } from '../../contexts/FormSessionContext';
 
 const SEQUENCE_NUMBER_FIELD = 'SequenceNumber';
 let dndKeyCounter = 0;
@@ -58,6 +59,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     onValidateField
 }) => {
     const debug = (...args: unknown[]) => console.log('[M2M_DEBUG]', ...args);
+    const formSession = useFormSession(); // KNG-136
     const [loading, setLoading] = useState(true);
     const [relatedEntityType, setRelatedEntityType] = useState<string>('');
     const [relatedEntityIdField, setRelatedEntityIdField] = useState<string>('');
@@ -444,6 +446,16 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                     createdEntity
                 });
                 return;
+            }
+
+            if (existingId === undefined || existingId === null || existingId === '') {
+                // KNG-136: saved here, so the form session's pickers pin it.
+                formSession?.register({
+                    entityTypeName: relatedEntityType,
+                    entity: persisted,
+                    fieldName: step.relatedEntityPropertyName || 'relationships',
+                    status: 'created'
+                });
             }
 
             handleAddRelationship([persisted]);

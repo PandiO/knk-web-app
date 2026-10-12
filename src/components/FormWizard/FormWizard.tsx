@@ -34,6 +34,7 @@ import { StepProgressReadDto } from '../../types/dtos/workflow/WorkflowDtos';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { buildPlaceholderContext } from '../../utils/placeholderExtraction';
+import { FormSessionScope, useFormSession } from '../../contexts/FormSessionContext';
 import {
     ProjectionOverwritePolicy,
     ProjectionSourceContext,
@@ -81,7 +82,7 @@ interface FormWizardProps {
     parentContext?: Record<string, unknown>;
 }
 
-export const FormWizard: React.FC<FormWizardProps> = ({
+const FormWizardBody: React.FC<FormWizardProps> = ({
     entityName,
     entityId: initialEntityId, // Rename to make clear this is the initial prop
     formConfigurationId, // added
@@ -99,6 +100,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     // Note: currentStepIndex prop removed as unused
 }) => {
     const debug = (...args: unknown[]) => console.log('[FORM_WIZARD_DEBUG]', ...args);
+    const formSession = useFormSession(); // KNG-136
     const [config, setConfig] = useState<FormConfigurationDto | null>(null);
     const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto | null>(null);
     const [joinEntityMetadataMap, setJoinEntityMetadataMap] = useState<Record<string, EntityMetadataDto>>({});
@@ -1965,6 +1967,15 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 createdEntity = { ...childData, id: Number(childFormModal.entityId) };
             }
 
+            // KNG-136: record it in the form session, so every picker in this root form pins it.
+            formSession?.register({
+                entityTypeName: childFormModal.entityTypeName,
+                entity: createdEntity,
+                fieldName,
+                status: childFormModal.entityId ? 'updated' : 'created',
+                embedded: !childFormModal.persistIndependently
+            });
+
             // If this is a child form (has parentProgressId), save to childProgresses
             if (!progress?.parentProgressId && parentProgressId && progressId && currentStepIndex !== undefined) {
                 // Save child progress to parent's childProgresses array
@@ -3045,3 +3056,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         </div>
     );
 };
+
+/**
+ * KNG-136: a wizard with no form session above it starts one (the root form); a wizard nested in a
+ * ChildFormModal / JoinEntityFormModal joins its parent's (contexts/FormSessionContext.tsx).
+ */
+export const FormWizard: React.FC<FormWizardProps> = props => (
+    <FormSessionScope formName={props.entityName}>
+        <FormWizardBody {...props} />
+    </FormSessionScope>
+);

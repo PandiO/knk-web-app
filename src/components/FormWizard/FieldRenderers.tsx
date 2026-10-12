@@ -15,6 +15,7 @@ import { useRelationshipDrafts, RelationshipDraft } from '../../hooks/useRelatio
 import { RelationshipDraftCard } from './RelationshipDraftCard';
 import { toBooleanFieldValue } from '../../utils/forms/booleanFieldValue';
 import { ResolvedPickerFilters } from '../../utils/forms/pickerFilters';
+import { useSessionPinnedRows } from '../../hooks/useSessionPinnedRows';
 import { listItemKeys } from '../../utils/forms/listItemKeys';
 import { renderDisplayPanel, parseDisplayPanel } from './displayPanels';
 
@@ -915,6 +916,8 @@ const ObjectField: React.FC<FieldRendererProps> = ({
     const pickerUnavailableReason = pickerFilters?.unavailableReason;
     const canCreate = field.canCreate !== false; // default true if not specified
     const [showReplaceTable, setShowReplaceTable] = React.useState(false);
+    // KNG-136: entities this form session created, pinned in the picker.
+    const sessionPins = useSessionPinnedRows(field.objectType);
     const configuredDisplayFields = useDefaultDisplayFields(field.objectType);
     const configuredDetails = getConfiguredDisplayDetails(value, configuredDisplayFields);
     // Fall back to the generic Location shape when the entity has no configured display columns.
@@ -1133,6 +1136,8 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                             selectedItems={value ? [value] : []}
                             onSelectionChange={handleSelectionChange}
                             showSelectionBanner={false}
+                            pinnedRows={sessionPins.pinnedRows}
+                            refreshKey={sessionPins.refreshKey}
                         />
                     </div>
                 )}
@@ -1166,6 +1171,8 @@ const ListField: React.FC<FieldRendererProps> = ({
     const isObjectList = field.objectType != null;
     const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
     const canCreate = field.canCreate !== false;
+    // KNG-136: entities this form session created, pinned in the picker.
+    const sessionPins = useSessionPinnedRows(field.objectType);
 
     const { drafts } = useRelationshipDrafts(
         ownedChildCollection ? field.objectType : undefined,
@@ -1418,6 +1425,8 @@ const ListField: React.FC<FieldRendererProps> = ({
                             onSelectionChange={handleSelectionChange}
                             showSearchBar={true}
                             showSelectionBanner={false}
+                            pinnedRows={sessionPins.pinnedRows}
+                            refreshKey={sessionPins.refreshKey}
                         />
                     </div>}
                 </>
