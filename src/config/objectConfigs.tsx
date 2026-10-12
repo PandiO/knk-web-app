@@ -1,5 +1,13 @@
 import { Building2, MapPin, Home, TagIcon, BrickWallIcon, Shield, Lock, Gift, Sparkles, Boxes, Flag, Users, Swords, Castle } from 'lucide-react';
 import type { ColumnDefinition, FormField, ObjectConfig } from '../types/common';
+import {
+  pickerDistrictName,
+  pickerDistrictNames,
+  pickerStreetAddress,
+  pickerTownName,
+  pickerTownNames,
+  pickerWorldName
+} from '../utils/forms/pickerRowValues';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
   default: [
@@ -13,7 +21,31 @@ const worldColumn: ColumnDefinition<any> = {
   key: 'worldName',
   label: 'World',
   sortable: false,
-  render: (row: any) => row?.worldName || row?.WorldName || '-'
+  render: (row: any) => pickerWorldName(row) ?? '-'
+};
+
+// KNG-166: picker columns that tell rows apart. Each reads the search row's flat list-DTO field
+// (townName, districtNames, ...) and falls back to the nested full read DTO a pinned row
+// ("Created in this form") holds, so both show the same value (utils/forms/pickerRowValues.ts).
+const townNameColumn: ColumnDefinition<any> = {
+  key: 'townName',
+  label: 'Town',
+  sortable: false,
+  render: (row: any) => pickerTownName(row) ?? '-'
+};
+
+const districtNameColumn: ColumnDefinition<any> = {
+  key: 'districtName',
+  label: 'District',
+  sortable: false,
+  render: (row: any) => pickerDistrictName(row) ?? '-'
+};
+
+const streetAddressColumn: ColumnDefinition<any> = {
+  key: 'streetName',
+  label: 'Street',
+  sortable: false,
+  render: (row: any) => pickerStreetAddress(row) ?? '-'
 };
 
 export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefinition<any>[]>> = {
@@ -21,7 +53,14 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
     default: [...defaultColumnDefinitions.default, worldColumn]
   },
   district: {
-    default: [...defaultColumnDefinitions.default, worldColumn]
+    default: [...defaultColumnDefinitions.default, townNameColumn, worldColumn]
+  },
+  street: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'districtNames', label: 'Districts', sortable: false, render: (row: any) => pickerDistrictNames(row) ?? '-' },
+      { key: 'townNames', label: 'Towns', sortable: false, render: (row: any) => pickerTownNames(row) ?? '-' }
+    ]
   },
   domain: {
     default: [...defaultColumnDefinitions.default, worldColumn]
@@ -91,45 +130,26 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
     ]
   },
   structure: {
-    //Used for structure listing in ObjectDashboard. Currently also used for FormWizard PagedEntityTable
+    // Used for the structure listing in ObjectDashboard and the FormWizard picker (KNG-166).
     "default": [
       ...defaultColumnDefinitions.default,
-      { key: 'Description', label: 'Description', sortable: false },
-      { 
-          key: 'Location', 
-          label: 'Location', 
-          sortable: false,
-          render: (row: any) => row.Location ? `(${row.Location.x}, ${row.Location.y}, ${row.Location.z})` : '-'
-      },
-      worldColumn,
-      { 
-          key: 'Created', 
-          label: 'Created', 
-          sortable: true,
-          render: (row: any) => row.Created ? new Date(row.Created).toLocaleDateString() : '-'
-      },
-      {
-          key: 'RegionName',
-          label: 'Region',
-          sortable: false,
-          render: (value: any) => (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  {value}
-              </span>
-          )
-      }
+      streetAddressColumn,
+      districtNameColumn,
+      townNameColumn,
+      worldColumn
     ]
   },
   gatestructure: {
     default: [
       ...defaultColumnDefinitions.default,
+      streetAddressColumn,
+      districtNameColumn,
+      townNameColumn,
       // Item 5 (docs/features/gate-structure-animation/GATESTRUCTURE_QOL_IMPLEMENTATION_PLAN.md)
       // moved gateType/isOpened/healthCurrent off GateStructure onto GateDoor - a structure can
       // now have several doors, each with its own value for these, so the list view shows how
       // many doors it has instead; per-door detail is available on the structure's display page.
       { key: 'doorCount', label: 'Doors', sortable: false },
-      { key: 'districtName', label: 'District', sortable: false },
-      { key: 'streetName', label: 'Street', sortable: false },
       worldColumn
     ]
   },
@@ -228,7 +248,7 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
   siegescenario: {
     default: [
       ...defaultColumnDefinitions.default,
-      { key: 'townName', label: 'Town', sortable: false, render: (row: any) => row.townName ?? '-' },
+      townNameColumn,
       { key: 'teamCount', label: 'Teams', sortable: false },
       { key: 'objectiveCount', label: 'Objectives', sortable: false },
       { key: 'gateCount', label: 'Gates', sortable: false },
