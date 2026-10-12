@@ -52,6 +52,7 @@ import { parsePickerFilterSettings, resolvePickerFilters } from '../../utils/for
 import { hydrateJoinRowsForEdit, joinFieldSeedValues } from '../../utils/forms/manyToManyEditLoad';
 import { seededFormFieldValue } from '../../utils/forms/formFieldDefaultValue';
 import { isSeedableInstance, overlayChildEditValues } from '../../utils/forms/childEditSeed';
+import { spreadTaskValueOntoFields } from '../../utils/forms/worldTaskFieldValue';
 
 interface FormWizardProps {
     entityName: string;
@@ -2814,6 +2815,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         const isFirstOrderedField = visibleOrderedFields.length > 0 && visibleOrderedFields[0].id === field.id;
 
                         const worldTaskEnabled = fieldWorldTaskEnabled || (canInheritWorldTask && (matchesInheritedFieldName || isFirstOrderedField));
+                        const inheritsOntoFirstField = !fieldWorldTaskEnabled && canInheritWorldTask && !matchesInheritedFieldName && isFirstOrderedField;
                         const taskType = fieldTaskType || (canInheritWorldTask ? worldTaskHint : undefined);
                         const stepKey = computeStepKey(currentStep!, currentStepIndex);
 
@@ -2933,7 +2935,18 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                     <WorldBoundFieldRenderer
                                         field={renderedField}
                                         value={currentStepData[field.fieldName]}
-                                        onChange={(value: any) => handleFieldChange(field.fieldName, value)}
+                                        onChange={(value: any) => {
+                                            // KNG-134 (spec §2.3): a task inherited onto the first field spreads
+                                            // its result over this form's fields instead of filling that one.
+                                            const patch = inheritsOntoFirstField
+                                                ? spreadTaskValueOntoFields(value, visibleOrderedFields)
+                                                : null;
+                                            if (patch) {
+                                                applyMultipleFieldChanges(patch);
+                                            } else {
+                                                handleFieldChange(field.fieldName, value);
+                                            }
+                                        }}
                                         taskType={taskType!}
                                         workflowSessionId={workflowSessionId!}
                                         stepNumber={currentStepIndex}

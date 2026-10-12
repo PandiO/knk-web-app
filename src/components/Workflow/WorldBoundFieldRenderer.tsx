@@ -6,6 +6,7 @@ import { FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRu
 import { Copy, Check, MapPin } from 'lucide-react';
 import { useEnrichedFormContext } from '../../hooks/useEnrichedFormContext';
 import { resolveWorldTaskDependencyValue } from '../../utils/forms/worldTaskDependency';
+import { keepLocationIdOnReplace } from '../../utils/forms/worldTaskFieldValue';
 
 interface WorldBoundFieldRendererProps {
     field: FormFieldDto;
@@ -407,6 +408,9 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const [extractionError, setExtractionError] = useState<string | null>(null);
     const [copiedText, setCopiedText] = useState<string | null>(null);
     const onChangeRef = useRef(onChange);
+    // The value the field holds right now, for the polling closure (KNG-134: Replace keeps the id).
+    const valueRef = useRef(value);
+    valueRef.current = value;
     const onTaskCompletedRef = useRef(onTaskCompleted);
     const isReadOnlyRef = useRef(!!field.isReadOnly);
     
@@ -454,7 +458,12 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 if (updatedStatus === 'completed' && updated.outputJson) {
                     console.log('WorldTask completed, extracting result:', updated);
                     // Use the task's actual taskType for extraction (not the prop)
-                    const extractedValue = extractTaskResult(updated, updated.taskType || taskType);
+                    const capturedValue = extractTaskResult(updated, updated.taskType || taskType);
+                    // KNG-134: "Replace via Minecraft" on a Location that already has an id keeps it,
+                    // so the save updates that Location instead of creating a second one.
+                    const extractedValue = isLocationTask(taskType, updated.taskType)
+                        ? keepLocationIdOnReplace(valueRef.current, capturedValue)
+                        : capturedValue;
                     
                     if (hasExtractedValue(extractedValue) && !isReadOnlyRef.current) {
                         // Update field value - except for KitScan, whose bound field is just an
