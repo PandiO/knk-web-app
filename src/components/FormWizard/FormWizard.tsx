@@ -51,12 +51,15 @@ import { ScanConflictModal, ScanConflictField, ScanConflictChoice } from './Scan
 import { parsePickerFilterSettings, resolvePickerFilters } from '../../utils/forms/pickerFilters';
 import { hydrateJoinRowsForEdit, joinFieldSeedValues } from '../../utils/forms/manyToManyEditLoad';
 import { seededFormFieldValue } from '../../utils/forms/formFieldDefaultValue';
+import { isSeedableInstance, overlayChildEditValues } from '../../utils/forms/childEditSeed';
 
 interface FormWizardProps {
     entityName: string;
     entityId?: string; // added: optional entity ID for edit mode
     formConfigurationId?: string; // added: optional specific form configuration to use
     initialFieldValues?: Record<string, unknown>;
+    // KNG-134: edit mode only - values laid over the database load (the parent's in-session edits).
+    overlayFieldValues?: Record<string, unknown>;
     userId: string;
     onComplete?: (data: Record<string, unknown>, progress?: FormSubmissionProgressDto) => void;
     existingProgressId?: string;
@@ -80,6 +83,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     entityId: initialEntityId, // Rename to make clear this is the initial prop
     formConfigurationId, // added
     initialFieldValues,
+    overlayFieldValues,
     userId,
     onComplete,
     existingProgressId,
@@ -180,6 +184,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         // This wizard's current values + id, handed to the child as its parentContext (pickers).
         // Unlike parentEntitySnapshot (the create-only prefill) it is set for edits too.
         parentContext?: Record<string, unknown>;
+        // KNG-134: "Edit instance" - the instance as this form holds it, and whether its edits live
+        // only here (an embedded Location), so the child lays them over its database load.
+        initialValues?: Record<string, unknown>;
+        editingInMemory?: boolean;
     };
     const [childFormModal, setChildFormModal] = useState<ChildFormState>({
         open: false,
@@ -934,8 +942,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 populatedStepsData[stepIndex] = stepData;
             });
 
-            setAllStepsData(populatedStepsData);
-            setCurrentStepData(populatedStepsData[0] || normalizeStepData(cfg.steps[0], {}));
+            // KNG-134: the parent's in-session edits win over the database copy.
+            const loadedStepsData = overlayChildEditValues(cfg, populatedStepsData, overlayFieldValues);
+            setAllStepsData(loadedStepsData);
+            setCurrentStepData(loadedStepsData[0] || normalizeStepData(cfg.steps[0], {}));
         } catch (error) {
             console.error('Failed to load existing entity data:', error);
             logging.errorHandler.next(`ErrorMessage.${entityTypeName}.LoadFailed`);
@@ -1825,7 +1835,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             parentEntityTypeName: parentEntitySnapshot ? entityName : undefined,
             parentEntitySnapshot,
             persistIndependently: shouldPersistIndependently,
-            parentContext: currentContext ? contextForChild(currentContext) : undefined
+            parentContext: currentContext ? contextForChild(currentContext) : undefined,
+            // KNG-134: the child is seeded from / overlaid with what this form holds.
+            initialValues: isSeedableInstance(existingInstance) ? existingInstance : undefined,
+            editingInMemory: isSeedableInstance(existingInstance) && !shouldPersistIndependently
         });
     };
 
@@ -1872,7 +1885,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             parentEntityTypeName: undefined,
             parentEntitySnapshot: undefined,
             persistIndependently: undefined,
-            parentContext: undefined
+            parentContext: undefined,
+            initialValues: undefined,
+            editingInMemory: undefined
         }));
     };
 
@@ -3008,6 +3023,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 parentEntityTypeName={childFormModal.parentEntityTypeName}
                 parentEntitySnapshot={childFormModal.parentEntitySnapshot}
                 parentContext={childFormModal.parentContext}
+                initialValues={childFormModal.initialValues}
+                overlayInitialValues={childFormModal.editingInMemory}
                 onComplete={handleChildFormComplete}
                 onClose={handleCloseChildForm}
             />
