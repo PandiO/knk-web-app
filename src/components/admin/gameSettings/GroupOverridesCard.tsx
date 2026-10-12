@@ -15,33 +15,51 @@ import { RespawnPolicyEditor, defaultRespawnPolicy } from './RespawnPolicyEditor
 
 type GroupLike = Pick<PermissionGroupDto, 'id' | 'name' | 'weight' | 'parentGroupId'>;
 
-/** How many parents a group has (cycles cut), as the API's PermissionGroupPrecedence counts them. */
-export const groupDepth = (groupId: number, groups: GroupLike[]): number => {
+/**
+ * Every group in precedence order, as the API's PermissionGroupPrecedence orders them (decision 2026-10-12, option (i):
+ * hierarchy first, then weight). A group that another group inherits from is reached through that group's chain, after
+ * it; the other groups start by weight (highest first, ties by lower id), each followed by its parents. Cycles are cut.
+ */
+export const precedenceOrder = (groups: GroupLike[]): number[] => {
     const byId = new Map(groups.filter(g => g.id != null).map(g => [g.id as number, g]));
-    const seen = new Set<number>([groupId]);
-    let depth = 0;
-    let parentId = byId.get(groupId)?.parentGroupId ?? null;
-    while (parentId != null && byId.has(parentId) && !seen.has(parentId)) {
-        seen.add(parentId);
-        depth++;
-        parentId = byId.get(parentId)?.parentGroupId ?? null;
-    }
-    return depth;
+    const parentOf = (id: number): number | null => {
+        const parent = byId.get(id)?.parentGroupId ?? null;
+        return parent != null && byId.has(parent) ? parent : null;
+    };
+    const inherited = new Set<number>();
+    byId.forEach((_, id) => {
+        const walked = new Set<number>([id]);
+        for (let p = parentOf(id); p != null && !walked.has(p); p = parentOf(p)) {
+            walked.add(p);
+            inherited.add(p);
+        }
+    });
+    const byWeight = Array.from(byId.values()).sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0) || (a.id as number) - (b.id as number));
+    const starts = [...byWeight.filter(g => !inherited.has(g.id as number)), ...byWeight.filter(g => inherited.has(g.id as number))];
+    const order: number[] = [];
+    const seen = new Set<number>();
+    starts.forEach(group => {
+        const walked = new Set<number>();
+        for (let id: number | null = group.id as number; id != null && !walked.has(id); id = parentOf(id)) {
+            walked.add(id);
+            if (!seen.has(id)) {
+                seen.add(id);
+                order.push(id);
+            }
+        }
+    });
+    return order;
 };
 
-/**
- * Overrides in the order the plugin considers them: deeper in the group hierarchy first, then higher
- * weight, then lower id (developer decision 2026-10-05, DESIGN §3.8).
- */
+/** Overrides in the order the plugin considers them (precedenceOrder); unknown groups last, by id. */
 export const orderByPrecedence = (
     overrides: PermissionGroupGameSettingsDto[],
     groups: GroupLike[]
 ): PermissionGroupGameSettingsDto[] => {
-    const weight = (id: number) => groups.find(g => g.id === id)?.weight ?? 0;
+    const rank = new Map(precedenceOrder(groups).map((id, i) => [id, i]));
+    const rankOf = (id: number) => rank.get(id) ?? Number.MAX_SAFE_INTEGER;
     return [...overrides].sort((a, b) =>
-        groupDepth(b.permissionGroupId, groups) - groupDepth(a.permissionGroupId, groups)
-        || weight(b.permissionGroupId) - weight(a.permissionGroupId)
-        || a.permissionGroupId - b.permissionGroupId);
+        rankOf(a.permissionGroupId) - rankOf(b.permissionGroupId) || a.permissionGroupId - b.permissionGroupId);
 };
 
 const DEFAULT_GROUP_MESSAGE = {
