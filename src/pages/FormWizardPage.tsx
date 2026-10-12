@@ -16,6 +16,12 @@ import { EntityMetadataNavigator } from '../components/FormWizard/EntityMetadata
 import { FormConfigurationTable } from '../components/FormWizard/FormConfigurationTable';
 import { FormWizard } from '../components/FormWizard/FormWizard';
 import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
+import { FormCancelAction } from '../components/FormWizard/FormCancelAction';
+import { CreatedEntitiesPrompt } from '../components/FormWizard/CreatedEntitiesPrompt';
+import { FormSessionRoot } from '../contexts/FormSessionContext';
+import { CreatedEntityRecord, parseCreatedEntitiesJson } from '../utils/forms/createdEntities';
+import { deleteCreatedEntities } from '../utils/forms/deleteCreatedEntities';
+import { createdEntityDeleteDeps } from '../utils/forms/createdEntityDeleteDeps';
 import { workflowClient } from '../apiClients/workflowClient';
 import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../config/objectConfigs';
@@ -107,6 +113,12 @@ export const FormWizardPage: React.FC<Props> = ({
         onContinue: undefined,
         autoCloseMs: undefined,
     });
+
+    // KNG-162: deleting a draft whose form created entities asks whether to keep or delete them.
+    const [draftDeletePrompt, setDraftDeletePrompt] = useState<{
+        progress: FormSubmissionProgressSummaryDto;
+        records: CreatedEntityRecord[];
+    } | null>(null);
 
     // KNG-111: asks which world a domain is in when the API can't tell from its region, location or parent.
     const [worldPrompt, setWorldPrompt] = useState<{ entityLabel: string; resolve: (world: string | null) => void } | null>(null);
@@ -485,20 +497,33 @@ export const FormWizardPage: React.FC<Props> = ({
         }
     };
 
-    // Handler: Delete progress
+    // Handler: Delete progress. KNG-162: a draft that recorded entities its child forms created asks
+    // whether to keep them (default) or delete them too; otherwise the plain confirm.
     const handleDeleteProgress = async (progress: FormSubmissionProgressSummaryDto) => {
+        const records = parseCreatedEntitiesJson(progress.createdEntitiesJson);
+        if (records.length > 0) {
+            setDraftDeletePrompt({ progress, records });
+            return;
+        }
         if (!window.confirm('Are you sure you want to delete this saved progress?')) return;
+        await removeProgress(progress, true);
+    };
 
+    /** Deletes the draft row only. Returns whether it worked; `announce` shows the usual feedback. */
+    const removeProgress = async (progress: FormSubmissionProgressSummaryDto, announce: boolean): Promise<boolean> => {
         try {
             await formSubmissionClient.delete(progress.id!);
             setSavedProgress(prev => prev.filter(p => p.id !== progress.id));
-            showFeedback({
-                title: 'Progress deleted',
-                message: 'The saved progress has been removed.',
-                status: 'success',
-                onContinue: undefined,
-                autoCloseMs: 3000,
-            });
+            if (announce) {
+                showFeedback({
+                    title: 'Progress deleted',
+                    message: 'The saved progress has been removed.',
+                    status: 'success',
+                    onContinue: undefined,
+                    autoCloseMs: 3000,
+                });
+            }
+            return true;
         } catch (error) {
             console.error('Failed to delete progress:', error);
             logging.errorHandler.next('ErrorMessage.FormSubmission.DeleteFailed');
@@ -508,6 +533,22 @@ export const FormWizardPage: React.FC<Props> = ({
                 status: 'error',
                 onContinue: undefined,
             });
+            return false;
+        }
+    };
+
+    // KNG-162: the explicit cancel of the open form (FormCancelAction). The draft, if any, stays.
+    const handleLeaveForm = () => {
+        setShowWizard(false);
+        setWizardConfig(null);
+        setWizardProgressId(undefined);
+        setWorkflowSessionId(undefined);
+        if (parentEntityTypeName && parentEntityId) {
+            navigate(`/display/${parentEntityTypeName}/${parentEntityId}`);
+            return;
+        }
+        if (selectedTypeName) {
+            loadConfigurationsAndProgress(selectedTypeName);
         }
     };
 
@@ -1033,22 +1074,28 @@ export const FormWizardPage: React.FC<Props> = ({
 
                     {/* Use Case 1 or 4: Show FormWizard */}
                     {showWizard && wizardConfig ? (
-                        <FormWizard
-                            entityName={selectedTypeName}
-                            entityId={entityId}
-                            formConfigurationId={wizardConfig.id}
-                            userId={userId}
-                            onComplete={(data, progress) => handleComplete(data, progress)}
-                            existingProgressId={wizardProgressId}
-                            workflowSessionId={workflowSessionId}
-                            onStepAdvanced={({ from, stepKey }) => {
-                                if (workflowSessionId != null) {
-                                    workflowClient.completeStep(workflowSessionId, stepKey, from).catch(() => {});
-                                }
-                            }}
-                            worldTaskHint={"Missing in-game confirmation. You can continue later."}
-                            // entityMetadata={entityMetadata} // optional: can be added to FormWizard props
-                        />
+                        // KNG-162: one form session for the wizard and its Cancel, so Cancel sees what child forms saved.
+                        <FormSessionRoot>
+                            <div className="mb-3 flex justify-end">
+                                <FormCancelAction onLeave={handleLeaveForm} />
+                            </div>
+                            <FormWizard
+                                entityName={selectedTypeName}
+                                entityId={entityId}
+                                formConfigurationId={wizardConfig.id}
+                                userId={userId}
+                                onComplete={(data, progress) => handleComplete(data, progress)}
+                                existingProgressId={wizardProgressId}
+                                workflowSessionId={workflowSessionId}
+                                onStepAdvanced={({ from, stepKey }) => {
+                                    if (workflowSessionId != null) {
+                                        workflowClient.completeStep(workflowSessionId, stepKey, from).catch(() => {});
+                                    }
+                                }}
+                                worldTaskHint={"Missing in-game confirmation. You can continue later."}
+                                // entityMetadata={entityMetadata} // optional: can be added to FormWizard props
+                            />
+                        </FormSessionRoot>
                     ) : (
                         /* Use Case 2 or 3: Show configurations and progress */
                         <div className="space-y-6">
@@ -1115,6 +1162,30 @@ export const FormWizardPage: React.FC<Props> = ({
                 entityLabel={worldPrompt?.entityLabel ?? 'domain'}
                 onConfirm={world => answerWorldPrompt(world)}
                 onCancel={() => answerWorldPrompt(null)}
+            />
+
+            <CreatedEntitiesPrompt
+                open={draftDeletePrompt !== null}
+                title="Delete this saved progress?"
+                intro="While filling out this form, its child forms created:"
+                note="They are complete records. Keep them (the default) deletes only the draft. Delete removes them newest first through their normal delete; anything used elsewhere is skipped."
+                records={draftDeletePrompt?.records ?? []}
+                keepLabel="Delete draft, keep them"
+                deleteLabel="Delete draft and them"
+                onKeep={async () => {
+                    const prompt = draftDeletePrompt;
+                    setDraftDeletePrompt(null);
+                    if (prompt) await removeProgress(prompt.progress, true);
+                }}
+                onDelete={async () => {
+                    const prompt = draftDeletePrompt!;
+                    const results = await deleteCreatedEntities(prompt.records, createdEntityDeleteDeps);
+                    // The entities are handled either way; the draft goes too (its record of them is all it adds).
+                    await removeProgress(prompt.progress, false);
+                    return results;
+                }}
+                onDone={() => setDraftDeletePrompt(null)}
+                onClose={() => setDraftDeletePrompt(null)}
             />
 
             <FeedbackModal
