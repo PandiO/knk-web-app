@@ -53,13 +53,16 @@ describe('HubSettingsCard (hub DESIGN §16 Phase 4)', () => {
         expect(hub.rules.dropPickup && !hub.rules.damagePlayers).toBe(true);
     });
 
-    it('edits the portal regions as a comma-separated list', () => {
+    it('edits the portal regions as free text, parsed on blur', () => {
         let hub: HubSettingsDto = { ...defaultHubSettings(), domainId: 4 };
         const onChange = jest.fn((next: HubSettingsDto) => { hub = next; });
         render(<HubSettingsCard hub={hub} hubDomains={[{ ...hubtown, selected: true }]} domainOptions={domains} options={options}
             onChange={onChange} onHubDomainsChange={jest.fn()} />);
 
-        fireEvent.change(screen.getByLabelText('Portal regions'), { target: { value: 'portal_north, portal_east' } });
+        const input = screen.getByLabelText('Portal regions');
+        fireEvent.change(input, { target: { value: 'portal_north, portal_east, ' } });
+        expect(input).toHaveValue('portal_north, portal_east, '); // a trailing comma can be typed and removed
+        fireEvent.blur(input);
         expect(hub.portalRegionIds).toEqual(['portal_north', 'portal_east']);
     });
 

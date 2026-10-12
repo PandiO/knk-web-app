@@ -85,6 +85,14 @@ export const HubSettingsCard: React.FC<{
     onCreateLocation?: () => void;
 }> = ({ hub, hubDomains, hubDomainsError, domainOptions, options, onChange, onHubDomainsChange, onCreateLocation }) => {
     const [toFlag, setToFlag] = React.useState('');
+    // The portal list is typed as free text and parsed on blur, so commas and spaces can be edited normally.
+    const portalText = (hub.portalRegionIds ?? []).join(', ');
+    const [portalDraft, setPortalDraft] = React.useState(portalText);
+    React.useEffect(() => setPortalDraft(portalText), [portalText]);
+    const commitPortals = () => onChange({
+        ...hub,
+        portalRegionIds: portalDraft.split(',').map(id => id.trim()).filter(id => id.length > 0),
+    });
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const rules = hub.rules ?? defaultHubRules();
@@ -215,8 +223,9 @@ export const HubSettingsCard: React.FC<{
                     <input
                         id="hub-portals"
                         type="text"
-                        value={(hub.portalRegionIds ?? []).join(', ')}
-                        onChange={e => onChange({ ...hub, portalRegionIds: e.target.value.split(',').map(id => id.trim()) })}
+                        value={portalDraft}
+                        onChange={e => setPortalDraft(e.target.value)}
+                        onBlur={commitPortals}
                         placeholder="portal_north, portal_east"
                         className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
                     />
