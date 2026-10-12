@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { WizardStepProgress, WizardStepTitle } from '../WizardStepHeader';
+import { compactStepLabel, stepStripOverflow, WizardStepProgress, WizardStepTitle } from '../WizardStepHeader';
 
 describe('WizardStepProgress (KNG-137)', () => {
     const steps = [
@@ -44,6 +44,73 @@ describe('WizardStepProgress (KNG-137)', () => {
         expect(item).not.toHaveAttribute('title');
         expect(item).toHaveAttribute('aria-label', 'Step 1');
         expect(screen.queryByTestId('wizard-step-name')).toBeNull();
+    });
+});
+
+describe('WizardStepProgress with many steps (KNG-168)', () => {
+    const names = ['Basics', 'Gate', 'Anchor', 'Hinge', 'Rotation', 'Geometry', 'Blocks', 'Region', 'Review'];
+    const manySteps = names.map((name, index) => ({
+        key: index,
+        name,
+        isDone: index < 2,
+        isCurrent: index === 2
+    }));
+
+    it('shows a compact "Step x of n · name" header with a progress bar for narrow screens', () => {
+        render(<WizardStepProgress steps={manySteps} />);
+
+        const compact = screen.getByTestId('wizard-step-compact');
+        expect(compact).toHaveClass('sm:hidden');
+        expect(within(compact).getByText('Step 3 of 9 · Anchor')).toBeInTheDocument();
+        const bar = within(compact).getByRole('progressbar');
+        expect(bar).toHaveAttribute('aria-valuenow', '3');
+        expect(bar).toHaveAttribute('aria-valuemax', '9');
+        // The circles are for sm and up only; every step is still listed.
+        expect(screen.getByTestId('wizard-step-circles')).toHaveClass('hidden', 'sm:block');
+        expect(within(screen.getByRole('list', { name: 'Form steps' })).getAllByRole('listitem')).toHaveLength(9);
+    });
+
+    it('leaves out the name in the compact header for a step without one', () => {
+        expect(compactStepLabel([
+            { key: 1, name: 'Basics', isDone: true, isCurrent: false },
+            { key: 2, name: ' ', isDone: false, isCurrent: true }
+        ])).toBe('Step 2 of 2');
+        expect(compactStepLabel([])).toBe('');
+    });
+
+    it('shows no scroll buttons when nothing overflows', () => {
+        render(<WizardStepProgress steps={manySteps} />);
+
+        expect(screen.queryByRole('button', { name: 'Show earlier steps' })).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Show later steps' })).toBeNull();
+    });
+
+    it('works out which sides hide steps from the scroll metrics', () => {
+        expect(stepStripOverflow({ scrollLeft: 0, scrollWidth: 600, clientWidth: 600 })).toEqual({ left: false, right: false });
+        expect(stepStripOverflow({ scrollLeft: 0, scrollWidth: 0, clientWidth: 0 })).toEqual({ left: false, right: false });
+        expect(stepStripOverflow({ scrollLeft: 0, scrollWidth: 1200, clientWidth: 600 })).toEqual({ left: false, right: true });
+        expect(stepStripOverflow({ scrollLeft: 300, scrollWidth: 1200, clientWidth: 600 })).toEqual({ left: true, right: true });
+        expect(stepStripOverflow({ scrollLeft: 600, scrollWidth: 1200, clientWidth: 600 })).toEqual({ left: true, right: false });
+        // Sub-pixel rounding at the ends doesn't count as hidden steps.
+        expect(stepStripOverflow({ scrollLeft: 599.5, scrollWidth: 1200, clientWidth: 600 })).toEqual({ left: true, right: false });
+        expect(stepStripOverflow({ scrollLeft: 0, scrollWidth: 601, clientWidth: 600 })).toEqual({ left: false, right: false });
+    });
+
+    it('shows the scroll buttons on the sides that hide steps', () => {
+        const metrics = { scrollLeft: 300, scrollWidth: 1200, clientWidth: 600 };
+        const spies = (Object.keys(metrics) as (keyof typeof metrics)[]).map(prop =>
+            jest.spyOn(HTMLElement.prototype, prop, 'get').mockImplementation(function (this: HTMLElement) {
+                return this.dataset.testid === 'wizard-step-strip' ? metrics[prop] : 0;
+            })
+        );
+        try {
+            render(<WizardStepProgress steps={manySteps} />);
+
+            expect(screen.getByRole('button', { name: 'Show earlier steps' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Show later steps' })).toBeInTheDocument();
+        } finally {
+            spies.forEach(spy => spy.mockRestore());
+        }
     });
 });
 
