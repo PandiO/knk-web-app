@@ -7,13 +7,14 @@ import { formSubmissionClient } from '../../apiClients/formSubmissionClient';
 import { ConditionEvaluator } from '../../utils/conditionEvaluator';
 import { FormSubmissionStatus } from '../../utils/enums';
 import { FieldType } from '../../utils/enums';
-import { FieldRenderer, parseListFieldSettings } from './FieldRenderers';
+import { FieldRenderer } from './FieldRenderers';
 import { WorldBoundFieldRenderer } from '../Workflow/WorldBoundFieldRenderer';
 import { logging } from '../../utils';
 import { getFetchByIdFunctionForEntity, getCreateFunctionForEntity, getUpdateFunctionForEntity } from '../../utils/entityApiMapping';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
 import { resolveObjectFieldValueForEdit } from '../../utils/forms/objectFieldEditValue';
 import { normalizeFormSubmission } from '../../utils/forms/normalizeFormSubmission';
+import { shouldPersistChildOnComplete } from '../../utils/forms/childPersistence';
 import {
     FormVisibility,
     flattenVisibleStepsData,
@@ -173,7 +174,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         // Every other entity's normalizeFormSubmission.handleSingleObjectRelationship just calls
         // extractId() on whatever's stored, which is undefined for a brand-new never-persisted
         // object, so the field silently vanishes from the submission instead of erroring loudly -
-        // this was never wired to actually work.
+        // this was never wired to actually work. KNG-133: every List field too (Street ->
+        // Districts), owned or not; set by shouldPersistChildOnComplete.
         persistIndependently?: boolean;
         // This wizard's current values + id, handed to the child as its parentContext (pickers).
         // Unlike parentEntitySnapshot (the create-only prefill) it is set for edits too.
@@ -1808,13 +1810,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             : undefined;
         const parentEntitySnapshot = resolvedEntityId ? undefined : currentContext;
 
-        const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
-        // Location is a genuine embedded value object with real backend support for a nested,
-        // id-less create (see the persistIndependently field's own comment) - every other single
-        // Object relationship needs to be persisted here directly, same as an owned collection.
-        const isLocationField = field.objectType?.toLowerCase() === 'location';
-        const shouldPersistIndependently = ownedChildCollection ||
-            (field.fieldType === FieldType.Object && !isLocationField);
+        // KNG-133 (D1 = A): every List child and every Object child except an embedded Location is
+        // saved when its form completes - see shouldPersistChildOnComplete.
+        const shouldPersistIndependently = shouldPersistChildOnComplete(field);
 
         setChildFormModal({
             open: true,
@@ -1838,10 +1836,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         const listItemIndex = field.fieldType === FieldType.List
             ? (Array.isArray(currentStepData[field.fieldName]) ? currentStepData[field.fieldName].length : 0)
             : undefined;
-        const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
-        const isLocationField = field.objectType?.toLowerCase() === 'location';
-        const shouldPersistIndependently = ownedChildCollection ||
-            (field.fieldType === FieldType.Object && !isLocationField);
+        const shouldPersistIndependently = shouldPersistChildOnComplete(field);
         setChildFormModal({
             open: true,
             entityTypeName: field.objectType || '',
@@ -2522,9 +2517,6 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 return nextIndex;
             });
         } else {
-            const saved = await saveProgress(FormSubmissionStatus.Completed);
-            if (!saved) return;
-
             // Flatten to get all field values. Hidden steps and fields were already dropped by
             // reconcileVisibility, so a toggled-away branch can never reach the entity.
             const normalizedAll: AllStepsData = {};
@@ -2560,6 +2552,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 setError(message);
                 return;
             }
+
+            // KNG-133: normalize first, so a submission refused above (e.g. an entity that was
+            // never saved) leaves the progress as it was instead of marking it Completed.
+            const saved = await saveProgress(FormSubmissionStatus.Completed);
+            if (!saved) return;
 
             // CRITICAL: Include entity ID in payload for edit mode
             // This ensures the parent component calls UPDATE instead of CREATE
