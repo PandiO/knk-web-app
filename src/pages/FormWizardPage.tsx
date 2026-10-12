@@ -18,6 +18,8 @@ import { FormWizard } from '../components/FormWizard/FormWizard';
 import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
 import { FormCancelAction } from '../components/FormWizard/FormCancelAction';
 import { CreatedEntitiesPrompt } from '../components/FormWizard/CreatedEntitiesPrompt';
+import { FormConfigurationImportPanel } from '../components/FormWizard/FormConfigurationImportPanel';
+import { downloadJson, exportFileName } from '../utils/forms/formConfigPortability';
 import { FormSessionRoot } from '../contexts/FormSessionContext';
 import { CreatedEntityRecord, parseCreatedEntitiesJson } from '../utils/forms/createdEntities';
 import { deleteCreatedEntities } from '../utils/forms/deleteCreatedEntities';
@@ -72,6 +74,7 @@ export const FormWizardPage: React.FC<Props> = ({
     const selectedObjectType = useMemo(() => objectTypes.find(ot => ot.id === selectedTypeName) || null, [objectTypes, selectedTypeName]);
     
     const [formConfigs, setFormConfigs] = useState<FormConfigurationDto[]>([]);
+    const [showImportPanel, setShowImportPanel] = useState(false);
     const [defaultConfig, setDefaultConfig] = useState<FormConfigurationDto | null>(null);
     const [savedProgress, setSavedProgress] = useState<FormSubmissionProgressSummaryDto[]>([]);
     const [loadingConfigs, setLoadingConfigs] = useState(false);
@@ -549,6 +552,22 @@ export const FormWizardPage: React.FC<Props> = ({
         }
         if (selectedTypeName) {
             loadConfigurationsAndProgress(selectedTypeName);
+        }
+    };
+
+    // KNG-138: download a configuration as a portable JSON file
+    const handleExportConfiguration = async (config: FormConfigurationDto) => {
+        try {
+            const file = await formConfigClient.exportConfiguration(config.id!);
+            downloadJson(exportFileName(config.entityTypeName, config.configurationName), file);
+        } catch (error) {
+            console.error('Failed to export configuration:', error);
+            showFeedback({
+                title: 'Export failed',
+                message: error instanceof Error && error.message ? error.message : 'Unable to export the form configuration.',
+                status: 'error',
+                onContinue: undefined,
+            });
         }
     };
 
@@ -1117,6 +1136,14 @@ export const FormWizardPage: React.FC<Props> = ({
                                                 onDelete={handleFormConfigDelete}
                                                 onCreate={handleCreateFormConfiguration}
                                                 onCreateDefault={handleCreateFormConfigurationAsDefault}
+                                                onExport={handleExportConfiguration}
+                                                onImport={() => setShowImportPanel(true)}
+                                            />
+                                            <FormConfigurationImportPanel
+                                                open={showImportPanel}
+                                                entityTypeName={selectedTypeName}
+                                                onClose={() => setShowImportPanel(false)}
+                                                onImported={() => loadConfigurationsAndProgress(selectedTypeName)}
                                             />
 
                                             {loadingDisplayConfigs ? (
