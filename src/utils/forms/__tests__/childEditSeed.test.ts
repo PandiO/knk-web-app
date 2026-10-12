@@ -79,6 +79,14 @@ describe('buildChildEditSeedValues (KNG-134)', () => {
         expect(buildChildEditSeedValues(cfg, { Districts: districts })).toEqual({ Districts: districts });
     });
 
+    it('seeds a DistrictIds-authored List from a held Street DTO that only carries Districts (KNG-135)', () => {
+        const street = config([{ fields: [field({ fieldName: 'DistrictIds', fieldType: FieldType.List, objectType: 'District' })] }]);
+        const districts = [{ id: 2, name: 'Old Quarter' }];
+        expect(buildChildEditSeedValues(street, { id: 4, name: 'High Street', districtIds: [], districts }))
+            .toEqual({ DistrictIds: districts });
+        expect(buildChildEditSeedValues(street, { id: 4, districtIds: [2] })).toEqual({ DistrictIds: [{ id: 2 }] });
+    });
+
     it('skips many-to-many steps (their rows always come from the database load)', () => {
         const cfg = config([
             { fields: [field({ fieldName: 'Name' })] },
