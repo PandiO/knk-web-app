@@ -2934,8 +2934,9 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                                         onChange={(value: any) => {
                                             // KNG-134 (spec §2.3): a task inherited onto the first field spreads
                                             // its result over this form's fields instead of filling that one.
+                                            // KNG-167: a typed Name is kept; only coordinates/world update.
                                             const patch = inheritsOntoFirstField
-                                                ? spreadTaskValueOntoFields(value, visibleOrderedFields)
+                                                ? spreadTaskValueOntoFields(value, visibleOrderedFields, currentStepData)
                                                 : null;
                                             if (patch) {
                                                 applyMultipleFieldChanges(patch);
