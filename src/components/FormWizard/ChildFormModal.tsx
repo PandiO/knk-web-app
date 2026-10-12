@@ -6,6 +6,7 @@ import { FormWizard } from './FormWizard';
 import { FeedbackModal } from '../FeedbackModal';
 import { findParentLinkField } from '../../utils/forms/findParentLinkField';
 import { buildChildEditSeedValues } from '../../utils/forms/childEditSeed';
+import { apiRefusalReason, failureReason } from '../../utils/apiRefusalReason';
 
 interface ChildFormModalProps {
     open: boolean;
@@ -101,10 +102,9 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                 const actualConfig = Array.isArray(config) ? config[0] : config;
                 if (cancelled) return;
                 setDefaultConfig(actualConfig);
-            } catch (err: any) {
+            } catch (err) {
                 if (cancelled) return;
-                const errorMessage = err?.response?.data?.message || `Failed to load form configuration for ${entityTypeName}`;
-                setError(errorMessage);
+                setError(apiRefusalReason(err) ?? `Failed to load form configuration for ${entityTypeName}`);
                 setShowErrorFeedback(true);
                 setDefaultConfig(null);
             } finally {
@@ -179,9 +179,8 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
         try {
             await onComplete(data, progress);
             onClose();
-        } catch (err: any) {
-            const message = err?.response?.data?.message || err?.message || `Failed to save ${entityTypeName}. Please try again.`;
-            setSaveError(message);
+        } catch (err) {
+            setSaveError(failureReason(err) ?? `Failed to save ${entityTypeName}. Please try again.`);
         } finally {
             setCompleting(false);
         }

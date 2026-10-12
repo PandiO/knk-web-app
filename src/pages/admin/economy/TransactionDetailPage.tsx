@@ -12,11 +12,11 @@ import {
     ReversalResultDto,
 } from '../../../types/dtos/currency/CurrencyDtos';
 import { usePageTitle } from '../../../hooks/usePageTitle';
+import { apiRefusalReason } from '../../../utils/apiRefusalReason';
 
 const numberFormat = new Intl.NumberFormat('en-US');
 
-const errorMessage = (err: unknown, fallback: string): string =>
-    err instanceof Error && err.message ? err.message : fallback;
+const errorMessage = (err: unknown, fallback: string): string => apiRefusalReason(err) ?? fallback;
 
 /** The existing reversal from a 409 AlreadyReversed refusal, if that is what the error is. */
 const alreadyReversedDetails = (err: unknown): AlreadyReversedDetailsDto | null => {

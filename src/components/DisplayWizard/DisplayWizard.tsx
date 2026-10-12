@@ -8,6 +8,7 @@ import { DisplayAction, DisplayWizardProps } from '../../types/dtos/displayConfi
 import { getUpdateFunctionForEntity } from '../../utils/entityApiMapping';
 import { FeedbackModal } from '../FeedbackModal';
 import './DisplayWizard.css';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 export const DisplayWizard: React.FC<DisplayWizardProps> = ({
   entityTypeName,
@@ -145,10 +146,9 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
         setModalOnSecondary(undefined);
         setModalSecondaryLabel(undefined);
         await refetchEntityData?.();
-      } catch (err: any) {
-        const serverMessage = err?.response?.data?.message || err?.message;
+      } catch (err) {
         setModalTitle('Delete Failed');
-        setModalMessage(serverMessage || 'An error occurred while deleting.');
+        setModalMessage(apiRefusalReason(err) ?? 'An error occurred while deleting.');
         setModalStatus('error');
 
         const isCategory = targetType.toLowerCase() === 'category';
@@ -193,6 +193,7 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
         status={modalStatus}
         continueLabel={modalContinueLabel}
         onContinue={modalOnContinue}
+        danger={modalStatus === 'info' && modalContinueLabel === 'Delete'}
         onSecondary={modalOnSecondary}
         secondaryLabel={modalSecondaryLabel}
         onClose={() => setModalOpen(false)}

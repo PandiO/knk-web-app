@@ -1,5 +1,6 @@
 import type { EntityReferencesDto } from '../../types/dtos/forms/FormModels';
 import { CreatedEntityRecord, deletionOrder, describeCreatedEntity } from './createdEntities';
+import { failureReason } from '../apiRefusalReason';
 
 /**
  * KNG-162 (decision D2): delete what a cancelled form's child forms created, newest first, through
@@ -28,8 +29,8 @@ const statusOf = (error: unknown): number | undefined => {
     return typeof status === 'number' ? status : undefined;
 };
 
-const messageOf = (error: unknown): string =>
-    error instanceof Error && error.message ? error.message : 'unknown error';
+// The API's reason for a refusal; never a bare "HTTP 500: …", a timeout or a network error (KNG-169).
+const messageOf = (error: unknown): string => failureReason(error) ?? 'the request did not go through';
 
 const ignoreEntry = (record: CreatedEntityRecord) => `${record.entityTypeName}:${String(record.id)}`;
 

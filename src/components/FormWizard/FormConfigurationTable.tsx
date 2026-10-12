@@ -174,6 +174,7 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                     ref={(el) => buttonRefs.current[config.id!] = el}
                                                     onClick={() => setActiveMenu(activeMenu === config.id ? null : config.id!)}
                                                     className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                                                    aria-label={`More actions for ${config.configurationName}`}
                                                 >
                                                     <MoreVertical className="h-4 w-4 text-gray-400" />
                                                 </button>

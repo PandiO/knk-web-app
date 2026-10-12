@@ -15,6 +15,7 @@ import {
     LocationRetentionSettingsDto,
     LocationRetentionStatusDto,
 } from '../../../types/dtos/locationRetention/LocationRetentionDtos';
+import { apiRefusalReason } from '../../../utils/apiRefusalReason';
 
 const PAGE_SIZE = 25;
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -27,8 +28,7 @@ const STATUS_STYLES: Record<LocationOrphanStatus, string> = {
     Resolved: 'bg-green-50 text-green-800 border-green-200',
 };
 
-const errorMessage = (err: unknown, fallback: string): string =>
-    err instanceof Error && err.message ? err.message : fallback;
+const errorMessage = (err: unknown, fallback: string): string => apiRefusalReason(err) ?? fallback;
 
 const formatWhen = (value?: string | null): string => {
     if (!value) return '';
@@ -372,6 +372,7 @@ export const LocationRetentionPage: React.FC = () => {
                         + `The server checks again first and refuses if anything started using it.${pending.note.trim() ? ` Note: “${pending.note.trim()}”.` : ''}`
                     : `It won't be listed again for the recheck period, or until the Location changes.${pending?.note.trim() ? ` Note: “${pending.note.trim()}”.` : ''}`}
                 continueLabel={pending?.kind === 'delete' ? 'Delete' : 'Keep'}
+                danger={pending?.kind === 'delete'}
                 onContinue={() => { if (pending) void decide(pending); }}
                 onClose={() => setPending(null)}
             />

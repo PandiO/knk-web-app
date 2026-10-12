@@ -7,6 +7,7 @@ import {
     PortableFormConfiguration
 } from '../../types/dtos/forms/FormPortabilityModels';
 import { describeImportCounts, describeImportResult, readPortableFile } from '../../utils/forms/formConfigPortability';
+import { failureReason } from '../../utils/apiRefusalReason';
 
 /**
  * KNG-138: import a form configuration file, or one of the API's bundled seeds. Every import is
@@ -32,7 +33,7 @@ const readFileText = (file: File): Promise<string> =>
         reader.readAsText(file);
     });
 
-const errorText = (err: unknown) => (err instanceof Error && err.message ? err.message : 'Something went wrong.');
+const errorText = (err: unknown) => failureReason(err) ?? 'Something went wrong.';
 
 export const ImportResultView: React.FC<{ result: FormConfigurationImportResult; label: string }> = ({ result, label }) => {
     const ok = result.status === 'DryRunPassed' || result.status === 'Imported';

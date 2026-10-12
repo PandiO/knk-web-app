@@ -14,6 +14,7 @@ import {
     CurrencyReconciliationStatusDto,
 } from '../../../types/dtos/currency/CurrencyDtos';
 import { usePageTitle } from '../../../hooks/usePageTitle';
+import { apiRefusalReason } from '../../../utils/apiRefusalReason';
 
 const PAGE_SIZE = 25;
 const SEVERITIES: CurrencyAlertSeverity[] = ['Critical', 'High', 'Medium', 'Low'];
@@ -27,8 +28,7 @@ const SEVERITY_STYLES: Record<CurrencyAlertSeverity, string> = {
 
 const numberFormat = new Intl.NumberFormat('en-US');
 
-const errorMessage = (err: unknown, fallback: string): string =>
-    err instanceof Error && err.message ? err.message : fallback;
+const errorMessage = (err: unknown, fallback: string): string => apiRefusalReason(err) ?? fallback;
 
 const formatWhen = (value?: string | null): string => {
     if (!value) return '';

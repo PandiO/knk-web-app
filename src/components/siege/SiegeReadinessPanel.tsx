@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle, CheckCircle2, Info, Loader2, RefreshCw, WifiOff, XCircle } from 'lucide-react';
 import { SiegeScenarioClient } from '../../apiClients/siegeScenarioClient';
 import { SiegeReadinessIssueDto, SiegeScenarioReadinessDto } from '../../types/dtos/siege/SiegeDtos';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 // Readable names for the entity an issue points at (SiegeReadinessIssueDto.entityType).
 const ENTITY_LABELS: Record<string, string> = {
@@ -45,9 +46,9 @@ export const SiegeReadinessPanel: React.FC<Props> = ({ scenarioId, label, descri
         setError(null);
         try {
             setReadiness(await SiegeScenarioClient.getInstance().getReadiness(numericId));
-        } catch (err: any) {
+        } catch (err) {
             setReadiness(null);
-            setError(err?.message || 'Could not load the readiness check.');
+            setError(apiRefusalReason(err) ?? 'Could not load the readiness check.');
         } finally {
             setLoading(false);
         }

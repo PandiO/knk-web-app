@@ -1,6 +1,7 @@
 import React from 'react';
 import { Loader2, Save } from 'lucide-react';
 import { auditLogRetentionClient } from '../../apiClients/auditLogRetentionClient';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 // How long the audit log and the private message log are kept (knk-web-api
 // AuditLogRetentionConfiguration; docs/specs/private-messages/DESIGN.md §3.1 - private messages
@@ -57,9 +58,7 @@ export const DataRetentionCard: React.FC = () => {
             setSaved(true);
         } catch (err) {
             console.error('Failed to save retention configuration:', err);
-            const status = (err as { status?: number } | null)?.status;
-            const message = err instanceof Error ? err.message : null;
-            setSaveError(status !== undefined && status >= 400 && status < 500 && message ? message : 'Could not save the retention settings.');
+            setSaveError(apiRefusalReason(err) ?? 'Could not save the retention settings.');
         } finally {
             setSaving(false);
         }

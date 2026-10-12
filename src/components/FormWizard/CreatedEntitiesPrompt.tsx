@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Loader2, X } from 'lucide-react';
 import { CreatedEntityRecord, describeCreatedEntity } from '../../utils/forms/createdEntities';
 import { CreatedEntityDeleteResult, describeDeleteResult } from '../../utils/forms/deleteCreatedEntities';
+import { failureReason } from '../../utils/apiRefusalReason';
 
 /**
  * KNG-162 (decision D2): "Created while filling out this form: ..." with Keep (the default) or
@@ -64,7 +65,7 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
         try {
             await onKeep();
         } catch (err) {
-            setError(err instanceof Error && err.message ? err.message : 'Something went wrong.');
+            setError(failureReason(err) ?? 'Something went wrong.');
             setPhase('choose');
         }
     };
@@ -76,7 +77,7 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
             setResults(await onDelete());
             setPhase('report');
         } catch (err) {
-            setError(err instanceof Error && err.message ? err.message : 'Something went wrong.');
+            setError(failureReason(err) ?? 'Something went wrong.');
             setPhase('choose');
         }
     };

@@ -59,7 +59,7 @@ describe('TransactionDetailPage', () => {
     });
 
     it('shows the API reason when the reversal is refused, and no form once reversed', async () => {
-        (currencyClient.reverse as jest.Mock).mockRejectedValue(new Error('Reversing 01M3 would take user 5\'s coins below zero.'));
+        (currencyClient.reverse as jest.Mock).mockRejectedValue(Object.assign(new Error('Reversing 01M3 would take user 5\'s coins below zero.'), { status: 409 }));
         renderPage();
         await waitFor(() => expect(screen.getByText('SYS_SALARY')).toBeInTheDocument());
 

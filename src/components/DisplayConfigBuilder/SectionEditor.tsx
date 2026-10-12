@@ -11,6 +11,7 @@ import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { metadataClient } from '../../apiClients/metadataClient';
 import { logging } from '../../utils';
 import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 interface Props {
     section: DisplaySectionDto;
@@ -106,10 +107,9 @@ export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpda
                 fields: [...section.fields, addedField]
             });
             setShowFieldSelector(false);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to add reusable field:', err);
-            const errorMsg = err?.message || 'Failed to add field from template';
-            setError(errorMsg);
+            setError(apiRefusalReason(err) ?? 'Failed to add field from template');
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.AddFieldFailed');
         } finally {
             setAddingTemplate(false);

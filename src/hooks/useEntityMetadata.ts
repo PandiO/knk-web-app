@@ -7,6 +7,7 @@ import { logging } from '../utils';
 import { useAuth } from '../contexts/AuthContext';
 import { FieldValidationRuleDto, ResolvedDependency, DependencyResolutionResponse } from '../types/dtos/forms/FieldValidationRuleDtos';
 import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../types/dtos/forms/FormModels';
+import { failureReason } from '../utils/apiRefusalReason';
 
 type MetadataBundle = {
   baseMetadata: EntityMetadataDto[];
@@ -153,7 +154,7 @@ export function useEntityMetadata() {
       setConfigurations(bundle.configurations);
       setAllMergedMetadata(bundle.mergedMetadata);
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to load metadata';
+      const errorMsg = failureReason(err) ?? 'Failed to load metadata';
       setError(errorMsg);
       console.error('Failed to load entity metadata:', err);
     } finally {
@@ -215,7 +216,7 @@ export function useEntityMetadata() {
       setConfigurations(bundle.configurations);
       setAllMergedMetadata(bundle.mergedMetadata);
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to load metadata';
+      const errorMsg = failureReason(err) ?? 'Failed to load metadata';
       setError(errorMsg);
       console.error('Failed to refresh entity metadata:', err);
     } finally {
@@ -448,7 +449,7 @@ export function useEnrichedFormContext(
 
         logger.info(`Loaded metadata: ${fieldMeta.size} fields, ${metaMap.size} entities`);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Failed to load metadata';
+        const msg = failureReason(err) ?? 'Failed to load metadata';
         setError(msg);
         logger.error(`Failed to load enriched form context: ${err}`);
       } finally {

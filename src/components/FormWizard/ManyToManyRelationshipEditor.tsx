@@ -13,6 +13,7 @@ import { getCreateFunctionForEntity, getSearchFunctionForEntity } from '../../ut
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { useFormSession } from '../../contexts/FormSessionContext';
+import { failureReason } from '../../utils/apiRefusalReason';
 
 const SEQUENCE_NUMBER_FIELD = 'SequenceNumber';
 let dndKeyCounter = 0;
@@ -469,7 +470,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
             });
         } catch (error) {
             console.error('[M2M] Failed to create related entity:', error);
-            setMetadataError(`Failed to create ${relatedEntityType}. Please try again.`);
+            setMetadataError(failureReason(error) ?? `Failed to create ${relatedEntityType}. Please try again.`);
             debug('handleCreateRelatedEntity:error', error);
         } finally {
             setShowCreateRelatedModal(false);

@@ -10,6 +10,7 @@ import { minecraftEnchantmentRefClient } from '../../apiClients/minecraftEnchant
 import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
 import { buildPinnedSection, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 /** Green "Existing" / amber "New" pill, shared by the hybrid pickers and the pinned session rows. */
 const RowBadge: React.FC<{ isNew: boolean; label?: string }> = ({ isNew, label }) => (
@@ -606,8 +607,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 setInternalSelection(newSelection);
                 onSelectionChange?.(newSelection);
             }
-        } catch (err: any) {
-            setError(err?.message || 'Failed to create item');
+        } catch (err) {
+            setError(apiRefusalReason(err) ?? 'Failed to create item');
         } finally {
             setCreatingKey(null);
         }

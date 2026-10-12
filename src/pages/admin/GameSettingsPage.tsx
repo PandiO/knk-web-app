@@ -26,6 +26,7 @@ import {
     WorldGameSettingsDto,
 } from '../../types/dtos/gameSettings/GameSettingsModels';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 const WEATHER_TYPES: WeatherType[] = ['CLEAR', 'RAIN', 'THUNDER'];
 const WEATHER_MODES: WeatherMode[] = ['Normal', 'Constant', 'Blocked', 'Weighted'];
@@ -135,6 +136,8 @@ export const GameSettingsPage: React.FC = () => {
     const [groups, setGroups] = React.useState<PermissionGroupDto[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [saving, setSaving] = React.useState(false);
+    // Why the last save was refused (e.g. a version conflict); the toast it used to send isn't shown.
+    const [saveError, setSaveError] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         void loadAll();
@@ -202,11 +205,13 @@ export const GameSettingsPage: React.FC = () => {
 
         try {
             setSaving(true);
+            setSaveError(null);
             const updated = await gameSettingsClient.update(payload);
             setSettings(normalizeSettings(updated));
         } catch (error) {
             console.error('Failed to save game settings:', error);
             logging.errorHandler.next('ErrorMessage.GameSettings.SaveFailed');
+            setSaveError(apiRefusalReason(error) ?? 'The settings could not be saved.');
         } finally {
             setSaving(false);
         }
@@ -244,6 +249,9 @@ export const GameSettingsPage: React.FC = () => {
                             </button>
                         </div>
                     </div>
+                    {saveError && (
+                        <p className="mt-3 text-sm text-red-600" role="alert">{saveError}</p>
+                    )}
                 </div>
 
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">

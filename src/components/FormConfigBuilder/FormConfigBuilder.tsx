@@ -16,6 +16,8 @@ import { ReusableStepSelector } from './ReusableStepSelector';
 import { ConfigurationHealthPanel } from './ConfigurationHealthPanel';
 import { detectProjectionCycles } from '../../utils/forms/valueProjection';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { useConfirm } from '../../hooks/useConfirm';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 export const FormConfigBuilder: React.FC = () => {
     usePageTitle('Form builder');
@@ -44,6 +46,7 @@ export const FormConfigBuilder: React.FC = () => {
     const [selectedEntityMeta, setSelectedEntityMeta] = useState<EntityMetadataDto | null>(null);
     const [addingTemplate, setAddingTemplate] = useState(false);
     const [healthRefreshToken, setHealthRefreshToken] = useState(0);
+    const [confirm, confirmModal] = useConfirm();
     const [healthIssueCount, setHealthIssueCount] = useState<number>(0);
 
     // added: state to track default conflict notification
@@ -298,10 +301,9 @@ export const FormConfigBuilder: React.FC = () => {
             }));
             setShowStepSelector(false);
             setSelectedStepIndex(config.steps.length);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to add reusable step:', err);
-            const errorMsg = err?.response?.data?.message || err?.message || 'Failed to add step from template';
-            setError(errorMsg);
+            setError(apiRefusalReason(err) ?? 'Failed to add step from template');
             logging.errorHandler.next('ErrorMessage.FormConfiguration.AddStepFailed');
         } finally {
             setAddingTemplate(false);
@@ -426,8 +428,12 @@ export const FormConfigBuilder: React.FC = () => {
                     // If setting this config as default, unset others for the same entity
                     const existingDefaults: FormConfigurationDto = await formConfigClient.getByEntityTypeName(config.entityTypeName, true) as FormConfigurationDto;
                     if (existingDefaults && existingDefaults.id && existingDefaults.id !== config.id) {
-                        //Show same confirm dialog as the handleSetDefault const in the FormWizardPage.tsx and unset if confirmed
-                        if (window.confirm(`There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
+                        // The same question as handleSetDefault on the Forms page; unset the other one if confirmed
+                        if (await confirm({
+                            title: 'Change the default configuration?',
+                            message: `There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.configurationName}"?`,
+                            confirmLabel: 'Change default',
+                        })) {
                             await handleRemoveDefault(existingDefaults);
                         } else {
                             return;
@@ -463,28 +469,17 @@ export const FormConfigBuilder: React.FC = () => {
                 setHealthRefreshToken(prev => prev + 1);
             }
 
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to save configuration:', err);
-            
-            // Extract detailed error message from backend response
-            let errorMessage = 'Failed to save configuration';
-            let errorTitle = 'Save failed';
-            
-            if (err?.response?.status === 400) {
-                // Backend validation error
-                const backendMessage = err.response?.data?.message || err.response?.data?.title;
-                if (backendMessage) {
-                    errorMessage = backendMessage;
-                    errorTitle = 'Validation Error';
-                } else {
-                    errorMessage = 'The form configuration has validation errors. Please check for compatibility issues with the selected entity type.';
-                }
-            } else if (err?.response?.status === 404) {
-                errorMessage = 'Configuration or template not found. Please try again.';
-            } else if (err?.message) {
-                errorMessage = err.message;
-            }
-            
+
+            // The API's reason for a refusal (e.g. a validation error), else a plain fallback.
+            const status = (err as { status?: number } | null)?.status;
+            const reason = apiRefusalReason(err);
+            const errorMessage = reason ?? (status === 400
+                ? 'The form configuration has validation errors. Please check for compatibility issues with the selected entity type.'
+                : 'Failed to save configuration');
+            const errorTitle = status === 400 ? 'Validation Error' : 'Save failed';
+
             setError(errorMessage);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.SaveFailed');
             setSaveFeedback({
@@ -773,6 +768,8 @@ export const FormConfigBuilder: React.FC = () => {
                 onClose={closeSaveModal}
                 onContinue={handleSaveContinue}
             />
+
+            {confirmModal}
 
             {showStepSelector && (
                 <ReusableStepSelector

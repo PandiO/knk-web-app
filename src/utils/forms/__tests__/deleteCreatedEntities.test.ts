@@ -102,7 +102,7 @@ describe('deleteCreatedEntities (KNG-162)', () => {
 
         expect(d.calls.filter(c => c.startsWith('delete'))).toEqual([]);
         expect(results.map(r => [r.outcome, r.detail])).toEqual([
-            ['failed', "couldn't check whether it is in use: boom"],
+            ['failed', "couldn't check whether it is in use: the request did not go through"],
             ['failed', 'the web app has no delete for District']
         ]);
         expect(remainingAfterDelete(results).map(r => r.entityTypeName)).toEqual(['District', 'Street']);

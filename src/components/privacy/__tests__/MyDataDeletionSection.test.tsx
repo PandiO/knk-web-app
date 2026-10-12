@@ -64,7 +64,7 @@ describe('MyDataDeletionSection', () => {
 
   it('resends the link or cancels while unconfirmed, and shows API errors', async () => {
     api.getMine.mockResolvedValue(base);
-    api.requestMine.mockRejectedValue(Object.assign(new Error('x'), { status: 502, response: { message: 'The confirmation email could not be sent.' } }));
+    api.requestMine.mockRejectedValue(Object.assign(new Error('x'), { status: 502, response: { error: 'EmailFailed', message: 'The confirmation email could not be sent.' } }));
     render(<MyDataDeletionSection hasEmail />);
 
     await userEvent.click(await screen.findByRole('button', { name: 'Send the link again' }));
