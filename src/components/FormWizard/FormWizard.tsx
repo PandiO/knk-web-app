@@ -53,6 +53,7 @@ import { hydrateJoinRowsForEdit, joinFieldSeedValues } from '../../utils/forms/m
 import { seededFormFieldValue } from '../../utils/forms/formFieldDefaultValue';
 import { isSeedableInstance, overlayChildEditValues } from '../../utils/forms/childEditSeed';
 import { spreadTaskValueOntoFields } from '../../utils/forms/worldTaskFieldValue';
+import { validateListFieldCount } from '../../utils/forms/listFieldValidation';
 import { WizardStepProgress, WizardStepTitle } from './WizardStepHeader';
 
 interface FormWizardProps {
@@ -2331,6 +2332,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
 
     const validateField = (field: FormFieldDto): string | null => {
         const value = currentStepData[field.fieldName];
+
+        // KNG-164: List fields (empty list, minSelection/maxSelection) are checked in listFieldValidation.
+        if (field.fieldType === FieldType.List) {
+            return validateListFieldCount(field, value, { parentIsSaved: !!entityId });
+        }
 
         if (field.isRequired && (value === null || value === undefined || value === '')) {
             return `${field.label} is required`;
