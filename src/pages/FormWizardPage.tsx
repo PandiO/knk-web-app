@@ -132,6 +132,20 @@ export const FormWizardPage: React.FC<Props> = ({
         setWorldPrompt(null);
     };
 
+    // Confirmations use a FeedbackModal instead of the browser's window.confirm; Close answers no.
+    const [confirmPrompt, setConfirmPrompt] = useState<{
+        title: string;
+        message: string;
+        continueLabel: string;
+        resolve: (confirmed: boolean) => void;
+    } | null>(null);
+    const askToConfirm = (title: string, message: string, continueLabel: string) =>
+        new Promise<boolean>(resolve => setConfirmPrompt({ title, message, continueLabel, resolve }));
+    const answerConfirmPrompt = (confirmed: boolean) => {
+        confirmPrompt?.resolve(confirmed);
+        setConfirmPrompt(null);
+    };
+
     const showFeedback = (payload: Omit<FeedbackState, 'open'>) => {
         setFeedbackModal({ ...payload, open: true });
     };
@@ -451,7 +465,11 @@ export const FormWizardPage: React.FC<Props> = ({
         const existingDefault = formConfigs.find(c => c.id !== config.id && c.isDefault);
         
         if (existingDefault) {
-            if (!window.confirm(`There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
+            if (!(await askToConfirm(
+                'Change the default configuration?',
+                `There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`,
+                'Change default'
+            ))) {
                 return;
             }
             await handleRemoveDefault(existingDefault);
@@ -508,7 +526,7 @@ export const FormWizardPage: React.FC<Props> = ({
             setDraftDeletePrompt({ progress, records });
             return;
         }
-        if (!window.confirm('Are you sure you want to delete this saved progress?')) return;
+        if (!(await askToConfirm('Delete this saved progress?', 'Are you sure you want to delete this saved progress?', 'Delete'))) return;
         await removeProgress(progress, true);
     };
 
@@ -573,7 +591,7 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Handler: Delete configuration
     const handleFormConfigDelete = async (config: FormConfigurationDto) => {
-        if (!window.confirm('Are you sure you want to delete this form configuration?')) return;
+        if (!(await askToConfirm('Delete this form configuration?', 'Are you sure you want to delete this form configuration?', 'Delete'))) return;
 
         try {
             await formConfigClient.delete(config.id!);
@@ -606,7 +624,11 @@ export const FormWizardPage: React.FC<Props> = ({
 
         const existingDefault = displayConfigs.find(c => c.id !== config.id && c.isDefault);
         if (existingDefault) {
-            if (!window.confirm(`There is already a default display configuration for "${selectedTypeName}". Change default to "${config.name}"?`)) {
+            if (!(await askToConfirm(
+                'Change the default display configuration?',
+                `There is already a default display configuration for "${selectedTypeName}". Change default to "${config.name}"?`,
+                'Change default'
+            ))) {
                 return;
             }
             await handleDisplayRemoveDefault(existingDefault);
@@ -1213,6 +1235,16 @@ export const FormWizardPage: React.FC<Props> = ({
                 }}
                 onDone={() => setDraftDeletePrompt(null)}
                 onClose={() => setDraftDeletePrompt(null)}
+            />
+
+            <FeedbackModal
+                open={confirmPrompt !== null}
+                title={confirmPrompt?.title ?? ''}
+                message={confirmPrompt?.message ?? ''}
+                status="info"
+                onClose={() => answerConfirmPrompt(false)}
+                onContinue={() => answerConfirmPrompt(true)}
+                continueLabel={confirmPrompt?.continueLabel}
             />
 
             <FeedbackModal

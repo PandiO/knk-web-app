@@ -9,7 +9,7 @@ import { createdEntityDeleteDeps } from '../../utils/forms/createdEntityDeleteDe
 
 /**
  * KNG-162: deleting a draft from Saved Progress offers the same keep/delete prompt when the draft
- * recorded entities its child forms created; a draft without a record keeps the plain confirm.
+ * recorded entities its child forms created; a draft without a record gets a plain confirm modal.
  */
 
 // virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
@@ -129,14 +129,28 @@ describe('FormWizardPage: delete a draft that recorded created entities (KNG-162
         expect(screen.queryByRole('dialog', { name: 'Delete this saved progress?' })).not.toBeInTheDocument();
     });
 
-    it('a draft without a record keeps the plain confirm', async () => {
-        const confirm = jest.spyOn(window, 'confirm').mockReturnValue(true);
+    it('a draft without a record asks a plain confirm in a modal, not the browser', async () => {
+        const confirm = jest.spyOn(window, 'confirm');
         renderPage();
         fireEvent.click((await deleteButtons())[1]);
 
+        const dialog = await screen.findByRole('dialog', { name: 'Delete this saved progress?' });
+        expect(within(dialog).queryByText("District 'Oostwijk'")).not.toBeInTheDocument();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
         await waitFor(() => expect(formSubmissionClient.delete).toHaveBeenCalledWith('10'));
-        expect(confirm).toHaveBeenCalledTimes(1);
-        expect(screen.queryByRole('dialog', { name: 'Delete this saved progress?' })).not.toBeInTheDocument();
+        expect(confirm).not.toHaveBeenCalled();
         confirm.mockRestore();
+    });
+
+    it('closing the plain confirm deletes nothing', async () => {
+        renderPage();
+        fireEvent.click((await deleteButtons())[1]);
+
+        const dialog = await screen.findByRole('dialog', { name: 'Delete this saved progress?' });
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Close dialog' }));
+
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete this saved progress?' })).not.toBeInTheDocument());
+        expect(formSubmissionClient.delete).not.toHaveBeenCalled();
     });
 });
