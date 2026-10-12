@@ -53,6 +53,16 @@ describe('HubSettingsCard (hub DESIGN §16 Phase 4)', () => {
         expect(hub.rules.dropPickup && !hub.rules.damagePlayers).toBe(true);
     });
 
+    it('edits the portal regions as a comma-separated list', () => {
+        let hub: HubSettingsDto = { ...defaultHubSettings(), domainId: 4 };
+        const onChange = jest.fn((next: HubSettingsDto) => { hub = next; });
+        render(<HubSettingsCard hub={hub} hubDomains={[{ ...hubtown, selected: true }]} domainOptions={domains} options={options}
+            onChange={onChange} onHubDomainsChange={jest.fn()} />);
+
+        fireEvent.change(screen.getByLabelText('Portal regions'), { target: { value: 'portal_north, portal_east' } });
+        expect(hub.portalRegionIds).toEqual(['portal_north', 'portal_east']);
+    });
+
     it('warns when the spawn is in another world than the hub, and shows the API refusal of a nested hub', async () => {
         (gameSettingsClient.setHubEligible as jest.Mock).mockRejectedValue({ status: 400, response: { message: "'Square' and 'Hubtown' would be nested hubs" } });
         const hub: HubSettingsDto = {

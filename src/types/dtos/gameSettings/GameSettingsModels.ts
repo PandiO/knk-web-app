@@ -133,6 +133,8 @@ export interface HubSettingsDto {
   /** 0 = "Uit": immediately. */
   outageDelaySeconds: number;
   rules: HubRulesDto;
+  /** WorldGuard region ids in the hub's world: walking in takes the player into the game (decision 2026-10-12). */
+  portalRegionIds?: string[];
 }
 
 /** A hub-eligible domain (decision 4). */

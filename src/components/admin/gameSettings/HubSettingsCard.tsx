@@ -43,6 +43,7 @@ export const defaultHubSettings = (): HubSettingsDto => ({
     outageAction: 'SendToHub',
     outageDelaySeconds: 0,
     rules: defaultHubRules(),
+    portalRegionIds: [],
 });
 
 const RULE_TOGGLES: { key: keyof HubRulesDto; label: string }[] = [
@@ -210,6 +211,20 @@ export const HubSettingsCard: React.FC<{
                             The spawn is in world '{spawnWorld}', but the hub is in world '{hubWorld}'. Saving will be refused.
                         </p>
                     )}
+                    <label className="block text-sm font-medium text-gray-700 pt-2" htmlFor="hub-portals">Portal regions</label>
+                    <input
+                        id="hub-portals"
+                        type="text"
+                        value={(hub.portalRegionIds ?? []).join(', ')}
+                        onChange={e => onChange({ ...hub, portalRegionIds: e.target.value.split(',').map(id => id.trim()) })}
+                        placeholder="portal_north, portal_east"
+                        className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
+                    />
+                    <p className="text-xs text-gray-500">
+                        WorldGuard region ids in the hub's world, separated by commas. Walking into one takes the player into
+                        the game: to their group's join spawn, else the default join spawn. It works only while the API is up
+                        and the player's account has loaded.
+                    </p>
                 </div>
             )}
 
@@ -226,7 +241,7 @@ export const HubSettingsCard: React.FC<{
                             <option key={a} value={a}>{OUTAGE_ACTION_LABELS[a]}</option>
                         ))}
                     </select>
-                    <p className="mt-1 text-xs text-gray-500">Applies to players who are online when the outage starts. New joins always go to the hub.</p>
+                    <p className="mt-1 text-xs text-gray-500">Applies to players outside the hub while the API is down. Joins during an outage go to the hub, unless the player is exempt.</p>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="hub-outage-delay">Delay (seconds)</label>
