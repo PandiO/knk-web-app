@@ -20,6 +20,7 @@ import { FormCancelAction } from '../components/FormWizard/FormCancelAction';
 import { CreatedEntitiesPrompt } from '../components/FormWizard/CreatedEntitiesPrompt';
 import { FormConfigurationImportPanel } from '../components/FormWizard/FormConfigurationImportPanel';
 import { downloadJson, exportFileName } from '../utils/forms/formConfigPortability';
+import { apiRefusalReason } from '../utils/apiRefusalReason';
 import { FormSessionRoot } from '../contexts/FormSessionContext';
 import { CreatedEntityRecord, parseCreatedEntitiesJson } from '../utils/forms/createdEntities';
 import { deleteCreatedEntities } from '../utils/forms/deleteCreatedEntities';
@@ -550,7 +551,7 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.FormSubmission.DeleteFailed');
             showFeedback({
                 title: 'Delete failed',
-                message: 'Unable to delete the saved progress. Please try again.',
+                message: apiRefusalReason(error) ?? 'Unable to delete the saved progress. Please try again.',
                 status: 'error',
                 onContinue: undefined,
             });
@@ -591,7 +592,7 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Handler: Delete configuration
     const handleFormConfigDelete = async (config: FormConfigurationDto) => {
-        if (!(await askToConfirm('Delete this form configuration?', 'Are you sure you want to delete this form configuration?', 'Delete'))) return;
+        if (!(await askToConfirm('Delete this form configuration?', `Are you sure you want to delete "${config.configurationName}"?`, 'Delete'))) return;
 
         try {
             await formConfigClient.delete(config.id!);
@@ -608,7 +609,7 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.FormConfiguration.DeleteFailed');
             showFeedback({
                 title: 'Delete failed',
-                message: 'Unable to delete the form configuration. Please try again.',
+                message: apiRefusalReason(error) ?? 'Unable to delete the form configuration. Please try again.',
                 status: 'error',
                 onContinue: undefined,
             });
@@ -701,6 +702,7 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.DeleteFailed');
             return;
         }
+        if (!(await askToConfirm('Delete this display configuration?', `Are you sure you want to delete "${config.name}"?`, 'Delete'))) return;
         try {
             await displayConfigClient.delete(idNumber);
             setDisplayConfigs(prev => prev.filter(c => c.id !== config.id));
@@ -716,7 +718,7 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.DeleteFailed');
             showFeedback({
                 title: 'Delete failed',
-                message: 'Unable to delete the display configuration. Please try again.',
+                message: apiRefusalReason(error) ?? 'Unable to delete the display configuration. Please try again.',
                 status: 'error',
                 onContinue: undefined,
             });
@@ -1253,7 +1255,7 @@ export const FormWizardPage: React.FC<Props> = ({
                 message={feedbackModal.message}
                 status={feedbackModal.status}
                 onClose={closeFeedbackModal}
-                onContinue={handleFeedbackContinue}
+                onContinue={feedbackModal.onContinue ? handleFeedbackContinue : undefined}
                 autoCloseMs={feedbackModal.autoCloseMs}
             />
         </>

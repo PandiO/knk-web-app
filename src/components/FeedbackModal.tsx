@@ -24,7 +24,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     status = 'info',
     onClose,
     onContinue,
-    continueLabel = 'Continue',
+    continueLabel,
     autoCloseMs,
     onSecondary,
     secondaryLabel
@@ -146,17 +146,20 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                             {secondaryLabel}
                         </button>
                     )}
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                    >
-                        Close
-                    </button>
+                    {/* With nothing to continue to, one button closes (no "Close" next to a second "Close"). */}
+                    {onContinue && (
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                        >
+                            Close
+                        </button>
+                    )}
                     <button
                         onClick={handleContinue}
                         className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-md"
                     >
-                        {continueLabel}
+                        {continueLabel ?? (onContinue ? 'Continue' : 'Close')}
                     </button>
                 </div>
             </div>

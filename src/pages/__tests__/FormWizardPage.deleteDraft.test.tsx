@@ -143,6 +143,19 @@ describe('FormWizardPage: delete a draft that recorded created entities (KNG-162
         confirm.mockRestore();
     });
 
+    it("a refused delete shows the API's reason", async () => {
+        (formSubmissionClient.delete as jest.Mock).mockRejectedValue(
+            Object.assign(new Error("This saved progress can't be deleted: it is still used by 1 form session."), { status: 409 })
+        );
+        renderPage();
+        fireEvent.click((await deleteButtons())[1]);
+        fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete this saved progress?' })).getByRole('button', { name: 'Delete' }));
+
+        const failed = await screen.findByRole('dialog', { name: 'Delete failed' });
+        expect(within(failed).getByText("This saved progress can't be deleted: it is still used by 1 form session.")).toBeInTheDocument();
+        expect(within(failed).getAllByRole('button', { name: 'Close' })).toHaveLength(1);
+    });
+
     it('closing the plain confirm deletes nothing', async () => {
         renderPage();
         fireEvent.click((await deleteButtons())[1]);
