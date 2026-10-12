@@ -15,6 +15,7 @@ import { useRelationshipDrafts, RelationshipDraft } from '../../hooks/useRelatio
 import { RelationshipDraftCard } from './RelationshipDraftCard';
 import { toBooleanFieldValue } from '../../utils/forms/booleanFieldValue';
 import { ResolvedPickerFilters } from '../../utils/forms/pickerFilters';
+import { listItemKeys } from '../../utils/forms/listItemKeys';
 import { renderDisplayPanel, parseDisplayPanel } from './displayPanels';
 
 /**
@@ -1150,6 +1151,7 @@ const ListField: React.FC<FieldRendererProps> = ({
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ListField]', ...args);
     console.log('Rendering ListField with value:', value);
     const items = Array.isArray(value) ? value : [];
+    const itemKeys = listItemKeys(items);
 
     const listElementType = field.elementType || FieldType.String;
     const isObjectList = field.objectType != null;
@@ -1193,13 +1195,15 @@ const ListField: React.FC<FieldRendererProps> = ({
         onChange(selected);
     };
 
-    const handleRemoveItem = (itemId: string) => {
+    // KNG-134: by position, not id - two id-less items (an old draft's unsaved values) both have
+    // no id, so removing by id dropped all of them.
+    const handleRemoveItem = (index: number) => {
         debug('handleRemoveItem', {
             fieldName: field.fieldName,
-            itemId,
+            index,
             previousCount: items.length
         });
-        onChange(items.filter(item => item.id !== itemId));
+        onChange(items.filter((_, i) => i !== index));
     };
 
     React.useEffect(() => {
@@ -1306,9 +1310,9 @@ const ListField: React.FC<FieldRendererProps> = ({
                                 Selected ({items.length}):
                             </p>
                             <div className="max-h-32 overflow-y-auto space-y-2">
-                                {items.map((item) => (
+                                {items.map((item, index) => (
                                     <div
-                                        key={item.id}
+                                        key={itemKeys[index]}
                                         className="p-2 bg-green-50 border border-green-200 rounded-md flex items-center justify-between"
                                     >
                                         <div className="flex items-center space-x-2 flex-1 min-w-0">
@@ -1321,13 +1325,13 @@ const ListField: React.FC<FieldRendererProps> = ({
                                                 <p className="text-sm font-medium text-green-900 truncate">
                                                     {getEntityDisplayLabel(item, 'Item')}
                                                 </p>
-                                                <p className="text-xs text-green-600">ID: {item.id}</p>
+                                                <p className="text-xs text-green-600">{item.id != null ? `ID: ${item.id}` : 'Not saved yet'}</p>
                                             </div>
                                         </div>
                                         {!field.isReadOnly && !ownedChildCollection && (
                                             <button
                                                 type="button"
-                                                onClick={() => handleRemoveItem(item.id)}
+                                                onClick={() => handleRemoveItem(index)}
                                                 className="text-green-600 hover:text-green-800 hover:bg-green-100 rounded-full p-1 flex-shrink-0"
                                                 title="Remove from selection"
                                             >
@@ -1337,7 +1341,7 @@ const ListField: React.FC<FieldRendererProps> = ({
                                         {onEditInstance && (
                                             <button
                                                 type="button"
-                                                onClick={() => onEditInstance(item, items.findIndex(current => current.id === item.id))}
+                                                onClick={() => onEditInstance(item, index)}
                                                 className="btn-secondary whitespace-nowrap ml-2"
                                             >
                                                 Edit instance
