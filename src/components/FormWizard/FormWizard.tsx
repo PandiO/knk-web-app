@@ -35,6 +35,7 @@ import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleC
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { buildPlaceholderContext } from '../../utils/placeholderExtraction';
 import { FormSessionScope, useFormSession } from '../../contexts/FormSessionContext';
+import { useCreatedEntitiesProvenance } from '../../hooks/useCreatedEntitiesProvenance';
 import {
     ProjectionOverwritePolicy,
     ProjectionSourceContext,
@@ -101,6 +102,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
 }) => {
     const debug = (...args: unknown[]) => console.log('[FORM_WIZARD_DEBUG]', ...args);
     const formSession = useFormSession(); // KNG-136
+    const createdEntitiesProvenance = useCreatedEntitiesProvenance(formSession, parentProgressId); // KNG-162
     const [config, setConfig] = useState<FormConfigurationDto | null>(null);
     const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto | null>(null);
     const [joinEntityMetadataMap, setJoinEntityMetadataMap] = useState<Record<string, EntityMetadataDto>>({});
@@ -708,6 +710,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             if (existingProgressId) {
                 const progress = await formSubmissionClient.getById(existingProgressId);
                 setProgressId(progress.id);
+                createdEntitiesProvenance.seedFromProgress(progress); // KNG-162 (D3)
                 
                 // CRITICAL: Restore entityId from progress if it exists (edit mode)
                 if (progress.entityId) {
@@ -2426,6 +2429,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 parentProgressId: parentProgressId,
                 status: FormSubmissionStatus.InProgress,
                 updatedAt: new Date().toISOString(),
+                createdEntitiesJson: createdEntitiesProvenance.createdEntitiesJson(), // KNG-162
             };
         return progressData;
     };

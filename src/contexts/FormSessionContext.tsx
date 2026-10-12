@@ -9,8 +9,9 @@ import React, { createContext, useCallback, useContext, useMemo, useRef, useStat
  * District saved two forms deep (GateStructure -> Street -> District) is known to the
  * GateStructure's own District picker. Pickers pin the entities created here (useSessionPinnedRows).
  *
- * Not persisted in drafts (decision D3): a resumed draft shows database rows only. KNG-162 reads
- * "what this root form created" from createdEntities() (entity type, id, origin, order).
+ * KNG-162 reads "what this root form created" from createdEntities() (entity type, id, origin,
+ * order), keeps it in the root draft (createdEntitiesJson, decision D3) and seeds it back with seed()
+ * when the draft is resumed, so pickers pin those entities again.
  */
 
 export type SessionEntityStatus = 'created' | 'updated';
@@ -58,11 +59,23 @@ export interface FormSessionValue {
     entitiesOfType: (entityTypeName: string) => SessionEntity[];
     /** What this root form's child forms saved on their own (status 'created', not embedded), oldest first. */
     createdEntities: () => SessionEntity[];
+    /** KNG-162: adds entities a resumed draft recorded (as created, before anything registered since). */
+    seed: (entries: SessionSeedEntry[]) => void;
+}
+
+/** An entity recorded in a draft (utils/forms/createdEntities.ts CreatedEntityRecord has this shape). */
+export interface SessionSeedEntry {
+    entityTypeName: string;
+    id: number | string;
+    display: Record<string, unknown>;
+    origin: SessionEntityOrigin;
+    sequence: number;
 }
 
 interface RegistryStore {
     entities: SessionEntity[];
     register: (input: SessionEntityInput, formPath: string[]) => SessionEntity | null;
+    seed: (entries: SessionSeedEntry[]) => void;
 }
 
 // The registry is shared by the root wizard and every wizard nested under it; the form path is per wizard.
@@ -131,6 +144,43 @@ export function upsertSessionEntity(
     return { entities: [...entities, entry], entry };
 }
 
+/**
+ * Pure seeding (KNG-162): recorded entities not in the registry yet are added as created, in their
+ * recorded order, numbered from `firstSequence`. Entries already present (same key) are left as they
+ * are. Exported for tests.
+ */
+export function seedSessionEntities(
+    entities: SessionEntity[],
+    entries: SessionSeedEntry[],
+    firstSequence: number
+): { entities: SessionEntity[]; lastSequence: number } {
+    let sequence = firstSequence - 1;
+    const next = [...entities];
+    const keys = new Set(entities.map(entry => entry.key));
+    [...entries]
+        .sort((a, b) => a.sequence - b.sequence)
+        .forEach(entry => {
+            const entityTypeName = (entry.entityTypeName || '').trim();
+            if (!entityTypeName || !hasId(entry.id)) return;
+            const key = sessionEntityKey(entityTypeName, entry.id);
+            if (keys.has(key)) return;
+            keys.add(key);
+            sequence += 1;
+            next.push({
+                key,
+                entityTypeName,
+                id: entry.id,
+                display: { ...entry.display, id: entry.id },
+                origin: { formPath: [...(entry.origin?.formPath ?? [])], fieldName: entry.origin?.fieldName ?? '' },
+                status: 'created',
+                embedded: false,
+                sequence,
+                revision: 1
+            });
+        });
+    return { entities: next, lastSequence: sequence };
+}
+
 const RootRegistry: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [entities, setEntities] = useState<SessionEntity[]>([]);
     // Mirrors `entities` synchronously, so two registrations in one event both land.
@@ -155,8 +205,30 @@ const RootRegistry: React.FC<{ children: ReactNode }> = ({ children }) => {
         return entry;
     }, []);
 
-    const store = useMemo<RegistryStore>(() => ({ entities, register }), [entities, register]);
+    const seed = useCallback((entries: SessionSeedEntry[]) => {
+        const { entities: next, lastSequence } = seedSessionEntities(
+            entitiesRef.current,
+            entries,
+            counters.current.sequence + 1
+        );
+        if (next.length === entitiesRef.current.length) return;
+        counters.current.sequence = lastSequence;
+        entitiesRef.current = next;
+        setEntities(next);
+    }, []);
+
+    const store = useMemo<RegistryStore>(() => ({ entities, register, seed }), [entities, register, seed]);
     return <RegistryContext.Provider value={store}>{children}</RegistryContext.Provider>;
+};
+
+/**
+ * KNG-162: starts a session above the root wizard without adding a form to the path, so a page can
+ * read the registry next to the wizard (FormWizardPage's Cancel). The wizard's own FormSessionScope
+ * joins it. Key it per opened form so each form starts with an empty registry.
+ */
+export const FormSessionRoot: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const registry = useContext(RegistryContext);
+    return registry ? <>{children}</> : <RootRegistry>{children}</RootRegistry>;
 };
 
 /**
@@ -177,7 +249,7 @@ export const useFormSession = (): FormSessionValue | null => {
     const formPath = useContext(FormPathContext);
     return useMemo(() => {
         if (!registry) return null;
-        const { entities, register } = registry;
+        const { entities, register, seed } = registry;
         return {
             formPath,
             entities,
@@ -188,7 +260,8 @@ export const useFormSession = (): FormSessionValue | null => {
             },
             createdEntities: () => entities
                 .filter(entry => entry.status === 'created' && !entry.embedded)
-                .sort((a, b) => a.sequence - b.sequence)
+                .sort((a, b) => a.sequence - b.sequence),
+            seed
         };
     }, [registry, formPath]);
 };
