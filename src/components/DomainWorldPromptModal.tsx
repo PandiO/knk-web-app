@@ -26,9 +26,10 @@ export const DomainWorldPromptModal: React.FC<DomainWorldPromptModalProps> = ({ 
         gameSettingsClient.get()
             .then(settings => {
                 if (cancelled) return;
-                const names = (settings?.runtimeWorlds ?? [])
+                // KNG-118: several game servers can report the same world name; list it once.
+                const names = Array.from(new Set((settings?.runtimeWorlds ?? [])
                     .map(world => world.worldName)
-                    .filter((name): name is string => typeof name === 'string' && name.trim() !== '');
+                    .filter((name): name is string => typeof name === 'string' && name.trim() !== '')));
                 setWorlds(names);
                 if (names.length === 1) setSelected(names[0]);
             })

@@ -65,6 +65,10 @@ export interface MinecraftWorldRuntimeDto {
   loaded: boolean;
   playerCount: number;
   isPrimary: boolean;
+  /** KNG-118: the game server that reported this world (the API keeps each server's report). */
+  serverId?: string | null;
+  /** KNG-118: when that server last reported it (UTC). */
+  reportedAt?: string | null;
 }
 
 /**
