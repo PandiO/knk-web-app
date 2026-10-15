@@ -47,8 +47,6 @@ describe('TransactionDetailPage', () => {
         expect(screen.getByText('100 → 750')).toBeInTheDocument();
 
         const reverse = screen.getByRole('button', { name: 'Reverse' });
-        fireEvent.change(screen.getByLabelText(/reason/i), { target: { value: 'too short' } });
-        expect(reverse).toBeDisabled();
         fireEvent.change(screen.getByLabelText(/reason/i), { target: { value: 'Paid twice by a bug' } });
         fireEvent.click(screen.getByLabelText(/partial/i));
         fireEvent.click(reverse);
@@ -56,6 +54,32 @@ describe('TransactionDetailPage', () => {
         await waitFor(() => expect(currencyClient.reverse).toHaveBeenCalledWith(TX.publicId, 'Paid twice by a bug', true));
         await waitFor(() => expect(screen.getByText('01M3FJ00000000000000000000')).toBeInTheDocument());
         expect(screen.getByText(/partially/)).toBeInTheDocument();
+    });
+
+    it('counts the reason as it is typed, and says why a short reason is not sent (KNG-126)', async () => {
+        renderPage();
+        await waitFor(() => expect(screen.getByText('SYS_SALARY')).toBeInTheDocument());
+
+        const reason = screen.getByLabelText(/reason/i);
+        expect(screen.getByText('0 / 10 characters')).toBeInTheDocument();
+        // Surrounding spaces don't count, as on the API.
+        fireEvent.change(reason, { target: { value: '  too short ' } });
+        const counter = screen.getByText('9 / 10 characters');
+        expect(reason.getAttribute('aria-describedby')).toContain(counter.id);
+
+        const reverse = screen.getByRole('button', { name: 'Reverse' });
+        expect(reverse).toBeEnabled();
+        fireEvent.click(reverse);
+        const message = await screen.findByText('Write a reason of at least 10 characters (1 more).');
+        expect(message).toHaveAttribute('aria-live', 'polite');
+        expect(reason).toHaveAttribute('aria-invalid', 'true');
+        expect(currencyClient.reverse).not.toHaveBeenCalled();
+
+        // The message goes away as soon as the reason is long enough.
+        fireEvent.change(reason, { target: { value: 'too short!' } });
+        expect(screen.getByText('10 / 10 characters')).toBeInTheDocument();
+        expect(screen.queryByText(/Write a reason of at least/)).not.toBeInTheDocument();
+        expect(reason).not.toHaveAttribute('aria-invalid');
     });
 
     it('shows the API reason when the reversal is refused, and no form once reversed', async () => {
