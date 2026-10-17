@@ -101,11 +101,20 @@ describe('Street road panel (displayPanel field)', () => {
     });
 
     it('shows the API error when the road cannot be loaded', async () => {
-        getStreetRoad.mockRejectedValue(new Error('down'));
+        getStreetRoad.mockRejectedValue(Object.assign(new Error('The road network has not been built yet.'), { status: 409 }));
 
         renderPanel('5');
 
-        await waitFor(() => expect(screen.getByText('down')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByText('The road network has not been built yet.')).toBeInTheDocument());
+    });
+
+    it('shows its own text, not "HTTP 500", when the server fails (KNG-169)', async () => {
+        getStreetRoad.mockRejectedValue(Object.assign(new Error('HTTP 500: Internal Server Error'), { status: 500 }));
+
+        renderPanel('5');
+
+        expect(await screen.findByText('Could not load the street’s road.')).toBeInTheDocument();
+        expect(screen.queryByText(/HTTP 500/)).not.toBeInTheDocument();
     });
 
     it('explains a missing street (404)', async () => {

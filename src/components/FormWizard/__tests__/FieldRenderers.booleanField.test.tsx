@@ -58,4 +58,24 @@ describe('FieldRenderer Boolean field', () => {
 
         expect(onChange).toHaveBeenCalledWith(true);
     });
+
+    it('shows the description under the label and links it to the checkbox (KNG-137)', () => {
+        render(
+            <FieldRenderer
+                field={baseField({ description: 'Opens the gate as soon as the structure is saved.' })}
+                value={false}
+                onChange={jest.fn()}
+            />
+        );
+
+        expect(screen.getByText('Opens the gate as soon as the structure is saved.')).toBeInTheDocument();
+        expect(screen.getByRole('checkbox')).toHaveAccessibleDescription('Opens the gate as soon as the structure is saved.');
+    });
+
+    it('renders no description element when the field has none', () => {
+        const { container } = render(<FieldRenderer field={baseField({})} value={false} onChange={jest.fn()} />);
+
+        expect(container.querySelector('#isActive-description')).toBeNull();
+        expect(screen.getByRole('checkbox')).not.toHaveAttribute('aria-describedby');
+    });
 });

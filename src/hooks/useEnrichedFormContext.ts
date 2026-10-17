@@ -9,6 +9,7 @@ import {
 import { FormConfigurationDto, FormStepDto } from '../types/dtos/forms/FormModels';
 import { EntityMetadataDto } from '../types/dtos/metadata/MetadataModels';
 import { logging } from '../utils';
+import { failureReason } from '../utils/apiRefusalReason';
 
 export interface FormFieldMetadata {
   id: number;
@@ -58,8 +59,8 @@ export const useEnrichedFormContext = (config: FormConfigurationDto): EnrichedFo
         setFieldMetadata(fieldMeta);
         setEntityMetadata(new Map(entityMeta.map(entity => [entity.entityName, entity])));
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load metadata';
-        setError(`Failed to load metadata: ${message}`);
+        const reason = failureReason(err);
+        setError(reason ? `Failed to load metadata: ${reason}` : 'Failed to load metadata.');
         logging.errorHandler.next('ErrorMessage.FormMetadata.LoadFailed');
       } finally {
         setIsLoading(false);
@@ -103,8 +104,8 @@ export const useEnrichedFormContext = (config: FormConfigurationDto): EnrichedFo
 
       return response;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to resolve dependencies';
-      setError(`Failed to resolve dependencies: ${message}`);
+      const reason = failureReason(err);
+      setError(reason ? `Failed to resolve dependencies: ${reason}` : 'Failed to resolve dependencies.');
       logging.errorHandler.next('ErrorMessage.FormDependencies.ResolveFailed');
       return createEmptyResolutionResponse();
     } finally {

@@ -5,6 +5,8 @@ import { workflowClient } from '../../apiClients/workflowClient';
 import { FormWizard } from './FormWizard';
 import { FeedbackModal } from '../FeedbackModal';
 import { findParentLinkField } from '../../utils/forms/findParentLinkField';
+import { buildChildEditSeedValues } from '../../utils/forms/childEditSeed';
+import { apiRefusalReason, failureReason } from '../../utils/apiRefusalReason';
 
 interface ChildFormModalProps {
     open: boolean;
@@ -30,6 +32,12 @@ interface ChildFormModalProps {
     // The parent form's current values + id, for the child's pickerFilters {parent.X} tokens. Unlike
     // parentEntitySnapshot it is passed in edit mode too.
     parentContext?: Record<string, unknown>;
+    // KNG-134: the instance as the parent form holds it ("Edit instance"). Without an entityId the
+    // child form is seeded from it (a world-task Location, an unsaved item). With an entityId it is
+    // laid over the database load only when overlayInitialValues is set: the parent holds edits the
+    // database doesn't have yet (an embedded Location edited earlier in this session).
+    initialValues?: Record<string, unknown>;
+    overlayInitialValues?: boolean;
     onComplete: (data: any, progress?: FormSubmissionProgressDto) => void | Promise<void>;
     onClose: () => void;
 }
@@ -48,6 +56,8 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
     parentEntityTypeName,
     parentEntitySnapshot,
     parentContext,
+    initialValues,
+    overlayInitialValues,
     onComplete,
     onClose
 }) => {
@@ -92,10 +102,9 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                 const actualConfig = Array.isArray(config) ? config[0] : config;
                 if (cancelled) return;
                 setDefaultConfig(actualConfig);
-            } catch (err: any) {
+            } catch (err) {
                 if (cancelled) return;
-                const errorMessage = err?.response?.data?.message || `Failed to load form configuration for ${entityTypeName}`;
-                setError(errorMessage);
+                setError(apiRefusalReason(err) ?? `Failed to load form configuration for ${entityTypeName}`);
                 setShowErrorFeedback(true);
                 setDefaultConfig(null);
             } finally {
@@ -170,9 +179,8 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
         try {
             await onComplete(data, progress);
             onClose();
-        } catch (err: any) {
-            const message = err?.response?.data?.message || err?.message || `Failed to save ${entityTypeName}. Please try again.`;
-            setSaveError(message);
+        } catch (err) {
+            setSaveError(failureReason(err) ?? `Failed to save ${entityTypeName}. Please try again.`);
         } finally {
             setCompleting(false);
         }
@@ -180,6 +188,13 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
 
     const isEditMode = !!entityId;
     const isResuming = !!existingProgressId;
+    // KNG-134: "Edit instance" on a value that was never saved (no id) - nothing to load, so the
+    // form is seeded from what the parent holds.
+    const isEditingHeldValue = !isEditMode && !isResuming && !!initialValues;
+    const editSeedValues = useMemo(
+        () => (initialValues ? buildChildEditSeedValues(defaultConfig, initialValues) : undefined),
+        [defaultConfig, initialValues]
+    );
 
     // Prefill any field on this child's own form that links back to the parent entity it's being
     // created under (e.g. GateDoor's "GateStructureId" when created from within a GateStructure
@@ -187,12 +202,18 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
     // edit mode (a persisted entity already has its own data) or resume mode (a draft already has
     // whatever it was saved with, including its own link field value).
     const initialFieldValues = useMemo(() => {
-        if (isEditMode || isResuming || !parentEntitySnapshot) {
+        if (isEditMode || isResuming) {
             return undefined;
         }
-        const linkField = findParentLinkField(defaultConfig, parentEntityTypeName);
-        return linkField ? { [linkField.fieldName]: parentEntitySnapshot } : undefined;
-    }, [isEditMode, isResuming, defaultConfig, parentEntityTypeName, parentEntitySnapshot]);
+        const linkField = parentEntitySnapshot ? findParentLinkField(defaultConfig, parentEntityTypeName) : null;
+        const linkPrefill = linkField ? { [linkField.fieldName]: parentEntitySnapshot } : {};
+        // The held value's own fields win over the parent-link prefill (it may hold its own link).
+        const combined = { ...linkPrefill, ...(isEditingHeldValue ? editSeedValues : {}) };
+        return Object.keys(combined).length > 0 ? combined : undefined;
+    }, [isEditMode, isResuming, isEditingHeldValue, editSeedValues, defaultConfig, parentEntityTypeName, parentEntitySnapshot]);
+
+    const overlayFieldValues = isEditMode && overlayInitialValues ? editSeedValues : undefined;
+    const showsEditTitle = isEditMode || isEditingHeldValue;
 
     if (!open) return null;
 
@@ -204,10 +225,12 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                     <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                         <div>
                             <h2 className="text-xl font-bold text-gray-900">
-                                {isEditMode ? `Edit ${entityTypeName}` : isResuming ? `Continue draft ${entityTypeName}` : `Create New ${entityTypeName}`}
+                                {showsEditTitle ? `Edit ${entityTypeName}` : isResuming ? `Continue draft ${entityTypeName}` : `Create New ${entityTypeName}`}
                             </h2>
                             <p className="text-sm text-gray-600 mt-1">
-                                {isEditMode
+                                {isEditingHeldValue
+                                    ? `Update the ${entityTypeName} details (not saved yet)`
+                                    : isEditMode
                                     ? `Update the ${entityTypeName} details`
                                     : isResuming
                                         ? `Resume where this draft was left off`
@@ -246,6 +269,7 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                                 workflowSessionId={effectiveWorkflowSessionId}
                                 worldTaskHint={worldTaskHint}
                                 initialFieldValues={initialFieldValues}
+                                overlayFieldValues={overlayFieldValues}
                                 parentContext={parentContext}
                             />
                         ) : (

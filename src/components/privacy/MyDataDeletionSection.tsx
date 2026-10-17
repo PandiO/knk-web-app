@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2, Trash2 } from 'lucide-react';
 import { dataDeletionClient } from '../../apiClients/dataDeletionClient';
 import { PrivacyDeletionRequestDto } from '../../types/dtos/privacy/PrivacyDtos';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 /**
  * "Delete my data" on the account page (KNG-34 GDPR deletion, developer decisions 2026-10-03). The
@@ -12,11 +13,7 @@ import { PrivacyDeletionRequestDto } from '../../types/dtos/privacy/PrivacyDtos'
 
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString() : '-');
 
-const messageOf = (err: unknown): string => {
-  const e = err as { status?: number; response?: { error?: string; message?: string } } | undefined;
-  if (e?.response?.message) return e.response.message;
-  return err instanceof Error ? err.message : 'Request failed';
-};
+const messageOf = (err: unknown): string => apiRefusalReason(err) ?? 'Request failed';
 
 interface Props {
   /** Without an email address the request can't be confirmed. */

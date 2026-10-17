@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { displayConfigClient } from '../../../apiClients/displayConfigClient';
 import { DisplayConfigurationDto } from '../../../types/dtos/displayConfig/DisplayModels';
+import { failureReason } from '../../../utils/apiRefusalReason';
 
 export function useDisplayConfig(
   entityTypeName: string,
@@ -23,7 +24,8 @@ export function useDisplayConfig(
         
         setConfig(fetchedConfig);
       } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to fetch configuration'));
+        // Shown to the user: the API's reason, never a bare "HTTP 500: …" (KNG-169).
+        setError(new Error(failureReason(err) ?? 'Failed to fetch configuration'));
         console.error('Failed to fetch display configuration:', err);
       } finally {
         setLoading(false);

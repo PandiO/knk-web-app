@@ -4,6 +4,7 @@ import { privacyClient } from '../../apiClients/privacyClient';
 import { OwnerOnlyNotice } from '../../components/OwnerRoute';
 import { PrivacyDeletionRequestDto, PrivacyRequestStatus } from '../../types/dtos/privacy/PrivacyDtos';
 import { OWNER_PRIVACY_MANAGE_NODE } from '../../types/dtos/telemetry/TelemetryDtos';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 /**
  * GDPR deletion requests (KNG-34 D12, DESIGN.md §F.14, link 6 + developer decisions 2026-10-03).
@@ -32,7 +33,7 @@ const STATUS_LABEL: Record<PrivacyRequestStatus, string> = {
 };
 
 const isForbidden = (err: unknown) => (err as { status?: number })?.status === 403;
-const messageOf = (err: unknown) => (err instanceof Error ? err.message : 'Request failed');
+const messageOf = (err: unknown) => apiRefusalReason(err) ?? 'Request failed';
 const day = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString() : '-');
 const isOpen = (r: PrivacyDeletionRequestDto) => r.status === 'Pending' || r.status === 'AwaitingConfirmation';
 const graceOver = (r: PrivacyDeletionRequestDto) => r.status === 'Pending' && !!r.scheduledAt && new Date(r.scheduledAt) <= new Date();

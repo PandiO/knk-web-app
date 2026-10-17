@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Star, Pencil, StarOff, MoreVertical, Trash2 } from 'lucide-react';
+import { Play, Star, Pencil, StarOff, MoreVertical, Trash2, Download, Upload } from 'lucide-react';
 import { FormConfigurationDto } from '../../types/dtos/forms/FormModels';
 
 interface Props {
@@ -11,6 +11,10 @@ interface Props {
     onDelete?: (config: FormConfigurationDto) => void;
     onCreate: () => void;
     onCreateDefault: () => void;
+    /** KNG-138: download the configuration as a portable JSON file. */
+    onExport?: (config: FormConfigurationDto) => void;
+    /** KNG-138: open the import / bundled seeds dialog. */
+    onImport?: () => void;
 }
 
 export const FormConfigurationTable: React.FC<Props> = ({
@@ -21,7 +25,9 @@ export const FormConfigurationTable: React.FC<Props> = ({
     onEdit,
     onDelete,
     onCreate,
-    onCreateDefault
+    onCreateDefault,
+    onExport,
+    onImport
 }) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -39,10 +45,9 @@ export const FormConfigurationTable: React.FC<Props> = ({
     }, []);
 
     const handleDeleteClick = (config: FormConfigurationDto) => {
-        if (window.confirm(`Are you sure you want to delete "${config.configurationName}"?`)) {
-            onDelete?.(config);
-            setActiveMenu(null);
-        }
+        // The page asks for confirmation (a FeedbackModal), so the menu only hands the config over.
+        onDelete?.(config);
+        setActiveMenu(null);
     };
 
     const getMenuPosition = (configId: string) => {
@@ -74,6 +79,15 @@ export const FormConfigurationTable: React.FC<Props> = ({
                     >
                         Create Form as Default
                     </button>
+                    {onImport && (
+                        <button
+                            onClick={onImport}
+                            className="btn-secondary text-sm inline-flex items-center"
+                        >
+                            <Upload className="h-4 w-4 mr-1" />
+                            Import / Seeds
+                        </button>
+                    )}
                 </div>
             </div>
             {configurations.length === 0 ? (
@@ -160,6 +174,7 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                     ref={(el) => buttonRefs.current[config.id!] = el}
                                                     onClick={() => setActiveMenu(activeMenu === config.id ? null : config.id!)}
                                                     className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                                                    aria-label={`More actions for ${config.configurationName}`}
                                                 >
                                                     <MoreVertical className="h-4 w-4 text-gray-400" />
                                                 </button>
@@ -217,6 +232,19 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                                 <Pencil className="h-4 w-4 text-gray-400" />
                                                                 <span>Edit</span>
                                                             </button>
+                                                            {onExport && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        onExport(config);
+                                                                        setActiveMenu(null);
+                                                                    }}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                                                                    role="menuitem"
+                                                                >
+                                                                    <Download className="h-4 w-4 text-gray-400" />
+                                                                    <span>Export JSON</span>
+                                                                </button>
+                                                            )}
                                                             {onDelete && (
                                                                 <button
                                                                     onClick={() => handleDeleteClick(config)}

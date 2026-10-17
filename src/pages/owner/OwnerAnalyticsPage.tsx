@@ -12,6 +12,7 @@ import {
   MenuFunnelReportDto,
   OWNER_ANALYTICS_VIEW_NODE,
 } from '../../types/dtos/analytics/WorldAnalyticsDtos';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 /**
  * World analytics (KNG-34 link 7, DESIGN.md D10/D11): a movement heatmap per world, menu funnels and
@@ -20,7 +21,7 @@ import {
  */
 
 const isForbidden = (err: unknown) => (err as { status?: number })?.status === 403;
-const messageOf = (err: unknown) => (err instanceof Error ? err.message : 'Request failed');
+const messageOf = (err: unknown) => apiRefusalReason(err) ?? 'Request failed';
 const fmt = (n: number) => n.toLocaleString();
 
 const isoDay = (d: Date) => {

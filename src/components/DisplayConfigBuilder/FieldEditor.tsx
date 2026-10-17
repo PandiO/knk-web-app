@@ -25,6 +25,8 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
     const [relatedEntityOptions, setRelatedEntityOptions] = useState<RelatedEntityOption[]>([]);
     const [relatedEntityFields, setRelatedEntityFields] = useState<FieldMetadataDto[]>([]);
     const [loadingRelatedMetadata, setLoadingRelatedMetadata] = useState(false);
+    // Shown under the Label input when Save is pressed without one (was a browser alert).
+    const [labelError, setLabelError] = useState<string | null>(null);
 
     // Extract related entity navigation properties from metadata
     useEffect(() => {
@@ -131,7 +133,7 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
 
     const handleSave = () => {
         if (!field.label.trim()) {
-            alert('Label is required');
+            setLabelError('Label is required.');
             return;
         }
 
@@ -184,10 +186,12 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                         <input
                             type="text"
                             value={field.label}
-                            onChange={e => setField({ ...field, label: e.target.value })}
+                            onChange={e => { setField({ ...field, label: e.target.value }); setLabelError(null); }}
                             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                             placeholder="e.g., Street Name, Total Cost"
+                            aria-invalid={labelError !== null}
                         />
+                        {labelError && <p className="mt-1 text-sm text-red-600" role="alert">{labelError}</p>}
                     </div>
 
                     {/* Related Entity Selection - always show to allow field-level dedication */}

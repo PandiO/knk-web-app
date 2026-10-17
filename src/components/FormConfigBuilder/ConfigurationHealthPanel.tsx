@@ -3,6 +3,7 @@ import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleC
 import { ValidationIssueDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { FormConfigurationDto } from '../../types/dtos/forms/FormModels';
 import { AlertTriangle, CheckCircle2, RefreshCw, ShieldAlert, ShieldQuestion, Info, Wrench } from 'lucide-react';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 interface ConfigurationHealthPanelProps {
     configurationId?: string;
@@ -33,10 +34,9 @@ export const ConfigurationHealthPanel: React.FC<ConfigurationHealthPanelProps> =
                 const result = await fieldValidationRuleClient.validateDraftConfiguration(draftConfig);
                 setIssues(result);
                 onIssuesLoaded?.(result.length);
-            } catch (err: any) {
+            } catch (err) {
                 console.error('Failed to validate draft configuration:', err);
-                const message = err?.response?.data?.message || err?.message || 'Unable to validate configuration.';
-                setError(message);
+                setError(apiRefusalReason(err) ?? 'Unable to validate configuration.');
                 onIssuesLoaded?.(0);
             } finally {
                 setLoading(false);
@@ -54,10 +54,9 @@ export const ConfigurationHealthPanel: React.FC<ConfigurationHealthPanelProps> =
             const result = await fieldValidationRuleClient.validateConfigurationHealth(configIdNumber);
             setIssues(result);
             onIssuesLoaded?.(result.length);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to load configuration health:', err);
-            const message = err?.response?.data?.message || err?.message || 'Unable to load configuration health.';
-            setError(message);
+            setError(apiRefusalReason(err) ?? 'Unable to load configuration health.');
             onIssuesLoaded?.(0);
         } finally {
             setLoading(false);

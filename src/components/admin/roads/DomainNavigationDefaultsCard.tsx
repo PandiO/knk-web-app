@@ -9,6 +9,7 @@ import {
   RoadAccessRule,
   UpdateDomainNavigationDefaultDto,
 } from '../../../types/dtos/road/RoadDtos';
+import { apiRefusalReason } from '../../../utils/apiRefusalReason';
 
 // KNG-73 (docs/specs/navigation/DESIGN.md §6.1) - where `/navigate <town|district|structure>` leads
 // when the player names no mode: the domain's spawn Location or the closest point of its region.
@@ -49,11 +50,7 @@ const InfoTip: React.FC<{ text: string }> = ({ text }) => (
   </span>
 );
 
-const saveErrorMessage = (err: unknown): string => {
-  const status = (err as { status?: number } | null)?.status;
-  const message = err instanceof Error ? err.message : null;
-  return status !== undefined && status >= 400 && status < 500 && message ? message : 'Could not save this default.';
-};
+const saveErrorMessage = (err: unknown): string => apiRefusalReason(err) ?? 'Could not save this default.';
 
 export const DomainNavigationDefaultsCard: React.FC = () => {
   const [defaults, setDefaults] = React.useState<DomainNavigationDefaultDto[] | null>(null);

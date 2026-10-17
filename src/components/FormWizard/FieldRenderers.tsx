@@ -15,6 +15,8 @@ import { useRelationshipDrafts, RelationshipDraft } from '../../hooks/useRelatio
 import { RelationshipDraftCard } from './RelationshipDraftCard';
 import { toBooleanFieldValue } from '../../utils/forms/booleanFieldValue';
 import { ResolvedPickerFilters } from '../../utils/forms/pickerFilters';
+import { useSessionPinnedRows } from '../../hooks/useSessionPinnedRows';
+import { listItemKeys } from '../../utils/forms/listItemKeys';
 import { renderDisplayPanel, parseDisplayPanel } from './displayPanels';
 
 /**
@@ -736,21 +738,30 @@ const DecimalField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
     </div>
 );
 
+// KNG-137: the description goes under the checkbox label, like every other field type's.
 const BooleanField: React.FC<FieldRendererProps> = ({ field, value, onChange, error }) => (
-    <div className="flex items-center">
-        <input
-            type="checkbox"
-            id={field.fieldName}
-            checked={toBooleanFieldValue(value)}
-            onChange={e => onChange(e.target.checked)}
-            disabled={field.isReadOnly}
-            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-        />
-        <label htmlFor={field.fieldName} className="ml-2 block text-sm text-gray-900">
-            {field.label}
-            {field.isRequired && <span className="text-red-500 ml-1">*</span>}
-        </label>
-        {error && <p className="ml-2 text-sm text-red-600">{error}</p>}
+    <div>
+        <div className="flex items-center">
+            <input
+                type="checkbox"
+                id={field.fieldName}
+                checked={toBooleanFieldValue(value)}
+                onChange={e => onChange(e.target.checked)}
+                disabled={field.isReadOnly}
+                aria-describedby={field.description ? `${field.fieldName}-description` : undefined}
+                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+            />
+            <label htmlFor={field.fieldName} className="ml-2 block text-sm text-gray-900">
+                {field.label}
+                {field.isRequired && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            {error && <p className="ml-2 text-sm text-red-600">{error}</p>}
+        </div>
+        {field.description && (
+            <p id={`${field.fieldName}-description`} className="ml-6 mt-1 text-xs text-gray-500">
+                {field.description}
+            </p>
+        )}
     </div>
 );
 
@@ -905,6 +916,8 @@ const ObjectField: React.FC<FieldRendererProps> = ({
     const pickerUnavailableReason = pickerFilters?.unavailableReason;
     const canCreate = field.canCreate !== false; // default true if not specified
     const [showReplaceTable, setShowReplaceTable] = React.useState(false);
+    // KNG-136: entities this form session created, pinned in the picker.
+    const sessionPins = useSessionPinnedRows(field.objectType);
     const configuredDisplayFields = useDefaultDisplayFields(field.objectType);
     const configuredDetails = getConfiguredDisplayDetails(value, configuredDisplayFields);
     // Fall back to the generic Location shape when the entity has no configured display columns.
@@ -1123,6 +1136,8 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                             selectedItems={value ? [value] : []}
                             onSelectionChange={handleSelectionChange}
                             showSelectionBanner={false}
+                            pinnedRows={sessionPins.pinnedRows}
+                            refreshKey={sessionPins.refreshKey}
                         />
                     </div>
                 )}
@@ -1150,11 +1165,14 @@ const ListField: React.FC<FieldRendererProps> = ({
     const debug = (...args: unknown[]) => console.log('[FIELD_RENDERER_DEBUG][ListField]', ...args);
     console.log('Rendering ListField with value:', value);
     const items = Array.isArray(value) ? value : [];
+    const itemKeys = listItemKeys(items);
 
     const listElementType = field.elementType || FieldType.String;
     const isObjectList = field.objectType != null;
     const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
     const canCreate = field.canCreate !== false;
+    // KNG-136: entities this form session created, pinned in the picker.
+    const sessionPins = useSessionPinnedRows(field.objectType);
 
     const { drafts } = useRelationshipDrafts(
         ownedChildCollection ? field.objectType : undefined,
@@ -1193,13 +1211,15 @@ const ListField: React.FC<FieldRendererProps> = ({
         onChange(selected);
     };
 
-    const handleRemoveItem = (itemId: string) => {
+    // KNG-134: by position, not id - two id-less items (an old draft's unsaved values) both have
+    // no id, so removing by id dropped all of them.
+    const handleRemoveItem = (index: number) => {
         debug('handleRemoveItem', {
             fieldName: field.fieldName,
-            itemId,
+            index,
             previousCount: items.length
         });
-        onChange(items.filter(item => item.id !== itemId));
+        onChange(items.filter((_, i) => i !== index));
     };
 
     React.useEffect(() => {
@@ -1306,9 +1326,9 @@ const ListField: React.FC<FieldRendererProps> = ({
                                 Selected ({items.length}):
                             </p>
                             <div className="max-h-32 overflow-y-auto space-y-2">
-                                {items.map((item) => (
+                                {items.map((item, index) => (
                                     <div
-                                        key={item.id}
+                                        key={itemKeys[index]}
                                         className="p-2 bg-green-50 border border-green-200 rounded-md flex items-center justify-between"
                                     >
                                         <div className="flex items-center space-x-2 flex-1 min-w-0">
@@ -1321,13 +1341,13 @@ const ListField: React.FC<FieldRendererProps> = ({
                                                 <p className="text-sm font-medium text-green-900 truncate">
                                                     {getEntityDisplayLabel(item, 'Item')}
                                                 </p>
-                                                <p className="text-xs text-green-600">ID: {item.id}</p>
+                                                <p className="text-xs text-green-600">{item.id != null ? `ID: ${item.id}` : 'Not saved yet'}</p>
                                             </div>
                                         </div>
                                         {!field.isReadOnly && !ownedChildCollection && (
                                             <button
                                                 type="button"
-                                                onClick={() => handleRemoveItem(item.id)}
+                                                onClick={() => handleRemoveItem(index)}
                                                 className="text-green-600 hover:text-green-800 hover:bg-green-100 rounded-full p-1 flex-shrink-0"
                                                 title="Remove from selection"
                                             >
@@ -1337,7 +1357,7 @@ const ListField: React.FC<FieldRendererProps> = ({
                                         {onEditInstance && (
                                             <button
                                                 type="button"
-                                                onClick={() => onEditInstance(item, items.findIndex(current => current.id === item.id))}
+                                                onClick={() => onEditInstance(item, index)}
                                                 className="btn-secondary whitespace-nowrap ml-2"
                                             >
                                                 Edit instance
@@ -1405,6 +1425,8 @@ const ListField: React.FC<FieldRendererProps> = ({
                             onSelectionChange={handleSelectionChange}
                             showSearchBar={true}
                             showSelectionBanner={false}
+                            pinnedRows={sessionPins.pinnedRows}
+                            refreshKey={sessionPins.refreshKey}
                         />
                     </div>}
                 </>

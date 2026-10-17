@@ -13,6 +13,7 @@ import {
 } from '../../types/dtos/discovery/DiscoveryDtos';
 import { DiscoverySummaryBars, formatDiscoveryDate, formatDiscoveryRewards } from '../discovery/DiscoverySummaryBars';
 import { FeedbackModal } from '../FeedbackModal';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 // docs/specs/domain-discovery/DESIGN.md §3.9 - a player's discoveries on their moderation
 // profile: per-type progress, the discovered places (newest first) with what each paid, and a
@@ -127,9 +128,7 @@ export const PlayerDiscoveriesPanel: React.FC<{
       onReset?.();
     } catch (err) {
       console.error('Failed to reset discovery:', err);
-      const status = (err as { status?: number } | null)?.status;
-      const message = err instanceof Error ? err.message : null;
-      setResetError(status !== undefined && status >= 400 && status < 500 && message ? message : 'Could not reset this discovery.');
+      setResetError(apiRefusalReason(err) ?? 'Could not reset this discovery.');
     } finally {
       setResettingId(null);
     }
@@ -242,6 +241,7 @@ export const PlayerDiscoveriesPanel: React.FC<{
         title="Reset discovery?"
         message={`Reset the discovery of ${pendingReset?.name ?? ''}? The player keeps the reward they got and can discover (and be rewarded for) it again.`}
         continueLabel="Reset"
+        danger
         onContinue={() => {
           if (pendingReset) void handleReset(pendingReset);
         }}

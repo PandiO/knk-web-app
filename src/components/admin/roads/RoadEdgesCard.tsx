@@ -17,6 +17,7 @@ import {
   RoadTileDto,
   formatRoadFlags,
 } from '../../../types/dtos/road/RoadDtos';
+import { apiRefusalReason } from '../../../utils/apiRefusalReason';
 
 // docs/specs/navigation/DESIGN.md §3.6 / §7.1 D-E - the edge table: every road stretch of the
 // world, server-paged (POST api/road-edges/search), with the review actions an admin does from
@@ -75,11 +76,7 @@ export function edgeUpdateFrom(edge: RoadEdgeDto, draft: Draft): { value?: RoadE
   return { errors, value: update };
 }
 
-const saveErrorMessage = (err: unknown, fallback: string): string => {
-  const status = (err as { status?: number } | null)?.status;
-  const message = err instanceof Error ? err.message : null;
-  return status !== undefined && status >= 400 && status < 500 && message ? message : fallback;
-};
+const saveErrorMessage = (err: unknown, fallback: string): string => apiRefusalReason(err) ?? fallback;
 
 const formatLength = (length: number): string => `${Math.round(length).toLocaleString('en-US')}`;
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { Coins, Loader2 } from 'lucide-react';
 import { currencyClient } from '../../apiClients/currencyClient';
 import { usePermission } from '../../hooks/useStaffAccess';
+import { isStaffNoteValid, StaffNoteField } from './StaffNoteField';
 import {
     ADJUSTMENT_CATEGORIES,
     AdjustmentCategory,
@@ -10,6 +11,7 @@ import {
     MIN_STAFF_NOTE_LENGTH,
 } from '../../types/dtos/currency/CurrencyDtos';
 import { BalanceAdjustmentResultDto, BalanceMode } from '../../types/dtos/userManagement/UserProfileSummaryDtos';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 type BalanceProperty = 'coins' | 'gems' | 'experiencePoints';
 
@@ -18,14 +20,6 @@ const PROPERTIES: { value: BalanceProperty; label: string; noun: string }[] = [
     { value: 'gems', label: 'Gems', noun: 'gems' },
     { value: 'experiencePoints', label: 'XP', noun: 'XP' },
 ];
-
-// The API's own explanation for a refused request (400/403/409/422), e.g. "Requires the
-// knk.admin.user.coins permission." or a BalanceCapExceeded / AdminDailyCapExceeded message.
-const clientErrorMessage = (err: unknown): string | null => {
-    const status = (err as { status?: number } | null)?.status;
-    const message = err instanceof Error ? err.message : null;
-    return status !== undefined && status >= 400 && status < 500 && message ? message : null;
-};
 
 export interface AdjustBalanceCardProps {
     userId: number;
@@ -60,6 +54,8 @@ export const AdjustBalanceCard: React.FC<AdjustBalanceCardProps> = ({ userId, ba
     const [category, setCategory] = React.useState<AdjustmentCategory | ''>('');
     const [note, setNote] = React.useState('');
     const [submitting, setSubmitting] = React.useState(false);
+    // Set by a submit with a too-short note; StaffNoteField then says why nothing was sent.
+    const [noteTooShort, setNoteTooShort] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
 
     // One Idempotency-Key per submission (currency ledger, KNG-21 Phase 2): kept when the request
@@ -85,12 +81,16 @@ export const AdjustBalanceCard: React.FC<AdjustBalanceCardProps> = ({ userId, ba
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        // The button stays enabled (KNG-126): a submit that can't be sent says what is missing.
         const value = Number(amount);
-        if (!amount.trim() || Number.isNaN(value) || value < 0) return;
-        if (!category || note.trim().length < MIN_STAFF_NOTE_LENGTH) {
-            setError(`Pick a category and say why in at least ${MIN_STAFF_NOTE_LENGTH} characters.`);
-            return;
-        }
+        const missing = [
+            !amount.trim() || Number.isNaN(value) || value < 0 ? 'enter an amount of 0 or more' : null,
+            !category ? 'pick a category' : null,
+        ].filter(Boolean);
+        const noteOk = isStaffNoteValid(note);
+        setNoteTooShort(!noteOk);
+        setError(missing.length ? `To apply this, ${missing.join(' and ')}.` : null);
+        if (missing.length || !category || !noteOk) return;
         setSubmitting(true);
         setError(null);
         onStart?.();
@@ -121,7 +121,7 @@ export const AdjustBalanceCard: React.FC<AdjustBalanceCardProps> = ({ userId, ba
             console.error('Failed to adjust balance:', err);
             setError((err as { status?: number })?.status === 409
                 ? 'This balance changed since the page loaded — refresh and try again.'
-                : clientErrorMessage(err) ?? 'Could not adjust this balance — check the amount doesn\'t go below zero.');
+                : apiRefusalReason(err) ?? 'Could not adjust this balance — check the amount doesn\'t go below zero.');
         } finally {
             setSubmitting(false);
         }
@@ -140,7 +140,7 @@ export const AdjustBalanceCard: React.FC<AdjustBalanceCardProps> = ({ userId, ba
                 Every change is recorded in the balance history with its category and reason
                 (at least {MIN_STAFF_NOTE_LENGTH} characters).
             </p>
-            <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={(e) => void handleSubmit(e)}>
+            <form className="mt-4 flex flex-wrap items-start gap-3" onSubmit={(e) => void handleSubmit(e)}>
                 <div>
                     <label htmlFor="balance-property" className="block text-xs text-gray-500 mb-1">Balance</label>
                     <select
@@ -191,20 +191,16 @@ export const AdjustBalanceCard: React.FC<AdjustBalanceCardProps> = ({ userId, ba
                         ))}
                     </select>
                 </div>
-                <div className="flex-1 min-w-[160px]">
-                    <label htmlFor="balance-note" className="block text-xs text-gray-500 mb-1">Reason</label>
-                    <input
-                        id="balance-note"
-                        type="text"
-                        maxLength={450}
-                        className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-full"
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        placeholder={`Required, at least ${MIN_STAFF_NOTE_LENGTH} characters`}
-                    />
-                </div>
-                <button type="submit" className="btn-primary text-sm"
-                    disabled={!amount.trim() || !category || note.trim().length < MIN_STAFF_NOTE_LENGTH || submitting}>
+                <StaffNoteField
+                    id="balance-note"
+                    className="flex-1 min-w-[160px]"
+                    label="Reason"
+                    value={note}
+                    onChange={setNote}
+                    showError={noteTooShort}
+                    placeholder={`Required, at least ${MIN_STAFF_NOTE_LENGTH} characters`}
+                />
+                <button type="submit" className="btn-primary text-sm mt-5" disabled={submitting}>
                     {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply adjustment'}
                 </button>
                 {raisesXp && (
@@ -213,7 +209,7 @@ export const AdjustBalanceCard: React.FC<AdjustBalanceCardProps> = ({ userId, ba
                         coins and gems permissions, and those bonuses count toward your daily staff grant limit.
                     </span>
                 )}
-                {error && <span className="text-xs text-red-600 w-full">{error}</span>}
+                {error && <span role="alert" className="text-xs text-red-600 w-full">{error}</span>}
             </form>
             {children}
         </section>

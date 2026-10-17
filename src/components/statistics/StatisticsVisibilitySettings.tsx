@@ -10,6 +10,7 @@ import {
   StatisticsVisibilityDto,
   StatisticVisibility,
 } from '../../types/dtos/statistics/StatisticsDtos';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 // Who may see each of the player's statistics (KNG-34, DESIGN.md §F.4, D8) - the web twin of the
 // in-game statistics.visibility menu. Per setting and per game context; a group action sets every
@@ -100,7 +101,7 @@ export const StatisticsVisibilitySettings: React.FC<{ userId: number; readOnly?:
         setError('Your settings were changed elsewhere meanwhile, so nothing was changed. They are shown as they are now - try again.');
       } else {
         console.error('Failed to save statistics visibility:', err);
-        setError('Could not save your settings right now - try again later.');
+        setError(apiRefusalReason(err) ?? 'Could not save your settings right now - try again later.');
       }
     } finally {
       setSaving(false);
