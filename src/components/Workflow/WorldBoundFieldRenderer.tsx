@@ -268,7 +268,7 @@ export const WorldTaskResultDetails: React.FC<{ details: WorldTaskResultDetail[]
  * For Location tasks, converts raw coordinates to location object
  * For Region tasks, extracts the regionId directly
  */
-function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
+export function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
     if (!task.outputJson) return null;
     
     try {
@@ -314,6 +314,13 @@ function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
         if (isLocationTask(taskType, task.taskType)) {
             // Extract raw location data and convert to location object
             if (output.x !== undefined && output.y !== undefined && output.z !== undefined) {
+                // KNG-118 (U2): no silent 'world' default. A capture without a world is refused
+                // (the extraction-error banner shows) instead of saving a Location in a world named "world".
+                const world = getOutputValueByKey(output, 'world') ?? getOutputValueByKey(output, 'worldName');
+                if (typeof world !== 'string' || world.trim() === '') {
+                    console.warn('Location task output has no world; not using it:', output);
+                    return null;
+                }
                 const locationObject = {
                     name: output.name ?? 'Location',
                     x: output.x,
@@ -321,7 +328,7 @@ function extractTaskResult(task: WorldTaskReadDto, taskType: string): any {
                     z: output.z,
                     yaw: output.yaw ?? 0,
                     pitch: output.pitch ?? 0,
-                    World: output.World ?? output.worldName ?? 'world'
+                    World: world.trim()
                 };
                 console.log('Extracted location from task:', locationObject);
                 return locationObject;

@@ -768,7 +768,6 @@ export const FormConfigBuilder: React.FC = () => {
                 onClose={closeSaveModal}
                 onContinue={handleSaveContinue}
             />
-
             {confirmModal}
 
             {showStepSelector && (

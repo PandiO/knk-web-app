@@ -50,7 +50,10 @@ describe('AdjustBalanceCard', () => {
         fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'COMPENSATION' } });
         const apply = screen.getByRole('button', { name: 'Apply adjustment' });
         fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'too short' } });
-        expect(apply).toBeDisabled();
+        expect(screen.getByText('9 / 10 characters')).toBeInTheDocument();
+        fireEvent.click(apply);
+        expect(await screen.findByText('Write a reason of at least 10 characters (1 more).')).toBeInTheDocument();
+        expect(currencyClient.adjust).not.toHaveBeenCalled();
         fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Lost gems to a lag spike' } });
         fireEvent.click(apply);
 
@@ -59,6 +62,19 @@ describe('AdjustBalanceCard', () => {
             targetUserId: 7, currency: 'Gems', mode: 'Set', amount: 50, expectedCurrent: 5,
             category: 'COMPENSATION', note: 'Lost gems to a lag spike'
         }, expect.any(String));
+    });
+
+    it('keeps Apply enabled and says what is missing instead of doing nothing (KNG-126)', async () => {
+        mockHeld = ['knk.admin.user.coins'];
+        render(<AdjustBalanceCard userId={7} balances={BALANCES} onAdjusted={jest.fn()} />);
+
+        const apply = screen.getByRole('button', { name: 'Apply adjustment' });
+        expect(apply).toBeEnabled();
+        fireEvent.click(apply);
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('To apply this, enter an amount of 0 or more and pick a category.');
+        expect(screen.getByText('Write a reason of at least 10 characters (10 more).')).toBeInTheDocument();
+        expect(currencyClient.adjust).not.toHaveBeenCalled();
     });
 
     it('shows the API reason when refused, e.g. an XP increase without the coins and gems permissions', async () => {

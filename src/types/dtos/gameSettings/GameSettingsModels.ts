@@ -65,6 +65,10 @@ export interface MinecraftWorldRuntimeDto {
   loaded: boolean;
   playerCount: number;
   isPrimary: boolean;
+  /** KNG-118: the game server that reported this world (the API keeps each server's report). */
+  serverId?: string | null;
+  /** KNG-118: when that server last reported it (UTC). */
+  reportedAt?: string | null;
 }
 
 /**
@@ -88,6 +92,60 @@ export interface PermissionGroupGameSettingsDto {
    */
   joinAtLastLocation?: boolean | null;
   respawnPolicy?: RespawnPolicyDto | null;
+  /** The hub's outage action for this group's members; null = not set (hub DESIGN §13). */
+  outageAction?: HubOutageAction | null;
+  /** Outage delay in seconds for this group's members; 0 = immediately; null = not set. */
+  outageDelaySeconds?: number | null;
+}
+
+/** What happens to online players when the API is lost (hub DESIGN §1, §2). */
+export type HubOutageAction = 'None' | 'SendToHub' | 'Kick' | 'SendToWorldSpawn';
+
+/** The hub's rules (§13), applied inside the selected hub's region only. */
+export interface HubRulesDto {
+  damagePlayers: boolean;
+  damageEntities: boolean;
+  takeDamage: boolean;
+  buildBreak: boolean;
+  dropPickup: boolean;
+  useDoors: boolean;
+  useNpcs: boolean;
+  useStorage: boolean;
+  useItemFramesPaintings: boolean;
+  healAmount: number;
+  healIntervalTicks: number;
+  feedAmount: number;
+  feedIntervalTicks: number;
+  saturationAmount: number;
+  saturationIntervalTicks: number;
+}
+
+/** The hub (hub DESIGN §16 Phase 4). No domainId = no hub: players join as before. */
+export interface HubSettingsDto {
+  domainId?: number | null;
+  /** Read-only, filled in by the API. */
+  domainName?: string | null;
+  domainType?: string | null;
+  worldName?: string | null;
+  wgRegionId?: string | null;
+  spawnReference?: LocationReferenceDto | null;
+  outageAction: HubOutageAction;
+  /** 0 = "Uit": immediately. */
+  outageDelaySeconds: number;
+  rules: HubRulesDto;
+  /** WorldGuard region ids in the hub's world: walking in takes the player into the game (decision 2026-10-12). */
+  portalRegionIds?: string[];
+}
+
+/** A hub-eligible domain (decision 4). */
+export interface HubDomainDto {
+  id: number;
+  name: string;
+  domainType: string;
+  worldName?: string | null;
+  wgRegionId?: string | null;
+  isHub: boolean;
+  selected: boolean;
 }
 
 export interface GameSettingsDto {
@@ -104,6 +162,7 @@ export interface GameSettingsDto {
   /** Server-list MOTD (two lines, & codes, {online}/{max}); null = server.properties. */
   motd?: string | null;
   groupOverrides?: PermissionGroupGameSettingsDto[];
+  hub?: HubSettingsDto | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -120,6 +179,8 @@ export interface GameSettingsUpdateDto {
   motd?: string | null;
   /** null/undefined keeps the stored overrides; a list (also empty) replaces them. */
   groupOverrides?: PermissionGroupGameSettingsDto[] | null;
+  /** null/undefined keeps the stored hub settings. */
+  hub?: HubSettingsDto | null;
 }
 
 export interface GameSettingsRuntimeWorldsUpdateDto {
