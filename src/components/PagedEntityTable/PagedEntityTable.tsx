@@ -11,6 +11,7 @@ import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinit
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
 import { buildPinnedSection, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
 
 /** Green "Existing" / amber "New" pill, shared by the hybrid pickers and the pinned session rows. */
 const RowBadge: React.FC<{ isNew: boolean; label?: string }> = ({ isNew, label }) => (
@@ -255,11 +256,9 @@ export function PagedEntityTable<T extends Record<string, any>>({
     }, [configuredColumnKeys, fallbackColumns, entityFieldKeySet]);
 
     const effectiveColumns = useMemo(() => {
-        const columnMap = new Map(fallbackColumns.map(column => [column.key.toLowerCase(), column]));
-
         const mapped = guardedColumnKeys
             .map(key => {
-                const existing = columnMap.get(key.toLowerCase());
+                const existing = matchBuiltInColumn(key, fallbackColumns);
                 if (existing) {
                     return existing;
                 }
