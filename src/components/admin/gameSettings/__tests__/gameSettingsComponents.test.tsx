@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { buildLocationOptions, filterLocationOptions, toReference } from '../locationReferenceOptions';
-import { GroupOverridesCard, groupDepth, orderByPrecedence } from '../GroupOverridesCard';
+import { GroupOverridesCard, orderByPrecedence, precedenceOrder } from '../GroupOverridesCard';
 import { LocationReferencePicker } from '../LocationReferencePicker';
 import { deserializeLegacyText } from '../MinecraftLegacyPreview';
 import { RespawnPolicyEditor, defaultRespawnPolicy } from '../RespawnPolicyEditor';
@@ -198,15 +198,24 @@ describe('group override precedence (KNG-52)', () => {
         { id: 4, name: 'Admin', weight: 5, parentGroupId: 3 },
     ];
 
-    it('counts parents and survives cycles', () => {
-        expect(groupDepth(1, groups)).toBe(0);
-        expect(groupDepth(2, groups)).toBe(1);
-        expect(groupDepth(10, [{ id: 10, name: 'A', weight: 0, parentGroupId: 11 }, { id: 11, name: 'B', weight: 0, parentGroupId: 10 }])).toBe(1);
+    it('survives a parent cycle', () => {
+        expect(precedenceOrder([{ id: 10, name: 'A', weight: 1, parentGroupId: 11 }, { id: 11, name: 'B', weight: 0, parentGroupId: 10 }]))
+            .toEqual([10, 11]);
     });
 
-    it('orders hierarchy first, then weight', () => {
+    it('orders hierarchy first, then weight, as the API does', () => {
+        // Noble (w10) and Admin (w5) start, each followed by its parent: Noble, Default, Admin, Staff.
         const ordered = orderByPrecedence([1, 2, 3, 4].map(id => ({ permissionGroupId: id })), groups);
-        expect(ordered.map(o => o.permissionGroupId)).toEqual([2, 4, 3, 1]);
+        expect(ordered.map(o => o.permissionGroupId)).toEqual([2, 1, 4, 3]);
+    });
+
+    it('ranks a chain by the group the player holds (decision 2026-10-12, option (i))', () => {
+        const knights = [
+            { id: 20, name: 'Squire', weight: 50, parentGroupId: null },
+            { id: 21, name: 'Knight', weight: 10, parentGroupId: 20 },
+            { id: 22, name: 'Merchant', weight: 30, parentGroupId: null },
+        ];
+        expect(precedenceOrder(knights)).toEqual([22, 21, 20]);
     });
 
     it('adds a group and edits its join message', () => {
