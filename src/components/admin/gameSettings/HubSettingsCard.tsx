@@ -147,9 +147,12 @@ export const HubSettingsCard: React.FC<{
                                 type="button"
                                 className="btn-secondary text-xs"
                                 aria-label={`Remove the hub flag of ${d.name}`}
-                                disabled={busy || d.selected}
+                                disabled={busy}
                                 title={d.selected ? 'Select another hub (or none) and save first' : undefined}
-                                onClick={() => void setEligible(d.id, false)}
+                                onClick={() => d.selected
+                                    // Said rather than only disabled: a disabled button gave no feedback (smoke test 2026-10-17).
+                                    ? setError(`${d.name} is the selected hub. Select another hub (or No hub) below and save the page before removing its flag.`)
+                                    : void setEligible(d.id, false)}
                             >
                                 <Trash2 className="h-4 w-4" />
                             </button>
@@ -263,7 +266,7 @@ export const HubSettingsCard: React.FC<{
                         onChange={e => onChange({ ...hub, outageDelaySeconds: Math.min(MAX_OUTAGE_DELAY_SECONDS, Math.max(0, Math.round(Number(e.target.value)) || 0)) })}
                         className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
                     />
-                    <p className="mt-1 text-xs text-gray-500">0 = Uit: the action runs as soon as the outage is detected.</p>
+                    <p className="mt-1 text-xs text-gray-500">Counted from the first failed health check. The server confirms an outage after a few failed checks (about 20-30 s by default), so even 0 (Uit) acts only then.</p>
                 </div>
             </div>
 

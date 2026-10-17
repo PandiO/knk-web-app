@@ -77,7 +77,9 @@ describe('HubSettingsCard (hub DESIGN §16 Phase 4)', () => {
             onChange={jest.fn()} onHubDomainsChange={jest.fn()} />);
 
         expect(screen.getByText(/The spawn is in world 'world', but the hub is in world 'hub'/)).toBeInTheDocument();
-        expect(screen.getByLabelText('Remove the hub flag of Hubtown')).toBeDisabled();
+        fireEvent.click(screen.getByLabelText('Remove the hub flag of Hubtown'));
+        expect(screen.getByRole('alert')).toHaveTextContent('Hubtown is the selected hub. Select another hub');
+        expect(gameSettingsClient.setHubEligible).not.toHaveBeenCalled();
 
         fireEvent.change(screen.getByLabelText('Domain to flag as hub'), { target: { value: '5' } });
         fireEvent.click(screen.getByRole('button', { name: /Flag as hub/ }));
