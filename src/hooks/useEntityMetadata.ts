@@ -18,6 +18,11 @@ type MetadataBundle = {
 let metadataBundleCache: MetadataBundle | null = null;
 let metadataBundlePromise: Promise<MetadataBundle> | null = null;
 
+// Every mounted useEntityMetadata keeps its own copy of the bundle. A refresh (e.g. saving default
+// table columns) tells all of them, so a picker that is already open doesn't keep the old columns
+// until it remounts.
+const bundleListeners = new Set<(bundle: MetadataBundle) => void>();
+
 const fetchMetadataBundle = async (forceRefresh: boolean = false): Promise<MetadataBundle> => {
   if (forceRefresh) {
     metadataBundleCache = null;
@@ -44,6 +49,9 @@ const fetchMetadataBundle = async (forceRefresh: boolean = false): Promise<Metad
     };
 
     metadataBundleCache = bundle;
+    if (forceRefresh) {
+      bundleListeners.forEach(listener => listener(bundle));
+    }
     return bundle;
   })();
 
@@ -134,6 +142,18 @@ export function useEntityMetadata() {
   const [error, setError] = useState<string | null>(null);
 
   const logger = { info: console.log, error: console.error, warn: console.warn }; // Simple logger
+
+  useEffect(() => {
+    const listener = (bundle: MetadataBundle) => {
+      setBaseMetadata(bundle.baseMetadata);
+      setConfigurations(bundle.configurations);
+      setAllMergedMetadata(bundle.mergedMetadata);
+    };
+    bundleListeners.add(listener);
+    return () => {
+      bundleListeners.delete(listener);
+    };
+  }, []);
 
   const loadMetadata = useCallback(async () => {
     if (!isLoggedIn) {

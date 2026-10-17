@@ -837,13 +837,13 @@ export const FormWizardPage: React.FC<Props> = ({
                 cfg => cfg.entityTypeName.toLowerCase() === selectedTypeName.toLowerCase()
             );
 
-            if (existingConfiguration) {
-                await updateConfiguration({
+            // Both return null when the request failed (they log the error); don't report that as saved.
+            const saved = existingConfiguration
+                ? await updateConfiguration({
                     ...existingConfiguration,
                     defaultTableColumns: normalizedColumns,
-                });
-            } else {
-                await createConfiguration({
+                })
+                : await createConfiguration({
                     entityTypeName: selectedTypeName,
                     iconKey: null,
                     customIconUrl: null,
@@ -852,6 +852,14 @@ export const FormWizardPage: React.FC<Props> = ({
                     isVisible: true,
                     defaultTableColumns: normalizedColumns,
                 });
+            if (!saved) {
+                showFeedback({
+                    title: 'Save failed',
+                    message: 'The columns were not saved. Try again; if it keeps failing, check that the API is running.',
+                    status: 'error',
+                    onContinue: undefined,
+                });
+                return;
             }
 
             await refresh();
