@@ -79,6 +79,68 @@ const calculateInclusiveBlockSpan = (fromValue: unknown, toValue: unknown): numb
     return hops + 1;
 };
 
+type Delta = { x: number; y: number; z: number };
+
+const delta = (from: Coordinates, to: Coordinates): Delta => ({
+    x: Math.round(to.x - from.x),
+    y: Math.round(to.y - from.y),
+    z: Math.round(to.z - from.z)
+});
+
+const dot = (a: Delta, b: Delta): number => a.x * b.x + a.y * b.y + a.z * b.z;
+
+const isZero = (d: Delta): boolean => d.x === 0 && d.y === 0 && d.z === 0;
+
+const sameWorld = (a: Coordinates, b: Coordinates): boolean =>
+    !a.world || !b.world || a.world.toLowerCase() === b.world.toLowerCase();
+
+const formatCoordinate = (value: number): string => String(Math.round(value * 100) / 100);
+
+/**
+ * KNG-132: the gate spec measures both reference points from the anchor - Reference point 1 along
+ * the door's width (bottom edge), Reference point 2 along its height, straight above the anchor -
+ * so anchor -> Ref 2 must be at right angles to anchor -> Ref 1. Otherwise the plugin's lattice
+ * steps are sheared: the height comes out wrong (e.g. 2 for a 0,+7,-2 step), the block scan stores
+ * the wrong blocks and the door jams. Returns the error for Reference point 2, or null when the
+ * points are fine or not all set yet. A Ref 2 put above Ref 1 (the opposite corner) gets the point
+ * it should have been.
+ */
+export const gateReferencePoint2Error = (
+    entityName: string,
+    stepData: Record<string, unknown>
+): string | null => {
+    if (entityName.toLowerCase() !== 'gatedoor') return null;
+
+    const anchor = parseLocation(getProperty(stepData, 'AnchorPointId'));
+    const ref1 = parseLocation(getProperty(stepData, 'ReferencePoint1Id'));
+    const ref2 = parseLocation(getProperty(stepData, 'ReferencePoint2Id'));
+    if (!anchor || !ref1 || !ref2 || !sameWorld(anchor, ref1) || !sameWorld(anchor, ref2)) return null;
+
+    const width = delta(anchor, ref1);
+    const height = delta(anchor, ref2);
+    if (isZero(width) || isZero(height) || dot(width, height) === 0) return null;
+
+    const rule = 'Reference point 2 must be straight above the anchor (the door\'s height), at right angles '
+        + 'to the anchor -> reference point 1 edge (its width).';
+    const ref1ToRef2 = delta(ref1, ref2);
+    if (!isZero(ref1ToRef2) && dot(ref1ToRef2, width) === 0) {
+        const x = formatCoordinate(anchor.x + ref1ToRef2.x);
+        const y = formatCoordinate(anchor.y + ref1ToRef2.y);
+        const z = formatCoordinate(anchor.z + ref1ToRef2.z);
+        return `${rule} This one is above reference point 1; use (${x}, ${y}, ${z}) instead.`;
+    }
+    return `${rule} This one is not.`;
+};
+
+/** The geometry error a GateDoor field shows, if any (only Reference point 2 has one). */
+export const gateGeometryFieldError = (
+    entityName: string,
+    fieldName: string,
+    stepData: Record<string, unknown>
+): string | null => fieldName.toLowerCase() === 'referencepoint2id'
+    ? gateReferencePoint2Error(entityName, stepData)
+    : null;
+
 export const deriveGateGeometryStepData = (
     entityName: string,
     stepData: Record<string, unknown>
@@ -92,7 +154,10 @@ export const deriveGateGeometryStepData = (
     const referencePoint1 = getProperty(stepData, 'ReferencePoint1Id');
     const referencePoint2 = getProperty(stepData, 'ReferencePoint2Id');
     const width = calculateInclusiveBlockSpan(anchorPoint, referencePoint1);
-    const height = calculateInclusiveBlockSpan(anchorPoint, referencePoint2);
+    // KNG-132: no height from a sheared Reference point 2 - the form refuses it instead.
+    const height = gateReferencePoint2Error(entityName, stepData)
+        ? null
+        : calculateInclusiveBlockSpan(anchorPoint, referencePoint2);
 
     if (width === null && height === null) return stepData;
 
@@ -115,7 +180,8 @@ export const isDerivedGateGeometryField = (
         return calculateInclusiveBlockSpan(anchorPoint, getProperty(stepData, 'ReferencePoint1Id')) !== null;
     }
     if (fieldName === 'GeometryHeight') {
-        return calculateInclusiveBlockSpan(anchorPoint, getProperty(stepData, 'ReferencePoint2Id')) !== null;
+        return !gateReferencePoint2Error(entityName, stepData)
+            && calculateInclusiveBlockSpan(anchorPoint, getProperty(stepData, 'ReferencePoint2Id')) !== null;
     }
 
     return false;
