@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Loader2, Search } from 'lucide-react';
 import { currencyClient } from '../../apiClients/currencyClient';
 import { LedgerLineDto, LedgerPageDto, LedgerQuery, LedgerSortKey } from '../../types/dtos/currency/CurrencyDtos';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 const numberFormat = new Intl.NumberFormat('en-US');
 
@@ -99,7 +100,7 @@ export const BalanceLedgerTable: React.FC<Props> = ({ userId, pageSize = 25, ref
     currencyClient.getLedger(query)
       .then(result => { if (!cancelled) setLedger(result); })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error && err.message ? err.message : 'Could not load the balance log.');
+        if (!cancelled) setError(apiRefusalReason(err) ?? 'Could not load the balance log.');
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

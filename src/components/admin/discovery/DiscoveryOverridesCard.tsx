@@ -13,7 +13,8 @@ import {
 } from '../../../types/dtos/discovery/DiscoveryDtos';
 import { OverrideDraft, RANGES, overrideToDraft, parseOverrideDraft } from './discoveryRuleForm';
 import { RangeInputs, formatRange } from './DiscoveryRulesCard';
-import { FeedbackModal } from '../../FeedbackModal';
+import { apiRefusalReason } from '../../../utils/apiRefusalReason';
+import { useConfirm } from '../../../hooks/useConfirm';
 
 // docs/specs/domain-discovery/DESIGN.md §3.1/§3.9 (3) - per-domain overrides: any field left blank
 // inherits the domain type's rule, so one landmark can pay more or one structure be made
@@ -46,8 +47,7 @@ export const DiscoveryOverridesCard: React.FC<{
   const [saving, setSaving] = React.useState(false);
   const [removingId, setRemovingId] = React.useState<number | null>(null);
   const [removeError, setRemoveError] = React.useState<string | null>(null);
-  // The override whose Remove was clicked, awaiting confirmation in the modal (KNG-82).
-  const [pendingRemove, setPendingRemove] = React.useState<DomainDiscoveryOverrideDto | null>(null);
+  const [confirm, confirmModal] = useConfirm();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -107,18 +107,22 @@ export const DiscoveryOverridesCard: React.FC<{
       await onChanged();
     } catch (err) {
       console.error('Failed to save discovery override:', err);
-      const status = (err as { status?: number } | null)?.status;
-      const message = err instanceof Error ? err.message : null;
-      setErrors([status !== undefined && status >= 400 && status < 500 && message ? message : 'Could not save this override.']);
+      setErrors([apiRefusalReason(err) ?? 'Could not save this override.']);
     } finally {
       setSaving(false);
     }
   };
 
-  const overrideName = (domainOverride: DomainDiscoveryOverrideDto) =>
-    domainOverride.domainName ?? `domain #${domainOverride.domainId}`;
-
   const remove = async (domainOverride: DomainDiscoveryOverrideDto) => {
+    const name = domainOverride.domainName ?? `domain #${domainOverride.domainId}`;
+    if (!(await confirm({
+      title: 'Remove this discovery override?',
+      message: `Remove the discovery override of ${name}? It will use the ${discoveryTypeLabel(domainOverride.domainType ?? '')} rule again.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    }))) {
+      return;
+    }
     setRemovingId(domainOverride.domainId);
     setRemoveError(null);
     try {
@@ -127,7 +131,7 @@ export const DiscoveryOverridesCard: React.FC<{
       await onChanged();
     } catch (err) {
       console.error('Failed to remove discovery override:', err);
-      setRemoveError('Could not remove this override.');
+      setRemoveError(apiRefusalReason(err) ?? 'Could not remove this override.');
     } finally {
       setRemovingId(null);
     }
@@ -258,7 +262,7 @@ export const DiscoveryOverridesCard: React.FC<{
                           title="Remove override"
                           aria-label={`Remove ${name} override`}
                           disabled={removingId !== null}
-                          onClick={() => setPendingRemove(o)}
+                          onClick={() => void remove(o)}
                         >
                           {removingId === o.domainId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                         </button>
@@ -291,18 +295,7 @@ export const DiscoveryOverridesCard: React.FC<{
           Add override
         </button>
       </div>
-      <FeedbackModal
-        open={pendingRemove !== null}
-        title="Remove override?"
-        message={pendingRemove
-          ? `Remove the discovery override of ${overrideName(pendingRemove)}? It will use the ${discoveryTypeLabel(pendingRemove.domainType ?? '')} rule again.`
-          : ''}
-        continueLabel="Remove"
-        onContinue={() => {
-          if (pendingRemove) void remove(pendingRemove);
-        }}
-        onClose={() => setPendingRemove(null)}
-      />
+      {confirmModal}
     </div>
   );
 };

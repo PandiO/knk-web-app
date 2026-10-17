@@ -17,6 +17,7 @@ import { getManyToManyStepIssues } from '../../utils/forms/manyToManyStepValidat
 import { DisplayConditionBuilder } from './DisplayConditionBuilder';
 import { fieldsBeforeField, fieldsBeforeStep } from '../../utils/forms/displayConditionSources';
 import { DisplayConditionTargetType } from '../../utils/enums';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 interface Props {
     step: FormStepDto;
@@ -453,12 +454,7 @@ export const StepEditor: React.FC<Props> = ({
             setShowFieldSelector(false);
         } catch (err) {
             console.error('Failed to add reusable field:', err);
-            let errorMsg = 'Failed to add field from template';
-            if (err && typeof err === 'object') {
-                const maybeErr = err as { message?: string; response?: { data?: { message?: string } } };
-                errorMsg = maybeErr.response?.data?.message ?? maybeErr.message ?? errorMsg;
-            }
-            setError(errorMsg);
+            setError(apiRefusalReason(err) ?? 'Failed to add field from template');
             logging.errorHandler.next('ErrorMessage.FormConfiguration.AddFieldFailed');
         } finally {
             setAddingTemplate(false);

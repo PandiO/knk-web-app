@@ -10,6 +10,7 @@ import {
 } from '../../../types/dtos/discovery/DiscoveryDtos';
 import { FeedbackModal } from '../../FeedbackModal';
 import { RANGES, RangeKey, RuleDraft, parseRuleDraft, ruleToDraft, ruleToUpdate } from './discoveryRuleForm';
+import { apiRefusalReason } from '../../../utils/apiRefusalReason';
 
 // docs/specs/domain-discovery/DESIGN.md §3.1/§3.3/§3.9 (1) - one reward rule per domain type,
 // edited inline. XP = units × 1% of the player's title bracket width, coins = salary-hours × the
@@ -56,11 +57,7 @@ export const RangeInputs: React.FC<{
 );
 
 /** The API's reason for a refused rule (400), otherwise a generic message. */
-const saveErrorMessage = (err: unknown): string => {
-  const status = (err as { status?: number } | null)?.status;
-  const message = err instanceof Error ? err.message : null;
-  return status === 400 && message ? message : 'Could not save this rule.';
-};
+const saveErrorMessage = (err: unknown): string => apiRefusalReason(err) ?? 'Could not save this rule.';
 
 /** A save waiting for the admin to say whether the subtypes' Enabled follows the parent's. */
 type CascadePrompt = { rule: UpdateDiscoveryRewardRuleDto; children: DiscoveryRewardRuleDto[] };

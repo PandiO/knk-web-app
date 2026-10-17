@@ -29,6 +29,7 @@ import {
 import { PermissionGroupDto } from '../../types/dtos/userManagement/PermissionGroupDto';
 import { KitAvailabilityDto } from '../../types/dtos/kit/KitDtos';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 // docs/specs/user-management/DESIGN.md §2 - a read-first composite dashboard for one player,
 // distinct from the generic /forms/user edit screen. Phase 2 (docs/specs/user-management/
@@ -58,14 +59,6 @@ const formatDate = (iso?: string | null): string => {
     if (!iso) return '-';
     const date = new Date(iso);
     return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
-};
-
-// The API's own explanation for a refused request (400/403/409), e.g. "Requires the
-// knk.admin.user.coins permission." or a BalanceCapExceeded message since KNG-22.
-const clientErrorMessage = (err: unknown): string | null => {
-    const status = (err as { status?: number } | null)?.status;
-    const message = err instanceof Error ? err.message : null;
-    return status !== undefined && status >= 400 && status < 500 && message ? message : null;
 };
 
 export const PlayerProfilePage: React.FC = () => {
@@ -216,7 +209,7 @@ export const PlayerProfilePage: React.FC = () => {
             await refreshAfterAction();
         } catch (err) {
             console.error('Failed to assign group:', err);
-            setGroupActionError('Could not assign this group.');
+            setGroupActionError(apiRefusalReason(err) ?? 'Could not assign this group.');
         } finally {
             setAssigningGroup(false);
         }
@@ -230,7 +223,7 @@ export const PlayerProfilePage: React.FC = () => {
             await refreshAfterAction();
         } catch (err) {
             console.error('Failed to remove group:', err);
-            setGroupActionError('Could not remove this group.');
+            setGroupActionError(apiRefusalReason(err) ?? 'Could not remove this group.');
         } finally {
             setRemovingGroupId(null);
         }
@@ -252,7 +245,7 @@ export const PlayerProfilePage: React.FC = () => {
             await refreshAfterAction();
         } catch (err) {
             console.error('Failed to grant node:', err);
-            setGrantActionError('Could not save this permission node.');
+            setGrantActionError(apiRefusalReason(err) ?? 'Could not save this permission node.');
         } finally {
             setGrantingNode(false);
         }
@@ -268,7 +261,7 @@ export const PlayerProfilePage: React.FC = () => {
             await refreshAfterAction();
         } catch (err) {
             console.error('Failed to remove node:', err);
-            setRevokeNodeError(`Could not remove ${node}.`);
+            setRevokeNodeError(apiRefusalReason(err) ?? `Could not remove ${node}.`);
         } finally {
             setRevokingNode(null);
         }
@@ -298,7 +291,7 @@ export const PlayerProfilePage: React.FC = () => {
             await loadActivity();
         } catch (err) {
             console.error('Failed to change the transfer lock:', err);
-            setLockError(clientErrorMessage(err) ?? 'Could not change the payment lock.');
+            setLockError(apiRefusalReason(err) ?? 'Could not change the payment lock.');
         } finally {
             setChangingLock(false);
         }
@@ -315,7 +308,7 @@ export const PlayerProfilePage: React.FC = () => {
             await Promise.all([loadKits(), loadActivity()]);
         } catch (err) {
             console.error('Failed to grant kit:', err);
-            setGrantKitError(clientErrorMessage(err) ?? 'Could not grant this kit.');
+            setGrantKitError(apiRefusalReason(err) ?? 'Could not grant this kit.');
         } finally {
             setGrantingKitId(null);
         }
@@ -329,7 +322,7 @@ export const PlayerProfilePage: React.FC = () => {
             await refreshAfterAction();
         } catch (err) {
             console.error('Failed to toggle mode:', err);
-            setModeActionError('Could not change this player’s mode.');
+            setModeActionError(apiRefusalReason(err) ?? 'Could not change this player’s mode.');
         } finally {
             setTogglingMode(false);
         }

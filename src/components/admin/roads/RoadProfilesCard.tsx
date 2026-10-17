@@ -17,6 +17,7 @@ import {
   parseProfileDraft,
   profileToDraft,
 } from './roadProfileForm';
+import { apiRefusalReason } from '../../../utils/apiRefusalReason';
 
 // docs/specs/navigation/DESIGN.md §3.1/§5.1/§7 - road profiles: what a kind of road is made of
 // (materials with a role and an "ambiguous" flag), its class and cost for routing, the width the
@@ -38,11 +39,7 @@ type ConfirmState = {
   onContinue?: () => Promise<void>;
 };
 
-const saveErrorMessage = (err: unknown): string => {
-  const status = (err as { status?: number } | null)?.status;
-  const message = err instanceof Error ? err.message : null;
-  return status !== undefined && status >= 400 && status < 500 && message ? message : 'Could not save this profile.';
-};
+const saveErrorMessage = (err: unknown, fallback = 'Could not save this profile.'): string => apiRefusalReason(err) ?? fallback;
 
 const formatUpdated = (iso?: string | null): string => {
   if (!iso) return '-';
@@ -165,10 +162,9 @@ export const RoadProfilesCard: React.FC<{
       await onChanged();
     } catch (err) {
       console.error('Failed to delete road profile:', err);
-      const message = saveErrorMessage(err);
       setConfirm({
         title: 'Delete failed',
-        message: message === 'Could not save this profile.' ? 'Could not delete this profile.' : message,
+        message: saveErrorMessage(err, 'Could not delete this profile.'),
         status: 'error',
         continueLabel: 'Close',
       });
@@ -443,6 +439,7 @@ export const RoadProfilesCard: React.FC<{
         status={confirm?.status ?? 'info'}
         continueLabel={confirm?.continueLabel}
         onContinue={confirm?.onContinue}
+        danger={confirm?.status === 'info' && confirm?.continueLabel === 'Delete'}
         onClose={() => setConfirm(null)}
       />
     </div>

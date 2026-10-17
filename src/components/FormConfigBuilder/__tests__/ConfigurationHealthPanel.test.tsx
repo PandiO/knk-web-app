@@ -102,7 +102,7 @@ describe('ConfigurationHealthPanel', () => {
   it('shows error then refreshes successfully', async () => {
     const user = userEvent.setup();
     jest.spyOn(fieldValidationRuleClient.fieldValidationRuleClient, 'validateConfigurationHealth')
-      .mockRejectedValueOnce(new Error('API Error'))
+      .mockRejectedValueOnce(Object.assign(new Error('API Error'), { status: 400 }))
       .mockResolvedValueOnce(mockNoIssues);
 
     render(<ConfigurationHealthPanel configurationId="1" />);

@@ -12,6 +12,8 @@ import { metadataClient } from '../../apiClients/metadataClient';
 import { getCreateFunctionForEntity, getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
+import { useFormSession } from '../../contexts/FormSessionContext';
+import { failureReason } from '../../utils/apiRefusalReason';
 
 const SEQUENCE_NUMBER_FIELD = 'SequenceNumber';
 let dndKeyCounter = 0;
@@ -58,6 +60,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     onValidateField
 }) => {
     const debug = (...args: unknown[]) => console.log('[M2M_DEBUG]', ...args);
+    const formSession = useFormSession(); // KNG-136
     const [loading, setLoading] = useState(true);
     const [relatedEntityType, setRelatedEntityType] = useState<string>('');
     const [relatedEntityIdField, setRelatedEntityIdField] = useState<string>('');
@@ -446,6 +449,16 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                 return;
             }
 
+            if (existingId === undefined || existingId === null || existingId === '') {
+                // KNG-136: saved here, so the form session's pickers pin it.
+                formSession?.register({
+                    entityTypeName: relatedEntityType,
+                    entity: persisted,
+                    fieldName: step.relatedEntityPropertyName || 'relationships',
+                    status: 'created'
+                });
+            }
+
             handleAddRelationship([persisted]);
             // Open join-entry editor for the newly added relationship
             if (onOpenJoinEntry) {
@@ -457,7 +470,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
             });
         } catch (error) {
             console.error('[M2M] Failed to create related entity:', error);
-            setMetadataError(`Failed to create ${relatedEntityType}. Please try again.`);
+            setMetadataError(failureReason(error) ?? `Failed to create ${relatedEntityType}. Please try again.`);
             debug('handleCreateRelatedEntity:error', error);
         } finally {
             setShowCreateRelatedModal(false);

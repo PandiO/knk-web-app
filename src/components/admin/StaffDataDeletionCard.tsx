@@ -3,6 +3,7 @@ import { Trash2 } from 'lucide-react';
 import { dataDeletionClient } from '../../apiClients/dataDeletionClient';
 import { usePermission } from '../../hooks/useStaffAccess';
 import { DATA_DELETION_REQUEST_NODE, PrivacyDeletionRequestDto } from '../../types/dtos/privacy/PrivacyDtos';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 /**
  * Staff: file a GDPR data-deletion request on a player's behalf (KNG-34, developer decisions
@@ -13,11 +14,7 @@ import { DATA_DELETION_REQUEST_NODE, PrivacyDeletionRequestDto } from '../../typ
 
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString() : '-');
 
-const messageOf = (err: unknown): string => {
-  const e = err as { response?: { message?: string } } | undefined;
-  if (e?.response?.message) return e.response.message;
-  return err instanceof Error ? err.message : 'Request failed';
-};
+const messageOf = (err: unknown): string => apiRefusalReason(err) ?? 'Request failed';
 
 interface Props {
   userId: number;

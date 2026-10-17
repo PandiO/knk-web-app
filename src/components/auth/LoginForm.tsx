@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { ERROR_MESSAGES } from '../../utils/authConstants';
 import { useAuth } from '../../contexts/AuthContext';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 interface LoginFormProps {
   /** Called after a successful login; the login page decides where to go. */
@@ -39,7 +40,8 @@ export function describeLoginError(error: any): string {
   if (error instanceof TypeError || status === undefined) {
     return ERROR_MESSAGES.NetworkError;
   }
-  return ERROR_MESSAGES.ServerError;
+  // Another refusal (e.g. a deactivated account) says why; a server error stays generic.
+  return apiRefusalReason(error) ?? ERROR_MESSAGES.ServerError;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {

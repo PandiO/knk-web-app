@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { currencyClient, LedgerFilter } from '../apiClients/currencyClient';
 import { BalancesDto, LedgerLineDto, LedgerPageDto } from '../types/dtos/currency/CurrencyDtos';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { apiRefusalReason } from '../utils/apiRefusalReason';
 
 const PAGE_SIZE = 20;
 const numberFormat = new Intl.NumberFormat('en-US');
@@ -51,8 +52,8 @@ export const AccountTransactionsPage: React.FC = () => {
       ]);
       setLedger(history);
       setBalances(current);
-    } catch (err: any) {
-      setError(err?.message ?? 'Could not load your transactions.');
+    } catch (err) {
+      setError(apiRefusalReason(err) ?? 'Could not load your transactions.');
     } finally {
       setLoading(false);
     }

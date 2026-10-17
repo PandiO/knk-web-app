@@ -2,6 +2,7 @@ import React from 'react';
 import { Info, Loader2, RefreshCw, Route } from 'lucide-react';
 import { roadClient } from '../../apiClients/roadClient';
 import { StreetRoadDto, formatRoadFlags } from '../../types/dtos/road/RoadDtos';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 interface Props {
     streetId?: string;
@@ -33,7 +34,7 @@ export const StreetRoadPanel: React.FC<Props> = ({ streetId, label, description 
             setRoad(await roadClient.getStreetRoad(numericId));
         } catch (err: any) {
             setRoad(null);
-            setError(err?.status === 404 ? 'This street does not exist (any more).' : (err?.message || 'Could not load the street’s road.'));
+            setError(err?.status === 404 ? 'This street does not exist (any more).' : (apiRefusalReason(err) ?? 'Could not load the street’s road.'));
         } finally {
             setLoading(false);
         }

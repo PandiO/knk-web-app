@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Eye, MoreVertical, Pencil, Rocket, Star, StarOff, Trash2 } from 'lucide-react';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
-import { useConfirmModal } from '../../hooks/useConfirmModal';
 
 interface Props {
     configurations: DisplayConfigurationDto[];
@@ -27,7 +26,6 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-    const { confirm, modal: confirmModal } = useConfirmModal();
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -40,16 +38,10 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleDeleteClick = async (config: DisplayConfigurationDto) => {
-        // Close the row menu first: the prompt opens over the page, not inside the menu.
+    const handleDeleteClick = (config: DisplayConfigurationDto) => {
+        // The page asks for confirmation (a FeedbackModal), so the menu only hands the config over.
+        onDelete?.(config);
         setActiveMenu(null);
-        if (await confirm({
-            title: 'Delete configuration?',
-            message: `Are you sure you want to delete "${config.name}"?`,
-            continueLabel: 'Delete',
-        })) {
-            onDelete?.(config);
-        }
     };
 
     const getMenuPosition = (configId: string) => {
@@ -252,7 +244,7 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                             )}
                                                             {onDelete && (
                                                                 <button
-                                                                    onClick={() => void handleDeleteClick(config)}
+                                                                    onClick={() => handleDeleteClick(config)}
                                                                     className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
                                                                     role="menuitem"
                                                                 >
@@ -273,7 +265,6 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                     </table>
                 </div>
             )}
-            {confirmModal}
         </div>
     );
 };

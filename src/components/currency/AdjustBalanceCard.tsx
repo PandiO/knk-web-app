@@ -11,6 +11,7 @@ import {
     MIN_STAFF_NOTE_LENGTH,
 } from '../../types/dtos/currency/CurrencyDtos';
 import { BalanceAdjustmentResultDto, BalanceMode } from '../../types/dtos/userManagement/UserProfileSummaryDtos';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 type BalanceProperty = 'coins' | 'gems' | 'experiencePoints';
 
@@ -19,14 +20,6 @@ const PROPERTIES: { value: BalanceProperty; label: string; noun: string }[] = [
     { value: 'gems', label: 'Gems', noun: 'gems' },
     { value: 'experiencePoints', label: 'XP', noun: 'XP' },
 ];
-
-// The API's own explanation for a refused request (400/403/409/422), e.g. "Requires the
-// knk.admin.user.coins permission." or a BalanceCapExceeded / AdminDailyCapExceeded message.
-const clientErrorMessage = (err: unknown): string | null => {
-    const status = (err as { status?: number } | null)?.status;
-    const message = err instanceof Error ? err.message : null;
-    return status !== undefined && status >= 400 && status < 500 && message ? message : null;
-};
 
 export interface AdjustBalanceCardProps {
     userId: number;
@@ -128,7 +121,7 @@ export const AdjustBalanceCard: React.FC<AdjustBalanceCardProps> = ({ userId, ba
             console.error('Failed to adjust balance:', err);
             setError((err as { status?: number })?.status === 409
                 ? 'This balance changed since the page loaded — refresh and try again.'
-                : clientErrorMessage(err) ?? 'Could not adjust this balance — check the amount doesn\'t go below zero.');
+                : apiRefusalReason(err) ?? 'Could not adjust this balance — check the amount doesn\'t go below zero.');
         } finally {
             setSubmitting(false);
         }

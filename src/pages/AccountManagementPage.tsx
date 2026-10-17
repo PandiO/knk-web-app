@@ -12,6 +12,7 @@ import { appConfig } from '../config/appConfig';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { MyStatisticsSection } from './statistics/MyStatisticsSection';
 import { MyDataDeletionSection } from '../components/privacy/MyDataDeletionSection';
+import { apiRefusalReason } from '../utils/apiRefusalReason';
 
 export const AccountManagementPage: React.FC = () => {
   usePageTitle('Account');
@@ -70,11 +71,11 @@ export const AccountManagementPage: React.FC = () => {
       setIsEditing({ ...isEditing, email: false });
       setFormData(prev => ({ ...prev, emailPassword: '' }));
       setErrors({});
-    } catch (error: any) {
+    } catch (error) {
       setFeedback({
         open: true,
         title: 'Update Failed',
-        message: error?.response?.message || 'Failed to update email. Please try again.',
+        message: apiRefusalReason(error) ?? 'Failed to update email. Please try again.',
         status: 'error',
       });
     } finally {
@@ -117,11 +118,11 @@ export const AccountManagementPage: React.FC = () => {
       setIsEditing({ ...isEditing, password: false });
       setFormData({ ...formData, currentPassword: '', newPassword: '', confirmPassword: '' });
       setErrors({});
-    } catch (error: any) {
+    } catch (error) {
       setFeedback({
         open: true,
         title: 'Update Failed',
-        message: error?.response?.message || 'Failed to update password. Please verify your current password.',
+        message: apiRefusalReason(error) ?? 'Failed to update password. Please verify your current password.',
         status: 'error',
       });
     } finally {
@@ -155,11 +156,11 @@ export const AccountManagementPage: React.FC = () => {
       });
       setFormData({ ...formData, linkCode: '' });
       setErrors({});
-    } catch (error: any) {
+    } catch (error) {
       setFeedback({
         open: true,
         title: 'Link Failed',
-        message: error?.response?.message || 'Failed to link Minecraft account. Please check your link code.',
+        message: apiRefusalReason(error) ?? 'Failed to link Minecraft account. Please check your link code.',
         status: 'error',
       });
     } finally {

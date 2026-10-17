@@ -89,6 +89,8 @@ const renderPage = () => render(<DiscoveryAdminPage />);
 const ruleRow = (label: string) => screen.getAllByRole('row').find((r) => within(r).queryByText(label, { selector: 'td' }))!;
 
 describe('DiscoveryAdminPage', () => {
+  let confirmSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
     client.getRules.mockResolvedValue(RULES);
@@ -102,6 +104,11 @@ describe('DiscoveryAdminPage', () => {
         { id: 8, name: 'Some Location', domainType: 'Location', description: '', wgRegionId: 'x' },
       ],
     });
+    confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    confirmSpy.mockRestore();
   });
 
   it('shows the type rules, the per-title preview and the statistics', async () => {
@@ -331,11 +338,11 @@ describe('DiscoveryAdminPage', () => {
     client.getOverrides.mockResolvedValue([]);
     await userEvent.click(screen.getByRole('button', { name: 'Remove Kaer Morhen override' }));
 
-    // KNG-82: confirmed in a FeedbackModal, not window.confirm; nothing is removed until then.
-    const dialog = await screen.findByRole('dialog', { name: 'Remove override?' });
-    expect(within(dialog).getByText(/Remove the discovery override of Kaer Morhen\? It will use the Structure rule again\./)).toBeInTheDocument();
-    expect(client.deleteOverride).not.toHaveBeenCalled();
+    // KNG-169: asked in a modal (useConfirm), not the browser's confirm box.
+    const dialog = await screen.findByRole('dialog', { name: 'Remove this discovery override?' });
+    expect(dialog).toHaveTextContent('Kaer Morhen');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
+    expect(confirmSpy).not.toHaveBeenCalled();
     await waitFor(() => expect(client.deleteOverride).toHaveBeenCalledWith(5));
     expect(await screen.findByText(/No overrides/)).toBeInTheDocument();
   });

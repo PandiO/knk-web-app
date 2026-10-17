@@ -11,7 +11,7 @@ import { findParentFormFields, ParentFormField } from '../../utils/forms/parentF
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { CreateFieldValidationRuleDto, FieldValidationRuleDto, UpdateFieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { FeedbackModal } from '../FeedbackModal';
-import { useConfirmModal } from '../../hooks/useConfirmModal';
+import { useConfirm } from '../../hooks/useConfirm';
 import {
     PROJECTION_OVERWRITE_POLICIES,
     PROJECTION_TRANSFORMS,
@@ -24,6 +24,7 @@ import {
 import { DisplayConditionBuilder } from './DisplayConditionBuilder';
 import { SourceFieldOption } from '../../utils/forms/displayConditionSources';
 import { DisplayConditionTargetType } from '../../utils/enums';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 interface Props {
     field: FormFieldDto;
@@ -90,7 +91,9 @@ export const FieldEditor: React.FC<Props> = ({
     const [rulesError, setRulesError] = useState<string | null>(null);
     type RuleFeedbackState = { open: boolean; title: string; message: string; status: 'success' | 'error' | 'info' };
     const [ruleFeedback, setRuleFeedback] = useState<RuleFeedbackState>({ open: false, title: '', message: '', status: 'info' });
-    const { confirm, modal: confirmModal } = useConfirmModal();
+    const [confirm, confirmModal] = useConfirm();
+    // A field that can't be saved yet says what is missing in the same modal (was a browser alert).
+    const showIncomplete = (message: string) => setRuleFeedback({ open: true, title: 'This field is not complete', message, status: 'error' });
 
     // Fields of the forms this entity's form is opened from, offered as rule dependencies.
     const [parentFormFields, setParentFormFields] = useState<ParentFormField[]>([]);
@@ -223,9 +226,9 @@ export const FieldEditor: React.FC<Props> = ({
             setRulesError(null);
             const rules = await fieldValidationRuleClient.getByFormFieldId(parseInt(field.id!, 10));
             setValidationRules(rules);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to load validation rules:', err);
-            setRulesError('Unable to load validation rules. Please try again.');
+            setRulesError(apiRefusalReason(err) ?? 'Unable to load validation rules. Please try again.');
         } finally {
             setRulesLoading(false);
         }
@@ -297,21 +300,21 @@ export const FieldEditor: React.FC<Props> = ({
 
     const handleSave = () => {
         if (!field.fieldName.trim() || !field.label.trim()) {
-            alert('Field name and label are required');
+            showIncomplete('Field name and label are required.');
             return;
         }
         if (!field.fieldType) {
-            alert('Field type is required');
+            showIncomplete('Field type is required.');
             return;
         }
         if (isCollectionType(field.fieldType) && !collectionElementType) {
-            alert('Element type is required for collection fields');
+            showIncomplete('Element type is required for collection fields.');
             return;
         }
         if ((field.fieldType === FieldType.Object || 
             (isCollectionType(field.fieldType) && collectionElementType === FieldType.Object)) &&
             !field.objectType?.trim()) {
-            alert('Object type is required for Object fields');
+            showIncomplete('Object type is required for Object fields.');
             return;
         }
 
@@ -409,9 +412,9 @@ export const FieldEditor: React.FC<Props> = ({
                 status: 'success'
             });
             onRulesChanged?.();
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to create validation rule:', err);
-            const msg = err?.response?.data?.message || err?.message || 'Failed to create validation rule';
+            const msg = apiRefusalReason(err) ?? 'Failed to create validation rule';
             setRulesError(msg);
             setRuleFeedback({ open: true, title: 'Add rule failed', message: msg, status: 'error' });
         }
@@ -443,16 +446,21 @@ export const FieldEditor: React.FC<Props> = ({
                 status: 'success'
             });
             onRulesChanged?.();
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to update validation rule:', err);
-            const msg = err?.response?.data?.message || err?.message || 'Failed to update validation rule';
+            const msg = apiRefusalReason(err) ?? 'Failed to update validation rule';
             setRulesError(msg);
             setRuleFeedback({ open: true, title: 'Update rule failed', message: msg, status: 'error' });
         }
     };
 
     const handleDeleteRule = async (ruleId: number) => {
-        if (!(await confirm({ title: 'Delete validation rule?', message: 'Delete this validation rule?', continueLabel: 'Delete' }))) return;
+        if (!(await confirm({
+            title: 'Delete this validation rule?',
+            message: 'The rule stops checking this field.',
+            confirmLabel: 'Delete',
+            danger: true,
+        }))) return;
         try {
             await fieldValidationRuleClient.delete(ruleId);
             await loadValidationRules();
@@ -462,9 +470,9 @@ export const FieldEditor: React.FC<Props> = ({
             }
             setRuleFeedback({ open: true, title: 'Validation rule removed', message: 'Rule deleted successfully.', status: 'success' });
             onRulesChanged?.();
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to delete validation rule:', err);
-            const msg = err?.response?.data?.message || err?.message || 'Failed to delete validation rule';
+            const msg = apiRefusalReason(err) ?? 'Failed to delete validation rule';
             setRulesError(msg);
             setRuleFeedback({ open: true, title: 'Delete failed', message: msg, status: 'error' });
         }

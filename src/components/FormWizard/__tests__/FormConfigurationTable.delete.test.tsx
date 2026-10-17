@@ -1,11 +1,13 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { FormConfigurationTable } from '../FormConfigurationTable';
 import { FormConfigurationDto } from '../../../types/dtos/forms/FormModels';
 
-// KNG-82: deleting a configuration from the row menu asks in a FeedbackModal, not window.confirm.
+// KNG-82 / KNG-169: the Forms page asks for confirmation in a FeedbackModal (useConfirm), so the
+// row menu's Delete hands the configuration over without asking itself - one question, never
+// window.confirm and never a second modal (deleting used to ask twice).
 
 const config: FormConfigurationDto = {
     id: '11',
@@ -35,36 +37,21 @@ const openRowMenu = async () => {
     await userEvent.click(more);
 };
 
-describe('FormConfigurationTable delete (KNG-82)', () => {
+describe('FormConfigurationTable delete (KNG-82, KNG-169)', () => {
     let confirmSpy: jest.SpyInstance;
     beforeEach(() => {
         confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
     });
     afterEach(() => confirmSpy.mockRestore());
 
-    it('deletes only after the modal is confirmed', async () => {
+    it('hands the configuration to the page, which asks once', async () => {
         const onDelete = jest.fn();
         renderTable(onDelete);
         await openRowMenu();
         await userEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
 
-        const dialog = screen.getByRole('dialog', { name: 'Delete configuration?' });
-        expect(within(dialog).getByText('Are you sure you want to delete "Town form"?')).toBeInTheDocument();
-        expect(onDelete).not.toHaveBeenCalled();
-
-        await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
-        await waitFor(() => expect(onDelete).toHaveBeenCalledWith(config));
-        expect(confirmSpy).not.toHaveBeenCalled();
-    });
-
-    it('does not delete when the modal is closed', async () => {
-        const onDelete = jest.fn();
-        renderTable(onDelete);
-        await openRowMenu();
-        await userEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
-        await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
-
+        expect(onDelete).toHaveBeenCalledWith(config);
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-        expect(onDelete).not.toHaveBeenCalled();
+        expect(confirmSpy).not.toHaveBeenCalled();
     });
 });

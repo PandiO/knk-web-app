@@ -3,6 +3,7 @@ import { Loader2, RefreshCcw, Save } from 'lucide-react';
 import { siegeConfigurationClient } from '../../apiClients/siegeConfigurationClient';
 import { SiegeConfigurationDto, UpdateSiegeConfigurationDto } from '../../types/dtos/siege/SiegeDtos';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 /**
  * Siege Phase 3: the global SiegeConfiguration singleton (docs/specs/siege-minigame/DESIGN.md §3.8).
@@ -133,8 +134,8 @@ export const SiegeConfigurationPage: React.FC = () => {
         setMessage(null);
         try {
             applyLoaded(await siegeConfigurationClient.get());
-        } catch (err: any) {
-            setMessage({ tone: 'error', text: err?.message || 'Could not load the siege configuration.' });
+        } catch (err) {
+            setMessage({ tone: 'error', text: apiRefusalReason(err) ?? 'Could not load the siege configuration.' });
         } finally {
             setLoading(false);
         }
@@ -172,8 +173,8 @@ export const SiegeConfigurationPage: React.FC = () => {
             });
             applyLoaded(await siegeConfigurationClient.update(update));
             setMessage({ tone: 'success', text: `Saved ${changedKeys.length} setting${changedKeys.length === 1 ? '' : 's'}.` });
-        } catch (err: any) {
-            setMessage({ tone: 'error', text: err?.message || 'Could not save the siege configuration.' });
+        } catch (err) {
+            setMessage({ tone: 'error', text: apiRefusalReason(err) ?? 'Could not save the siege configuration.' });
         } finally {
             setSaving(false);
         }

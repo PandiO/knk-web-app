@@ -46,7 +46,10 @@ const isOwnedChildCollection = (settingsJson?: string): boolean => {
 };
 
 export const findParentFormFields = (configurations: FormConfigurationDto[], entityTypeName: string): ParentFormField[] => {
-    const defaults = configurations.filter(c => c.isDefault && c.isActive !== false);
+    // Not isActive: the API never sets it (FormConfiguration has no such column, the mapping ignores
+    // it), so every configuration arrived as isActive: false and no parent form was ever found - the
+    // rule builder then checked a parent-form path such as Town.WgRegionId against the child entity.
+    const defaults = configurations.filter(c => c.isDefault);
     const result: ParentFormField[] = [];
     const visited = new Set<string>([entityTypeName.toLowerCase()]);
     let level = [entityTypeName];

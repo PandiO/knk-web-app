@@ -6,8 +6,16 @@ import {
     AddReusableStepRequestDto,
     AddReusableFieldRequestDto
 } from "../types/dtos/forms/FormModels";
+import {
+    FormConfigurationImportOptions,
+    FormConfigurationImportResult,
+    FormConfigurationSeed,
+    PortableFormConfiguration
+} from "../types/dtos/forms/FormPortabilityModels";
 import { ObjectManager } from "./objectManager";
 import { logging } from "../utils";
+import { serviceCall } from "../services/serviceCall";
+import ConfigurationHelper from "../utils/config-helper";
 
 export class FormConfigClient extends ObjectManager {
     private static instance: FormConfigClient;
@@ -106,7 +114,58 @@ export class FormConfigClient extends ObjectManager {
             HttpMethod.Post
         );
     }
+
+    // KNG-138: portable export/import and bundled seeds
+
+    /** The configuration as a portable "knk-formconfig/1" file. */
+    exportConfiguration(id: string): Promise<PortableFormConfiguration> {
+        return this.invokeServiceCall(null, `${id}/export`, Controllers.FormConfigurations, HttpMethod.Get);
+    }
+
+    getSeeds(): Promise<FormConfigurationSeed[]> {
+        return this.invokeServiceCall(null, 'seeds', Controllers.FormConfigurations, HttpMethod.Get);
+    }
+
+    /** Import (or dry-run) a file. Resolves with the result for Invalid/AlreadyImported too (400/409 carry it). */
+    importConfiguration(file: PortableFormConfiguration, options: FormConfigurationImportOptions): Promise<FormConfigurationImportResult> {
+        return this.invokeImport(`import?${importQuery(options)}`, file);
+    }
+
+    importSeed(name: string, options: FormConfigurationImportOptions): Promise<FormConfigurationImportResult> {
+        return this.invokeImport(`seeds/${encodeURIComponent(name)}/import?${importQuery(options)}`, {});
+    }
+
+    /**
+     * Like invokeServiceCall, but an import's refusal (400 Invalid, 409 AlreadyImported) is a normal
+     * answer shown in the import panel, so it resolves with the result instead of raising the global
+     * error toast. Other failures (403, 404, network) still reject.
+     */
+    private invokeImport(operation: string, data: unknown): Promise<FormConfigurationImportResult> {
+        return new Promise((resolve, reject) => {
+            serviceCall.invokeApiService({
+                operation,
+                controller: Controllers.FormConfigurations,
+                httpMethod: HttpMethod.Post,
+                fetchApiUrl: ConfigurationHelper.gatewayApiUrl,
+                requestData: data,
+                responseHandler: {
+                    success: (result: FormConfigurationImportResult) => resolve(result),
+                    error: (err: any) => {
+                        const body = err?.response;
+                        if (body && typeof body === 'object' && typeof body.status === 'string' && Array.isArray(body.errors)) {
+                            resolve(body as FormConfigurationImportResult);
+                        } else {
+                            reject(err);
+                        }
+                    }
+                }
+            });
+        });
+    }
 }
+
+const importQuery = (options: FormConfigurationImportOptions) =>
+    `dryRun=${options.dryRun ? 'true' : 'false'}&makeDefault=${options.makeDefault ? 'true' : 'false'}`;
 
 export const formConfigClient = FormConfigClient.getInstance();
 
