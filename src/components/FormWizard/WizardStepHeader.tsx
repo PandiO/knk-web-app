@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 /**
  * KNG-137: the wizard's progress bar and step title, kept out of FormWizard.tsx so its edit there
@@ -55,16 +55,31 @@ export function compactStepLabel(steps: WizardStepProgressItem[]): string {
 
 /**
  * Narrow screens: "Step 3 of 9 · Rotation" over a thin bar instead of the circles, which don't fit.
+ * The label is a disclosure button that shows every step as a list under the bar (done, current,
+ * still to do), so the whole form can be overseen on a phone too; it closes again on a step change.
  */
 const CompactStepHeader: React.FC<{ steps: WizardStepProgressItem[] }> = ({ steps }) => {
     const currentIndex = Math.max(0, steps.findIndex(step => step.isCurrent));
     const label = compactStepLabel(steps);
     const percent = steps.length > 0 ? Math.round(((currentIndex + 1) / steps.length) * 100) : 0;
+    const [listOpen, setListOpen] = useState(false);
+    useEffect(() => setListOpen(false), [currentIndex]);
     return (
         <div data-testid="wizard-step-compact" className="sm:hidden px-1">
-            <p className="truncate text-sm font-medium text-gray-700" title={label}>
-                {label}
-            </p>
+            <button
+                type="button"
+                onClick={() => setListOpen(open => !open)}
+                aria-expanded={listOpen}
+                aria-controls="wizard-step-compact-list"
+                title={listOpen ? 'Hide the steps' : 'Show all steps'}
+                className="flex w-full min-w-0 items-center justify-between gap-2 rounded text-left focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+                <span className="truncate text-sm font-medium text-gray-700">{label}</span>
+                <ChevronDown
+                    aria-hidden="true"
+                    className={`h-4 w-4 flex-shrink-0 text-gray-500 transition-transform ${listOpen ? 'rotate-180' : ''}`}
+                />
+            </button>
             <div
                 role="progressbar"
                 aria-label="Form progress"
@@ -76,6 +91,39 @@ const CompactStepHeader: React.FC<{ steps: WizardStepProgressItem[] }> = ({ step
             >
                 <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percent}%` }} />
             </div>
+            {listOpen && (
+                <ol
+                    id="wizard-step-compact-list"
+                    aria-label="All form steps"
+                    className="mt-3 divide-y divide-gray-100 rounded-md border border-gray-200 bg-white"
+                >
+                    {steps.map((step, position) => {
+                        const name = step.name?.trim() || `Step ${position + 1}`;
+                        return (
+                            <li
+                                key={step.key}
+                                aria-current={step.isCurrent ? 'step' : undefined}
+                                className={`flex items-center gap-3 px-3 py-2 text-sm ${
+                                    step.isCurrent ? 'bg-primary/5 font-semibold text-gray-900' : 'text-gray-600'
+                                }`}
+                            >
+                                <span
+                                    className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                                        step.isDone
+                                            ? 'bg-green-500 text-white'
+                                            : step.isCurrent
+                                            ? 'bg-primary text-white'
+                                            : 'bg-gray-200 text-gray-600'
+                                    }`}
+                                >
+                                    {step.isDone ? <Check className="h-3.5 w-3.5" aria-label="done" /> : position + 1}
+                                </span>
+                                <span className="min-w-0 break-words">{name}</span>
+                            </li>
+                        );
+                    })}
+                </ol>
+            )}
         </div>
     );
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { compactStepLabel, stepStripOverflow, WizardStepProgress, WizardStepTitle } from '../WizardStepHeader';
 
@@ -68,6 +68,35 @@ describe('WizardStepProgress with many steps (KNG-168)', () => {
         // The circles are for sm and up only; every step is still listed.
         expect(screen.getByTestId('wizard-step-circles')).toHaveClass('hidden', 'sm:block');
         expect(within(screen.getByRole('list', { name: 'Form steps' })).getAllByRole('listitem')).toHaveLength(9);
+    });
+
+    it('lists every step under the compact header when its label is pressed, and hides them again', () => {
+        render(<WizardStepProgress steps={manySteps} />);
+
+        const toggle = within(screen.getByTestId('wizard-step-compact')).getByRole('button', { name: /Step 3 of 9 · Anchor/ });
+        expect(toggle).toHaveAttribute('aria-expanded', 'false');
+        expect(screen.queryByRole('list', { name: 'All form steps' })).not.toBeInTheDocument();
+
+        fireEvent.click(toggle);
+
+        expect(toggle).toHaveAttribute('aria-expanded', 'true');
+        const items = within(screen.getByRole('list', { name: 'All form steps' })).getAllByRole('listitem');
+        expect(items.map(item => item.textContent)).toEqual(['Basics', 'Gate', '3Anchor', '4Hinge', '5Rotation', '6Geometry', '7Blocks', '8Region', '9Review']);
+        expect(items[2]).toHaveAttribute('aria-current', 'step');
+        expect(within(items[0]).getByLabelText('done')).toBeInTheDocument();
+
+        fireEvent.click(toggle);
+        expect(screen.queryByRole('list', { name: 'All form steps' })).not.toBeInTheDocument();
+    });
+
+    it('closes the compact step list when the step changes', () => {
+        const { rerender } = render(<WizardStepProgress steps={manySteps} />);
+        fireEvent.click(within(screen.getByTestId('wizard-step-compact')).getByRole('button'));
+        expect(screen.getByRole('list', { name: 'All form steps' })).toBeInTheDocument();
+
+        rerender(<WizardStepProgress steps={manySteps.map((step, index) => ({ ...step, isDone: index < 3, isCurrent: index === 3 }))} />);
+
+        expect(screen.queryByRole('list', { name: 'All form steps' })).not.toBeInTheDocument();
     });
 
     it('leaves out the name in the compact header for a step without one', () => {
