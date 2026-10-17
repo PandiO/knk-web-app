@@ -54,6 +54,12 @@ describe('findParentFormFields', () => {
         expect(findParentFormFields(CONFIGS, 'SiegeScenarioGate').map(r => r.field.fieldName)).toEqual(['TownId']);
     });
 
+    it('finds the parent forms as the API sends them (isActive is always false)', () => {
+        const fromApi = CONFIGS.map(c => ({ ...c, isActive: false }));
+
+        expect(findParentFormFields(fromApi, 'SiegeSpawnpoint').map(r => r.field.fieldName)).toEqual(['Name', 'TownId']);
+    });
+
     it('returns nothing for a root form', () => {
         expect(findParentFormFields(CONFIGS, 'SiegeScenario')).toEqual([]);
     });
