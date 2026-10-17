@@ -822,16 +822,13 @@ export const FormWizardPage: React.FC<Props> = ({
         const guardedColumns = applyNameDisplayNameGuard(cleanedColumns, selectedEntityMetadata);
         const normalizedColumns = canonicalizeColumnKeys(guardedColumns);
 
-        if (normalizedColumns.length === 0) {
-            showFeedback({
-                title: 'No columns selected',
-                message: 'Select at least one column before saving.',
-                status: 'info',
-                onContinue: undefined,
-                autoCloseMs: 2500,
-            });
-            return;
-        }
+        // No columns = clear the saved ones, so tables and pickers use their built-in columns again
+        // (the API stores an empty list as none).
+        if (normalizedColumns.length === 0 && !(await confirm({
+            title: 'Use the built-in columns?',
+            message: `The saved columns for ${selectedTypeName} are removed. Tables and pickers show their built-in columns again.`,
+            confirmLabel: 'Use built-in columns',
+        }))) return;
 
         try {
             setSavingColumns(true);
@@ -860,7 +857,9 @@ export const FormWizardPage: React.FC<Props> = ({
             await refresh();
             showFeedback({
                 title: 'Columns saved',
-                message: 'Default table columns have been updated for this entity.',
+                message: normalizedColumns.length === 0
+                    ? 'Tables and pickers for this entity use their built-in columns again.'
+                    : 'Default table columns have been updated for this entity.',
                 status: 'success',
                 onContinue: undefined,
                 autoCloseMs: 3000,
@@ -1059,17 +1058,17 @@ export const FormWizardPage: React.FC<Props> = ({
                                         <p className="text-sm text-gray-600">Configure which columns are shown first in entity tables and related pickers.</p>
                                         <button
                                             onClick={handleSaveDefaultColumns}
-                                            disabled={savingColumns || columnDraft.length === 0}
+                                            disabled={savingColumns || (columnDraft.length === 0 && configuredColumns.length === 0)}
                                             className="btn-primary shrink-0 text-sm disabled:opacity-60"
                                         >
-                                            {savingColumns ? 'Saving...' : 'Save Columns'}
+                                            {savingColumns ? 'Saving...' : columnDraft.length === 0 ? 'Use built-in columns' : 'Save Columns'}
                                         </button>
                                     </div>
 
                                     <div>
                                         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Selected order</p>
                                         {columnDraft.length === 0 ? (
-                                            <p className="text-sm text-gray-500">No columns selected.</p>
+                                            <p className="text-sm text-gray-500">No columns selected: tables and pickers use their built-in columns.</p>
                                         ) : (
                                             <DndContext
                                                 sensors={columnSensors}
