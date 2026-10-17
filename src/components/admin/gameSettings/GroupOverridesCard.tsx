@@ -1,7 +1,11 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { PermissionGroupDto } from '../../../types/dtos/userManagement/PermissionGroupDto';
-import { PermissionGroupGameSettingsDto } from '../../../types/dtos/gameSettings/GameSettingsModels';
+import {
+    HubOutageAction,
+    PermissionGroupGameSettingsDto,
+} from '../../../types/dtos/gameSettings/GameSettingsModels';
+import { MAX_OUTAGE_DELAY_SECONDS, OUTAGE_ACTION_LABELS } from './HubSettingsCard';
 import { LocationOption } from './locationReferenceOptions';
 import { LocationReferencePicker } from './LocationReferencePicker';
 import { MinecraftLegacyPreview } from './MinecraftLegacyPreview';
@@ -10,33 +14,51 @@ import { RespawnPolicyEditor, defaultRespawnPolicy } from './RespawnPolicyEditor
 
 type GroupLike = Pick<PermissionGroupDto, 'id' | 'name' | 'weight' | 'parentGroupId'>;
 
-/** How many parents a group has (cycles cut), as the API's PermissionGroupPrecedence counts them. */
-export const groupDepth = (groupId: number, groups: GroupLike[]): number => {
+/**
+ * Every group in precedence order, as the API's PermissionGroupPrecedence orders them (decision 2026-10-12, option (i):
+ * hierarchy first, then weight). A group that another group inherits from is reached through that group's chain, after
+ * it; the other groups start by weight (highest first, ties by lower id), each followed by its parents. Cycles are cut.
+ */
+export const precedenceOrder = (groups: GroupLike[]): number[] => {
     const byId = new Map(groups.filter(g => g.id != null).map(g => [g.id as number, g]));
-    const seen = new Set<number>([groupId]);
-    let depth = 0;
-    let parentId = byId.get(groupId)?.parentGroupId ?? null;
-    while (parentId != null && byId.has(parentId) && !seen.has(parentId)) {
-        seen.add(parentId);
-        depth++;
-        parentId = byId.get(parentId)?.parentGroupId ?? null;
-    }
-    return depth;
+    const parentOf = (id: number): number | null => {
+        const parent = byId.get(id)?.parentGroupId ?? null;
+        return parent != null && byId.has(parent) ? parent : null;
+    };
+    const inherited = new Set<number>();
+    byId.forEach((_, id) => {
+        const walked = new Set<number>([id]);
+        for (let p = parentOf(id); p != null && !walked.has(p); p = parentOf(p)) {
+            walked.add(p);
+            inherited.add(p);
+        }
+    });
+    const byWeight = Array.from(byId.values()).sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0) || (a.id as number) - (b.id as number));
+    const starts = [...byWeight.filter(g => !inherited.has(g.id as number)), ...byWeight.filter(g => inherited.has(g.id as number))];
+    const order: number[] = [];
+    const seen = new Set<number>();
+    starts.forEach(group => {
+        const walked = new Set<number>();
+        for (let id: number | null = group.id as number; id != null && !walked.has(id); id = parentOf(id)) {
+            walked.add(id);
+            if (!seen.has(id)) {
+                seen.add(id);
+                order.push(id);
+            }
+        }
+    });
+    return order;
 };
 
-/**
- * Overrides in the order the plugin considers them: deeper in the group hierarchy first, then higher
- * weight, then lower id (developer decision 2026-10-05, DESIGN §3.8).
- */
+/** Overrides in the order the plugin considers them (precedenceOrder); unknown groups last, by id. */
 export const orderByPrecedence = (
     overrides: PermissionGroupGameSettingsDto[],
     groups: GroupLike[]
 ): PermissionGroupGameSettingsDto[] => {
-    const weight = (id: number) => groups.find(g => g.id === id)?.weight ?? 0;
+    const rank = new Map(precedenceOrder(groups).map((id, i) => [id, i]));
+    const rankOf = (id: number) => rank.get(id) ?? Number.MAX_SAFE_INTEGER;
     return [...overrides].sort((a, b) =>
-        groupDepth(b.permissionGroupId, groups) - groupDepth(a.permissionGroupId, groups)
-        || weight(b.permissionGroupId) - weight(a.permissionGroupId)
-        || a.permissionGroupId - b.permissionGroupId);
+        rankOf(a.permissionGroupId) - rankOf(b.permissionGroupId) || a.permissionGroupId - b.permissionGroupId);
 };
 
 const DEFAULT_GROUP_MESSAGE = {
@@ -270,9 +292,67 @@ export const GroupOverridesCard: React.FC<{
                                 />
                             )}
                         </div>
+
+                        <HubOutageOverride
+                            override={o}
+                            groupName={name}
+                            onChange={change => update(o.permissionGroupId, x => ({ ...x, ...change }))}
+                        />
                     </div>
                 );
             })}
+        </div>
+    );
+};
+
+/**
+ * The hub's outage handling for one group (hub DESIGN §13): its own outage action and delay. Players in staff or owner
+ * mode are exempt whatever their group (decision 2026-10-12), so there is nothing to set for that here.
+ */
+const HubOutageOverride: React.FC<{
+    override: PermissionGroupGameSettingsDto;
+    groupName: string;
+    onChange: (change: Partial<PermissionGroupGameSettingsDto>) => void;
+}> = ({ override: o, groupName, onChange }) => {
+    const ownAction = o.outageAction != null || o.outageDelaySeconds != null;
+    return (
+        <div className="space-y-2">
+            <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input
+                    type="checkbox"
+                    checked={ownAction}
+                    onChange={e => onChange(e.target.checked
+                        ? { outageAction: 'SendToHub', outageDelaySeconds: 0 }
+                        : { outageAction: null, outageDelaySeconds: null })}
+                    className="rounded border-gray-300"
+                />
+                Own action when the API is lost
+            </label>
+            {ownAction && (
+                <div className="ml-6 flex flex-wrap items-center gap-2 text-sm text-gray-700">
+                    <select
+                        aria-label={`${groupName} outage action`}
+                        value={o.outageAction ?? 'SendToHub'}
+                        onChange={e => onChange({ outageAction: e.target.value as HubOutageAction })}
+                        className="rounded-md border-gray-300 focus:border-primary focus:ring-primary"
+                    >
+                        {(Object.keys(OUTAGE_ACTION_LABELS) as HubOutageAction[]).map(a => (
+                            <option key={a} value={a}>{OUTAGE_ACTION_LABELS[a]}</option>
+                        ))}
+                    </select>
+                    after
+                    <input
+                        type="number"
+                        min={0}
+                        max={MAX_OUTAGE_DELAY_SECONDS}
+                        aria-label={`${groupName} outage delay`}
+                        value={o.outageDelaySeconds ?? 0}
+                        onChange={e => onChange({ outageDelaySeconds: Math.min(MAX_OUTAGE_DELAY_SECONDS, Math.max(0, Math.round(Number(e.target.value)) || 0)) })}
+                        className="w-24 rounded-md border-gray-300 focus:border-primary focus:ring-primary"
+                    />
+                    seconds (0 = immediately)
+                </div>
+            )}
         </div>
     );
 };
