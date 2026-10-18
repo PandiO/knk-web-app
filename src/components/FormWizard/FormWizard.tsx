@@ -59,6 +59,7 @@ import { spreadTaskValueOntoFields } from '../../utils/forms/worldTaskFieldValue
 import { validateListFieldCount } from '../../utils/forms/listFieldValidation';
 import { WizardStepProgress, WizardStepTitle } from './WizardStepHeader';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { withManyToManyCarrierFields } from '../../utils/forms/manyToManyCarrierField';
 
 interface FormWizardProps {
     entityName: string;
@@ -721,7 +722,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     setEntityId(progress.entityId);
                 }
 
-                const fetchedCfg = await formConfigClient.getById(progress.formConfigurationId);
+                const fetchedCfg = withManyToManyCarrierFields(await formConfigClient.getById(progress.formConfigurationId));
                 debug('loadConfiguration:from-progress', {
                     progressId: progress.id,
                     progressEntityId: progress.entityId,
@@ -793,6 +794,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         return config;
                     });
                 }
+                fetchedConfig = withManyToManyCarrierFields(fetchedConfig);
                 setConfig(fetchedConfig);
                 debug('loadConfiguration:fetched-config', {
                     configurationId: fetchedConfig.id,
