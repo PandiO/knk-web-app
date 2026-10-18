@@ -33,6 +33,9 @@ describe('DataRetentionCard', () => {
     await userEvent.clear(pmDays);
     await userEvent.type(pmDays, '14');
     await userEvent.click(screen.getByRole('button', { name: 'Save retention' }));
+    // 30 → 14 deletes older messages, so it needs the typed confirmation (SET-2).
+    await userEvent.type(screen.getByLabelText(/to confirm/), 'DELETE');
+    await userEvent.click(screen.getByRole('button', { name: 'Delete older entries and save' }));
 
     await waitFor(() => expect(mockedUpdate).toHaveBeenCalledWith({ retentionDays: 180, privateMessageRetentionDays: 14 }));
     expect(await screen.findByText('Saved.')).toBeInTheDocument();
@@ -64,5 +67,58 @@ describe('DataRetentionCard', () => {
     render(<DataRetentionCard />);
 
     expect(await screen.findByText('Could not load the retention settings.')).toBeInTheDocument();
+  });
+});
+
+describe('DataRetentionCard lowering a period (SET-2)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedGet.mockResolvedValue({ retentionDays: 365, privateMessageRetentionDays: 30, updatedAt: '2026-09-26T12:00:00Z' });
+  });
+
+  it('asks for a typed confirmation before saving a lower value', async () => {
+    mockedUpdate.mockResolvedValue({ retentionDays: 3, privateMessageRetentionDays: 30, updatedAt: '2026-10-11T13:00:00Z' });
+    render(<DataRetentionCard />);
+    const auditDays = await screen.findByLabelText('Audit log (days)');
+
+    await userEvent.clear(auditDays);
+    await userEvent.type(auditDays, '3');
+    await userEvent.click(screen.getByRole('button', { name: 'Save retention' }));
+
+    expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(screen.getByText('audit log entries older than 3 days (now 365)')).toBeInTheDocument();
+    const confirm = screen.getByRole('button', { name: 'Delete older entries and save' });
+    expect(confirm).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText(/to confirm/), 'DELETE');
+    await userEvent.click(confirm);
+
+    await waitFor(() => expect(mockedUpdate).toHaveBeenCalledWith({ retentionDays: 3, privateMessageRetentionDays: 30 }));
+    expect(await screen.findByText('Saved.')).toBeInTheDocument();
+  });
+
+  it('saves a higher value without asking', async () => {
+    mockedUpdate.mockResolvedValue({ retentionDays: 400, privateMessageRetentionDays: 30, updatedAt: '2026-10-11T13:00:00Z' });
+    render(<DataRetentionCard />);
+    const auditDays = await screen.findByLabelText('Audit log (days)');
+
+    await userEvent.clear(auditDays);
+    await userEvent.type(auditDays, '400');
+    await userEvent.click(screen.getByRole('button', { name: 'Save retention' }));
+
+    await waitFor(() => expect(mockedUpdate).toHaveBeenCalledWith({ retentionDays: 400, privateMessageRetentionDays: 30 }));
+  });
+
+  it('cancel leaves the values unsaved', async () => {
+    render(<DataRetentionCard />);
+    const pmDays = await screen.findByLabelText('Private messages (days)');
+
+    await userEvent.clear(pmDays);
+    await userEvent.type(pmDays, '7');
+    await userEvent.click(screen.getByRole('button', { name: 'Save retention' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(mockedUpdate).not.toHaveBeenCalled();
   });
 });

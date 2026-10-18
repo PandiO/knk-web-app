@@ -688,7 +688,7 @@ const IntegerField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
                 </button>
                 <input
                     type="number"
-                    value={value || ''}
+                    value={value ?? ''}
                     onChange={e => onChange(e.target.value ? Number(e.target.value) : null)}
                     onBlur={onBlur}
                     placeholder={field.placeholder}
@@ -723,7 +723,7 @@ const DecimalField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
         <input
             type="number"
             step="0.01"
-            value={value || ''}
+            value={value ?? ''}
             onChange={e => onChange(e.target.value ? parseFloat(e.target.value) : null)}
             onBlur={onBlur}
             placeholder={field.placeholder}
@@ -775,7 +775,7 @@ const DateTimeField: React.FC<FieldRendererProps> = ({ field, value, onChange, e
         <div className="relative">
             <input
                 type="datetime-local"
-                value={value || ''}
+                value={value ?? ''}
                 onChange={e => onChange(e.target.value)}
                 onBlur={onBlur}
                 disabled={field.isReadOnly}
@@ -803,7 +803,7 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
             {field.description && <p className="text-xs text-gray-500 mb-2">{field.description}</p>}
             <select
                 id={field.fieldName}
-                value={value || ''}
+                value={value ?? ''}
                 onChange={e => onChange(e.target.value)}
                 onBlur={onBlur}
                 disabled={field.isReadOnly}

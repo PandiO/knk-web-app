@@ -7,6 +7,11 @@ import { apiRefusalReason } from '../../utils/apiRefusalReason';
 // AuditLogRetentionConfiguration; docs/specs/private-messages/DESIGN.md §3.1 - private messages
 // default to 30 days). Anyone may read the values; saving needs knk.admin.config, and the API's
 // own refusal message is shown to anyone without it.
+//
+// Lowering a period deletes everything older at the next daily cleanup, for good, so it needs a
+// typed confirmation first (SET-2, KNG-141).
+
+const CONFIRM_WORD = 'DELETE';
 
 const parseDays = (value: string): number | null => {
     if (!/^\d+$/.test(value.trim())) return null;
@@ -22,6 +27,10 @@ export const DataRetentionCard: React.FC = () => {
     const [saving, setSaving] = React.useState(false);
     const [saveError, setSaveError] = React.useState<string | null>(null);
     const [saved, setSaved] = React.useState(false);
+    // The values the server has now; a lower value than these deletes history.
+    const [current, setCurrent] = React.useState<{ audit: number; pm: number } | null>(null);
+    const [confirming, setConfirming] = React.useState(false);
+    const [confirmText, setConfirmText] = React.useState('');
 
     React.useEffect(() => {
         let cancelled = false;
@@ -30,6 +39,7 @@ export const DataRetentionCard: React.FC = () => {
                 if (cancelled) return;
                 setRetentionDays(String(config.retentionDays));
                 setPrivateMessageRetentionDays(String(config.privateMessageRetentionDays));
+                setCurrent({ audit: config.retentionDays, pm: config.privateMessageRetentionDays });
             })
             .catch((err) => {
                 console.error('Failed to load retention configuration:', err);
@@ -42,9 +52,27 @@ export const DataRetentionCard: React.FC = () => {
     const auditDays = parseDays(retentionDays);
     const pmDays = parseDays(privateMessageRetentionDays);
 
+    const lowered: string[] = [];
+    if (current && auditDays !== null && auditDays < current.audit) {
+        lowered.push(`audit log entries older than ${auditDays} days (now ${current.audit})`);
+    }
+    if (current && pmDays !== null && pmDays < current.pm) {
+        lowered.push(`private messages older than ${pmDays} days (now ${current.pm})`);
+    }
+
+    const resetConfirm = () => {
+        setConfirming(false);
+        setConfirmText('');
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (auditDays === null || pmDays === null) return;
+        if (lowered.length > 0 && !confirming) {
+            setConfirming(true);
+            return;
+        }
+        if (lowered.length > 0 && confirmText.trim() !== CONFIRM_WORD) return;
         setSaving(true);
         setSaveError(null);
         setSaved(false);
@@ -55,6 +83,8 @@ export const DataRetentionCard: React.FC = () => {
             });
             setRetentionDays(String(updated.retentionDays));
             setPrivateMessageRetentionDays(String(updated.privateMessageRetentionDays));
+            setCurrent({ audit: updated.retentionDays, pm: updated.privateMessageRetentionDays });
+            resetConfirm();
             setSaved(true);
         } catch (err) {
             console.error('Failed to save retention configuration:', err);
@@ -88,7 +118,7 @@ export const DataRetentionCard: React.FC = () => {
                                 type="number"
                                 min={1}
                                 value={retentionDays}
-                                onChange={(e) => { setRetentionDays(e.target.value); setSaved(false); }}
+                                onChange={(e) => { setRetentionDays(e.target.value); setSaved(false); resetConfirm(); }}
                                 className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
                             />
                         </div>
@@ -99,7 +129,7 @@ export const DataRetentionCard: React.FC = () => {
                                 type="number"
                                 min={1}
                                 value={privateMessageRetentionDays}
-                                onChange={(e) => { setPrivateMessageRetentionDays(e.target.value); setSaved(false); }}
+                                onChange={(e) => { setPrivateMessageRetentionDays(e.target.value); setSaved(false); resetConfirm(); }}
                                 className="block w-full rounded-md border-gray-300 focus:border-primary focus:ring-primary"
                             />
                         </div>
@@ -107,11 +137,37 @@ export const DataRetentionCard: React.FC = () => {
                     {(auditDays === null || pmDays === null) && (
                         <p className="text-xs text-red-600">Both values must be whole numbers of at least 1 day.</p>
                     )}
+                    {confirming && lowered.length > 0 && (
+                        <div role="alert" className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900 space-y-2">
+                            <p className="font-medium">This permanently deletes history at the next daily cleanup:</p>
+                            <ul className="list-disc pl-5">
+                                {lowered.map(line => <li key={line}>{line}</li>)}
+                            </ul>
+                            <label htmlFor="retention-confirm" className="block">
+                                Type <strong>{CONFIRM_WORD}</strong> to confirm.
+                            </label>
+                            <input
+                                id="retention-confirm"
+                                value={confirmText}
+                                onChange={(e) => setConfirmText(e.target.value)}
+                                className="block w-48 rounded-md border-red-300 focus:border-red-500 focus:ring-red-500"
+                                autoComplete="off"
+                            />
+                        </div>
+                    )}
                     <div className="flex items-center gap-3">
-                        <button type="submit" className="btn-primary text-sm" disabled={saving || auditDays === null || pmDays === null}>
+                        <button
+                            type="submit"
+                            className={`${confirming ? 'btn-danger' : 'btn-primary'} text-sm`}
+                            disabled={saving || auditDays === null || pmDays === null
+                                || (confirming && lowered.length > 0 && confirmText.trim() !== CONFIRM_WORD)}
+                        >
                             {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                            Save retention
+                            {confirming && lowered.length > 0 ? 'Delete older entries and save' : 'Save retention'}
                         </button>
+                        {confirming && (
+                            <button type="button" className="btn-secondary text-sm" onClick={resetConfirm}>Cancel</button>
+                        )}
                         {saved && <span className="text-xs text-green-700">Saved.</span>}
                         {saveError && <span className="text-xs text-red-600">{saveError}</span>}
                     </div>
