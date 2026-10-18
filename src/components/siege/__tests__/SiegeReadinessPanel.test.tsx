@@ -114,7 +114,7 @@ describe('Siege readiness panel (displayPanel field)', () => {
     });
 
     it('shows the API error when the check fails', async () => {
-        getReadiness.mockRejectedValue(new Error('SiegeScenario with id 1 not found.'));
+        getReadiness.mockRejectedValue(Object.assign(new Error('SiegeScenario with id 1 not found.'), { status: 404 }));
 
         renderPanel('1');
 

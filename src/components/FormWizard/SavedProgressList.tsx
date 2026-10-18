@@ -90,6 +90,8 @@ export const SavedProgressList: React.FC<Props> = ({
                                 </button>
                                 <button
                                     onClick={() => onDelete(progress)}
+                                    aria-label="Delete saved progress"
+                                    title="Delete saved progress"
                                     className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                                 >
                                     <Trash2 className="h-4 w-4" />

@@ -9,9 +9,11 @@ import './ObjectDashboard.css';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
 import { FeedbackModal } from '../FeedbackModal';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
+import { usePageTitle } from '../../hooks/usePageTitle';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
 import { logging } from '../../utils';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
@@ -42,6 +44,7 @@ export const getDefaultEntityName = (
 };
 
 const ObjectDashboard = ({ objectTypes }: Props) => {
+    usePageTitle('Dashboard');
     const navigate = useNavigate();
     const [selectedType, setSelectedType] = useState<string>('');
     const { baseMetadata, loading: metadataLoading } = useEntityMetadata();
@@ -194,11 +197,9 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                 setModalSecondaryLabel(undefined);
                 setSelectedType((prev) => prev);
                 setRefreshKey((prev) => prev + 1);
-            } catch (err: any) {
-                const serverMessage = err?.response?.data?.message || err?.message;
-                const serverCode = err?.response?.data?.code;
+            } catch (err) {
                 setModalTitle('Delete Failed');
-                setModalMessage(serverMessage || 'An error occurred while deleting.');
+                setModalMessage(apiRefusalReason(err) ?? 'An error occurred while deleting.');
                 setModalStatus('error');
 
                 const isCategory = entityTypeName.toLowerCase() === 'category';
@@ -255,6 +256,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                         status={modalStatus}
                         continueLabel={modalContinueLabel}
                         onContinue={modalOnContinue}
+                        danger={modalStatus === 'info' && modalContinueLabel === 'Delete'}
                         onSecondary={modalOnSecondary}
                         secondaryLabel={modalSecondaryLabel}
                         onClose={() => setModalOpen(false)}

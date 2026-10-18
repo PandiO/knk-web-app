@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Save, Check, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, AlertCircle } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, FormFieldDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { RelationshipDraft } from '../../hooks/useRelationshipDrafts';
 import { formConfigClient } from '../../apiClients/formConfigClient';
@@ -7,13 +7,14 @@ import { formSubmissionClient } from '../../apiClients/formSubmissionClient';
 import { ConditionEvaluator } from '../../utils/conditionEvaluator';
 import { FormSubmissionStatus } from '../../utils/enums';
 import { FieldType } from '../../utils/enums';
-import { FieldRenderer, parseListFieldSettings } from './FieldRenderers';
+import { FieldRenderer } from './FieldRenderers';
 import { WorldBoundFieldRenderer } from '../Workflow/WorldBoundFieldRenderer';
 import { logging } from '../../utils';
 import { getFetchByIdFunctionForEntity, getCreateFunctionForEntity, getUpdateFunctionForEntity } from '../../utils/entityApiMapping';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
 import { resolveObjectFieldValueForEdit } from '../../utils/forms/objectFieldEditValue';
 import { normalizeFormSubmission } from '../../utils/forms/normalizeFormSubmission';
+import { shouldPersistChildOnComplete } from '../../utils/forms/childPersistence';
 import {
     FormVisibility,
     flattenVisibleStepsData,
@@ -33,6 +34,8 @@ import { StepProgressReadDto } from '../../types/dtos/workflow/WorkflowDtos';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { buildPlaceholderContext } from '../../utils/placeholderExtraction';
+import { FormSessionScope, useFormSession } from '../../contexts/FormSessionContext';
+import { useCreatedEntitiesProvenance } from '../../hooks/useCreatedEntitiesProvenance';
 import {
     ProjectionOverwritePolicy,
     ProjectionSourceContext,
@@ -41,7 +44,7 @@ import {
     isEffectivelyEmpty,
     parseValueProjection
 } from '../../utils/forms/valueProjection';
-import { deriveGateGeometryStepData, isDerivedGateGeometryField } from '../../utils/forms/gateGeometry';
+import { deriveGateGeometryStepData, gateGeometryFieldError, isDerivedGateGeometryField } from '../../utils/forms/gateGeometry';
 import { fillEmptySharedFieldValues, syncSharedFieldValues } from '../../utils/forms/sharedFieldSync';
 import { withLiveEnumOptions } from '../../utils/forms/enumFieldMetadata';
 import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
@@ -50,13 +53,20 @@ import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinit
 import { ScanConflictModal, ScanConflictField, ScanConflictChoice } from './ScanConflictModal';
 import { parsePickerFilterSettings, resolvePickerFilters } from '../../utils/forms/pickerFilters';
 import { hydrateJoinRowsForEdit, joinFieldSeedValues } from '../../utils/forms/manyToManyEditLoad';
-import { formFieldDefaultValue } from '../../utils/forms/formFieldDefaultValue';
+import { seededFormFieldValue } from '../../utils/forms/formFieldDefaultValue';
+import { isSeedableInstance, overlayChildEditValues } from '../../utils/forms/childEditSeed';
+import { spreadTaskValueOntoFields } from '../../utils/forms/worldTaskFieldValue';
+import { validateListFieldCount } from '../../utils/forms/listFieldValidation';
+import { WizardStepProgress, WizardStepTitle } from './WizardStepHeader';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 interface FormWizardProps {
     entityName: string;
     entityId?: string; // added: optional entity ID for edit mode
     formConfigurationId?: string; // added: optional specific form configuration to use
     initialFieldValues?: Record<string, unknown>;
+    // KNG-134: edit mode only - values laid over the database load (the parent's in-session edits).
+    overlayFieldValues?: Record<string, unknown>;
     userId: string;
     onComplete?: (data: Record<string, unknown>, progress?: FormSubmissionProgressDto) => void;
     existingProgressId?: string;
@@ -75,11 +85,12 @@ interface FormWizardProps {
     parentContext?: Record<string, unknown>;
 }
 
-export const FormWizard: React.FC<FormWizardProps> = ({
+const FormWizardBody: React.FC<FormWizardProps> = ({
     entityName,
     entityId: initialEntityId, // Rename to make clear this is the initial prop
     formConfigurationId, // added
     initialFieldValues,
+    overlayFieldValues,
     userId,
     onComplete,
     existingProgressId,
@@ -92,6 +103,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     // Note: currentStepIndex prop removed as unused
 }) => {
     const debug = (...args: unknown[]) => console.log('[FORM_WIZARD_DEBUG]', ...args);
+    const formSession = useFormSession(); // KNG-136
+    const createdEntitiesProvenance = useCreatedEntitiesProvenance(formSession, parentProgressId); // KNG-162
     const [config, setConfig] = useState<FormConfigurationDto | null>(null);
     const [entityMetadata, setEntityMetadata] = useState<EntityMetadataDto | null>(null);
     const [joinEntityMetadataMap, setJoinEntityMetadataMap] = useState<Record<string, EntityMetadataDto>>({});
@@ -174,11 +187,16 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         // Every other entity's normalizeFormSubmission.handleSingleObjectRelationship just calls
         // extractId() on whatever's stored, which is undefined for a brand-new never-persisted
         // object, so the field silently vanishes from the submission instead of erroring loudly -
-        // this was never wired to actually work.
+        // this was never wired to actually work. KNG-133: every List field too (Street ->
+        // Districts), owned or not; set by shouldPersistChildOnComplete.
         persistIndependently?: boolean;
         // This wizard's current values + id, handed to the child as its parentContext (pickers).
         // Unlike parentEntitySnapshot (the create-only prefill) it is set for edits too.
         parentContext?: Record<string, unknown>;
+        // KNG-134: "Edit instance" - the instance as this form holds it, and whether its edits live
+        // only here (an embedded Location), so the child lays them over its database load.
+        initialValues?: Record<string, unknown>;
+        editingInMemory?: boolean;
     };
     const [childFormModal, setChildFormModal] = useState<ChildFormState>({
         open: false,
@@ -277,11 +295,12 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 // Skip hidden fields so normalization never resurrects them as null and
                 // overwrites the value parked in the stash.
                 if (visibleFieldNames && !visibleFieldNames.has(field.fieldName)) return;
-                const hasValue = data && Object.prototype.hasOwnProperty.call(data, field.fieldName);
-                const value = hasValue
-                    ? (data as StepData)[field.fieldName]
-                    : formFieldDefaultValue(field);
-                result[field.fieldName] = value;
+                const hasValue = !!data && Object.prototype.hasOwnProperty.call(data, field.fieldName);
+                result[field.fieldName] = seededFormFieldValue(
+                    field,
+                    hasValue,
+                    hasValue ? (data as StepData)[field.fieldName] : undefined
+                );
             });
         return result;
     };
@@ -319,11 +338,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 const incoming = incomingKey ? values[incomingKey] : undefined;
                 const existing = next[field.fieldName];
                 const hasExistingValue = existing !== undefined && existing !== null && existing !== '';
-                // A value that is still just the field's authored default is not "existing" data -
-                // an initial value (e.g. a saved siege gate's InitialState when editing its join
-                // entry) must win over it.
-                const isUntouchedDefault = field.defaultValue !== undefined && field.defaultValue !== null
-                    && existing === field.defaultValue;
+                // A value that is still just the field's seeded default is not "existing" data -
+                // an initial value (e.g. a saved siege gate's InitialState or Damageable=false when
+                // editing its join entry) must win over it. Compare against the seeded default, not
+                // the raw string: a Boolean's "true" default is seeded as true (KNG-53).
+                const hasSeededDefault = field.fieldType === FieldType.Boolean
+                    || (field.defaultValue !== undefined && field.defaultValue !== null);
+                const isUntouchedDefault = hasSeededDefault && existing === seededFormFieldValue(field, false, undefined);
 
                 if (incoming !== undefined && (!hasExistingValue || isUntouchedDefault)) {
                     next[field.fieldName] = incoming;
@@ -693,6 +714,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             if (existingProgressId) {
                 const progress = await formSubmissionClient.getById(existingProgressId);
                 setProgressId(progress.id);
+                createdEntitiesProvenance.seedFromProgress(progress); // KNG-162 (D3)
                 
                 // CRITICAL: Restore entityId from progress if it exists (edit mode)
                 if (progress.entityId) {
@@ -912,7 +934,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 getOrderedFields(step).forEach(field => {
                     // Use utility function for case-insensitive lookup
                     const value = findValueByFieldName(entityData, field.fieldName);
-                    stepData[field.fieldName] = resolveObjectFieldValueForEdit(entityData, field, value);
+                    // An entity without a value for a Boolean still shows an unchecked box, so it
+                    // must hold false like a new form does, or Required blocks Next (KNG-53).
+                    stepData[field.fieldName] = seededFormFieldValue(
+                        field,
+                        true,
+                        resolveObjectFieldValueForEdit(entityData, field, value)
+                    );
                 });
                 // A many-to-many step's saved join rows arrive as plain DTO rows; give them the
                 // relationship shape the editor and join-entry modal expect (see
@@ -929,8 +957,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 populatedStepsData[stepIndex] = stepData;
             });
 
-            setAllStepsData(populatedStepsData);
-            setCurrentStepData(populatedStepsData[0] || normalizeStepData(cfg.steps[0], {}));
+            // KNG-134: the parent's in-session edits win over the database copy.
+            const loadedStepsData = overlayChildEditValues(cfg, populatedStepsData, overlayFieldValues);
+            setAllStepsData(loadedStepsData);
+            setCurrentStepData(loadedStepsData[0] || normalizeStepData(cfg.steps[0], {}));
         } catch (error) {
             console.error('Failed to load existing entity data:', error);
             logging.errorHandler.next(`ErrorMessage.${entityTypeName}.LoadFailed`);
@@ -1814,13 +1844,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             : undefined;
         const parentEntitySnapshot = resolvedEntityId ? undefined : currentContext;
 
-        const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
-        // Location is a genuine embedded value object with real backend support for a nested,
-        // id-less create (see the persistIndependently field's own comment) - every other single
-        // Object relationship needs to be persisted here directly, same as an owned collection.
-        const isLocationField = field.objectType?.toLowerCase() === 'location';
-        const shouldPersistIndependently = ownedChildCollection ||
-            (field.fieldType === FieldType.Object && !isLocationField);
+        // KNG-133 (D1 = A): every List child and every Object child except an embedded Location is
+        // saved when its form completes - see shouldPersistChildOnComplete.
+        const shouldPersistIndependently = shouldPersistChildOnComplete(field);
 
         setChildFormModal({
             open: true,
@@ -1833,7 +1859,10 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             parentEntityTypeName: parentEntitySnapshot ? entityName : undefined,
             parentEntitySnapshot,
             persistIndependently: shouldPersistIndependently,
-            parentContext: currentContext ? contextForChild(currentContext) : undefined
+            parentContext: currentContext ? contextForChild(currentContext) : undefined,
+            // KNG-134: the child is seeded from / overlaid with what this form holds.
+            initialValues: isSeedableInstance(existingInstance) ? existingInstance : undefined,
+            editingInMemory: isSeedableInstance(existingInstance) && !shouldPersistIndependently
         });
     };
 
@@ -1844,10 +1873,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         const listItemIndex = field.fieldType === FieldType.List
             ? (Array.isArray(currentStepData[field.fieldName]) ? currentStepData[field.fieldName].length : 0)
             : undefined;
-        const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
-        const isLocationField = field.objectType?.toLowerCase() === 'location';
-        const shouldPersistIndependently = ownedChildCollection ||
-            (field.fieldType === FieldType.Object && !isLocationField);
+        const shouldPersistIndependently = shouldPersistChildOnComplete(field);
         setChildFormModal({
             open: true,
             entityTypeName: field.objectType || '',
@@ -1883,7 +1909,9 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             parentEntityTypeName: undefined,
             parentEntitySnapshot: undefined,
             persistIndependently: undefined,
-            parentContext: undefined
+            parentContext: undefined,
+            initialValues: undefined,
+            editingInMemory: undefined
         }));
     };
 
@@ -1952,7 +1980,20 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     const persisted = await createFn(entityData);
                     createdEntity = (persisted && typeof persisted === 'object') ? persisted : entityData;
                 }
+            } else if (childFormModal.entityId && /^\d+$/.test(childFormModal.entityId)) {
+                // KNG-130: an edited Location is saved by this form, not on its own. The nested wizard
+                // hands back its entityId prop, a string ("83"); keep the number the loaded value had.
+                createdEntity = { ...childData, id: Number(childFormModal.entityId) };
             }
+
+            // KNG-136: record it in the form session, so every picker in this root form pins it.
+            formSession?.register({
+                entityTypeName: childFormModal.entityTypeName,
+                entity: createdEntity,
+                fieldName,
+                status: childFormModal.entityId ? 'updated' : 'created',
+                embedded: !childFormModal.persistIndependently
+            });
 
             // If this is a child form (has parentProgressId), save to childProgresses
             if (!progress?.parentProgressId && parentProgressId && progressId && currentStepIndex !== undefined) {
@@ -2322,9 +2363,17 @@ export const FormWizard: React.FC<FormWizardProps> = ({
     const validateField = (field: FormFieldDto): string | null => {
         const value = currentStepData[field.fieldName];
 
+        // KNG-164: List fields (empty list, minSelection/maxSelection) are checked in listFieldValidation.
+        if (field.fieldType === FieldType.List) {
+            return validateListFieldCount(field, value, { parentIsSaved: !!entityId });
+        }
+
         if (field.isRequired && (value === null || value === undefined || value === '')) {
             return `${field.label} is required`;
         }
+
+        const geometryError = gateGeometryFieldError(entityName, field.fieldName, currentStepData);
+        if (geometryError) return geometryError;
 
         for (const validation of field.validations) {
             if (!validation.isActive) continue;
@@ -2399,6 +2448,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 parentProgressId: parentProgressId,
                 status: FormSubmissionStatus.InProgress,
                 updatedAt: new Date().toISOString(),
+                createdEntitiesJson: createdEntitiesProvenance.createdEntitiesJson(), // KNG-162
             };
         return progressData;
     };
@@ -2439,14 +2489,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
             return savedProgress;
         } catch (error: unknown) {
             console.error('Failed to save progress:', error);
-            // changed: set user-friendly error message from API or fallback
-            const errorMessage = 
-                (error && typeof error === 'object' && 'response' in error && 
-                 error.response && typeof error.response === 'object' && 'data' in error.response &&
-                 error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data &&
-                 typeof error.response.data.message === 'string')
-                    ? error.response.data.message
-                    : 'Failed to save your progress. Please try again.';
+            // KNG-169: the API's reason for a refused save, else the general text.
+            const errorMessage = apiRefusalReason(error) ?? 'Failed to save your progress. Please try again.';
             setError(errorMessage);
             logging.errorHandler.next('ErrorMessage.FormSubmission.SaveFailed');
             if (status === FormSubmissionStatus.Paused) {
@@ -2530,9 +2574,6 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 return nextIndex;
             });
         } else {
-            const saved = await saveProgress(FormSubmissionStatus.Completed);
-            if (!saved) return;
-
             // Flatten to get all field values. Hidden steps and fields were already dropped by
             // reconcileVisibility, so a toggled-away branch can never reach the entity.
             const normalizedAll: AllStepsData = {};
@@ -2568,6 +2609,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 setError(message);
                 return;
             }
+
+            // KNG-133: normalize first, so a submission refused above (e.g. an entity that was
+            // never saved) leaves the progress as it was instead of marking it Completed.
+            const saved = await saveProgress(FormSubmissionStatus.Completed);
+            if (!saved) return;
 
             // CRITICAL: Include entity ID in payload for edit mode
             // This ensures the parent component calls UPDATE instead of CREATE
@@ -2660,46 +2706,20 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                     </div>
                 )}
 
-                {/* Progress Indicator */}
-                <div className="flex items-center justify-center mx-auto mb-6 w-full max-w-3xl px-2 md:px-4 gap-3 md:gap-4">
-                    {visibility.visibleStepIndices.map((stepIndex, position) => {
-                        const step = config.steps[stepIndex];
-                        const isDone = stepIndex < currentStepIndex || completedSteps.has(stepIndex);
-                        return (
-                            <div key={step.id ?? stepIndex} className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-                                <div
-                                    className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                                        isDone
-                                            ? 'bg-green-500 text-white'
-                                            : stepIndex === currentStepIndex
-                                            ? 'bg-primary text-white'
-                                            : 'bg-gray-200 text-gray-600'
-                                    }`}
-                                >
-                                    {isDone ? <Check className="h-4 w-4 md:h-5 md:w-5" /> : position + 1}
-                                </div>
-                                {position < visibility.visibleStepIndices.length - 1 && (
-                                    <div
-                                        className={`h-1 w-10 md:w-16 rounded-full transition-colors flex-shrink-0 ${
-                                            isDone ? 'bg-green-500' : 'bg-gray-200'
-                                        }`}
-                                    />
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-
-                {/* Title and Description */}
-                <div className="text-center mb-6">
-                    {/* changed: show edit mode in title */}
-                    <h2 className="text-xl md:text-2xl font-bold text-gray-900">
-                        {entityId ? `Edit ${entityName}` : currentStep.stepName}
-                    </h2>
-                    {currentStep.description && (
-                        <p className="mt-2 text-sm text-gray-600">{currentStep.description}</p>
-                    )}
-                </div>
+                {/* Progress Indicator and Title (KNG-137: step names, kept in edit mode) */}
+                <WizardStepProgress
+                    steps={visibility.visibleStepIndices.map(stepIndex => ({
+                        key: config.steps[stepIndex].id ?? stepIndex,
+                        name: config.steps[stepIndex].stepName,
+                        isDone: stepIndex < currentStepIndex || completedSteps.has(stepIndex),
+                        isCurrent: stepIndex === currentStepIndex
+                    }))}
+                />
+                <WizardStepTitle
+                    stepName={currentStep.stepName}
+                    description={currentStep.description}
+                    editingEntityName={entityId ? entityName : null}
+                />
 
                 {/* Navigation Buttons Toolbar */}
                 <div className="flex flex-col md:flex-row gap-3 md:gap-2 justify-between items-center">
@@ -2816,6 +2836,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                         const isFirstOrderedField = visibleOrderedFields.length > 0 && visibleOrderedFields[0].id === field.id;
 
                         const worldTaskEnabled = fieldWorldTaskEnabled || (canInheritWorldTask && (matchesInheritedFieldName || isFirstOrderedField));
+                        const inheritsOntoFirstField = !fieldWorldTaskEnabled && canInheritWorldTask && !matchesInheritedFieldName && isFirstOrderedField;
                         const taskType = fieldTaskType || (canInheritWorldTask ? worldTaskHint : undefined);
                         const stepKey = computeStepKey(currentStep!, currentStepIndex);
 
@@ -2849,7 +2870,11 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                             && !renderedField.isReadOnly;
                         const worldTaskActionButtonId = `worldtask-action-${currentStepIndex}-${field.fieldName}`;
                         const worldTaskStatusVisibleForField = worldTaskStatusVisibility[worldTaskActionButtonId] || false;
-                        const hasFieldError = !!errors[field.fieldName];
+                        // KNG-132: shown as soon as the points disagree, not only on Next.
+                        const fieldError = errors[field.fieldName]
+                            ?? gateGeometryFieldError(entityName, field.fieldName, currentStepData)
+                            ?? undefined;
+                        const hasFieldError = !!fieldError;
                         const fieldContainerClass = hasFieldError
                             ? 'space-y-3 rounded-lg border border-red-200 bg-red-50/40 p-4 md:p-5'
                             : 'space-y-3 rounded-lg border border-gray-200 bg-gray-50/60 p-4 md:p-5';
@@ -2903,7 +2928,7 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                     field={renderedField}
                                     value={currentStepData[field.fieldName]}
                                     onChange={value => handleFieldChange(field.fieldName, value)}
-                                    error={errors[field.fieldName]}
+                                    error={fieldError}
                                     onBlur={() => validateField(field)}
                                     onCreateNew={() => handleOpenChildForm(
                                         field,
@@ -2935,7 +2960,19 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                                     <WorldBoundFieldRenderer
                                         field={renderedField}
                                         value={currentStepData[field.fieldName]}
-                                        onChange={(value: any) => handleFieldChange(field.fieldName, value)}
+                                        onChange={(value: any) => {
+                                            // KNG-134 (spec §2.3): a task inherited onto the first field spreads
+                                            // its result over this form's fields instead of filling that one.
+                                            // KNG-167: a typed Name is kept; only coordinates/world update.
+                                            const patch = inheritsOntoFirstField
+                                                ? spreadTaskValueOntoFields(value, visibleOrderedFields, currentStepData)
+                                                : null;
+                                            if (patch) {
+                                                applyMultipleFieldChanges(patch);
+                                            } else {
+                                                handleFieldChange(field.fieldName, value);
+                                            }
+                                        }}
                                         taskType={taskType!}
                                         workflowSessionId={workflowSessionId!}
                                         stepNumber={currentStepIndex}
@@ -3025,6 +3062,8 @@ export const FormWizard: React.FC<FormWizardProps> = ({
                 parentEntityTypeName={childFormModal.parentEntityTypeName}
                 parentEntitySnapshot={childFormModal.parentEntitySnapshot}
                 parentContext={childFormModal.parentContext}
+                initialValues={childFormModal.initialValues}
+                overlayInitialValues={childFormModal.editingInMemory}
                 onComplete={handleChildFormComplete}
                 onClose={handleCloseChildForm}
             />
@@ -3051,3 +3090,13 @@ export const FormWizard: React.FC<FormWizardProps> = ({
         </div>
     );
 };
+
+/**
+ * KNG-136: a wizard with no form session above it starts one (the root form); a wizard nested in a
+ * ChildFormModal / JoinEntityFormModal joins its parent's (contexts/FormSessionContext.tsx).
+ */
+export const FormWizard: React.FC<FormWizardProps> = props => (
+    <FormSessionScope formName={props.entityName}>
+        <FormWizardBody {...props} />
+    </FormSessionScope>
+);

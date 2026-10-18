@@ -3,8 +3,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PasswordStrengthMeter } from '../../components/auth/PasswordStrengthMeter';
 import { validatePasswordPolicy } from '../../utils/passwordValidator';
 import { authService } from '../../services/authService';
+import { usePageTitle } from '../../hooks/usePageTitle';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 export const ResetPasswordPage: React.FC = () => {
+  usePageTitle('Reset password');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -40,9 +43,8 @@ export const ResetPasswordPage: React.FC = () => {
       await authService.resetPassword(token, newPassword, passwordConfirmation);
       setSuccess(true);
       setTimeout(() => navigate('/auth/login'), 1200);
-    } catch (err: any) {
-      const message = err?.response?.message || err?.message || 'Reset token is invalid or expired.';
-      setError(message);
+    } catch (err) {
+      setError(apiRefusalReason(err) ?? 'Reset token is invalid or expired.');
     } finally {
       setIsSubmitting(false);
     }

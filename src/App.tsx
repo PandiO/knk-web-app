@@ -6,11 +6,8 @@ import { LandingPage } from './pages/LandingPage';
 import { AccountManagementPage } from './pages/AccountManagementPage';
 import ObjectDashboard from './components/ObjectDashboard';
 import { objectConfigs } from './config/objectConfigs';
-import { Subscription } from 'rxjs/internal/Subscription';
-import { useRef } from 'react';
-import { ErrorColor, logging } from './utils';
-import en from './utils/languages/en-en.json';
-import { ErrorView } from './components/ErrorView';
+import { ToastRegion } from './components/ToastRegion';
+import { RouteErrorBoundary } from './components/ErrorBoundary';
 import { FormWizardPage } from './pages/FormWizardPage';
 import { FormConfigBuilder } from './components/FormConfigBuilder/FormConfigBuilder';
 import { DisplayWizardPage } from './pages/DisplayWizardPage';
@@ -33,74 +30,29 @@ import { CurrencyAlertsPage } from './pages/admin/economy/CurrencyAlertsPage';
 import { LocationRetentionPage } from './pages/admin/locations/LocationRetentionPage';
 import { LOCATION_RETENTION_NODES } from './types/dtos/locationRetention/LocationRetentionDtos';
 import { CURRENCY_NODES } from './types/dtos/currency/CurrencyDtos';
+import { LeaderboardsPage } from './pages/leaderboards/LeaderboardsPage';
+import { OwnerRoute } from './components/OwnerRoute';
+import { OwnerTelemetryPage } from './pages/owner/OwnerTelemetryPage';
+import { OwnerPrivacyPage } from './pages/owner/OwnerPrivacyPage';
+import { ConfirmDataDeletionPage } from './pages/privacy/ConfirmDataDeletionPage';
+import { OwnerAnalyticsPage } from './pages/owner/OwnerAnalyticsPage';
+import { OWNER_ANALYTICS_VIEW_NODE } from './types/dtos/analytics/WorldAnalyticsDtos';
+import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from './types/dtos/telemetry/TelemetryDtos';
+import { PublicPlayerProfilePage } from './pages/players/PublicPlayerProfilePage';
 import React from 'react';
-import { RegisterPage, RegisterSuccessPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
+import { RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
+import { NotFoundPage } from './pages/NotFoundPage';
+import { CONTENT_PERMISSION_NODE } from './hooks/useStaffAccess';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useEntityMetadata } from './hooks/useEntityMetadata';
 
 function AppContent() {
-  var result: any[] = [];
-  const errorContent = useRef(result);
-
-  let loggingErrorHandler: Subscription | null = null;
-
-
-  const removeError = (value: string) => {
-    const errorContentWithRemovedItem = errorContent.current.filter(x => x.content.props.content !== value);
-    setTimeout(() => {
-      errorContent.current = errorContentWithRemovedItem;
-      clearTimeout(0);
-    }, 0);
-  }
-
-  const initialize = () => {
-    loggingErrorHandler = logging.errorHandler.subscribe((data: any) => {
-      const message = getMessageFromPath(String(data)) ?? String(data);
-      const errorMap = errorContent.current.map(x => x.content.props.content);
-
-      const isRed = data.includes("Red");
-
-      if (errorMap.includes(message) === false) {
-        var interval = setTimeout(() => {
-          errorContent.current.shift();
-          clearTimeout(interval);
-        }, isRed ? 20000 : 6000);
-
-        errorContent.current.push({
-          content: <ErrorView content={message} color={isRed ? ErrorColor.Red : ErrorColor.Grey} removeCallback={() => removeError(message)} />
-        });
-      }
-    });
-  }
-
-  function getMessageFromPath(path: string): string | undefined {
-    if (!path) return undefined;
-    const parts = path.split('.').filter(Boolean);
-    let current: any = en;
-    for (const part of parts) {
-      if (current && Object.prototype.hasOwnProperty.call(current, part)) {
-        current = current[part];
-      } else {
-        return undefined;
-      }
-    }
-    return typeof current === 'string' ? current : undefined;
-  }
-
   const objectTypes = Object.entries(objectConfigs).map(([type, config]) => ({
     id: type,
     label: config.label,
     icon: config.icon,
     createRoute: `/forms/${type}`,
   }));
-
-  React.useEffect(() => {
-    initialize();
-
-    return () => {
-      loggingErrorHandler?.unsubscribe();
-    }
-  }, []);
 
   const { isLoggedIn } = useAuth();
   const { baseMetadata, configurations } = useEntityMetadata();
@@ -125,13 +77,16 @@ function AppContent() {
         {isLoggedIn && <Navigation objectTypes={objectTypes} />}
         <div className="pt-16 p-8">
           <div className="max-w-7xl mx-auto space-y-12">
+            {/* A crash in one page shows a recoverable message instead of a blank app (X-4, KNG-141). */}
+            <RouteErrorBoundary>
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/auth/register" element={<RegisterPage />} />
-              <Route path="/auth/register/success" element={<RegisterSuccessPage />} />
               <Route path="/auth/login" element={<LoginPage />} />
               <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+              {/* Emailed GDPR deletion confirmation link; no sign-in needed (KNG-34). */}
+              <Route path="/account/delete-data/confirm" element={<ConfirmDataDeletionPage />} />
               <Route path="/account" element={
                 <ProtectedRoute>
                   <AccountManagementPage />
@@ -142,50 +97,52 @@ function AppContent() {
                   <AccountTransactionsPage />
                 </ProtectedRoute>
               } />
+              {/* Content tools (alpha hardening WP9.1): dashboard, forms, displays and the form/display
+                  builders need knk.admin.content, which the API enforces on the writes too. */}
               <Route path="/dashboard" element={
-                <ProtectedRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <ObjectDashboard objectTypes={objectTypes} />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               {/* changed: Use Case 3 - Browse forms (no auto-open) */}
               <Route path="/forms" element={
-                <ProtectedRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               {/* changed: Use Case 2 - Browse entity forms (no auto-open) */}
               <Route path="/forms/:entityName" element={
-                <ProtectedRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               {/* changed: Use Case 1 - Edit entity (no auto-open, loads default for edit) */}
               <Route path="/forms/:entityName/edit/:entityId" element={
-                <ProtectedRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
               {/* The builders are opened from the Forms page; their old list pages redirect there. */}
               <Route path="/admin/form-configurations" element={<Navigate to="/forms" replace />} />
               <Route path="/admin/form-configurations/new" element={
-                <StaffRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <FormConfigBuilder />
                 </StaffRoute>
               } />
               <Route path="/admin/form-configurations/edit/:id" element={
-                <StaffRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <FormConfigBuilder />
                 </StaffRoute>
               } />
               {/* DisplayConfiguration routes */}
               <Route path="/admin/display-configurations" element={<Navigate to="/forms" replace />} />
               <Route path="/admin/display-configurations/new" element={
-                <StaffRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <DisplayConfigBuilder />
                 </StaffRoute>
               } />
               <Route path="/admin/display-configurations/edit/:id" element={
-                <StaffRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <DisplayConfigBuilder />
                 </StaffRoute>
               } />
@@ -246,6 +203,27 @@ function AppContent() {
                   <CurrencyAlertsPage />
                 </StaffRoute>
               } />
+              {/* Player statistics (KNG-34): public pages - signed out they show only the
+                  always-public fields and boards; the API filters every read for the viewer. */}
+              <Route path="/leaderboards" element={<LeaderboardsPage />} />
+              {/* Diagnostics and GDPR deletion (KNG-34 link 6): owner only - the API needs an exact grant. */}
+              <Route path="/owner/telemetry" element={
+                <OwnerRoute node={OWNER_TELEMETRY_VIEW_NODE}>
+                  <OwnerTelemetryPage />
+                </OwnerRoute>
+              } />
+              <Route path="/owner/privacy" element={
+                <OwnerRoute node={OWNER_PRIVACY_MANAGE_NODE}>
+                  <OwnerPrivacyPage />
+                </OwnerRoute>
+              } />
+              {/* World analytics (KNG-34 link 7): owner only - the API needs an exact grant. */}
+              <Route path="/owner/analytics" element={
+                <OwnerRoute node={OWNER_ANALYTICS_VIEW_NODE}>
+                  <OwnerAnalyticsPage />
+                </OwnerRoute>
+              } />
+              <Route path="/players/:username" element={<PublicPlayerProfilePage />} />
               {/* KNG-80: orphaned Locations found by the weekly retention check, reviewed by hand. */}
               <Route path="/admin/locations/orphans" element={
                 <StaffRoute node={LOCATION_RETENTION_NODES.view}>
@@ -269,13 +247,17 @@ function AppContent() {
               } />
               {/* DisplayWizard routes */}
               <Route path="/display/:entityName/:id" element={
-                <ProtectedRoute>
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
                   <DisplayWizardPage />
-                </ProtectedRoute>
+                </StaffRoute>
               } />
+              {/* Anything else: a Not Found page with links home and to the account page. */}
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
+            </RouteErrorBoundary>
           </div>
         </div>
+        <ToastRegion />
       </div>
     </Router>
   );

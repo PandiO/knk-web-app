@@ -101,6 +101,53 @@ function extractId(value: any): any {
 }
 
 /**
+ * KNG-133: thrown when a relationship field holds an entity that was never saved (an object with
+ * no id) in a place where only ids can be sent. Before KNG-133 such values were filtered out
+ * without a word (a District created inside a Street form vanished and the Street was saved with
+ * no Districts). The wizard shows this message instead of submitting.
+ */
+export class UnsavedRelationshipValueError extends Error {
+    readonly fieldName: string;
+    readonly unsavedCount: number;
+
+    constructor(field: Pick<FormFieldDto, 'fieldName' | 'label' | 'objectType'>, unsavedCount: number, isList: boolean) {
+        const fieldLabel = field.label || field.fieldName;
+        const entityLabel = field.objectType || 'entity';
+        const what = isList
+            ? (unsavedCount === 1 ? `1 ${entityLabel} that was never saved` : `${unsavedCount} ${entityLabel} entries that were never saved`)
+            : `a ${entityLabel} that was never saved`;
+        super(
+            `"${fieldLabel}" holds ${what}, so it can't be submitted and would be lost. ` +
+            `Remove ${isList && unsavedCount !== 1 ? 'them' : 'it'} and select or create ${isList && unsavedCount !== 1 ? 'them' : 'it'} again, then submit.`
+        );
+        this.name = 'UnsavedRelationshipValueError';
+        this.fieldName = field.fieldName;
+        this.unsavedCount = unsavedCount;
+    }
+}
+
+function isPlainObjectValue(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value) &&
+        (value as object).constructor === Object;
+}
+
+/**
+ * True for a plain object that carries at least one real value (not null/undefined/''/[]). An
+ * empty object is an untouched placeholder rather than an entity someone filled in, and keeps the
+ * old behaviour of being left out of the payload.
+ */
+function hasMeaningfulContent(value: Record<string, unknown>): boolean {
+    return Object.values(value).some(entry =>
+        entry !== null && entry !== undefined && entry !== '' && !(Array.isArray(entry) && entry.length === 0)
+    );
+}
+
+/** An object value that has content but no id: an entity that only exists in the form's state. */
+function isUnsavedEntityValue(value: unknown): boolean {
+    return isPlainObjectValue(value) && hasMeaningfulContent(value) && extractId(value) === null;
+}
+
+/**
  * True when a raw Location value carries its own coordinate data (x/y/z), as opposed to a bare
  * {id, name}-only projection (e.g. a row picked from the "Select instance" table, which only
  * carries whatever columns that table displays). Used to tell "the user edited/created this
@@ -294,6 +341,9 @@ function normalizeManyToManyRelationshipField(args: {
  * - Direct ID fields: { parentCategoryId: "123" } -> { parentCategoryId: "123" } (unchanged)
  * - Scalar fields: { name: "Test" } -> { name: "Test" } (unchanged)
  * - Hybrid material/block picker: populates Id (or Ids) plus NamespaceKey fallback when id missing
+ *
+ * Throws UnsavedRelationshipValueError (KNG-133) when an Object (other than Location) or List
+ * relationship field holds an entity with no id: it was never saved and can't be sent as an id.
  * 
  * @param args - The normalization arguments
  * @returns The normalized payload ready for API submission
@@ -336,6 +386,10 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
         // to tell the form builder "this field can be optional", never a real submittable value.
         // Sending it through verbatim crashes JSON deserialization of the whole request body.
         if (field.fieldType === FieldType.List && !Array.isArray(rawValue)) {
+            // KNG-133: a filled-in object (not the sentinel string) can't be sent as a List either.
+            if (field.objectType && isUnsavedEntityValue(rawValue)) {
+                throw new UnsavedRelationshipValueError(field, 1, true);
+            }
             return;
         }
 
@@ -448,6 +502,12 @@ function handleSingleObjectRelationship(
         return;
     }
 
+    // KNG-133: an id-less entity in any other Object field was never saved (Location, above, is
+    // the only embedded value object). Dropping it here used to lose it silently.
+    if (field.objectType?.toLowerCase() !== 'location' && isUnsavedEntityValue(rawValue)) {
+        throw new UnsavedRelationshipValueError(field, 1, false);
+    }
+
     const extractedId = extractId(rawValue);
 
     if (isForeignKeyField) {
@@ -476,7 +536,7 @@ function handleSingleObjectRelationship(
  * @param normalized - The normalized payload being built
  */
 function handleCollectionRelationship(
-    _field: FormFieldDto,
+    field: FormFieldDto,
     fieldName: string,
     rawValue: any,
     normalized: Record<string, any>
@@ -503,6 +563,13 @@ function handleCollectionRelationship(
         targetFieldName = fieldName + 'Ids';
     }
     
+    // KNG-133: a List relationship is only ever sent as ids, so an id-less item (an entity that was
+    // never saved) can't reach the API. Fail loudly instead of filtering it out.
+    const unsavedCount = rawValue.filter(item => isUnsavedEntityValue(item)).length;
+    if (unsavedCount > 0) {
+        throw new UnsavedRelationshipValueError(field, unsavedCount, true);
+    }
+
     // Extract IDs from each object in the array
     const ids = rawValue.map(item => extractId(item)).filter(id => id !== null && id !== undefined);
     

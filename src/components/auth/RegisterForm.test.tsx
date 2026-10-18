@@ -1,473 +1,160 @@
 /**
- * RegisterForm Component Tests
- * 
- * Tests cover the component rendering and initial validation:
- * - Component initialization and rendering
- * - Form field visibility and structure
- * - Password visibility toggle
- * - Initial state
+ * RegisterForm: code -> email and password -> done (alpha hardening WP9.4, decision D1).
  */
-
 import React from 'react';
-import { screen, within, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RegisterForm } from './RegisterForm';
-import { render, generateTestEmail } from '../../test-utils/test-helpers';
-import { mockAuthClient } from '../../test-utils/mockAuthClient';
+import { authClient } from '../../apiClients/authClient';
+import { useAuth } from '../../contexts/AuthContext';
+import { ERROR_MESSAGES } from '../../utils/authConstants';
+import { normalizeLinkCode } from '../../utils/linkCode';
 
-// Mock the auth client
+// virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
+jest.mock('react-router-dom', () => ({
+  Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode }) => <a href={to} {...rest}>{children}</a>,
+}), { virtual: true });
 jest.mock('../../apiClients/authClient', () => ({
-  authClient: require('../../test-utils/mockAuthClient').mockAuthClient,
+  authClient: { validateLinkCode: jest.fn() },
 }));
+jest.mock('../../contexts/AuthContext', () => ({ useAuth: jest.fn() }));
+
+const mockedValidate = authClient.validateLinkCode as jest.Mock;
+const mockedUseAuth = useAuth as jest.Mock;
+const PASSWORD = 'Kn1ghts&Kings!';
+
+async function enterCode(code = 'ABCD1234') {
+  await userEvent.type(screen.getByTestId('link-code'), code);
+  await userEvent.click(screen.getByRole('button', { name: /check code/i }));
+}
+
+async function fillAccount(email = 'steve@example.com') {
+  await userEvent.type(await screen.findByLabelText(/email address/i), email);
+  await userEvent.type(screen.getByTestId('password'), PASSWORD);
+  await userEvent.type(screen.getByTestId('confirm-password'), PASSWORD);
+}
 
 describe('RegisterForm', () => {
-  let onRegistrationSuccess: jest.Mock;
+  const register = jest.fn();
 
   beforeEach(() => {
-    onRegistrationSuccess = jest.fn();
-    mockAuthClient.reset();
+    jest.clearAllMocks();
+    mockedUseAuth.mockReturnValue({ register });
   });
 
-  describe('Initial Rendering', () => {
-    it('should render step 1 (Account Info) initially', () => {
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      expect(screen.getAllByText(/account info/i).length).toBeGreaterThan(0);
-      expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/^password \*/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/confirm password/i)).toBeInTheDocument();
-    });
+  it('starts with the link code and the server address, without a username field', () => {
+    render(<RegisterForm />);
 
-    it('should have the correct form structure', () => {
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      expect(screen.getAllByText(/account info/i).length).toBeGreaterThan(0);
-      expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
-    });
+    expect(screen.getByTestId('link-code')).toBeInTheDocument();
+    expect(screen.getByText('play.knightsandkings.net')).toBeInTheDocument();
+    expect(screen.getByText('/account link')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/username/i)).not.toBeInTheDocument();
   });
 
-  describe('Field Rendering', () => {
-    it('should have all required input fields on step 1', () => {
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const emailInput = screen.getByTestId('email');
-      const passwordInput = screen.getByTestId('password');
-      const confirmPasswordInput = screen.getByTestId('confirm-password');
-      
-      expect(emailInput).toBeInTheDocument();
-      expect(passwordInput).toBeInTheDocument();
-      expect(confirmPasswordInput).toBeInTheDocument();
-    });
+  it('registers with the code, logs the player in and shows the done step (happy path)', async () => {
+    const onRegistering = jest.fn();
+    const onRegistrationSuccess = jest.fn();
+    mockedValidate.mockResolvedValue({ isValid: true, username: 'Steve' });
+    register.mockResolvedValue({ id: 5, username: 'Steve' });
+    render(<RegisterForm onRegistering={onRegistering} onRegistrationSuccess={onRegistrationSuccess} />);
 
-    it('should have password visibility toggle buttons', () => {
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const toggleButtons = screen.getAllByRole('button', { name: /show password|hide password/i });
-      expect(toggleButtons.length).toBeGreaterThan(0);
-    });
+    await enterCode('abcd-1234');
+    expect(mockedValidate).toHaveBeenCalledWith('ABCD1234');
+    expect(await screen.findByTestId('link-code-owner')).toHaveTextContent('This code belongs to Steve.');
+
+    await fillAccount();
+    await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() => expect(register).toHaveBeenCalledWith({
+      linkCode: 'ABCD1234',
+      email: 'steve@example.com',
+      password: PASSWORD,
+      passwordConfirmation: PASSWORD,
+    }));
+    expect(await screen.findByText(/your web account is ready/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /go to your account/i })).toHaveAttribute('href', '/account');
+    expect(onRegistering).toHaveBeenCalledWith(true);
+    expect(onRegistrationSuccess).toHaveBeenCalled();
   });
 
-  describe('Password Visibility Toggle', () => {
-    it('should toggle password visibility when clicking the eye icon', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const passwordInput = screen.getByTestId('password') as HTMLInputElement;
-      const toggleButtons = screen.getAllByRole('button', { name: /show password|hide password/i });
-      const passwordToggle = toggleButtons[0]; // First one should be for password field
-      
-      // Initially password should be hidden
-      expect(passwordInput.type).toBe('password');
-      
-      // Click to show
-      await user.click(passwordToggle);
-      expect(passwordInput.type).toBe('text');
-      
-      // Click to hide
-      await user.click(passwordToggle);
-      expect(passwordInput.type).toBe('password');
-    });
+  it('stays on the code step for an invalid code', async () => {
+    mockedValidate.mockResolvedValue({ isValid: false, error: 'Invalid or expired link code' });
+    render(<RegisterForm />);
 
-    it('should toggle confirm password visibility when clicking the eye icon', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const confirmPasswordInput = screen.getByTestId('confirm-password') as HTMLInputElement;
-      const toggleButtons = screen.getAllByRole('button', { name: /show password|hide password/i });
-      const confirmToggle = toggleButtons[1]; // Second one should be for confirm field
-      
-      // Initially password should be hidden
-      expect(confirmPasswordInput.type).toBe('password');
-      
-      // Click to show
-      await user.click(confirmToggle);
-      expect(confirmPasswordInput.type).toBe('text');
-      
-      // Click to hide
-      await user.click(confirmToggle);
-      expect(confirmPasswordInput.type).toBe('password');
-    });
+    await enterCode();
+
+    expect(await screen.findByText(ERROR_MESSAGES.InvalidLinkCode)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/email address/i)).not.toBeInTheDocument();
   });
 
-  describe('Form Input', () => {
-    it('should allow typing in email field', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const emailInput = screen.getByTestId('email') as HTMLInputElement;
-      const testEmail = generateTestEmail();
-      
-      await user.type(emailInput, testEmail);
-      expect(emailInput.value).toBe(testEmail);
-    });
+  it('asks for all 8 characters before calling the API', async () => {
+    render(<RegisterForm />);
 
-    it('should allow typing in password field', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const passwordInput = screen.getByTestId('password') as HTMLInputElement;
-      const testPassword = 'TestPassword123!';
-      
-      await user.type(passwordInput, testPassword);
-      expect(passwordInput.value).toBe(testPassword);
-    });
+    await enterCode('ABC');
 
-    it('should allow typing in confirm password field', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const confirmPasswordInput = screen.getByTestId('confirm-password') as HTMLInputElement;
-      const testPassword = 'TestPassword123!';
-      
-      await user.type(confirmPasswordInput, testPassword);
-      expect(confirmPasswordInput.value).toBe(testPassword);
-    });
-
-    it('should display password requirements', () => {
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      expect(screen.getByText(/password tips/i)).toBeInTheDocument();
-      expect(screen.getByText(/mix of uppercase, lowercase, numbers/i)).toBeInTheDocument();
-    });
+    expect(await screen.findByText(/8-character code/i, { selector: '#link-code-error' })).toBeInTheDocument();
+    expect(mockedValidate).not.toHaveBeenCalled();
   });
 
-  describe('Validation - Duplicate Email', () => {
-    it('should prevent form submission when email is already registered', async () => {
-      const user = userEvent.setup();
-      mockAuthClient.setRegisterFailure('DuplicateEmail');
-      
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      // Fill in the form with duplicate email
-      const emailInput = screen.getByTestId('email');
-      const passwordInput = screen.getByTestId('password');
-      const confirmPasswordInput = screen.getByTestId('confirm-password');
-      
-      await user.type(emailInput, 'duplicate@example.com');
-      await user.type(passwordInput, 'TestPassword');
-      await user.type(confirmPasswordInput, 'TestPassword');
-      
-      // Proceed to step 2
-      const nextButton = screen.getByRole('button', { name: /next/i });
-      await user.click(nextButton);
-      
-      // Wait for step 2 to appear - check for username field
-      await screen.findByTestId('username');
-      
-      // Fill in username
-      const usernameInput = screen.getByTestId('username');
-      await user.type(usernameInput, 'testuser');
-      
-      // Proceed to step 3
-      await user.click(screen.getByRole('button', { name: /next/i }));
-      
-      // Submit form on step 3
-      const createButton = await screen.findByRole('button', { name: /create account/i });
-      await user.click(createButton);
-      
-      // Should show error in FeedbackModal and not call onRegistrationSuccess
-      const modal = await screen.findByRole('dialog');
-      expect(within(modal).getByText(/email is already in use/i)).toBeInTheDocument();
-      expect(onRegistrationSuccess).not.toHaveBeenCalled();
-    });
+  it('shows DuplicateEmail on the email field', async () => {
+    mockedValidate.mockResolvedValue({ isValid: true, username: 'Steve' });
+    register.mockRejectedValue({ status: 409, code: 'DuplicateEmail', response: { error: 'DuplicateEmail' } });
+    const onRegistering = jest.fn();
+    render(<RegisterForm onRegistering={onRegistering} />);
 
-    it('should check email availability during input', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const emailInput = screen.getByTestId('email');
-      
-      // Type email that's already taken (based on mock)
-      await user.type(emailInput, 'taken@example.com');
-      await user.tab(); // Blur the field to trigger validation
-      
-      // Should show warning about email being taken
-      expect(await screen.findByText(/email.*already.*use/i)).toBeInTheDocument();
-    });
+    await enterCode();
+    await fillAccount();
+    await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+    expect(await screen.findByText(ERROR_MESSAGES.DuplicateEmail)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email address/i)).toHaveAttribute('aria-invalid', 'true');
+    expect(onRegistering).toHaveBeenLastCalledWith(false);
   });
 
-  describe('Validation - Password Mismatch', () => {
-    it('should prevent form submission when passwords do not match', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const emailInput = screen.getByTestId('email');
-      const passwordInput = screen.getByTestId('password');
-      const confirmPasswordInput = screen.getByTestId('confirm-password');
-      
-      await user.type(emailInput, generateTestEmail());
-      await user.type(passwordInput, 'TestPassword');
-      await user.type(confirmPasswordInput, 'DifferentPassword456!');
-      
-      // Try to submit
-      const nextButton = screen.getByRole('button', { name: /next/i });
-      await user.click(nextButton);
-      
-      // Should show error and not proceed
-      expect(await screen.findByText(/passwords.*do not match/i)).toBeInTheDocument();
-      expect(onRegistrationSuccess).not.toHaveBeenCalled();
-    });
+  it('shows AlreadyRegistered on the Minecraft account, with login and reset links', async () => {
+    mockedValidate.mockResolvedValue({ isValid: true, username: 'Steve' });
+    register.mockRejectedValue({ status: 409, code: 'AlreadyRegistered' });
+    render(<RegisterForm />);
 
-    it('should show real-time password mismatch feedback', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const passwordInput = screen.getByTestId('password');
-      const confirmPasswordInput = screen.getByTestId('confirm-password');
-      
-      await user.type(passwordInput, 'TestPassword');
-      await user.type(confirmPasswordInput, 'Different');
-      
-      // Should show mismatch indicator
-      expect(await screen.findByText(/passwords.*do not match/i)).toBeInTheDocument();
-    });
+    await enterCode();
+    await fillAccount();
+    await userEvent.click(screen.getByRole('button', { name: /create account/i }));
 
-    it('should clear mismatch error when passwords match', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const passwordInput = screen.getByTestId('password');
-      const confirmPasswordInput = screen.getByTestId('confirm-password');
-      
-      await user.type(passwordInput, 'TestPassword');
-      await user.type(confirmPasswordInput, 'Different');
-      
-      // Should show mismatch
-      expect(await screen.findByText(/passwords.*do not match/i)).toBeInTheDocument();
-      
-      // Clear and type matching password
-      await user.clear(confirmPasswordInput);
-      await user.type(confirmPasswordInput, 'TestPassword');
-      
-      // Mismatch error should disappear
-      expect(screen.queryByText(/passwords.*do not match/i)).not.toBeInTheDocument();
-    });
+    expect(await screen.findByText(ERROR_MESSAGES.AlreadyRegistered)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /log in/i })).toHaveAttribute('href', '/auth/login');
+    expect(screen.getByRole('link', { name: /reset your password/i })).toHaveAttribute('href', '/auth/forgot-password');
   });
 
-  describe('Validation - Weak Password', () => {
-    it('should prevent form submission with weak password (too short)', async () => {
-      const user = userEvent.setup();
-      mockAuthClient.setRegisterFailure('InvalidPassword');
-      
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const emailInput = screen.getByTestId('email');
-      const passwordInput = screen.getByTestId('password');
-      const confirmPasswordInput = screen.getByTestId('confirm-password');
-      
-      await user.type(emailInput, generateTestEmail());
-      await user.type(passwordInput, 'Weak1!');
-      await user.type(confirmPasswordInput, 'Weak1!');
-      
-      const nextButton = screen.getByRole('button', { name: /next/i });
-      await user.click(nextButton);
-      
-      // Should show error about password requirements
-      expect(await screen.findByText(/password.*at least 8 characters/i)).toBeInTheDocument();
-      expect(onRegistrationSuccess).not.toHaveBeenCalled();
-    });
+  it('goes back to the code step when the code expired meanwhile', async () => {
+    mockedValidate.mockResolvedValue({ isValid: true, username: 'Steve' });
+    register.mockRejectedValue({ status: 400, code: 'InvalidLinkCode' });
+    render(<RegisterForm />);
 
-    it('should prevent form submission with common weak password', async () => {
-      const user = userEvent.setup();
-      
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const emailInput = screen.getByTestId('email');
-      const passwordInput = screen.getByTestId('password');
-      const confirmPasswordInput = screen.getByTestId('confirm-password');
-      
-      await user.type(emailInput, generateTestEmail());
-      await user.type(passwordInput, 'password123');
-      await user.type(confirmPasswordInput, 'password123');
-      
-      const nextButton = screen.getByRole('button', { name: /next/i });
-      await user.click(nextButton);
-      
-      // Should show error about weak password (client-side validation)
-      // The error should contain either "too common" or "too weak" 
-      expect(await screen.findByText(/too common|too weak/i)).toBeInTheDocument();
-      expect(onRegistrationSuccess).not.toHaveBeenCalled();
-    });
+    await enterCode();
+    await fillAccount();
+    await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+    expect(await screen.findByText(ERROR_MESSAGES.InvalidLinkCode)).toBeInTheDocument();
+    expect(screen.getByTestId('link-code')).toBeInTheDocument();
   });
 
-  describe('Validation - Form Progression', () => {
-    it('should not proceed to step 2 with invalid email format', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const emailInput = screen.getByTestId('email');
-      const passwordInput = screen.getByTestId('password');
-      const confirmPasswordInput = screen.getByTestId('confirm-password');
-      
-      await user.type(emailInput, 'invalid-email');
-      await user.type(passwordInput, 'TestPassword');
-      await user.type(confirmPasswordInput, 'TestPassword');
-      
-      const nextButton = screen.getByRole('button', { name: /next/i });
-      await user.click(nextButton);
-      
-      // Should show email validation error
-      expect(await screen.findByText(/invalid email|valid email address/i)).toBeInTheDocument();
-      // Should still be on step 1
-      expect(screen.getAllByText(/account info/i).length).toBeGreaterThan(0);
-    });
+  it('checks the password before calling the API', async () => {
+    mockedValidate.mockResolvedValue({ isValid: true, username: 'Steve' });
+    render(<RegisterForm />);
 
-    it('should not proceed to step 2 with empty required fields', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const nextButton = screen.getByRole('button', { name: /next/i });
-      await user.click(nextButton);
-      
-      // Should show validation errors for empty fields
-      const errors = screen.getAllByText(/required/i);
-      expect(errors.length).toBeGreaterThanOrEqual(2); // Email and password errors
-      // Should still be on step 1
-      expect(screen.getAllByText(/account info/i).length).toBeGreaterThan(0);
-    });
+    await enterCode();
+    await userEvent.type(await screen.findByLabelText(/email address/i), 'steve@example.com');
+    await userEvent.type(screen.getByTestId('password'), PASSWORD);
+    await userEvent.type(screen.getByTestId('confirm-password'), 'different');
+    await userEvent.click(screen.getByRole('button', { name: /create account/i }));
 
-    it('should proceed to step 2 when all validations pass', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const emailInput = screen.getByTestId('email');
-      const passwordInput = screen.getByTestId('password');
-      const confirmPasswordInput = screen.getByTestId('confirm-password');
-      
-      await user.type(emailInput, generateTestEmail());
-      await user.type(passwordInput, 'TestPassword');
-      await user.type(confirmPasswordInput, 'TestPassword');
-      
-      const nextButton = screen.getByRole('button', { name: /next/i });
-      await user.click(nextButton);
-      
-      // Should proceed to step 2 (Minecraft Info) - wait for username field to appear
-      await screen.findByTestId('username');
-    });
+    expect((await screen.findAllByText(/passwords do not match/i)).length).toBeGreaterThan(0);
+    expect(register).not.toHaveBeenCalled();
   });
+});
 
-  describe('Error Handling', () => {
-    it('should display server error messages', async () => {
-      const user = userEvent.setup();
-      mockAuthClient.setRegisterFailure('ServerError');
-      
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      // Fill step 1
-      const emailInput = screen.getByTestId('email');
-      const passwordInput = screen.getByTestId('password');
-      const confirmPasswordInput = screen.getByTestId('confirm-password');
-      
-      await user.type(emailInput, generateTestEmail());
-      await user.type(passwordInput, 'TestPassword');
-      await user.type(confirmPasswordInput, 'TestPassword');
-      await user.click(screen.getByRole('button', { name: /next/i }));
-      
-      // Wait for step 2 to appear - check for username field
-      await screen.findByTestId('username');
-      
-      // Fill step 2
-      const usernameInput = screen.getByTestId('username');
-      await user.type(usernameInput, 'testuser');
-      await user.click(screen.getByRole('button', { name: /next/i }));
-      
-      // Submit on step 3
-      const createButton = await screen.findByRole('button', { name: /create account/i });
-      await user.click(createButton);
-      
-      // Should display error message from server in FeedbackModal
-      const modal = await screen.findByRole('dialog');
-      expect(within(modal).getByText(/something went wrong/i)).toBeInTheDocument();
-      expect(onRegistrationSuccess).not.toHaveBeenCalled();
-    });
-
-    it('should clear previous errors when retrying', async () => {
-      const user = userEvent.setup();
-      mockAuthClient.setRegisterFailure('InvalidPassword');
-      
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const emailInput = screen.getByTestId('email');
-      const passwordInput = screen.getByTestId('password');
-      const confirmPasswordInput = screen.getByTestId('confirm-password');
-      
-      // First attempt with weak password
-      await user.type(emailInput, generateTestEmail());
-      await user.type(passwordInput, 'Weak1!');
-      await user.type(confirmPasswordInput, 'Weak1!');
-      
-      const nextButton = screen.getByRole('button', { name: /next/i });
-      await user.click(nextButton);
-      
-      expect(await screen.findByText(/password.*at least 8 characters/i)).toBeInTheDocument();
-      
-      // Reset mock and retry with valid password
-      mockAuthClient.reset();
-      await user.clear(passwordInput);
-      await user.clear(confirmPasswordInput);
-      await user.type(passwordInput, 'TestPassword');
-      await user.type(confirmPasswordInput, 'TestPassword');
-      
-      await user.click(nextButton);
-      
-      // Error should be cleared and form should proceed
-      expect(screen.queryByText(/password.*at least 8 characters/i)).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Complete Registration Flow', () => {
-    it('should successfully complete registration with valid data', async () => {
-      const user = userEvent.setup();
-      render(<RegisterForm onRegistrationSuccess={onRegistrationSuccess} />);
-      
-      const testEmail = generateTestEmail();
-      
-      // Step 1: Account Info
-      const emailInput = screen.getByTestId('email');
-      const passwordInput = screen.getByTestId('password');
-      const confirmPasswordInput = screen.getByTestId('confirm-password');
-      
-      await user.type(emailInput, testEmail);
-      await user.type(passwordInput, 'TestPassword');
-      await user.type(confirmPasswordInput, 'TestPassword');
-      await user.click(screen.getByRole('button', { name: /next/i }));
-      
-      // Wait for step 2 to appear - check for username field
-      await screen.findByTestId('username');
-      
-      // Step 2: Minecraft Info
-      const usernameInput = screen.getByTestId('username');
-      await user.type(usernameInput, 'testuser123');
-      await user.click(screen.getByRole('button', { name: /next/i }));
-      
-      // Step 3: Review & Confirm
-      const createButton = await screen.findByRole('button', { name: /create account/i });
-      await user.click(createButton);
-      
-      // Should call onRegistrationSuccess with link code after success modal appears
-      await waitFor(() => {
-        expect(onRegistrationSuccess).toHaveBeenCalled();
-      }, { timeout: 3000 });
-    });
+describe('normalizeLinkCode', () => {
+  it('uppercases, drops separators and caps the length', () => {
+    expect(normalizeLinkCode('ab-cd 12_34xyz')).toBe('ABCD1234');
   });
 });

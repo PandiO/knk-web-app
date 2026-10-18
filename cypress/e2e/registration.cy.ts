@@ -1,297 +1,82 @@
 /**
- * E2E Test: User Registration Flow
- * 
- * This test covers the complete web-first registration journey:
- * 1. Navigate to registration page
- * 2. Fill out multi-step form with validation
- * 3. Submit registration
- * 4. Verify success message and link code display
- * 5. Verify user can log in with new credentials
- * 
- * Test data is timestamped to avoid duplicates across test runs.
+ * E2E: registration with a link code from the game server (alpha hardening WP9.4, decision D1).
+ *
+ * 1. The player enters the code from `/account link`; the app shows whose Minecraft account it is.
+ * 2. They pick an email and a password.
+ * 3. The API logs them in (login-shaped response) and the app lands on /account.
+ *
+ * The API is stubbed with cy.intercept, so this runs against `npm start` alone.
  */
 
-describe('User Registration Flow', () => {
-  const timestamp = Date.now();
-  const testUser = {
-    email: `test+${timestamp}@example.com`,
-    password: 'SecureTestPass123!',
-    username: `testuser_${timestamp}`,
-  };
+const user = {
+  id: 42,
+  uuid: '00000000-0000-0000-0000-000000000042',
+  username: 'Steve',
+  email: 'steve@example.com',
+  emailVerified: false,
+  accountCreatedVia: 1,
+  isActive: true,
+  coins: 0,
+  gems: 0,
+  experiencePoints: 0,
+  createdAt: new Date().toISOString(),
+};
+const password = 'Kn1ghts&Kings!';
 
+describe('Registration with a link code', () => {
   beforeEach(() => {
-    // Visit registration page
-    cy.visit('/register');
+    cy.intercept('POST', '**/api/Users/validate-link-code/ABCD1234', { isValid: true, username: 'Steve' }).as('validate');
+    cy.intercept('POST', '**/api/Users/validate-link-code/BADC0DE1', { isValid: false, error: 'Invalid or expired link code' });
+    cy.visit('/auth/register');
   });
 
-  describe('Multi-step Form Navigation', () => {
-    it('should display step 1 (Account Info) initially', () => {
-      cy.contains('Account Info').should('be.visible');
-      cy.get('input[type="email"]').should('be.visible');
-      cy.get('input[type="password"]').first().should('be.visible');
-    });
-
-    it('should navigate between steps', () => {
-      // Fill step 1
-      cy.get('input[type="email"]').type(testUser.email);
-      cy.get('input[type="password"]').first().type(testUser.password);
-      cy.get('input[type="password"]').last().type(testUser.password);
-      
-      // Go to step 2
-      cy.contains('button', 'Next').click();
-      cy.contains('Minecraft Info').should('be.visible');
-
-      // Go back to step 1
-      cy.contains('button', 'Back').click();
-      cy.contains('Account Info').should('be.visible');
-      
-      // Verify form retained values
-      cy.get('input[type="email"]').should('have.value', testUser.email);
-    });
+  it('rejects an invalid code', () => {
+    cy.get('[data-testid=link-code]').type('badc-0de1');
+    cy.contains('button', 'Check code').click();
+    cy.contains('This code is invalid or has expired').should('be.visible');
   });
 
-  describe('Form Validation', () => {
-    it('should prevent proceeding with invalid email', () => {
-      cy.get('input[type="email"]').type('invalid-email');
-      cy.get('input[type="password"]').first().type(testUser.password);
-      cy.get('input[type="password"]').last().type(testUser.password);
-      cy.contains('button', 'Next').click();
+  it('registers and lands on the account page', () => {
+    cy.intercept('POST', '**/api/Auth/register', {
+      statusCode: 201,
+      body: { accessToken: 'access-token', refreshToken: null, expiresIn: 1800, user },
+    }).as('register');
+    cy.intercept('GET', '**/api/Auth/me', user);
+    cy.intercept('GET', '**/api/Users/42/permissions/check*', { statusCode: 403, body: { error: 'Forbidden' } });
 
-      // Should show error and stay on step 1
-      cy.contains(/valid email/i).should('be.visible');
-      cy.contains('Account Info').should('be.visible');
+    cy.get('[data-testid=link-code]').type('abcd1234');
+    cy.contains('button', 'Check code').click();
+    cy.wait('@validate');
+    cy.contains('This code belongs to Steve').should('be.visible');
+
+    cy.get('[data-testid=email]').type(user.email);
+    cy.get('[data-testid=password]').type(password);
+    cy.get('[data-testid=confirm-password]').type(password);
+    cy.contains('button', 'Create account').click();
+
+    cy.wait('@register').its('request.body').should('deep.equal', {
+      linkCode: 'ABCD1234',
+      email: user.email,
+      password,
+      passwordConfirmation: password,
     });
-
-    it('should prevent proceeding with weak password', () => {
-      cy.get('input[type="email"]').type(testUser.email);
-      cy.get('input[type="password"]').first().type('123');
-      cy.get('input[type="password"]').last().type('123');
-      cy.contains('button', 'Next').click();
-
-      // Should show error
-      cy.contains(/at least 8 characters/i).should('be.visible');
-    });
-
-    it('should prevent proceeding with mismatched passwords', () => {
-      cy.get('input[type="email"]').type(testUser.email);
-      cy.get('input[type="password"]').first().type(testUser.password);
-      cy.get('input[type="password"]').last().type('DifferentPassword123!');
-      cy.contains('button', 'Next').click();
-
-      // Should show error
-      cy.contains(/passwords do not match/i).should('be.visible');
-    });
-
-    it('should prevent proceeding without username', () => {
-      // Complete step 1
-      cy.get('input[type="email"]').type(testUser.email);
-      cy.get('input[type="password"]').first().type(testUser.password);
-      cy.get('input[type="password"]').last().type(testUser.password);
-      cy.contains('button', 'Next').click();
-
-      // Try to proceed from step 2 without username
-      cy.contains('Minecraft Info').should('be.visible');
-      cy.contains('button', 'Next').click();
-
-      // Should show error
-      cy.contains(/username is required/i).should('be.visible');
-    });
+    cy.contains('Your web account is ready').should('be.visible');
+    cy.location('pathname', { timeout: 6000 }).should('eq', '/account');
   });
 
-  describe('Successful Registration', () => {
-    it('should complete registration and display link code', () => {
-      // Step 1: Account Info
-      cy.get('input[type="email"]').type(testUser.email);
-      cy.get('input[type="password"]').first().type(testUser.password);
-      cy.get('input[type="password"]').last().type(testUser.password);
-      cy.contains('button', 'Next').click();
-
-      // Step 2: Minecraft Info
-      cy.contains('Minecraft Info').should('be.visible');
-      cy.get('input[placeholder*="username" i], input[name="username"]').type(testUser.username);
-      cy.contains('button', 'Next').click();
-
-      // Step 3: Review & Confirm
-      cy.contains('Review & Confirm').should('be.visible');
-      cy.contains(testUser.email).should('be.visible');
-      cy.contains(testUser.username).should('be.visible');
-      
-      // Submit
-      cy.contains('button', /create account/i).click();
-
-      // Verify success
-      cy.contains(/account created/i, { timeout: 10000 }).should('be.visible');
-      
-      // Verify link code is displayed on success page
-      cy.url({ timeout: 10000 }).should('include', '/register/success');
-      cy.contains(/link code/i).should('be.visible');
-      
-      // Verify link code format (8 alphanumeric characters)
-      cy.get('[data-testid="link-code"], code').should(($code) => {
-        const code = $code.text().trim();
-        expect(code).to.match(/^[A-Z0-9]{8}$/);
-      });
+  it('shows a duplicate email on the email field', () => {
+    cy.intercept('POST', '**/api/Auth/register', {
+      statusCode: 409,
+      body: { error: 'DuplicateEmail', message: 'Email is already in use.' },
     });
 
-    it('should allow copying link code to clipboard', () => {
-      // Complete registration
-      cy.get('input[type="email"]').type(testUser.email + '.copy');
-      cy.get('input[type="password"]').first().type(testUser.password);
-      cy.get('input[type="password"]').last().type(testUser.password);
-      cy.contains('button', 'Next').click();
-      
-      cy.contains('Minecraft Info').should('be.visible');
-      cy.get('input[placeholder*="username" i], input[name="username"]').type(testUser.username + '_copy');
-      cy.contains('button', 'Next').click();
-      
-      cy.contains('Review & Confirm').should('be.visible');
-      cy.contains('button', /create account/i).click();
+    cy.get('[data-testid=link-code]').type('ABCD1234');
+    cy.contains('button', 'Check code').click();
+    cy.get('[data-testid=email]').type(user.email);
+    cy.get('[data-testid=password]').type(password);
+    cy.get('[data-testid=confirm-password]').type(password);
+    cy.contains('button', 'Create account').click();
 
-      // Wait for success page
-      cy.url({ timeout: 10000 }).should('include', '/register/success');
-
-      // Click copy button
-      cy.contains('button', /copy/i).click();
-      
-      // Verify copied message or button state change
-      cy.contains(/copied/i).should('be.visible');
-    });
-  });
-
-  describe('Login After Registration', () => {
-    it('should allow newly registered user to log in', () => {
-      const uniqueEmail = `test+${Date.now()}@example.com`;
-      const uniqueUsername = `testuser_${Date.now()}`;
-
-      // Complete registration
-      cy.get('input[type="email"]').type(uniqueEmail);
-      cy.get('input[type="password"]').first().type(testUser.password);
-      cy.get('input[type="password"]').last().type(testUser.password);
-      cy.contains('button', 'Next').click();
-      
-      cy.contains('Minecraft Info').should('be.visible');
-      cy.get('input[placeholder*="username" i], input[name="username"]').type(uniqueUsername);
-      cy.contains('button', 'Next').click();
-      
-      cy.contains('Review & Confirm').should('be.visible');
-      cy.contains('button', /create account/i).click();
-
-      // Wait for success
-      cy.contains(/account created/i, { timeout: 10000 }).should('be.visible');
-
-      // Navigate to login page
-      cy.visit('/login');
-
-      // Attempt login with new credentials
-      cy.get('input[type="email"]').type(uniqueEmail);
-      cy.get('input[type="password"]').type(testUser.password);
-      cy.contains('button', /log in|sign in/i).click();
-
-      // Verify successful login (redirect to dashboard or show user info)
-      cy.url({ timeout: 10000 }).should('not.include', '/login');
-      cy.contains(uniqueUsername, { timeout: 5000 }).should('be.visible');
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should handle duplicate email error', () => {
-      // First registration
-      const duplicateEmail = `duplicate+${Date.now()}@example.com`;
-      
-      cy.get('input[type="email"]').type(duplicateEmail);
-      cy.get('input[type="password"]').first().type(testUser.password);
-      cy.get('input[type="password"]').last().type(testUser.password);
-      cy.contains('button', 'Next').click();
-      
-      cy.contains('Minecraft Info').should('be.visible');
-      cy.get('input[placeholder*="username" i], input[name="username"]').type(`user1_${Date.now()}`);
-      cy.contains('button', 'Next').click();
-      
-      cy.contains('Review & Confirm').should('be.visible');
-      cy.contains('button', /create account/i).click();
-
-      // Wait for success
-      cy.contains(/account created/i, { timeout: 10000 }).should('be.visible');
-
-      // Try to register again with same email
-      cy.visit('/register');
-      
-      cy.get('input[type="email"]').type(duplicateEmail);
-      cy.get('input[type="password"]').first().type(testUser.password);
-      cy.get('input[type="password"]').last().type(testUser.password);
-      cy.contains('button', 'Next').click();
-      
-      cy.contains('Minecraft Info').should('be.visible');
-      cy.get('input[placeholder*="username" i], input[name="username"]').type(`user2_${Date.now()}`);
-      cy.contains('button', 'Next').click();
-      
-      cy.contains('Review & Confirm').should('be.visible');
-      cy.contains('button', /create account/i).click();
-
-      // Should show duplicate email error
-      cy.contains(/email is already in use/i, { timeout: 10000 }).should('be.visible');
-    });
-
-    it('should handle duplicate username error', () => {
-      const duplicateUsername = `dupuser_${Date.now()}`;
-      
-      // First registration
-      cy.get('input[type="email"]').type(`user1+${Date.now()}@example.com`);
-      cy.get('input[type="password"]').first().type(testUser.password);
-      cy.get('input[type="password"]').last().type(testUser.password);
-      cy.contains('button', 'Next').click();
-      
-      cy.contains('Minecraft Info').should('be.visible');
-      cy.get('input[placeholder*="username" i], input[name="username"]').type(duplicateUsername);
-      cy.contains('button', 'Next').click();
-      
-      cy.contains('Review & Confirm').should('be.visible');
-      cy.contains('button', /create account/i).click();
-
-      // Wait for success
-      cy.contains(/account created/i, { timeout: 10000 }).should('be.visible');
-
-      // Try to register with same username
-      cy.visit('/register');
-      
-      cy.get('input[type="email"]').type(`user2+${Date.now()}@example.com`);
-      cy.get('input[type="password"]').first().type(testUser.password);
-      cy.get('input[type="password"]').last().type(testUser.password);
-      cy.contains('button', 'Next').click();
-      
-      cy.contains('Minecraft Info').should('be.visible');
-      cy.get('input[placeholder*="username" i], input[name="username"]').type(duplicateUsername);
-      cy.contains('button', 'Next').click();
-      
-      cy.contains('Review & Confirm').should('be.visible');
-      cy.contains('button', /create account/i).click();
-
-      // Should show duplicate username error
-      cy.contains(/username is already taken/i, { timeout: 10000 }).should('be.visible');
-    });
-  });
-
-  describe('Link Code Integration', () => {
-    it('should accept optional link code during registration', () => {
-      cy.get('input[type="email"]').type(`linkcode+${Date.now()}@example.com`);
-      cy.get('input[type="password"]').first().type(testUser.password);
-      cy.get('input[type="password"]').last().type(testUser.password);
-      cy.contains('button', 'Next').click();
-
-      // Enter link code in step 2 if field exists
-      cy.contains('Minecraft Info').should('be.visible');
-      cy.get('input[placeholder*="username" i], input[name="username"]').type(`linkuser_${Date.now()}`);
-      
-      cy.get('body').then(($body) => {
-        if ($body.find('input[name="linkCode"], input[placeholder*="link code" i]').length > 0) {
-          cy.get('input[name="linkCode"], input[placeholder*="link code" i]').type('ABC12XYZ');
-        }
-      });
-
-      cy.contains('button', 'Next').click();
-
-      // Should proceed to review
-      cy.contains('Review & Confirm').should('be.visible');
-    });
+    cy.get('#email-error').should('contain', 'already used by another account');
   });
 });

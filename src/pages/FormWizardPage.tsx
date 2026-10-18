@@ -8,11 +8,25 @@ import { displayConfigClient } from '../apiClients/displayConfigClient';
 import { formConfigClient } from '../apiClients/formConfigClient';
 import { formSubmissionClient } from '../apiClients/formSubmissionClient';
 import { FeedbackModal } from '../components/FeedbackModal';
+import { DomainWorldPromptModal } from '../components/DomainWorldPromptModal';
+import { DomainClient } from '../apiClients/domainClient';
+import { buildDomainWorldResolveRequest, isDomainEntityType } from '../utils/forms/domainWorld';
 import { DisplayConfigurationTable } from '../components/FormWizard/DisplayConfigurationTable';
 import { EntityMetadataNavigator } from '../components/FormWizard/EntityMetadataNavigator';
 import { FormConfigurationTable } from '../components/FormWizard/FormConfigurationTable';
 import { FormWizard } from '../components/FormWizard/FormWizard';
 import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
+import { FormCancelAction } from '../components/FormWizard/FormCancelAction';
+import { CreatedEntitiesPrompt } from '../components/FormWizard/CreatedEntitiesPrompt';
+import { FormConfigurationImportPanel } from '../components/FormWizard/FormConfigurationImportPanel';
+import { downloadJson, exportFileName } from '../utils/forms/formConfigPortability';
+import { apiRefusalReason } from '../utils/apiRefusalReason';
+import { useConfirm } from '../hooks/useConfirm';
+import { formConfigDeleteMessage, savedDraftCount } from '../utils/forms/formConfigDeleteConfirm';
+import { FormSessionRoot } from '../contexts/FormSessionContext';
+import { CreatedEntityRecord, parseCreatedEntitiesJson } from '../utils/forms/createdEntities';
+import { deleteCreatedEntities } from '../utils/forms/deleteCreatedEntities';
+import { createdEntityDeleteDeps } from '../utils/forms/createdEntityDeleteDeps';
 import { workflowClient } from '../apiClients/workflowClient';
 import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../config/objectConfigs';
@@ -22,6 +36,7 @@ import { FormConfigurationDto, FormSubmissionProgressDto, FormSubmissionProgress
 import { DisplayConfigurationDto } from '../types/dtos/displayConfig/DisplayModels';
 import { useEntityMetadata } from '../hooks/useEntityMetadata';
 import { getCreateFunctionForEntity, getFetchByIdFunctionForEntity, getUpdateFunctionForEntity } from '../utils/entityApiMapping';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { 
@@ -41,6 +56,7 @@ export const FormWizardPage: React.FC<Props> = ({
     entityMetadataFromApp,
     autoOpenDefaultForm = false 
 }: Props) => {
+    usePageTitle('Forms');
     const navigate = useNavigate();
     const { entityName, entityId: urlEntityId } = useParams<{ entityName: string; entityId?: string }>();
     // added: read query parameter for auto-open and parent context for child entity creation
@@ -61,6 +77,7 @@ export const FormWizardPage: React.FC<Props> = ({
     const selectedObjectType = useMemo(() => objectTypes.find(ot => ot.id === selectedTypeName) || null, [objectTypes, selectedTypeName]);
     
     const [formConfigs, setFormConfigs] = useState<FormConfigurationDto[]>([]);
+    const [showImportPanel, setShowImportPanel] = useState(false);
     const [defaultConfig, setDefaultConfig] = useState<FormConfigurationDto | null>(null);
     const [savedProgress, setSavedProgress] = useState<FormSubmissionProgressSummaryDto[]>([]);
     const [loadingConfigs, setLoadingConfigs] = useState(false);
@@ -103,8 +120,31 @@ export const FormWizardPage: React.FC<Props> = ({
         autoCloseMs: undefined,
     });
 
+    // KNG-162: deleting a draft whose form created entities asks whether to keep or delete them.
+    const [draftDeletePrompt, setDraftDeletePrompt] = useState<{
+        progress: FormSubmissionProgressSummaryDto;
+        records: CreatedEntityRecord[];
+    } | null>(null);
+
+    // KNG-111: asks which world a domain is in when the API can't tell from its region, location or parent.
+    const [worldPrompt, setWorldPrompt] = useState<{ entityLabel: string; resolve: (world: string | null) => void } | null>(null);
+    const askForWorld = (entityLabel: string) =>
+        new Promise<string | null>(resolve => setWorldPrompt({ entityLabel, resolve }));
+    const answerWorldPrompt = (world: string | null) => {
+        worldPrompt?.resolve(world);
+        setWorldPrompt(null);
+    };
+
+    // Confirmations use a FeedbackModal (useConfirm) instead of the browser's confirm box.
+    const [confirm, confirmModal] = useConfirm();
+
     const showFeedback = (payload: Omit<FeedbackState, 'open'>) => {
         setFeedbackModal({ ...payload, open: true });
+    };
+
+    /** A failed request: the API's reason for a refusal, else the fallback. */
+    const showFailure = (title: string, error: unknown, fallback: string) => {
+        showFeedback({ title, message: apiRefusalReason(error) ?? fallback, status: 'error', onContinue: undefined });
     };
 
     const closeFeedbackModal = () => {
@@ -422,7 +462,11 @@ export const FormWizardPage: React.FC<Props> = ({
         const existingDefault = formConfigs.find(c => c.id !== config.id && c.isDefault);
         
         if (existingDefault) {
-            if (!window.confirm(`There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`)) {
+            if (!(await confirm({
+                title: 'Change the default configuration?',
+                message: `There is already a default configuration for "${selectedTypeName}". Do you want to change the default to "${config.configurationName}"?`,
+                confirmLabel: 'Change default',
+            }))) {
                 return;
             }
             await handleRemoveDefault(existingDefault);
@@ -435,6 +479,7 @@ export const FormWizardPage: React.FC<Props> = ({
         } catch (error) {
             console.error('Failed to set default configuration:', error);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.SaveFailed');
+            showFailure('Save failed', error, 'The default configuration could not be changed.');
         }
     };
 
@@ -447,6 +492,7 @@ export const FormWizardPage: React.FC<Props> = ({
         } catch (error) {
             console.error('Failed to remove default configuration:', error);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.SaveFailed');
+            showFailure('Save failed', error, 'The default configuration could not be changed.');
         }
     };
 
@@ -471,35 +517,97 @@ export const FormWizardPage: React.FC<Props> = ({
         }
     };
 
-    // Handler: Delete progress
+    // Handler: Delete progress. KNG-162: a draft that recorded entities its child forms created asks
+    // whether to keep them (default) or delete them too; otherwise the plain confirm.
     const handleDeleteProgress = async (progress: FormSubmissionProgressSummaryDto) => {
-        if (!window.confirm('Are you sure you want to delete this saved progress?')) return;
+        const records = parseCreatedEntitiesJson(progress.createdEntitiesJson);
+        if (records.length > 0) {
+            setDraftDeletePrompt({ progress, records });
+            return;
+        }
+        if (!(await confirm({
+            title: 'Delete this saved progress?',
+            message: 'Are you sure you want to delete this saved progress?',
+            confirmLabel: 'Delete',
+            danger: true,
+        }))) return;
+        await removeProgress(progress, true);
+    };
 
+    /** Deletes the draft row only. Returns whether it worked; `announce` shows the usual feedback. */
+    const removeProgress = async (progress: FormSubmissionProgressSummaryDto, announce: boolean): Promise<boolean> => {
         try {
             await formSubmissionClient.delete(progress.id!);
             setSavedProgress(prev => prev.filter(p => p.id !== progress.id));
-            showFeedback({
-                title: 'Progress deleted',
-                message: 'The saved progress has been removed.',
-                status: 'success',
-                onContinue: undefined,
-                autoCloseMs: 3000,
-            });
+            if (announce) {
+                showFeedback({
+                    title: 'Progress deleted',
+                    message: 'The saved progress has been removed.',
+                    status: 'success',
+                    onContinue: undefined,
+                    autoCloseMs: 3000,
+                });
+            }
+            return true;
         } catch (error) {
             console.error('Failed to delete progress:', error);
             logging.errorHandler.next('ErrorMessage.FormSubmission.DeleteFailed');
             showFeedback({
                 title: 'Delete failed',
-                message: 'Unable to delete the saved progress. Please try again.',
+                message: apiRefusalReason(error) ?? 'Unable to delete the saved progress. Please try again.',
+                status: 'error',
+                onContinue: undefined,
+            });
+            return false;
+        }
+    };
+
+    // KNG-162: the explicit cancel of the open form (FormCancelAction). The draft, if any, stays.
+    const handleLeaveForm = () => {
+        setShowWizard(false);
+        setWizardConfig(null);
+        setWizardProgressId(undefined);
+        setWorkflowSessionId(undefined);
+        if (parentEntityTypeName && parentEntityId) {
+            navigate(`/display/${parentEntityTypeName}/${parentEntityId}`);
+            return;
+        }
+        if (selectedTypeName) {
+            loadConfigurationsAndProgress(selectedTypeName);
+        }
+    };
+
+    // KNG-138: download a configuration as a portable JSON file
+    const handleExportConfiguration = async (config: FormConfigurationDto) => {
+        try {
+            const file = await formConfigClient.exportConfiguration(config.id!);
+            downloadJson(exportFileName(config.entityTypeName, config.configurationName), file);
+        } catch (error) {
+            console.error('Failed to export configuration:', error);
+            showFeedback({
+                title: 'Export failed',
+                message: apiRefusalReason(error) ?? 'Unable to export the form configuration.',
                 status: 'error',
                 onContinue: undefined,
             });
         }
     };
 
-    // Handler: Delete configuration
+    // Handler: Delete configuration. KNG-172: the confirm says how many saved drafts go with it; when
+    // they can't be counted it asks without that sentence.
     const handleFormConfigDelete = async (config: FormConfigurationDto) => {
-        if (!window.confirm('Are you sure you want to delete this form configuration?')) return;
+        let draftCount = 0;
+        try {
+            draftCount = savedDraftCount(await formSubmissionClient.getEntityReferences('FormConfiguration', config.id!));
+        } catch (error) {
+            console.warn('Could not count the saved drafts of the form configuration:', error);
+        }
+        if (!(await confirm({
+            title: 'Delete this form configuration?',
+            message: formConfigDeleteMessage(config.configurationName, draftCount),
+            confirmLabel: 'Delete',
+            danger: true,
+        }))) return;
 
         try {
             await formConfigClient.delete(config.id!);
@@ -516,7 +624,7 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.FormConfiguration.DeleteFailed');
             showFeedback({
                 title: 'Delete failed',
-                message: 'Unable to delete the form configuration. Please try again.',
+                message: apiRefusalReason(error) ?? 'Unable to delete the form configuration. Please try again.',
                 status: 'error',
                 onContinue: undefined,
             });
@@ -532,7 +640,11 @@ export const FormWizardPage: React.FC<Props> = ({
 
         const existingDefault = displayConfigs.find(c => c.id !== config.id && c.isDefault);
         if (existingDefault) {
-            if (!window.confirm(`There is already a default display configuration for "${selectedTypeName}". Change default to "${config.name}"?`)) {
+            if (!(await confirm({
+                title: 'Change the default display configuration?',
+                message: `There is already a default display configuration for "${selectedTypeName}". Change default to "${config.name}"?`,
+                confirmLabel: 'Change default',
+            }))) {
                 return;
             }
             await handleDisplayRemoveDefault(existingDefault);
@@ -544,6 +656,7 @@ export const FormWizardPage: React.FC<Props> = ({
         } catch (error) {
             console.error('Failed to set default display configuration:', error);
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.SaveFailed');
+            showFailure('Save failed', error, 'The default display configuration could not be changed.');
         }
     };
 
@@ -559,6 +672,7 @@ export const FormWizardPage: React.FC<Props> = ({
         } catch (error) {
             console.error('Failed to remove default display configuration:', error);
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.SaveFailed');
+            showFailure('Save failed', error, 'The default display configuration could not be changed.');
         }
     };
 
@@ -591,7 +705,7 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.PublishFailed');
             showFeedback({
                 title: 'Publish failed',
-                message: 'Unable to publish the display configuration. Please try again.',
+                message: apiRefusalReason(error) ?? 'Unable to publish the display configuration. Please try again.',
                 status: 'error',
                 onContinue: undefined,
                 autoCloseMs: 5000,
@@ -605,6 +719,12 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.DeleteFailed');
             return;
         }
+        if (!(await confirm({
+            title: 'Delete this display configuration?',
+            message: `Are you sure you want to delete "${config.name}"?`,
+            confirmLabel: 'Delete',
+            danger: true,
+        }))) return;
         try {
             await displayConfigClient.delete(idNumber);
             setDisplayConfigs(prev => prev.filter(c => c.id !== config.id));
@@ -620,7 +740,7 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.DeleteFailed');
             showFeedback({
                 title: 'Delete failed',
-                message: 'Unable to delete the display configuration. Please try again.',
+                message: apiRefusalReason(error) ?? 'Unable to delete the display configuration. Please try again.',
                 status: 'error',
                 onContinue: undefined,
             });
@@ -702,16 +822,13 @@ export const FormWizardPage: React.FC<Props> = ({
         const guardedColumns = applyNameDisplayNameGuard(cleanedColumns, selectedEntityMetadata);
         const normalizedColumns = canonicalizeColumnKeys(guardedColumns);
 
-        if (normalizedColumns.length === 0) {
-            showFeedback({
-                title: 'No columns selected',
-                message: 'Select at least one column before saving.',
-                status: 'info',
-                onContinue: undefined,
-                autoCloseMs: 2500,
-            });
-            return;
-        }
+        // No columns = clear the saved ones, so tables and pickers use their built-in columns again
+        // (the API stores an empty list as none).
+        if (normalizedColumns.length === 0 && !(await confirm({
+            title: 'Use the built-in columns?',
+            message: `The saved columns for ${selectedTypeName} are removed. Tables and pickers show their built-in columns again.`,
+            confirmLabel: 'Use built-in columns',
+        }))) return;
 
         try {
             setSavingColumns(true);
@@ -720,13 +837,13 @@ export const FormWizardPage: React.FC<Props> = ({
                 cfg => cfg.entityTypeName.toLowerCase() === selectedTypeName.toLowerCase()
             );
 
-            if (existingConfiguration) {
-                await updateConfiguration({
+            // Both return null when the request failed (they log the error); don't report that as saved.
+            const saved = existingConfiguration
+                ? await updateConfiguration({
                     ...existingConfiguration,
                     defaultTableColumns: normalizedColumns,
-                });
-            } else {
-                await createConfiguration({
+                })
+                : await createConfiguration({
                     entityTypeName: selectedTypeName,
                     iconKey: null,
                     customIconUrl: null,
@@ -735,12 +852,22 @@ export const FormWizardPage: React.FC<Props> = ({
                     isVisible: true,
                     defaultTableColumns: normalizedColumns,
                 });
+            if (!saved) {
+                showFeedback({
+                    title: 'Save failed',
+                    message: 'The columns were not saved. Try again; if it keeps failing, check that the API is running.',
+                    status: 'error',
+                    onContinue: undefined,
+                });
+                return;
             }
 
             await refresh();
             showFeedback({
                 title: 'Columns saved',
-                message: 'Default table columns have been updated for this entity.',
+                message: normalizedColumns.length === 0
+                    ? 'Tables and pickers for this entity use their built-in columns again.'
+                    : 'Default table columns have been updated for this entity.',
                 status: 'success',
                 onContinue: undefined,
                 autoCloseMs: 3000,
@@ -750,7 +877,7 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.EntityTypeConfiguration.SaveFailed');
             showFeedback({
                 title: 'Save failed',
-                message: 'Unable to save default table columns. Please try again.',
+                message: apiRefusalReason(error) ?? 'Unable to save default table columns. Please try again.',
                 status: 'error',
                 onContinue: undefined,
             });
@@ -783,6 +910,28 @@ export const FormWizardPage: React.FC<Props> = ({
 
                 const entityIdToUse = entityId || progress.entityId;
                 const entityData = { ...data, id: entityIdToUse ?? undefined };
+
+                // KNG-111: a domain is saved with its world. The API takes it from the region world task, the Location
+                // or the parent; when none of those gives one, ask, and stop on a conflict the save would refuse.
+                if (isDomainEntityType(progress.entityTypeName)) {
+                    const resolution = await DomainClient.getInstance().resolveWorld(
+                        buildDomainWorldResolveRequest(progress.entityTypeName, entityData, entityIdToUse)
+                    );
+                    if (resolution?.error) {
+                        showFeedback({
+                            title: 'Submit failed',
+                            message: resolution.error,
+                            status: 'error',
+                            onContinue: undefined
+                        });
+                        return;
+                    }
+                    if (resolution?.needsWorld) {
+                        const chosenWorld = await askForWorld(toLabel(progress.entityTypeName).toLowerCase() || 'domain');
+                        if (!chosenWorld) return;
+                        entityData.worldName = chosenWorld;
+                    }
+                }
 
                 let createdEntityId: any;
                 if (entityIdToUse) {
@@ -917,17 +1066,17 @@ export const FormWizardPage: React.FC<Props> = ({
                                         <p className="text-sm text-gray-600">Configure which columns are shown first in entity tables and related pickers.</p>
                                         <button
                                             onClick={handleSaveDefaultColumns}
-                                            disabled={savingColumns || columnDraft.length === 0}
+                                            disabled={savingColumns || (columnDraft.length === 0 && configuredColumns.length === 0)}
                                             className="btn-primary shrink-0 text-sm disabled:opacity-60"
                                         >
-                                            {savingColumns ? 'Saving...' : 'Save Columns'}
+                                            {savingColumns ? 'Saving...' : columnDraft.length === 0 ? 'Use built-in columns' : 'Save Columns'}
                                         </button>
                                     </div>
 
                                     <div>
                                         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Selected order</p>
                                         {columnDraft.length === 0 ? (
-                                            <p className="text-sm text-gray-500">No columns selected.</p>
+                                            <p className="text-sm text-gray-500">No columns selected: tables and pickers use their built-in columns.</p>
                                         ) : (
                                             <DndContext
                                                 sensors={columnSensors}
@@ -997,22 +1146,28 @@ export const FormWizardPage: React.FC<Props> = ({
 
                     {/* Use Case 1 or 4: Show FormWizard */}
                     {showWizard && wizardConfig ? (
-                        <FormWizard
-                            entityName={selectedTypeName}
-                            entityId={entityId}
-                            formConfigurationId={wizardConfig.id}
-                            userId={userId}
-                            onComplete={(data, progress) => handleComplete(data, progress)}
-                            existingProgressId={wizardProgressId}
-                            workflowSessionId={workflowSessionId}
-                            onStepAdvanced={({ from, stepKey }) => {
-                                if (workflowSessionId != null) {
-                                    workflowClient.completeStep(workflowSessionId, stepKey, from).catch(() => {});
-                                }
-                            }}
-                            worldTaskHint={"Missing in-game confirmation. You can continue later."}
-                            // entityMetadata={entityMetadata} // optional: can be added to FormWizard props
-                        />
+                        // KNG-162: one form session for the wizard and its Cancel, so Cancel sees what child forms saved.
+                        <FormSessionRoot>
+                            <div className="mb-3 flex justify-end">
+                                <FormCancelAction onLeave={handleLeaveForm} />
+                            </div>
+                            <FormWizard
+                                entityName={selectedTypeName}
+                                entityId={entityId}
+                                formConfigurationId={wizardConfig.id}
+                                userId={userId}
+                                onComplete={(data, progress) => handleComplete(data, progress)}
+                                existingProgressId={wizardProgressId}
+                                workflowSessionId={workflowSessionId}
+                                onStepAdvanced={({ from, stepKey }) => {
+                                    if (workflowSessionId != null) {
+                                        workflowClient.completeStep(workflowSessionId, stepKey, from).catch(() => {});
+                                    }
+                                }}
+                                worldTaskHint={"Missing in-game confirmation. You can continue later."}
+                                // entityMetadata={entityMetadata} // optional: can be added to FormWizard props
+                            />
+                        </FormSessionRoot>
                     ) : (
                         /* Use Case 2 or 3: Show configurations and progress */
                         <div className="space-y-6">
@@ -1034,6 +1189,14 @@ export const FormWizardPage: React.FC<Props> = ({
                                                 onDelete={handleFormConfigDelete}
                                                 onCreate={handleCreateFormConfiguration}
                                                 onCreateDefault={handleCreateFormConfigurationAsDefault}
+                                                onExport={handleExportConfiguration}
+                                                onImport={() => setShowImportPanel(true)}
+                                            />
+                                            <FormConfigurationImportPanel
+                                                open={showImportPanel}
+                                                entityTypeName={selectedTypeName}
+                                                onClose={() => setShowImportPanel(false)}
+                                                onImported={() => loadConfigurationsAndProgress(selectedTypeName)}
                                             />
 
                                             {loadingDisplayConfigs ? (
@@ -1074,13 +1237,46 @@ export const FormWizardPage: React.FC<Props> = ({
                 </div>
             </div>
 
+            <DomainWorldPromptModal
+                open={worldPrompt !== null}
+                entityLabel={worldPrompt?.entityLabel ?? 'domain'}
+                onConfirm={world => answerWorldPrompt(world)}
+                onCancel={() => answerWorldPrompt(null)}
+            />
+
+            <CreatedEntitiesPrompt
+                open={draftDeletePrompt !== null}
+                title="Delete this saved progress?"
+                intro="While filling out this form, its child forms created:"
+                note="They are complete records. Keep them (the default) deletes only the draft. Delete removes them newest first through their normal delete; anything used elsewhere is skipped."
+                records={draftDeletePrompt?.records ?? []}
+                keepLabel="Delete draft, keep them"
+                deleteLabel="Delete draft and them"
+                onKeep={async () => {
+                    const prompt = draftDeletePrompt;
+                    setDraftDeletePrompt(null);
+                    if (prompt) await removeProgress(prompt.progress, true);
+                }}
+                onDelete={async () => {
+                    const prompt = draftDeletePrompt!;
+                    const results = await deleteCreatedEntities(prompt.records, createdEntityDeleteDeps);
+                    // The entities are handled either way; the draft goes too (its record of them is all it adds).
+                    await removeProgress(prompt.progress, false);
+                    return results;
+                }}
+                onDone={() => setDraftDeletePrompt(null)}
+                onClose={() => setDraftDeletePrompt(null)}
+            />
+
+            {confirmModal}
+
             <FeedbackModal
                 open={feedbackModal.open}
                 title={feedbackModal.title}
                 message={feedbackModal.message}
                 status={feedbackModal.status}
                 onClose={closeFeedbackModal}
-                onContinue={handleFeedbackContinue}
+                onContinue={feedbackModal.onContinue ? handleFeedbackContinue : undefined}
                 autoCloseMs={feedbackModal.autoCloseMs}
             />
         </>

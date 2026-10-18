@@ -7,6 +7,7 @@ import {
     PrivateMessageLogPagedResultDto,
     PrivateMessageOutcome,
 } from '../../types/dtos/privateMessageLog';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 // docs/specs/private-messages/DESIGN.md §3.4 / IMPLEMENTATION_PLAN.md Phase 4 - a player's
 // private messages (sent and received) on their moderation profile. Only shown to holders of
@@ -97,8 +98,7 @@ export const PrivateMessagesPanel: React.FC<{
                 return;
             }
             console.error('Failed to load private messages:', err);
-            const message = err instanceof Error ? err.message : null;
-            setError(status === 400 && message ? message : 'Could not load private messages.');
+            setError(apiRefusalReason(err) ?? 'Could not load private messages.');
         } finally {
             if (seq === requestSeq.current) setLoading(false);
         }

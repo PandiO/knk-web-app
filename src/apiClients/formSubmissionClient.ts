@@ -1,5 +1,5 @@
 import { Controllers, FormSubmissionProgressOperation, HttpMethod } from "../utils/enums";
-import { FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from "../types/dtos/forms/FormModels";
+import { EntityReferencesDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from "../types/dtos/forms/FormModels";
 import { ObjectManager } from "./objectManager";
 import { logging } from "../utils";
 
@@ -49,6 +49,21 @@ export class FormSubmissionClient extends ObjectManager {
 
     update(data: FormSubmissionProgressDto): Promise<FormSubmissionProgressDto> {
         return this.invokeServiceCall(data, `${FormSubmissionProgressOperation.Update}${data.id}`, Controllers.FormSubmissionProgress, HttpMethod.Put);
+    }
+
+    /**
+     * KNG-162: what still references an entity (any type), so a cancelled form's entities are only
+     * deleted when nothing else uses them. `ignore` names entities deleted in the same run
+     * ("Street:7"), whose links don't count.
+     */
+    getEntityReferences(entityTypeName: string, id: string | number, ignore: string[] = []): Promise<EntityReferencesDto> {
+        const path = `entity-references/${encodeURIComponent(entityTypeName)}/${encodeURIComponent(String(id))}`;
+        return this.invokeServiceCall(
+            ignore.length > 0 ? { ignore: ignore.join(',') } : null,
+            path,
+            Controllers.FormSubmissionProgress,
+            HttpMethod.Get
+        );
     }
 
     delete(id: string): Promise<void> {

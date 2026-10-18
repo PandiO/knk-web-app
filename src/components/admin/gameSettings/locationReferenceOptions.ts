@@ -162,6 +162,56 @@ export const buildLocationOptions = (
     return options.sort((a, b) => a.displayLabel.localeCompare(b.displayLabel));
 };
 
+/** A Town, District or Structure that can be flagged as hub-eligible (hub DESIGN §16.4), with or without a Location. */
+export type DomainOption = {
+    key: string;
+    sourceType: 'Town' | 'District' | 'Structure';
+    sourceId: number;
+    name: string;
+    /** Parent domain names, outermost first. */
+    parents: string[];
+};
+
+/**
+ * Every Town, District and Structure from their own records. Unlike {@link buildLocationOptions} a domain without a
+ * spawn Location is included: hub eligibility needs a region and a world, not a Location.
+ */
+export const buildDomainOptions = (towns: any[], districts: any[], structures: any[]): DomainOption[] => {
+    const townNames = new Map<number, string>();
+    const districtParents = new Map<number, string[]>();
+    (towns || []).forEach(raw => {
+        const id = idOf(raw);
+        if (Number.isFinite(id)) {
+            townNames.set(id, nameOf(raw, `Town #${id}`));
+        }
+    });
+    const townOf = (raw: any): string[] => {
+        const townId = Number(raw?.townId ?? raw?.TownId);
+        return townNames.has(townId) ? [townNames.get(townId)!] : [];
+    };
+    (districts || []).forEach(raw => {
+        const id = idOf(raw);
+        if (Number.isFinite(id)) {
+            districtParents.set(id, [...townOf(raw), nameOf(raw, `District #${id}`)]);
+        }
+    });
+
+    const options: DomainOption[] = [];
+    const add = (sourceType: DomainOption['sourceType'], values: any[], parentsOf: (raw: any) => string[]) => {
+        (values || []).forEach(raw => {
+            const sourceId = idOf(raw);
+            if (Number.isFinite(sourceId) && sourceId > 0) {
+                options.push({ key: `${sourceType}-${sourceId}`, sourceType, sourceId,
+                    name: nameOf(raw, `${sourceType} #${sourceId}`), parents: parentsOf(raw) });
+            }
+        });
+    };
+    add('Town', towns, () => []);
+    add('District', districts, townOf);
+    add('Structure', structures, raw => districtParents.get(Number(raw?.districtId ?? raw?.DistrictId)) ?? []);
+    return options.sort((a, b) => a.name.localeCompare(b.name));
+};
+
 /** The words of a search; every one must match. */
 export const searchWords = (query: string): string[] => query.trim().toLowerCase().split(/\s+/).filter(Boolean);
 

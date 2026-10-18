@@ -4,6 +4,7 @@ import { ArrowLeft, Loader2, Receipt, Undo2 } from 'lucide-react';
 import { currencyClient } from '../../../apiClients/currencyClient';
 import { usePermission } from '../../../hooks/useStaffAccess';
 import { currencyName, parseUtc } from '../../../components/currency/BalanceLedgerTable';
+import { isStaffNoteValid, StaffNoteField } from '../../../components/currency/StaffNoteField';
 import {
     AlreadyReversedDetailsDto,
     CURRENCY_NODES,
@@ -11,11 +12,12 @@ import {
     MIN_STAFF_NOTE_LENGTH,
     ReversalResultDto,
 } from '../../../types/dtos/currency/CurrencyDtos';
+import { usePageTitle } from '../../../hooks/usePageTitle';
+import { apiRefusalReason } from '../../../utils/apiRefusalReason';
 
 const numberFormat = new Intl.NumberFormat('en-US');
 
-const errorMessage = (err: unknown, fallback: string): string =>
-    err instanceof Error && err.message ? err.message : fallback;
+const errorMessage = (err: unknown, fallback: string): string => apiRefusalReason(err) ?? fallback;
 
 /** The existing reversal from a 409 AlreadyReversed refusal, if that is what the error is. */
 const alreadyReversedDetails = (err: unknown): AlreadyReversedDetailsDto | null => {
@@ -54,11 +56,13 @@ const AlreadyReversedNotice: React.FC<{ info: AlreadyReversedDetailsDto }> = ({ 
  * One ledger transaction (currency-payments Phase 4, DESIGN.md §3.7 TransactionDetailPage): every
  * leg (players and system accounts), who started it and why, its reversal links, and - for holders
  * of knk.admin.currency.reverse - a Reverse form (note of at least 10 characters, optional partial
- * reversal when the player has spent some of it). The server posts the reversal once and never
+ * reversal when the player has spent some of it). Reverse stays clickable with a short note and then
+ * says why nothing was sent (KNG-126); the note field counts its characters as you type. The server posts the reversal once and never
  * takes a balance below zero. A reversed transaction shows "Already reversed on … by …" and no
  * form; so does a Reverse refused with 409 AlreadyReversed (someone else was first).
  */
 export const TransactionDetailPage: React.FC = () => {
+    usePageTitle('Transaction');
     const { publicId = '' } = useParams<{ publicId: string }>();
     const { allowed: canReverse } = usePermission(CURRENCY_NODES.reverse);
 
@@ -69,6 +73,8 @@ export const TransactionDetailPage: React.FC = () => {
     const [note, setNote] = React.useState('');
     const [allowPartial, setAllowPartial] = React.useState(false);
     const [reversing, setReversing] = React.useState(false);
+    // Set by a Reverse click with a too-short note; StaffNoteField then says why nothing was sent.
+    const [noteTooShort, setNoteTooShort] = React.useState(false);
     const [reverseError, setReverseError] = React.useState<string | null>(null);
     const [reversal, setReversal] = React.useState<ReversalResultDto | null>(null);
     // Set when the API said someone reversed it after this page loaded (409 AlreadyReversed).
@@ -92,11 +98,14 @@ export const TransactionDetailPage: React.FC = () => {
         void load();
     }, [load]);
 
-    const noteOk = note.trim().length >= MIN_STAFF_NOTE_LENGTH;
-
     const handleReverse = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!tx || !noteOk) return;
+        if (!tx) return;
+        if (!isStaffNoteValid(note)) {
+            setNoteTooShort(true);
+            return;
+        }
+        setNoteTooShort(false);
         setReversing(true);
         setReverseError(null);
         try {
@@ -241,22 +250,17 @@ export const TransactionDetailPage: React.FC = () => {
                                     Posts the exact opposite of every player leg above, once. A balance never goes below zero: if a
                                     player has spent some of it, the reversal is refused unless you allow a partial reversal.
                                 </p>
-                                <div>
-                                    <label htmlFor="reverse-note" className="block text-xs text-gray-500 mb-1">
-                                        Reason (at least {MIN_STAFF_NOTE_LENGTH} characters)
-                                    </label>
-                                    <textarea id="reverse-note" className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-full" rows={2}
-                                        value={note} onChange={e => setNote(e.target.value)} maxLength={450} />
-                                </div>
+                                <StaffNoteField id="reverse-note" multiline value={note} onChange={setNote} showError={noteTooShort}
+                                    label={`Reason (at least ${MIN_STAFF_NOTE_LENGTH} characters)`} />
                                 <label className="flex items-center gap-2 text-sm text-gray-700">
                                     <input type="checkbox" checked={allowPartial} onChange={e => setAllowPartial(e.target.checked)} />
                                     Allow a partial reversal (reverse what is left)
                                 </label>
                                 <div className="flex items-center gap-3">
-                                    <button type="submit" className="btn-primary text-sm" disabled={!noteOk || reversing}>
+                                    <button type="submit" className="btn-primary text-sm" disabled={reversing}>
                                         {reversing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reverse'}
                                     </button>
-                                    {reverseError && <span className="text-sm text-red-600">{reverseError}</span>}
+                                    {reverseError && <span role="alert" className="text-sm text-red-600">{reverseError}</span>}
                                 </div>
                             </form>
                         )}

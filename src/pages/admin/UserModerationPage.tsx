@@ -10,6 +10,7 @@ import { UserListDto } from '../../types/dtos/auth/UserDtos';
 import { toApiPagedQuery } from '../../utils/entityApiMapping';
 import { usePermission } from '../../hooks/useStaffAccess';
 import { CURRENCY_NODES } from '../../types/dtos/currency/CurrencyDtos';
+import { usePageTitle } from '../../hooks/usePageTitle';
 import { LOCATION_RETENTION_NODES } from '../../types/dtos/locationRetention/LocationRetentionDtos';
 
 // docs/specs/user-management/DESIGN.md §5, IMPLEMENTATION_PLAN.md Phase 3 - a moderation-oriented
@@ -28,6 +29,7 @@ const formatDate = (iso?: string | null): string => {
 };
 
 export const UserModerationPage: React.FC = () => {
+    usePageTitle('Moderation');
     const navigate = useNavigate();
     const [tab, setTab] = React.useState<Tab>('all');
     const { allowed: canReadLedger } = usePermission(CURRENCY_NODES.history);

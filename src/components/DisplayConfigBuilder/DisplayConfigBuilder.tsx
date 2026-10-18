@@ -12,8 +12,12 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { SortableSectionItem } from './SortableSectionItem';
 import { FeedbackModal } from '../FeedbackModal';
 import { ReusableSectionSelector } from './ReusableSectionSelector';
+import { usePageTitle } from '../../hooks/usePageTitle';
+import { useConfirm } from '../../hooks/useConfirm';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 export const DisplayConfigBuilder: React.FC = () => {
+    usePageTitle('Display builder');
     const { id } = useParams<{ id?: string }>();
     const navigate = useNavigate();
     const configId = id || 'new';
@@ -38,6 +42,7 @@ export const DisplayConfigBuilder: React.FC = () => {
     const [selectedEntityMeta, setSelectedEntityMeta] = useState<EntityMetadataDto | null>(null);
     const [addingTemplate, setAddingTemplate] = useState(false);
     const [defaultConflictMsg, setDefaultConflictMsg] = useState<string | null>(null);
+    const [confirm, confirmModal] = useConfirm();
 
     type SaveFeedbackState = {
         open: boolean;
@@ -253,10 +258,9 @@ export const DisplayConfigBuilder: React.FC = () => {
             }));
             setShowSectionSelector(false);
             setSelectedSectionKey(addedSection.sectionGuid || addedSection.id!);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to add reusable section:', err);
-            const errorMsg = err?.message || 'Failed to add section from template';
-            setError(errorMsg);
+            setError(apiRefusalReason(err) ?? 'Failed to add section from template');
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.AddSectionFailed');
         } finally {
             setAddingTemplate(false);
@@ -415,7 +419,11 @@ export const DisplayConfigBuilder: React.FC = () => {
                 try {
                     const existingDefault = await displayConfigClient.getDefaultByEntityType(config.entityTypeName, true);
                     if (existingDefault && existingDefault.id && existingDefault.id !== config.id) {
-                        if (window.confirm(`There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.name}"?`)) {
+                        if (await confirm({
+                            title: 'Change the default display configuration?',
+                            message: `There is already a default configuration for "${config.entityTypeName}". Do you want to change the default to "${config.name}"?`,
+                            confirmLabel: 'Change default',
+                        })) {
                             await handleRemoveDefault(existingDefault);
                         } else {
                             setSaving(false);
@@ -447,16 +455,12 @@ export const DisplayConfigBuilder: React.FC = () => {
                 handleSaveContinue();
             }, 3000);
 
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to save configuration:', err);
-            
-            let errorMessage = 'Failed to save configuration';
-            let errorTitle = 'Save failed';
-            
-            if (err?.message) {
-                errorMessage = err.message;
-            }
-            
+
+            const errorMessage = apiRefusalReason(err) ?? 'Failed to save configuration';
+            const errorTitle = 'Save failed';
+
             setError(errorMessage);
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.SaveFailed');
             setSaveFeedback({
@@ -791,6 +795,8 @@ export const DisplayConfigBuilder: React.FC = () => {
                 status={saveFeedback.status}
                 onClose={closeSaveModal}
             />
+
+            {confirmModal}
         </div>
     );
 };

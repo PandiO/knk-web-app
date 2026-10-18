@@ -378,7 +378,11 @@ describe('RoadsAdminPage', () => {
       client.getProfiles.mockResolvedValue([defaultProfile]);
       await userEvent.click(screen.getByRole('button', { name: 'Delete Kardenna main street profile' }));
 
-      expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Kardenna main street'));
+      // Confirmed in RoadProfilesCard's FeedbackModal, not the browser's confirm box (KNG-27, KNG-169).
+      const dialog = await screen.findByRole('dialog', { name: 'Delete road profile' });
+      expect(dialog).toHaveTextContent('Kardenna main street');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+      expect(confirmSpy).not.toHaveBeenCalled();
       await waitFor(() => expect(client.deleteProfile).toHaveBeenCalledWith(2));
       await waitFor(() => expect(screen.queryByText('Kardenna main street')).not.toBeInTheDocument());
     });

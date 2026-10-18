@@ -7,6 +7,7 @@ import {
 } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { logging } from '../../utils';
+import { failureReason } from '../../utils/apiRefusalReason';
 
 export type PathValidationStatus = 'pending' | 'success' | 'error';
 
@@ -104,8 +105,9 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
           console.log(`Property dropdown should be ${disabled ? 'DISABLED (parent disabled)' : 'ENABLED'} with ${props.length} options`);
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load properties';
-        setError(`Failed to load properties: ${message}`);
+        const reason = failureReason(err);
+        const message = reason ?? 'Failed to load properties';
+        setError(reason ? `Failed to load properties: ${reason}` : 'Failed to load properties.');
         logger.error(`Error loading properties for ${selectedEntity}: ${message}`);
         console.error('Property loading error:', err);
         setSuggestions([]);
@@ -153,7 +155,7 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
           console.log('✓ Path validation succeeded:', path);
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Validation failed';
+        const message = failureReason(err) ?? 'the path could not be checked.';
         setError(`Validation error: ${message}`);
         setValidationStatus('error');
         logger.error(`Error validating path: ${message}`);

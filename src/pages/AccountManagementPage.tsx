@@ -1,17 +1,27 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { User, Mail, Key, Link as LinkIcon, Save, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { User, Mail, Key, Link as LinkIcon, Save, X, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { authClient } from '../apiClients/authClient';
+import { authService } from '../services/authService';
 import { FeedbackModal } from '../components/FeedbackModal';
 import { validateEmailFormat } from '../utils/passwordValidator';
 import { MyDiscoveriesSection } from '../components/discovery/MyDiscoveriesSection';
+import { LINK_CODE_LENGTH, normalizeLinkCode } from '../utils/linkCode';
+import { appConfig } from '../config/appConfig';
+import { usePageTitle } from '../hooks/usePageTitle';
+import { MyStatisticsSection } from './statistics/MyStatisticsSection';
+import { MyDataDeletionSection } from '../components/privacy/MyDataDeletionSection';
+import { apiRefusalReason } from '../utils/apiRefusalReason';
 
 export const AccountManagementPage: React.FC = () => {
-  const { user, refresh } = useAuth();
+  usePageTitle('Account');
+  const navigate = useNavigate();
+  const { user, refresh, logout, logoutAll, isLoading } = useAuth();
   const [isEditing, setIsEditing] = useState({ email: false, password: false });
   const [formData, setFormData] = useState({
     email: user?.email || '',
+    emailPassword: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
@@ -34,6 +44,9 @@ export const AccountManagementPage: React.FC = () => {
     } else if (!validateEmailFormat(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
+    if (!formData.emailPassword) {
+      newErrors.emailPassword = 'Enter your current password to change your email';
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -42,23 +55,27 @@ export const AccountManagementPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await authClient.updateUser({
-        email: formData.email,
+      // Changing the email ends every other session; authService stores the fresh access token
+      // the API returns, so this tab stays logged in.
+      await authService.updateUser({
+        email: formData.email.trim(),
+        currentPassword: formData.emailPassword,
       });
       await refresh();
       setFeedback({
         open: true,
         title: 'Email Updated',
-        message: 'Your email has been successfully updated.',
+        message: 'Your email has been updated. You were logged out on your other devices.',
         status: 'success',
       });
       setIsEditing({ ...isEditing, email: false });
+      setFormData(prev => ({ ...prev, emailPassword: '' }));
       setErrors({});
-    } catch (error: any) {
+    } catch (error) {
       setFeedback({
         open: true,
         title: 'Update Failed',
-        message: error?.response?.message || 'Failed to update email. Please try again.',
+        message: apiRefusalReason(error) ?? 'Failed to update email. Please try again.',
         status: 'error',
       });
     } finally {
@@ -88,7 +105,7 @@ export const AccountManagementPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await authClient.updateUser({
+      await authService.updateUser({
         newPassword: formData.newPassword,
         currentPassword: formData.currentPassword,
       });
@@ -101,11 +118,11 @@ export const AccountManagementPage: React.FC = () => {
       setIsEditing({ ...isEditing, password: false });
       setFormData({ ...formData, currentPassword: '', newPassword: '', confirmPassword: '' });
       setErrors({});
-    } catch (error: any) {
+    } catch (error) {
       setFeedback({
         open: true,
         title: 'Update Failed',
-        message: error?.response?.message || 'Failed to update password. Please verify your current password.',
+        message: apiRefusalReason(error) ?? 'Failed to update password. Please verify your current password.',
         status: 'error',
       });
     } finally {
@@ -116,8 +133,8 @@ export const AccountManagementPage: React.FC = () => {
   const handleLinkMinecraftAccount = async () => {
     const newErrors: Record<string, string> = {};
     
-    if (!formData.linkCode || !formData.linkCode.trim()) {
-      newErrors.linkCode = 'Link code is required';
+    if (formData.linkCode.length !== LINK_CODE_LENGTH) {
+      newErrors.linkCode = `Enter the ${LINK_CODE_LENGTH}-character code from /account link`;
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -128,7 +145,7 @@ export const AccountManagementPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       await authClient.linkMinecraftAccount({
-        linkCode: formData.linkCode.trim(),
+        linkCode: formData.linkCode,
       });
       await refresh();
       setFeedback({
@@ -139,11 +156,11 @@ export const AccountManagementPage: React.FC = () => {
       });
       setFormData({ ...formData, linkCode: '' });
       setErrors({});
-    } catch (error: any) {
+    } catch (error) {
       setFeedback({
         open: true,
         title: 'Link Failed',
-        message: error?.response?.message || 'Failed to link Minecraft account. Please check your link code.',
+        message: apiRefusalReason(error) ?? 'Failed to link Minecraft account. Please check your link code.',
         status: 'error',
       });
     } finally {
@@ -151,9 +168,15 @@ export const AccountManagementPage: React.FC = () => {
     }
   };
 
-  // Alias for backward compatibility
-  const handleGenerateLinkCode = handleLinkMinecraftAccount;
+  const handleLogout = async () => {
+    await logout();
+    navigate('/auth/login', { replace: true });
+  };
 
+  const handleLogoutAll = async () => {
+    await logoutAll();
+    navigate('/auth/login', { replace: true });
+  };
 
   if (!user) {
     return (
@@ -215,6 +238,8 @@ export const AccountManagementPage: React.FC = () => {
             {/* Discoveries (docs/specs/domain-discovery/DESIGN.md §3.9) - only once the account is
                 linked to Minecraft, since discoveries are made in-game. */}
             {user.uuid && <MyDiscoveriesSection userId={user.id} />}
+            {/* Player statistics (KNG-34): gathered in-game, so also only when linked. */}
+            {user.uuid && <MyStatisticsSection userId={user.id} username={user.username} />}
 
             {/* Email Management */}
             <div className="border-b pb-6">
@@ -236,8 +261,13 @@ export const AccountManagementPage: React.FC = () => {
               {isEditing.email ? (
                 <div className="space-y-3">
                   <div>
+                    <label htmlFor="account-email" className="block text-sm font-medium text-gray-700 mb-1">
+                      New Email
+                    </label>
                     <input
+                      id="account-email"
                       type="email"
+                      autoComplete="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
@@ -248,6 +278,25 @@ export const AccountManagementPage: React.FC = () => {
                     {errors.email && (
                       <p className="mt-1 text-sm text-red-600">{errors.email}</p>
                     )}
+                  </div>
+                  <div>
+                    <label htmlFor="email-current-password" className="block text-sm font-medium text-gray-700 mb-1">
+                      Current Password
+                    </label>
+                    <input
+                      id="email-current-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={formData.emailPassword}
+                      onChange={(e) => setFormData({ ...formData, emailPassword: e.target.value })}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                        errors.emailPassword ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
+                      }`}
+                    />
+                    {errors.emailPassword && (
+                      <p className="mt-1 text-sm text-red-600">{errors.emailPassword}</p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500">Changing your email logs you out on your other devices.</p>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -261,7 +310,7 @@ export const AccountManagementPage: React.FC = () => {
                     <button
                       onClick={() => {
                         setIsEditing({ ...isEditing, email: false });
-                        setFormData({ ...formData, email: user.email || '' });
+                        setFormData({ ...formData, email: user.email || '', emailPassword: '' });
                         setErrors({});
                       }}
                       className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
@@ -378,31 +427,32 @@ export const AccountManagementPage: React.FC = () => {
                   Link Minecraft Account
                 </h2>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <h3 className="text-sm font-semibold text-blue-900 mb-2">Connect Your Minecraft Profile</h3>
+                  <h3 className="text-sm font-semibold text-blue-900 mb-2">Connect Your Minecraft Account</h3>
                   <p className="text-sm text-blue-800 mb-4">
-                    Your web account is not yet linked to a Minecraft profile. Follow these steps to connect:
+                    This web account isn't linked to a Minecraft account yet. Get a code in game and paste it here:
                   </p>
                   <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800 mb-4">
-                    <li>Join the Knights & Kings Minecraft server</li>
+                    <li>Join <code className="bg-blue-100 px-1 py-0.5 rounded font-mono text-xs">{appConfig.minecraft.serverAddress}</code> in Minecraft</li>
                     <li>Type <code className="bg-blue-100 px-1 py-0.5 rounded font-mono text-xs">/account link</code> in chat</li>
-                    <li>You'll receive a unique link code (valid for 20 minutes)</li>
-                    <li>Paste the code below and click "Link Account"</li>
+                    <li>Paste the {LINK_CODE_LENGTH}-character code below (valid for 20 minutes) and click "Link Account"</li>
                   </ol>
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="account-link-code" className="block text-sm font-medium text-gray-700 mb-2">
                       Link Code from Minecraft
                     </label>
                     <input
+                      id="account-link-code"
                       type="text"
-                      value={formData.linkCode || ''}
-                      onChange={(e) => setFormData({ ...formData, linkCode: e.target.value.toUpperCase() })}
+                      autoComplete="one-time-code"
+                      spellCheck={false}
+                      value={formData.linkCode}
+                      onChange={(e) => setFormData({ ...formData, linkCode: normalizeLinkCode(e.target.value) })}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 font-mono ${
                         errors.linkCode ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
                       }`}
-                      placeholder="XXXX-XXXX-XXXX"
-                      maxLength={14}
+                      placeholder="ABCD1234"
                     />
                     {errors.linkCode && (
                       <p className="mt-1 text-sm text-red-600">{errors.linkCode}</p>
@@ -420,6 +470,9 @@ export const AccountManagementPage: React.FC = () => {
               </div>
             )}
 
+            {/* Delete my data (KNG-34 GDPR deletion, 2026-10-03): request, email confirmation, 5-day grace period. */}
+            <MyDataDeletionSection hasEmail={!!user.email} />
+
             {/* Minecraft Account Already Linked */}
             {user.uuid && (
               <div className="pb-6">
@@ -435,6 +488,36 @@ export const AccountManagementPage: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Session */}
+            <div className="border-t pt-6">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center mb-2">
+                <LogOut className="h-5 w-5 mr-2" aria-hidden="true" />
+                Session
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Log out here, or on every device at once if you think someone else has access to your account.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={isLoading}
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  <LogOut className="h-4 w-4 mr-2" aria-hidden="true" />
+                  Log out
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogoutAll}
+                  disabled={isLoading}
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                >
+                  Log out on all devices
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { normalizeFormSubmission } from '../normalizeFormSubmission';
+import { normalizeFormSubmission, UnsavedRelationshipValueError } from '../normalizeFormSubmission';
 import { FieldType } from '../../enums';
 import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../../../types/dtos/forms/FormModels';
 import { EntityMetadataDto, FieldMetadataDto } from '../../../types/dtos/metadata/MetadataModels';
@@ -365,5 +365,115 @@ describe('normalizeFormSubmission (scalar API types)', () => {
             ContinuousDamageMultiplier: 1.5,
             ClosedRegionData: null
         });
+    });
+});
+
+describe('normalizeFormSubmission (KNG-133: entities that were never saved)', () => {
+    const relationshipField = (overrides: Partial<FormFieldDto>): FormFieldDto => ({
+        fieldName: 'Districts',
+        label: 'Districts',
+        fieldType: FieldType.List,
+        objectType: 'District',
+        isRequired: false,
+        isReadOnly: false,
+        order: 0,
+        isReusable: false,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        validations: [],
+        ...overrides
+    });
+
+    const configWith = (...fields: FormFieldDto[]): FormConfigurationDto => ({
+        entityTypeName: 'Street',
+        configurationName: 'Street',
+        isDefault: true,
+        isActive: true,
+        steps: [{ stepName: 'Main', order: 0, fields } as FormStepDto]
+    });
+
+    const normalize = (fields: FormFieldDto[], rawFormValue: Record<string, unknown>) =>
+        normalizeFormSubmission({
+            entityTypeName: 'Street',
+            formConfiguration: configWith(...fields),
+            rawFormValue,
+            entityMetadata: []
+        });
+
+    it('sends saved List items as ids', () => {
+        const normalized = normalize([relationshipField({})], {
+            Districts: [{ id: 501, name: 'Old Quarter' }, { id: 7, name: 'Harbour' }]
+        });
+
+        expect(normalized.DistrictIds).toEqual([501, 7]);
+    });
+
+    it('throws, naming the field, for a List item with no id instead of dropping it', () => {
+        expect(() => normalize([relationshipField({})], {
+            Districts: [{ id: 7, name: 'Harbour' }, { name: 'Old Quarter' }]
+        })).toThrow(UnsavedRelationshipValueError);
+
+        try {
+            normalize([relationshipField({})], { Districts: [{ name: 'Old Quarter' }, { name: 'New Town' }] });
+            fail('expected a throw');
+        } catch (error) {
+            const unsaved = error as UnsavedRelationshipValueError;
+            expect(unsaved.fieldName).toBe('Districts');
+            expect(unsaved.unsavedCount).toBe(2);
+            expect(unsaved.message).toContain('"Districts" holds 2 District entries that were never saved');
+        }
+    });
+
+    it('throws for an id-less List item of any type, a Location included (List relationships are sent as ids only)', () => {
+        const guardSpawns = relationshipField({
+            fieldName: 'GuardSpawnLocations',
+            label: 'Guard spawn locations',
+            objectType: 'Location'
+        });
+
+        expect(() => normalize([guardSpawns], {
+            GuardSpawnLocations: [{ name: 'Spawn 1', x: 1, y: 64, z: 2 }]
+        })).toThrow('"Guard spawn locations" holds 1 Location that was never saved');
+    });
+
+    it('throws for a filled-in object held by a List field instead of an array', () => {
+        expect(() => normalize([relationshipField({})], { Districts: { name: 'Old Quarter' } }))
+            .toThrow(UnsavedRelationshipValueError);
+    });
+
+    it('still skips the untouched collection default and empty placeholders', () => {
+        expect(normalize([relationshipField({})], { Districts: 'new Collection()' }).DistrictIds).toBeUndefined();
+        expect(normalize([relationshipField({})], { Districts: [{}, { name: '' }] }).DistrictIds).toEqual([]);
+        expect(normalize([relationshipField({})], { Districts: [] }).DistrictIds).toEqual([]);
+    });
+
+    it('throws for an id-less entity in a single Object field (not a Location)', () => {
+        const streetField = relationshipField({
+            fieldName: 'StreetId',
+            label: 'Street',
+            fieldType: FieldType.Object,
+            objectType: 'Street'
+        });
+
+        expect(() => normalize([streetField], { StreetId: { name: 'Market Lane', districtIds: [501] } }))
+            .toThrow('"Street" holds a Street that was never saved');
+        expect(normalize([streetField], { StreetId: { id: 12, name: 'Market Lane' } }).StreetId).toBe(12);
+        // No value / an empty placeholder: no error, and no id is sent.
+        expect(normalize([streetField], { StreetId: null }).StreetId ?? null).toBeNull();
+        expect(normalize([streetField], { StreetId: {} }).StreetId ?? null).toBeNull();
+    });
+
+    it('lets an id-less single Location through as an embedded value', () => {
+        const locationField = relationshipField({
+            fieldName: 'LocationId',
+            label: 'Location',
+            fieldType: FieldType.Object,
+            objectType: 'Location'
+        });
+        const captured = { name: 'Gate', x: 1, y: 64, z: 2, World: 'world' };
+
+        expect(normalize([locationField], { LocationId: captured }).Location).toEqual(captured);
+        // A Location without coordinates keeps the old behaviour (left out, not an error).
+        expect(() => normalize([locationField], { LocationId: { name: 'Gate' } })).not.toThrow();
     });
 });

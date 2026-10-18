@@ -338,7 +338,11 @@ describe('DiscoveryAdminPage', () => {
     client.getOverrides.mockResolvedValue([]);
     await userEvent.click(screen.getByRole('button', { name: 'Remove Kaer Morhen override' }));
 
-    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Kaer Morhen'));
+    // KNG-169: asked in a modal (useConfirm), not the browser's confirm box.
+    const dialog = await screen.findByRole('dialog', { name: 'Remove this discovery override?' });
+    expect(dialog).toHaveTextContent('Kaer Morhen');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
+    expect(confirmSpy).not.toHaveBeenCalled();
     await waitFor(() => expect(client.deleteOverride).toHaveBeenCalledWith(5));
     expect(await screen.findByText(/No overrides/)).toBeInTheDocument();
   });

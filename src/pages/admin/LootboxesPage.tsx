@@ -8,6 +8,7 @@ import { LootboxOddsTab } from '../../components/lootbox/LootboxOddsTab';
 import { LootboxActiveTab } from '../../components/lootbox/LootboxActiveTab';
 import { LootboxDropLogTab } from '../../components/lootbox/LootboxDropLogTab';
 import { LootboxTokensTab } from '../../components/lootbox/LootboxTokensTab';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 /**
  * Lootboxes Phase 4 (docs/specs/lootboxes/DESIGN.md §3.6, IMPLEMENTATION_PLAN.md Phase 4): the admin
@@ -32,6 +33,7 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 export const LootboxesPage: React.FC<{ initialTab?: TabKey }> = ({ initialTab = 'types' }) => {
+    usePageTitle('Lootboxes');
     const [tab, setTab] = React.useState<TabKey>(initialTab);
     const [oddsTypeId, setOddsTypeId] = React.useState<number | null>(null);
 
