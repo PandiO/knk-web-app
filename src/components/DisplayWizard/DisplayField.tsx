@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Edit2, Check, X } from 'lucide-react';
 import { DisplayFieldProps } from '../../types/dtos/displayConfig/DisplayModels';
 import { useTemplateParser } from './hooks/useTemplateParser';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: string }> = ({ 
   field, 
@@ -16,6 +17,8 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
+  // Why the last save didn't happen (a bad number or the API's refusal); was a browser alert.
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Determine the data source
   let sourceData: unknown = data;
@@ -60,11 +63,13 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
                   ['string', 'integer', 'number', 'boolean'].includes(field.fieldType?.toLowerCase() || '');
 
   const handleEditStart = () => {
+    setEditError(null);
     setEditValue(String(displayValue || ''));
     setIsEditing(true);
   };
 
   const handleEditCancel = () => {
+    setEditError(null);
     setIsEditing(false);
     setEditValue('');
   };
@@ -73,6 +78,7 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
     if (!onValueChange || !field.fieldName) return;
 
     setIsSaving(true);
+    setEditError(null);
     try {
       // Convert value based on field type
       let newValue: unknown = editValue;
@@ -81,7 +87,7 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
       if (fieldTypeLower === 'integer' || fieldTypeLower === 'number') {
         newValue = fieldTypeLower === 'integer' ? parseInt(editValue, 10) : parseFloat(editValue);
         if (isNaN(newValue as number)) {
-          alert('Invalid number');
+          setEditError('Enter a number.');
           setIsSaving(false);
           return;
         }
@@ -94,7 +100,7 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
       setEditValue('');
     } catch (err) {
       console.error('Error saving field value:', err);
-      alert('Failed to save changes');
+      setEditError(apiRefusalReason(err) ?? 'The change could not be saved.');
     } finally {
       setIsSaving(false);
     }
@@ -161,6 +167,10 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
             </button>
           )}
         </div>
+      )}
+
+      {isEditing && editError && (
+        <p className="text-sm text-red-600 mt-1" role="alert">{editError}</p>
       )}
 
       {field.description && (

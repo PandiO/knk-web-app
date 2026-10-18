@@ -15,6 +15,7 @@ import {
   TelemetryTestRunDto,
   TelemetryTimelineItemDto,
 } from '../../types/dtos/telemetry/TelemetryDtos';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 /**
  * Owner diagnostics (KNG-34 link 6, IMPLEMENTATION_PLAN.md §8 link 6; DESIGN.md "First vertical
@@ -50,7 +51,7 @@ const EMPTY_FILTERS: Filters = {
 };
 
 const isForbidden = (err: unknown) => (err as { status?: number })?.status === 403;
-const messageOf = (err: unknown) => (err instanceof Error ? err.message : 'Request failed');
+const messageOf = (err: unknown) => apiRefusalReason(err) ?? 'Request failed';
 const toNumber = (value: string) => (value.trim() === '' ? undefined : Number(value));
 /** datetime-local (browser time) → ISO UTC. */
 const toIso = (value: string) => (value ? new Date(value).toISOString() : undefined);

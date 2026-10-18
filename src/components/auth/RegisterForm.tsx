@@ -9,6 +9,7 @@ import { validateEmailFormat, validatePasswordPolicy, calculatePasswordStrength 
 import { useAuth } from '../../contexts/AuthContext';
 import { appConfig } from '../../config/appConfig';
 import { LINK_CODE_LENGTH, normalizeLinkCode } from '../../utils/linkCode';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 
 interface AccountData {
@@ -93,7 +94,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
       setErrors({
         linkCode: errorCodeOf(error) === 'TooManyAttempts' || error?.status === 429
           ? apiMessageOf(error) ?? ERROR_MESSAGES.TooManyAttempts
-          : ERROR_MESSAGES.ServerError,
+          : apiRefusalReason(error) ?? ERROR_MESSAGES.ServerError,
       });
     } finally {
       setIsBusy(false);

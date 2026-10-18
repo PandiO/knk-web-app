@@ -10,15 +10,18 @@ import { structureClient } from '../../apiClients/structureClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { DataRetentionCard } from '../../components/admin/DataRetentionCard';
 import { GroupOverridesCard } from '../../components/admin/gameSettings/GroupOverridesCard';
+import { HubSettingsCard, defaultHubRules, defaultHubSettings } from '../../components/admin/gameSettings/HubSettingsCard';
 import { LocationReferencePicker } from '../../components/admin/gameSettings/LocationReferencePicker';
 import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
 import { RespawnPolicyEditor } from '../../components/admin/gameSettings/RespawnPolicyEditor';
 import { PREVIEW_SAMPLE, fillMessagePlaceholders } from '../../components/admin/gameSettings/messagePlaceholders';
-import { LocationOption, buildLocationOptions } from '../../components/admin/gameSettings/locationReferenceOptions';
+import { DomainOption, LocationOption, buildDomainOptions, buildLocationOptions } from '../../components/admin/gameSettings/locationReferenceOptions';
+import { gameSettingsErrorMessage } from '../../components/admin/gameSettings/gameSettingsErrors';
 import { PermissionGroupDto } from '../../types/dtos/userManagement/PermissionGroupDto';
 import {
     GameSettingsDto,
     GameSettingsUpdateDto,
+    HubDomainDto,
     JoinSpawnMode,
     RespawnPolicyDto,
     WeatherMode,
@@ -58,6 +61,10 @@ const buildDefaultWorldSettings = (worldName: string, worldFolderName?: string |
         locationReference: null,
     },
 });
+
+/** KNG-118 (U5): a world's own spawn point can only be in that world. */
+const optionsInWorld = (options: LocationOption[], worldName?: string | null): LocationOption[] =>
+    worldName ? options.filter(o => (o.location?.world || '').toLowerCase() === worldName.toLowerCase()) : options;
 
 const buildDefaultSettings = (): GameSettingsDto => ({
     id: 'global',
@@ -114,6 +121,7 @@ const normalizeSettings = (settings: GameSettingsDto): GameSettingsDto => {
 
     next.worldSettings = Array.from(byWorld.values()).sort((a, b) => a.worldName.localeCompare(b.worldName));
     next.groupOverrides = next.groupOverrides || [];
+    next.hub = { ...defaultHubSettings(), ...(next.hub || {}), rules: { ...defaultHubRules(), ...(next.hub?.rules || {}) } };
 
     if (!next.defaultRespawnPolicy) {
         next.defaultRespawnPolicy = {
@@ -133,11 +141,17 @@ export const GameSettingsPage: React.FC = () => {
     const [settings, setSettings] = React.useState<GameSettingsDto | null>(null);
     const [locationOptions, setLocationOptions] = React.useState<LocationOption[]>([]);
     const [groups, setGroups] = React.useState<PermissionGroupDto[]>([]);
+    const [hubDomains, setHubDomains] = React.useState<HubDomainDto[]>([]);
+    /** Set when the flagged domains could not be loaded: never shown as "no domain is flagged". */
+    const [hubDomainsError, setHubDomainsError] = React.useState<string | null>(null);
+    const [domainOptions, setDomainOptions] = React.useState<DomainOption[]>([]);
     const [loading, setLoading] = React.useState(true);
     // SET-1 (KNG-141): a failed load must not become an editable page of defaults that one Save
     // would write over the real MOTD, spawns and group overrides.
     const [loadFailed, setLoadFailed] = React.useState(false);
     const [saving, setSaving] = React.useState(false);
+    /** The API's reason when a save was refused (e.g. a hub spawn in another world), shown under the buttons. */
+    const [saveError, setSaveError] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         void loadAll();
@@ -147,18 +161,27 @@ export const GameSettingsPage: React.FC = () => {
         try {
             setLoading(true);
             setLoadFailed(false);
-            const [settingsData, locations, towns, districts, structures, permissionGroups] = await Promise.all([
+            const [settingsData, locations, towns, districts, structures, permissionGroups, hubs] = await Promise.all([
                 gameSettingsClient.get(),
                 locationClient.getAll().catch(() => []),
                 townClient.getAll().catch(() => []),
                 districtClient.getAll().catch(() => []),
                 structureClient.getAll().catch(() => []),
                 permissionGroupClient.getAll().catch(() => [] as PermissionGroupDto[]),
+                gameSettingsClient.getHubDomains().catch(error => {
+                    console.error('Failed to load the hub-eligible domains:', error);
+                    return null;
+                }),
             ]);
             setGroups(permissionGroups as PermissionGroupDto[]);
+            setHubDomains(hubs ?? []);
+            setHubDomainsError(hubs == null
+                ? 'The hub-eligible domains could not be loaded, so the hub cannot be changed now. Reload the page to try again.'
+                : null);
 
             setSettings(normalizeSettings(settingsData));
             setLocationOptions(buildLocationOptions(locations as any[], towns as any[], districts as any[], structures as any[]));
+            setDomainOptions(buildDomainOptions(towns as any[], districts as any[], structures as any[]));
         } catch (error) {
             console.error('Failed to load game settings:', error);
             setSettings(null);
@@ -202,15 +225,19 @@ export const GameSettingsPage: React.FC = () => {
             worldSettings: settings.worldSettings,
             motd: settings.motd ?? '',
             groupOverrides: settings.groupOverrides ?? [],
+            hub: settings.hub ?? defaultHubSettings(),
         };
 
         try {
             setSaving(true);
+            setSaveError(null);
             const updated = await gameSettingsClient.update(payload);
             setSettings(normalizeSettings(updated));
+            setHubDomains(await gameSettingsClient.getHubDomains().catch(() => hubDomains));
         } catch (error) {
             console.error('Failed to save game settings:', error);
             logging.errorHandler.next('ErrorMessage.GameSettings.SaveFailed');
+            setSaveError(gameSettingsErrorMessage(error, 'The settings could not be saved.'));
         } finally {
             setSaving(false);
         }
@@ -262,6 +289,7 @@ export const GameSettingsPage: React.FC = () => {
                                 Save Settings
                             </button>
                         </div>
+                        {saveError && <p className="mt-2 text-sm text-red-600" role="alert">{saveError}</p>}
                     </div>
                 </div>
 
@@ -397,6 +425,18 @@ export const GameSettingsPage: React.FC = () => {
                         />
                     )}
                 </div>
+
+                <HubSettingsCard
+                    hub={settings.hub ?? defaultHubSettings()}
+                    hubDomains={hubDomains}
+                    hubDomainsError={hubDomainsError}
+                    domainOptions={domainOptions}
+                    options={optionsInWorld(locationOptions,
+                        hubDomains.find(d => d.id === settings.hub?.domainId)?.worldName ?? settings.hub?.worldName)}
+                    onChange={hub => updateSettings(prev => ({ ...prev, hub }))}
+                    onHubDomainsChange={setHubDomains}
+                    onCreateLocation={() => navigate('/forms/location?autoOpen=true')}
+                />
 
                 <GroupOverridesCard
                     overrides={settings.groupOverrides || []}
@@ -575,7 +615,7 @@ export const GameSettingsPage: React.FC = () => {
                                         <p className="text-sm font-semibold text-gray-800 mb-2">World Spawn Point</p>
                                         <LocationReferencePicker
                                             value={world.worldSpawnReference || null}
-                                            options={locationOptions}
+                                            options={optionsInWorld(locationOptions, world.worldName)}
                                             onChange={reference => updateWorldSetting(world.worldName, current => ({ ...current, worldSpawnReference: reference }))}
                                             onCreateLocation={() => navigate('/forms/location?autoOpen=true')}
                                         />

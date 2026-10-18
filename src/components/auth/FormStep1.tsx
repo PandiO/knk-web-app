@@ -6,6 +6,7 @@ import {
   validatePasswordLength,
 } from '../../utils/passwordValidator';
 import { PASSWORD_MIN_LENGTH } from '../../utils/authConstants';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 interface FormStep1Props {
   data: {
@@ -64,7 +65,7 @@ export const FormStep1: React.FC<FormStep1Props> = ({
         }
         setEmailAvailable(true);
       } catch (error) {
-        onError('email', 'Unable to verify email. Please try again.');
+        onError('email', apiRefusalReason(error) ?? 'Unable to verify email. Please try again.');
         setEmailAvailable(null);
         return;
       } finally {

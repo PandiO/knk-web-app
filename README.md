@@ -27,6 +27,27 @@ the app sends API calls with `credentials: 'include'`. Serve the app and the API
 origin in production; in development the API's CORS settings must allow `http://localhost:3000`
 with credentials.
 
+## Conventions
+
+### Messages for refused operations and confirmations (KNG-169)
+
+When the API refuses something, the screen says why in a short, plain-language message:
+
+- One sentence on what was refused and why, then what to do about it, e.g. "This street can't be
+  deleted: it is still used by 1 structure." No ids, exception or error-code names, or HTTP codes
+  ("HTTP 409: Conflict"), and no bare "Please try again." when the reason is known.
+- In a `catch`, show `apiRefusalReason(error) ?? '<what failed>'` (`src/utils/apiRefusalReason.ts`):
+  the API's explanation of a 4xx (or of a deliberate `{ error, message }` 5xx), otherwise your own
+  fallback. When the same `catch` also sees errors the app throws itself, use `failureReason(error)`.
+  Never show `error.message` directly: for a server or network failure it is "HTTP 500: …",
+  "promise timeout" or "Failed to fetch".
+- Ask for confirmation with `useConfirm` (`src/hooks/useConfirm.tsx`), never the browser's
+  `window.confirm` or `window.alert`: `const [confirm, confirmModal] = useConfirm();`, then
+  `if (!(await confirm({ title, message, confirmLabel: 'Delete', danger: true }))) return;` and
+  render `{confirmModal}` once. Say what goes with the deletion (e.g. "Its 2 saved drafts are
+  deleted too."); `danger` makes the action button red.
+- A message about a field the user has to fix goes next to that field or in a `FeedbackModal`.
+
 ## Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).

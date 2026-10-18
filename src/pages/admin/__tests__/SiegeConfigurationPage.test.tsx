@@ -44,7 +44,7 @@ describe('SiegeConfigurationPage', () => {
     });
 
     it('blocks saving invalid input and shows the API reason on a rejected save', async () => {
-        (siegeConfigurationClient.update as jest.Mock).mockRejectedValue(new Error('headshotMultiplier must be between 1 and 10.'));
+        (siegeConfigurationClient.update as jest.Mock).mockRejectedValue(Object.assign(new Error('headshotMultiplier must be between 1 and 10.'), { status: 400 }));
         render(<SiegeConfigurationPage />);
         await waitFor(() => expect(screen.getByDisplayValue('3')).toBeInTheDocument());
 

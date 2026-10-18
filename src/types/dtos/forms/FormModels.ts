@@ -154,6 +154,8 @@ export interface FormSubmissionProgressDto {
     completedAt?: string;
     configuration?: FormConfigurationDto;
     childProgresses?: FormSubmissionProgressDto[];
+    /** KNG-162: JSON array of what this root form's child forms created (utils/forms/createdEntities.ts). */
+    createdEntitiesJson?: string | null;
 }
 
     // public class FormSubmissionProgressSummaryDto
@@ -192,6 +194,16 @@ export interface FormSubmissionProgressSummaryDto {
     status: FormSubmissionStatus;
     createdAt?: string;
     updatedAt?: string;
+    /** KNG-162: see FormSubmissionProgressDto.createdEntitiesJson. */
+    createdEntitiesJson?: string | null;
+}
+
+/** KNG-162: GET api/FormSubmissionProgress/entity-references/{type}/{id}. */
+export interface EntityReferencesDto {
+    entityTypeName: string;
+    id: string;
+    inUse: boolean;
+    references: { referencedBy: string; count: number }[];
 }
 
 export interface StepData {

@@ -1,4 +1,5 @@
 import { LootboxOddsDto, LootboxTypeDto, MAX_BOX_STARS } from '../types/dtos/lootbox/LootboxDtos';
+import { apiRefusalReason, responseBodyReason } from './apiRefusalReason';
 
 // Pure helpers for the lootbox admin page (docs/specs/lootboxes/DESIGN.md §3.6).
 
@@ -80,20 +81,13 @@ export function emptyWindowStars(
 }
 
 /**
- * The API's own explanation of a refused request (400/403/404/409), else `fallback`. serviceCall puts
- * `{message}` bodies into Error.message and keeps a plain-text body in `response`.
+ * The API's own explanation of a refused request (apiRefusalReason), else `fallback`. A 403 without
+ * a reason in its body names the lootbox permission.
  */
 export function apiErrorMessage(err: unknown, fallback: string): string {
-    const e = err as { status?: number; message?: string; response?: unknown } | null;
-    const status = e?.status;
-    if (status === undefined || status < 400 || status >= 500) return fallback;
-    if (typeof e?.response === 'string' && e.response.trim()) return e.response.trim();
-    if (e?.response && typeof e.response === 'object') {
-        const body = e.response as { message?: unknown; title?: unknown };
-        if (typeof body.message === 'string' && body.message) return body.message;
-    }
-    if (status === 403) return 'You need the knk.admin.lootbox.manage permission for this.';
-    return e?.message && !e.message.startsWith('HTTP ') ? e.message : fallback;
+    const e = err as { status?: number; response?: unknown } | null;
+    if (e?.status === 403 && !responseBodyReason(e.response)) return 'You need the knk.admin.lootbox.manage permission for this.';
+    return apiRefusalReason(err) ?? fallback;
 }
 
 /** "2026-09-26T18:05:00Z" → the viewer's local date/time; "-" when missing. */

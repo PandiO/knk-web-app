@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { dataDeletionClient } from '../../apiClients/dataDeletionClient';
 import { PrivacyDeletionRequestDto } from '../../types/dtos/privacy/PrivacyDtos';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 /**
  * Target of the emailed confirmation link (KNG-34 GDPR deletion, developer decisions 2026-10-03):
@@ -21,8 +22,8 @@ export const ConfirmDataDeletionPage: React.FC = () => {
     setError(null);
     try {
       setConfirmed(await dataDeletionClient.confirm(token));
-    } catch (err: any) {
-      setError(err?.response?.message || err?.message || 'This confirmation link is invalid, already used or expired.');
+    } catch (err) {
+      setError(apiRefusalReason(err) ?? 'This confirmation link is invalid, already used or expired.');
     } finally {
       setBusy(false);
     }

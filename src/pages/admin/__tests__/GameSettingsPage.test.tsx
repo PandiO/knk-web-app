@@ -11,7 +11,7 @@ import { structureClient } from '../../../apiClients/structureClient';
 import { permissionGroupClient } from '../../../apiClients/permissionGroupClient';
 
 jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }), { virtual: true });
-jest.mock('../../../apiClients/gameSettingsClient', () => ({ gameSettingsClient: { get: jest.fn(), update: jest.fn() } }));
+jest.mock('../../../apiClients/gameSettingsClient', () => ({ gameSettingsClient: { get: jest.fn(), update: jest.fn(), getHubDomains: jest.fn() } }));
 jest.mock('../../../apiClients/locationClient', () => ({ locationClient: { getAll: jest.fn() } }));
 jest.mock('../../../apiClients/townClient', () => ({ townClient: { getAll: jest.fn() } }));
 jest.mock('../../../apiClients/districtClient', () => ({ districtClient: { getAll: jest.fn() } }));
@@ -26,6 +26,7 @@ describe('GameSettingsPage load failure (SET-1)', () => {
     // CRA resets mocks before each test, so the lookups the page loads alongside are set here.
     [locationClient, townClient, districtClient, structureClient, permissionGroupClient]
       .forEach(client => (client.getAll as jest.Mock).mockResolvedValue([]));
+    (gameSettingsClient.getHubDomains as jest.Mock).mockResolvedValue([]);
   });
   afterEach(() => consoleError.mockRestore());
 

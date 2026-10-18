@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowDownAZ, ArrowUpZA, ChevronDown, ChevronRight, Search, X } from 'lucide-react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ArrowDownAZ, ArrowUpZA, ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -31,7 +32,7 @@ type Props = {
   searchable?: boolean;
   /** Split the list into sections. Omit for one flat list. */
   groups?: ObjectTypeExplorerGroup[];
-  /** Remembers sort direction and group expansion in localStorage under this page key. */
+  /** Remembers sort direction, group expansion and the collapsed sidebar in localStorage under this page key. */
   storageKey?: string;
 };
 
@@ -42,6 +43,31 @@ const STORAGE_PREFIX = 'objectTypeExplorer';
 
 export const getSortStorageKey = (storageKey: string) => `${STORAGE_PREFIX}.${storageKey}.sort`;
 export const getExpandedStorageKey = (storageKey: string) => `${STORAGE_PREFIX}.${storageKey}.expandedGroups`;
+export const getCollapsedStorageKey = (storageKey: string) => `${STORAGE_PREFIX}.${storageKey}.collapsed`;
+
+/**
+ * KNG-94: from Tailwind's `md` up the explorer sits beside the content and can be collapsed to a
+ * rail; below it, it is a rail that opens the list as an overlay drawer.
+ */
+export const DOCKED_MEDIA_QUERY = '(min-width: 768px)';
+
+const matchesDocked = () =>
+  typeof window === 'undefined' || typeof window.matchMedia !== 'function'
+    ? true
+    : window.matchMedia(DOCKED_MEDIA_QUERY).matches;
+
+const useDocked = () => {
+  const [docked, setDocked] = useState(matchesDocked);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const query = window.matchMedia(DOCKED_MEDIA_QUERY);
+    const update = () => setDocked(query.matches);
+    update();
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
+  return docked;
+};
 
 const readStorage = (key: string | undefined): string | null => {
   if (!key) return null;
@@ -102,6 +128,22 @@ const ObjectTypeExplorer = ({
   storageKey,
 }: Props) => {
   const [query, setQuery] = useState('');
+  const docked = useDocked();
+  // Docked: collapsed to the rail, remembered per page. Narrow screens: the drawer, always closed at first.
+  const [collapsed, setCollapsed] = useState(
+    () => readStorage(storageKey ? getCollapsedStorageKey(storageKey) : undefined) === 'true'
+  );
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const panelId = `object-type-explorer-panel-${useId().replace(/:/g, '')}`;
+  const panelVisible = docked ? !collapsed : drawerOpen;
+  // The toggle moves between the rail and the panel header; keep keyboard focus on it.
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const refocusToggle = useRef(false);
+  useEffect(() => {
+    if (!refocusToggle.current) return;
+    refocusToggle.current = false;
+    toggleRef.current?.focus();
+  }, [panelVisible]);
   const [sortDirection, setSortDirection] = useState<ObjectTypeSortDirection>(() => readSortDirection(storageKey));
   const [expandedState, setExpandedState] = useState<ExpandedState>(() => readExpandedState(storageKey));
   // Collapsed groups opened to show the selected entity; transient, never persisted.
@@ -225,6 +267,8 @@ const ObjectTypeExplorer = ({
               type="button"
               onClick={() => {
                 onSelect?.(type.id);
+                // On a narrow screen the drawer covers the page: picking a type closes it.
+                if (!docked) setDrawerOpen(false);
               }}
               aria-current={selected ? 'true' : undefined}
               title={type.label !== type.id ? type.id : undefined}
@@ -288,11 +332,60 @@ const ObjectTypeExplorer = ({
 
   const SortIcon = sortDirection === 'asc' ? ArrowDownAZ : ArrowUpZA;
 
-  return (
-    <>
-      {/* offset from top by the navbar height (h-16) */}
-      <aside className="ObjectTypeExplorer-component fixed top-16 left-0 z-40 w-64 h-screen transition-transform -translate-x-full sm:translate-x-0" aria-label="Sidebar">
-        <div className="h-full px-3 pb-20 overflow-y-auto rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-nones">
+  const togglePanel = () => {
+    refocusToggle.current = true;
+    if (!docked) {
+      setDrawerOpen(open => !open);
+      return;
+    }
+    setCollapsed(previous => {
+      const next = !previous;
+      writeStorage(storageKey ? getCollapsedStorageKey(storageKey) : undefined, String(next));
+      return next;
+    });
+  };
+
+  // The drawer leaves with Escape too.
+  useEffect(() => {
+    if (docked || !drawerOpen) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDrawerOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [docked, drawerOpen]);
+
+  const ToggleIcon = panelVisible ? PanelLeftClose : PanelLeftOpen;
+  const toggleButton = (
+    <button
+      ref={toggleRef}
+      type="button"
+      onClick={togglePanel}
+      aria-expanded={panelVisible}
+      aria-controls={panelId}
+      aria-label={panelVisible ? 'Hide entity types' : 'Show entity types'}
+      title={panelVisible ? 'Hide entity types' : 'Show entity types'}
+      className="flex-shrink-0 rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+    >
+      <ToggleIcon className="h-5 w-5" aria-hidden="true" />
+    </button>
+  );
+
+  const panel = (
+      <div
+        id={panelId}
+        hidden={!panelVisible}
+        className={`${docked
+          ? 'h-full'
+          : 'fixed bottom-0 left-0 top-16 z-40 w-72 max-w-[85vw]'
+        } ${panelVisible ? 'flex' : 'hidden'} flex-col overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5`}
+      >
+        <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-3 py-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Entity types</span>
+          {/* One toggle at a time: here while the panel shows, on the rail otherwise. */}
+          {panelVisible && toggleButton}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
           {searchable && (
             <div className="sticky top-0 z-10 bg-white pt-4 pb-2 flex items-center gap-2">
               <div className="relative flex-1 min-w-0">
@@ -347,9 +440,34 @@ const ObjectTypeExplorer = ({
             )}
           </div>
         </div>
-        <div className="sidebar-separator" />
-      </aside>
-    </>
+      </div>
+  );
+
+  // KNG-94: the explorer takes its real width in the page layout (it used to be `fixed` over a
+  // 30% column and covered the content below ~850px). Docked it is a panel or, collapsed, a rail;
+  // on narrow screens a rail whose button opens the list as a drawer over the page.
+  return (
+    <aside
+      aria-label="Sidebar"
+      className={`relative flex h-full flex-col ${docked && panelVisible ? 'w-64' : 'w-10'}`}
+    >
+      {!panelVisible && (
+        <div className="flex h-full flex-col items-center rounded-md bg-white py-2 shadow-sm ring-1 ring-black ring-opacity-5">
+          {toggleButton}
+        </div>
+      )}
+      {docked ? panel : createPortal(
+        // The drawer goes to <body>: inside the sticky sidebar column its z-index can't lift it
+        // above the page content.
+        <>
+          {panelVisible && (
+            <div className="fixed inset-x-0 bottom-0 top-16 z-30 bg-black bg-opacity-30" aria-hidden="true" onClick={() => setDrawerOpen(false)} />
+          )}
+          {panel}
+        </>,
+        document.body
+      )}
+    </aside>
   );
 };
 
