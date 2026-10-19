@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Eye, MoreVertical, Pencil, Rocket, Star, StarOff, Trash2 } from 'lucide-react';
+import { Download, Eye, MoreVertical, Pencil, Rocket, Star, StarOff, Trash2, Upload } from 'lucide-react';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
 
 interface Props {
@@ -11,6 +11,10 @@ interface Props {
     onDelete?: (config: DisplayConfigurationDto) => void;
     onCreate: () => void;
     onCreateDefault: () => void;
+    /** Download the configuration as a portable knk-displayconfig/1 file. */
+    onExport?: (config: DisplayConfigurationDto) => void;
+    /** Open the import / bundled seeds panel. */
+    onImport?: () => void;
 }
 
 export const DisplayConfigurationTable: React.FC<Props> = ({
@@ -21,7 +25,9 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
     onPublish,
     onDelete,
     onCreate,
-    onCreateDefault
+    onCreateDefault,
+    onExport,
+    onImport
 }) => {
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -73,6 +79,15 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                     >
                         Create Display as Default
                     </button>
+                    {onImport && (
+                        <button
+                            onClick={onImport}
+                            className="btn-secondary text-sm inline-flex items-center"
+                        >
+                            <Upload className="h-4 w-4 mr-1" />
+                            Import / Seeds
+                        </button>
+                    )}
                     <span className="text-xs text-gray-500">{configurations.length} total</span>
                 </div>
             </div>
@@ -229,6 +244,19 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                                 <Eye className="h-4 w-4 text-gray-400" />
                                                                 <span>Open in Builder</span>
                                                             </button>
+                                                            {onExport && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        onExport(config);
+                                                                        setActiveMenu(null);
+                                                                    }}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                                                                    role="menuitem"
+                                                                >
+                                                                    <Download className="h-4 w-4 text-gray-400" />
+                                                                    <span>Export JSON</span>
+                                                                </button>
+                                                            )}
                                                             {config.isDraft && onPublish && (
                                                                 <button
                                                                     onClick={() => {
