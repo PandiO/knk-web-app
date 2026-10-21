@@ -151,7 +151,9 @@ export enum Controllers {
     // Mail log behind /admin/email (KNG-206), knk.admin.config
     EmailOutbox = 'EmailOutbox',
     // Invitations and the sign-up check (KNG-212).
-    Invitations = 'Invitations'
+    Invitations = 'Invitations',
+    // The game server's admission gate; /link checks claim codes before login (KNG-214).
+    Admission = 'Admission'
 }
 
 

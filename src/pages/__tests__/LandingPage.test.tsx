@@ -21,7 +21,10 @@ describe('LandingPage', () => {
     expect(screen.getByText(/closed alpha/i)).toBeInTheDocument();
     expect(screen.getByText('play.knightsandkings.net')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /how to join/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    // KNG-214: invitation → account → join → enter the code; /account link stays as a note.
+    expect(screen.getAllByRole('listitem')).toHaveLength(4);
+    expect(screen.getByRole('link', { name: /the link page/i })).toHaveAttribute('href', '/link');
+    expect(screen.getByText(/Already playing\?/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /create account/i })).toHaveAttribute('href', '/auth/register');
     expect(document.title).toBe('Knights & Kings');
   });

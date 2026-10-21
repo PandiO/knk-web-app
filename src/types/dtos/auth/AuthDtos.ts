@@ -81,8 +81,16 @@ export interface RegisterRequestDto {
   inviteToken?: string;
   /** A shared code, KNK-XXXXX-XXXXX, from /join (KNG-212). */
   inviteCode?: string;
-  /** The claim code from the server's disconnect screen (KNG-214); refused until then. */
+  /** The claim code from the server's disconnect screen (KNG-214, game-first): only together with an
+   *  invite; the new account is linked to that Minecraft account in the same step. */
   claimCode?: string;
+}
+
+/** POST Admission/claim/check (KNG-214): is this claim code active, and for which Minecraft name? */
+export interface ClaimCheckResponseDto {
+  valid: boolean;
+  minecraftName?: string | null;
+  expiresAt?: string | null;
 }
 
 /** POST Users/validate-link-code/{code}: read-only, it doesn't use up the code. */

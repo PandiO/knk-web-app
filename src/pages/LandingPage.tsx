@@ -68,18 +68,24 @@ export const ServerAddress: React.FC<{ address: string }> = ({ address }) => {
   );
 };
 
+// KNG-214 (invitations DESIGN.md § 5.3): invitation → account → join → enter the code. Players who
+// already play keep the /account link way in (the note under the steps).
 const JOIN_STEPS: { title: string; body: React.ReactNode }[] = [
   {
+    title: 'Get an invitation',
+    body: <>The alpha is invite-only. You get an invitation mail or code from the team.</>,
+  },
+  {
+    title: 'Create your account',
+    body: <>Open the invitation and choose a password.</>,
+  },
+  {
     title: 'Join the server',
-    body: <>Open Minecraft Java Edition and add the server address above.</>,
+    body: <>Open Minecraft Java Edition and add the server address above. You're stopped with a code.</>,
   },
   {
-    title: 'Get your code',
-    body: <>Type <code className="rounded bg-white/15 px-1 font-mono">/account link</code> in chat. You get an 8-character code.</>,
-  },
-  {
-    title: 'Register here',
-    body: <>Enter the code on the register page and pick an email and a password.</>,
+    title: 'Enter the code',
+    body: <>Enter that code on <Link to="/link" className="underline">the link page</Link>, then join again.</>,
   },
 ];
 
@@ -119,7 +125,7 @@ export function LandingPage() {
 
             <section className="mt-10 text-left" aria-labelledby="how-to-join">
               <h2 id="how-to-join" className="text-center text-lg font-semibold text-white drop-shadow">How to join</h2>
-              <ol className="mt-4 grid gap-4 sm:grid-cols-3">
+              <ol className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {JOIN_STEPS.map((step, index) => (
                   <li key={step.title} className="rounded-lg bg-black/55 p-4 ring-1 ring-white/15">
                     <div className="flex items-center gap-2">
@@ -132,6 +138,10 @@ export function LandingPage() {
                   </li>
                 ))}
               </ol>
+              <p className="mt-3 text-center text-sm text-white/80 drop-shadow">
+                Already playing? Type <code className="rounded bg-white/15 px-1 font-mono">/account link</code> in chat and{' '}
+                <Link to="/auth/register" className="underline">register</Link> with that code.
+              </p>
             </section>
 
             <div className="mt-8 flex flex-col items-center space-y-3 sm:flex-row sm:justify-center sm:space-y-0 sm:space-x-4">

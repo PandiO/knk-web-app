@@ -27,6 +27,7 @@ describe('JoinPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    sessionStorage.clear();
     mockSearch = '';
     mockedUseAuth.mockReturnValue({ isLoggedIn: false, isLoading: false, register });
   });
@@ -76,6 +77,43 @@ describe('JoinPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(await screen.findByText(/already used by another account/i)).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('carries a code kept by /link along, and the account is linked in the same step (KNG-214)', async () => {
+    sessionStorage.setItem('knk.pendingClaim', JSON.stringify({ code: 'K7QHM2XA', minecraftName: 'Steve', expiresAt: new Date(Date.now() + 60_000).toISOString() }));
+    mockSearch = '?code=KNK-7QH4M-2XA9P';
+    check.mockResolvedValue({ valid: true, kind: 'Shared' });
+    register.mockResolvedValue({ id: 9 });
+    render(<JoinPage />);
+
+    expect(await screen.findByTestId('pending-claim')).toHaveTextContent('Steve');
+    await userEvent.type(screen.getByLabelText('Email'), 'player@example.com');
+    await userEvent.type(screen.getByLabelText('Password'), PASSWORD);
+    await userEvent.type(screen.getByLabelText('Confirm password'), PASSWORD);
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+    await waitFor(() => expect(register).toHaveBeenCalledWith(expect.objectContaining({ inviteCode: 'KNK-7QH4M-2XA9P', claimCode: 'K7QHM2XA' })));
+    expect(sessionStorage.getItem('knk.pendingClaim')).toBeNull();
+  });
+
+  it('drops a claim code that stopped working, so the next try signs up without it', async () => {
+    sessionStorage.setItem('knk.pendingClaim', JSON.stringify({ code: 'K7QHM2XA', minecraftName: 'Steve', expiresAt: new Date(Date.now() + 60_000).toISOString() }));
+    mockSearch = '?code=KNK-7QH4M-2XA9P';
+    check.mockResolvedValue({ valid: true, kind: 'Shared' });
+    register.mockRejectedValueOnce({ status: 400, response: { error: 'InvalidClaimCode', message: 'This code from the server is invalid or has expired.' } });
+    render(<JoinPage />);
+
+    await userEvent.type(await screen.findByLabelText('Email'), 'player@example.com');
+    await userEvent.type(screen.getByLabelText('Password'), PASSWORD);
+    await userEvent.type(screen.getByLabelText('Confirm password'), PASSWORD);
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(await screen.findByText(/without it/)).toBeInTheDocument();
+    expect(screen.queryByTestId('pending-claim')).not.toBeInTheDocument();
+    expect(sessionStorage.getItem('knk.pendingClaim')).toBeNull();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

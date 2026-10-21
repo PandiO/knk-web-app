@@ -5,6 +5,7 @@ import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { useAuth } from '../../contexts/AuthContext';
 import { ERROR_MESSAGES, PASSWORD_MIN_LENGTH } from '../../utils/authConstants';
 import { calculatePasswordStrength, validateEmailFormat, validatePasswordPolicy } from '../../utils/passwordValidator';
+import { PendingClaim, clearPendingClaim, loadPendingClaim } from '../../utils/claimCode';
 
 interface InviteSignupFormProps {
   /** A personal invite: its token and the address it was sent to (shown locked). */
@@ -33,7 +34,8 @@ const apiMessageOf = (error: any): string | undefined =>
 /**
  * The sign-up form of /invite/:token and /join (KNG-212): email (locked for a personal invite),
  * password with the strength meter, and acceptance of the alpha rules. The API creates the web
- * account and logs the player in; Minecraft is linked afterwards (KNG-214).
+ * account and logs the player in; Minecraft is linked afterwards (KNG-214). When /link kept a verified
+ * claim code (game-first), it goes along and the account is linked in the same step.
  */
 export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken, lockedEmail, inviteCode, onSuccess, onInvalidInvite }) => {
   const { register } = useAuth();
@@ -44,6 +46,7 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
   const [acceptedRules, setAcceptedRules] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
+  const [claim, setClaim] = useState<PendingClaim | null>(() => loadPendingClaim());
 
   const validate = (): boolean => {
     const next: Errors = {};
@@ -86,11 +89,18 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
         email: email.trim(),
         password,
         passwordConfirmation: confirmPassword,
+        claimCode: claim?.code,
       });
+      if (claim) clearPendingClaim();
       onSuccess();
     } catch (error: any) {
       const code = errorCodeOf(error);
-      if (code === 'InvalidInvite') {
+      if (claim && (code === 'InvalidClaimCode' || code === 'AlreadyRegistered' || code === 'AlreadyLinked')) {
+        // The game code no longer works; nothing was created. Without it the account can still be made.
+        clearPendingClaim();
+        setClaim(null);
+        setErrors({ general: `${apiMessageOf(error) ?? 'The code from the server no longer works.'} Submit again to create your account without it; you can link Minecraft on the next page.` });
+      } else if (code === 'InvalidInvite') {
         onInvalidInvite();
       } else if (code === 'DuplicateEmail') {
         setErrors({ email: ERROR_MESSAGES.DuplicateEmail });
@@ -113,6 +123,11 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
 
   return (
     <form noValidate onSubmit={submit} className="space-y-5">
+      {claim && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900" data-testid="pending-claim">
+          Your Minecraft account <strong>{claim.minecraftName}</strong> will be linked to this account.
+        </div>
+      )}
       {errors.general && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4" role="alert">
           <p className="text-sm font-medium text-red-800">{errors.general}</p>

@@ -45,6 +45,9 @@ import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from './types/dt
 import { PublicPlayerProfilePage } from './pages/players/PublicPlayerProfilePage';
 import React from 'react';
 import { RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage, InvitePage, JoinPage } from './pages/auth';
+import { LinkPage } from './pages/auth/LinkPage';
+import { AccountLinkPage } from './pages/account/AccountLinkPage';
+import { UnlinkedBanner } from './components/UnlinkedBanner';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { CONTENT_PERMISSION_NODE } from './hooks/useStaffAccess';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -82,6 +85,7 @@ function AppContent() {
         <div className="pt-16 p-8">
           <div className="max-w-7xl mx-auto space-y-12">
             {/* A crash in one page shows a recoverable message instead of a blank app (X-4, KNG-141). */}
+            <UnlinkedBanner />
             <RouteErrorBoundary>
             <Routes>
               <Route path="/" element={<LandingPage />} />
@@ -93,6 +97,8 @@ function AppContent() {
               <Route path="/invite/:token" element={<InvitePage />} />
               <Route path="/invite" element={<InvitePage />} />
               <Route path="/join" element={<JoinPage />} />
+              {/* The claim code from the server's disconnect screen, before or without login (KNG-214). */}
+              <Route path="/link" element={<LinkPage />} />
               {/* Emailed GDPR deletion confirmation link; no sign-in needed (KNG-34). */}
               <Route path="/account/delete-data/confirm" element={<ConfirmDataDeletionPage />} />
               <Route path="/account" element={
@@ -100,8 +106,12 @@ function AppContent() {
                   <AccountManagementPage />
                 </ProtectedRoute>
               } />
-              {/* The Minecraft linking step after an invite sign-up arrives with KNG-214; until then the account page. */}
-              <Route path="/account/link" element={<Navigate to="/account" replace />} />
+              {/* The Minecraft linking step after an invite sign-up (KNG-214). */}
+              <Route path="/account/link" element={
+                <ProtectedRoute>
+                  <AccountLinkPage />
+                </ProtectedRoute>
+              } />
               <Route path="/account/transactions" element={
                 <ProtectedRoute>
                   <AccountTransactionsPage />
