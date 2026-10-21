@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, Loader2, ChevronLeft, ChevronRight, Check, PlusCircle } from 'lucide-react';
 import { PagedQueryDto, PagedResultDto } from '../../types/dtos/common/PagedQuery';
 import { getSearchFunctionForEntity } from '../../utils/entityApiMapping';
@@ -9,7 +9,7 @@ import { minecraftBlockRefClient } from '../../apiClients/minecraftBlockRefClien
 import { minecraftEnchantmentRefClient } from '../../apiClients/minecraftEnchantmentRefClient';
 import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
-import { buildPinnedSection, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
+import { buildPinnedSection, catalogKeyOf, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
 
@@ -23,6 +23,19 @@ const RowBadge: React.FC<{ label?: string }> = ({ label }) => (
         <PlusCircle className="h-3 w-3 mr-1" />{label ?? 'New'}
     </span>
 );
+
+/**
+ * Row keys made unique: a key that occurs again gets a `#n` suffix, so React never sees two rows
+ * with one key (an older API could return the same catalogue entry twice in other notation).
+ */
+const uniqueRowKeys = (keys: string[]): string[] => {
+    const counts = new Map<string, number>();
+    return keys.map(key => {
+        const count = counts.get(key) ?? 0;
+        counts.set(key, count + 1);
+        return count === 0 ? key : `${key}#${count}`;
+    });
+};
 
 /**
  * Configuration for row selection behavior in the table.
@@ -202,6 +215,9 @@ export function PagedEntityTable<T extends Record<string, any>>({
     const [searchInput, setSearchInput] = useState(query.searchTerm || '');
     const [internalSelection, setInternalSelection] = useState<T[]>(selectedItems);
     const [creatingKey, setCreatingKey] = useState<string | null>(null);
+    const [selectingAll, setSelectingAll] = useState(false);
+    // KNG-200: numbers the fetches, so only the latest one's response reaches the table.
+    const requestSeq = useRef(0);
     const [isHybridMode, setIsHybridMode] = useState(false);
     const [isAutoCreateMode, setIsAutoCreateMode] = useState(false);
 
@@ -314,6 +330,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
     }, [selectedItems, entityTypeName]);
 
     const fetchData = useCallback(async () => {
+        const seq = ++requestSeq.current;
+        const isLatest = () => seq === requestSeq.current;
         try {
             setLoading(true);
             setError(null);
@@ -333,20 +351,22 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 
                 const searchFn = getSearchFunctionForEntity(entityTypeName);
                 const result = await searchFn(hybridQuery);
-                
-                setData(result);
+
+                if (isLatest()) setData(result);
             } else {
                 // Normal paged search
                 const searchFn = getSearchFunctionForEntity(entityTypeName);
                 const result = await searchFn(query);
-                setData(result);
+                if (isLatest()) setData(result);
             }
         } catch (err) {
+            // A failed request a later one has replaced says nothing about the current results.
+            if (!isLatest()) return;
             console.error('Failed to fetch data:', err);
             setError('Failed to load data');
             logging.errorHandler.next(`ErrorMessage.${entityTypeName}.LoadFailed`);
         } finally {
-            setLoading(false);
+            if (isLatest()) setLoading(false);
         }
     }, [query, entityTypeName]);
 
@@ -474,8 +494,11 @@ export function PagedEntityTable<T extends Record<string, any>>({
             event.stopPropagation();
         }
 
-        // Check if this is an auto-create mode unpersisted item (materials/blocks only)
-        if (isAutoCreateMode && (row as any).isPersisted === false) {
+        // While a catalogue row is being saved the selection is about to change: ignore clicks.
+        if (creatingKey || selectingAll) return;
+
+        // An unsaved catalogue row is saved first; an already selected one is just deselected.
+        if (isAutoCreateMode && (row as any).isPersisted === false && !isRowSelected(row)) {
             await handleCreateAndSelect(row);
             return;
         }
@@ -507,23 +530,124 @@ export function PagedEntityTable<T extends Record<string, any>>({
         onSelectionChange?.(newSelection);
     };
 
-    // added: handle select all checkbox
-    const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (selectionConfig.mode !== 'multiple') return;
+    /**
+     * KNG-200: saves an unsaved catalogue row through get-or-create (materials and blocks), so a key
+     * someone saved in the meantime, or a second quick pick, returns the existing row instead of
+     * failing. Enchantment refs keep their create + definition pair. Returns the saved DTO.
+     */
+    const persistUnsavedRow = async (row: T): Promise<any> => {
+        const option = row as any;
+        const normalized = entityTypeName.toLowerCase();
 
-        if (event.target.checked) {
-            // Select all visible items (respecting max)
-            const itemsToSelect = selectionConfig.max
-                ? data.items.slice(0, selectionConfig.max)
-                : data.items;
-            setInternalSelection(itemsToSelect);
-            onSelectionChange?.(itemsToSelect);
-        } else {
-            // Check if we can deselect all (min constraint)
-            if (!selectionConfig.min || selectionConfig.min === 0) {
-                setInternalSelection([]);
-                onSelectionChange?.([]);
+        if (normalized === 'minecraftmaterialref') {
+            return minecraftMaterialRefClient.persistFromCatalog(option.namespaceKey, option.category, option.legacyName);
+        }
+        if (normalized === 'minecraftblockref') {
+            return minecraftBlockRefClient.getOrCreate({
+                namespaceKey: option.namespaceKey,
+                blockStateString: option.blockStateString,
+                logicalType: option.logicalType,
+                iconUrl: option.iconUrl
+            });
+        }
+        if (normalized === 'minecraftenchantmentref') {
+            const created = await minecraftEnchantmentRefClient.create({
+                namespaceKey: option.namespaceKey,
+                legacyName: option.legacyName,
+                category: option.category,
+                maxLevel: option.maxLevel,
+                displayName: option.displayName,
+                iconUrl: option.iconUrl
+            });
+            await enchantmentDefinitionClient.create({
+                key: option.namespaceKey,
+                displayName: option.displayName,
+                maxLevel: option.maxLevel,
+                isCustom: false,
+                minecraftEnchantmentRefId: created.id
+            });
+            return created;
+        }
+        return undefined;
+    };
+
+    /** The row as saved: its new id, marked persisted. */
+    const asSaved = (row: T, id: unknown): T => ({ ...row, id, isPersisted: true } as T);
+
+    /**
+     * Marks the page's unsaved rows of the saved catalogue entries as saved. Rows match by catalogue
+     * key (normalised namespaceKey, plus block state for blocks), not by the exact spelling.
+     */
+    const markRowsSaved = (saved: Array<{ key: string | undefined; id: unknown }>) => {
+        const savedByKey = new Map<string, unknown>();
+        saved.forEach(entry => {
+            if (entry.key !== undefined) savedByKey.set(entry.key, entry.id);
+        });
+        if (savedByKey.size === 0) return;
+        setData(prev => ({
+            ...prev,
+            items: prev.items.map(item => {
+                if ((item as any).isPersisted !== false) return item;
+                const key = catalogKeyOf(item, entityTypeName);
+                return key !== undefined && savedByKey.has(key) ? asSaved(item, savedByKey.get(key)) : item;
+            })
+        }));
+    };
+
+    /**
+     * "Select all on this page" (multiple mode): adds the page's rows that are not selected yet, up to
+     * `max`. Unsaved catalogue rows are saved one after the other first (KNG-200); when one fails the
+     * rows before it are still added and the error is shown. Unchecking removes the page's rows,
+     * unless that would go below `min`.
+     */
+    const handleSelectAll = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (selectionConfig.mode !== 'multiple' || creatingKey || selectingAll) return;
+
+        if (!event.target.checked) {
+            const remaining = internalSelection.filter(item => !data.items.some(row => isSameSelection(item, row, entityTypeName)));
+            if (selectionConfig.min && remaining.length < selectionConfig.min) return;
+            setInternalSelection(remaining);
+            onSelectionChange?.(remaining);
+            return;
+        }
+
+        const room = selectionConfig.max ? Math.max(selectionConfig.max - internalSelection.length, 0) : Infinity;
+        const candidates = data.items.filter(row => !isRowSelected(row)).slice(0, room);
+        if (candidates.length === 0) return;
+
+        const toAdd: T[] = [];
+        const saved: Array<{ key: string | undefined; id: unknown }> = [];
+        setSelectingAll(true);
+        setError(null);
+        try {
+            for (const row of candidates) {
+                if (isAutoCreateMode && (row as any).isPersisted === false) {
+                    const key = catalogKeyOf(row, entityTypeName);
+                    setCreatingKey(key ?? 'creating');
+                    const created = await persistUnsavedRow(row);
+                    if (!created?.id) continue;
+                    saved.push({ key, id: created.id });
+                    const savedRow = asSaved(row, created.id);
+                    if (!toAdd.some(item => isSameSelection(item, savedRow, entityTypeName))
+                        && !internalSelection.some(item => isSameSelection(item, savedRow, entityTypeName))) {
+                        toAdd.push(savedRow);
+                    }
+                } else {
+                    toAdd.push(row);
+                }
             }
+        } catch (err) {
+            setError(apiRefusalReason(err) ?? 'Failed to create item');
+        } finally {
+            setCreatingKey(null);
+            setSelectingAll(false);
+        }
+
+        markRowsSaved(saved);
+        if (toAdd.length > 0) {
+            const newSelection = [...internalSelection, ...toAdd];
+            setInternalSelection(newSelection);
+            onSelectionChange?.(newSelection);
         }
     };
 
@@ -537,70 +661,31 @@ export function PagedEntityTable<T extends Record<string, any>>({
 
     // added: handle create and select for hybrid mode
     const handleCreateAndSelect = async (row: T) => {
-        if (creatingKey) return;
-        const option = row as any;
-        setCreatingKey(option.namespaceKey || option.blockStateString);
-        
+        if (creatingKey || selectingAll) return;
+        const key = catalogKeyOf(row, entityTypeName);
+        setCreatingKey(key ?? 'creating');
+        setError(null);
+
         try {
-            const normalized = entityTypeName.toLowerCase();
-            let created: any;
-            
-            if (normalized === 'minecraftmaterialref') {
-                created = await minecraftMaterialRefClient.create({
-                    namespaceKey: option.namespaceKey,
-                    category: option.category,
-                    legacyName: option.legacyName,
-                    iconUrl: option.iconUrl
-                });
-            } else if (normalized === 'minecraftblockref') {
-                created = await minecraftBlockRefClient.create({
-                    namespaceKey: option.namespaceKey,
-                    blockStateString: option.blockStateString,
-                    logicalType: option.logicalType,
-                    iconUrl: option.iconUrl
-                });
-            } else if (normalized === 'minecraftenchantmentref') {
-                created = await minecraftEnchantmentRefClient.create({
-                    namespaceKey: option.namespaceKey,
-                    legacyName: option.legacyName,
-                    category: option.category,
-                    maxLevel: option.maxLevel,
-                    displayName: option.displayName,
-                    iconUrl: option.iconUrl
-                });
-                await enchantmentDefinitionClient.create({
-                    key: option.namespaceKey,
-                    displayName: option.displayName,
-                    maxLevel: option.maxLevel,
-                    isCustom: false,
-                    minecraftEnchantmentRefId: created.id
-                });
-            }
+            const created = await persistUnsavedRow(row);
 
             if (created?.id) {
-                // Update the data items
-                setData(prev => ({
-                    ...prev,
-                    items: prev.items.map(item => 
-                        ((item as any).namespaceKey === option.namespaceKey)
-                            ? { ...item, id: created.id, isPersisted: true } as T
-                            : item
-                    )
-                }));
+                markRowsSaved([{ key, id: created.id }]);
 
-                // Select the newly created item
-                const updatedRow = { ...row, id: created.id, isPersisted: true } as T;
+                // Select the saved item (once: get-or-create may return a row that is already selected)
+                const updatedRow = asSaved(row, created.id);
                 let newSelection: T[];
-                
+
                 if (selectionConfig.mode === 'single') {
                     newSelection = [updatedRow];
                 } else {
-                    if (selectionConfig.max && internalSelection.length >= selectionConfig.max) {
+                    const others = internalSelection.filter(item => !isSameSelection(item, updatedRow, entityTypeName));
+                    if (selectionConfig.max && others.length >= selectionConfig.max) {
                         return;
                     }
-                    newSelection = [...internalSelection, updatedRow];
+                    newSelection = [...others, updatedRow];
                 }
-                
+
                 setInternalSelection(newSelection);
                 onSelectionChange?.(newSelection);
             }
@@ -656,7 +741,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                 ) : isHybridMode && (row as any).isPersisted === false && (
                                     <RowBadge />
                                 )}
-                                {creatingKey && (row as any).namespaceKey === creatingKey && (
+                                {creatingKey && catalogKeyOf(row, entityTypeName) === creatingKey && (
                                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
                                 )}
                                 <span>{renderCellValue(row, column)}</span>
@@ -735,6 +820,21 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 </div>
             )}
 
+            {/* KNG-200: select all rows of this page (multiple mode); unsaved catalogue rows are saved first */}
+            {selectionConfig.mode === 'multiple' && !loading && data.items.length > 0 && (
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={handleSelectAll}
+                        disabled={creatingKey !== null || selectingAll}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    Select all on this page
+                    {selectingAll && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                </label>
+            )}
+
             {/* Table */}
             <div className="w-full overflow-x-auto panel bg-white/95 backdrop-blur">
                 {loading ? (
@@ -793,7 +893,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                     </td>
                                 </tr>
                             ) : (
-                                section.pageItems.map((row, index) => renderRow(row, tableRowKey(row, entityTypeName, index)))
+                                uniqueRowKeys(section.pageItems.map((row, index) => tableRowKey(row, entityTypeName, index)))
+                                    .map((rowKey, index) => renderRow(section.pageItems[index], rowKey))
                             )}
                         </tbody>
                     </table>
