@@ -284,3 +284,46 @@ describe('MinecraftCatalogAdminPage - missing icons', () => {
     expect(client.setIconOverride).not.toHaveBeenCalled();
   });
 });
+
+describe('MinecraftCatalogAdminPage - icon overrides (phase 4)', () => {
+  const lantern = material({
+    id: 61, namespaceKey: 'minecraft:soul_lantern', displayName: 'Soul Lantern', iconUrl: 'https://example.org/lantern.png',
+  });
+
+  it('lists the overrides with their current URL and clears one, then reloads the audit', async () => {
+    client.getAudit.mockResolvedValue(emptyAudit({ iconOverrides: [lantern] }));
+    client.setIconOverride.mockResolvedValue(undefined);
+
+    render(<MinecraftCatalogAdminPage />);
+    const table = await screen.findByRole('table', { name: 'Materials with an icon override' });
+    expect(within(table).getByRole('img', { name: 'Soul Lantern' })).toHaveAttribute('src', 'https://example.org/lantern.png');
+    expect(within(table).getByRole('link', { name: 'https://example.org/lantern.png' })).toBeInTheDocument();
+
+    fireEvent.click(within(table).getByRole('button', { name: 'Clear the icon override of minecraft:soul_lantern' }));
+
+    await waitFor(() => expect(client.setIconOverride).toHaveBeenCalledWith(61, null));
+    expect(await screen.findByText('Icon override of minecraft:soul_lantern cleared.')).toBeInTheDocument();
+    await waitFor(() => expect(client.getAudit).toHaveBeenCalledTimes(2));
+  });
+
+  it('replaces an override with a new URL', async () => {
+    client.getAudit.mockResolvedValue(emptyAudit({ iconOverrides: [lantern] }));
+    client.setIconOverride.mockResolvedValue(undefined);
+
+    render(<MinecraftCatalogAdminPage />);
+    const table = await screen.findByRole('table', { name: 'Materials with an icon override' });
+    fireEvent.change(within(table).getByLabelText('Icon URL for minecraft:soul_lantern'), { target: { value: 'https://example.org/new.png' } });
+    fireEvent.click(within(table).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(client.setIconOverride).toHaveBeenCalledWith(61, 'https://example.org/new.png'));
+  });
+
+  it('says there are no overrides when the audit has none (older API without the list too)', async () => {
+    client.getAudit.mockResolvedValue(emptyAudit({ iconOverrides: undefined }));
+
+    render(<MinecraftCatalogAdminPage />);
+    expect(await screen.findByText('No material has an icon override.')).toBeInTheDocument();
+    // The missing-icons list offers no Clear: those rows have no override to remove.
+    expect(screen.queryByRole('button', { name: /Clear the icon override/ })).not.toBeInTheDocument();
+  });
+});

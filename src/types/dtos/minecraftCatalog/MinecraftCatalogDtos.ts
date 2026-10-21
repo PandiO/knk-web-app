@@ -41,7 +41,7 @@ export interface MinecraftCatalogAuditMaterialDto {
   /** Count per referrer, e.g. `ItemBlueprint.IconMaterialRefId` -> 3. */
   references: Record<string, number>;
   totalReferences: number;
-  /** The icon shown for this material (override first); set on the missing-icon rows. */
+  /** The icon shown for this material (override first); set on the missing-icon and icon-override rows. */
   iconUrl?: string | null;
 }
 
@@ -65,6 +65,8 @@ export interface MinecraftCatalogAuditDto {
   notNormalizedMaterialKeys: MinecraftCatalogAuditMaterialDto[];
   /** Active materials the scan found no icon for and that have no override. */
   missingIcons?: MinecraftCatalogAuditMaterialDto[];
+  /** Materials with a manual icon override; `iconUrl` is the override (phase 4). */
+  iconOverrides?: MinecraftCatalogAuditMaterialDto[];
   /** Materials not in the latest scan that something still references (D3/D7). */
   missingButReferenced: MinecraftCatalogAuditMaterialDto[];
   blockRefCount: number;
