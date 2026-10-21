@@ -22,6 +22,7 @@ import { DiscoveryAdminPage } from './pages/admin/DiscoveryAdminPage';
 import { DISCOVERY_ADMIN_NODE } from './types/dtos/discovery/DiscoveryDtos';
 import { RoadsAdminPage } from './pages/admin/RoadsAdminPage';
 import { ROAD_ADMIN_NODE } from './types/dtos/road/RoadDtos';
+import { MinecraftCatalogAdminPage } from './pages/admin/MinecraftCatalogAdminPage';
 import { AccountTransactionsPage } from './pages/AccountTransactionsPage';
 import { BalanceLogPage } from './pages/admin/BalanceLogPage';
 import { TransactionDetailPage } from './pages/admin/economy/TransactionDetailPage';
@@ -177,6 +178,14 @@ function AppContent() {
               <Route path="/admin/roads" element={
                 <StaffRoute node={ROAD_ADMIN_NODE}>
                   <RoadsAdminPage />
+                </StaffRoute>
+              } />
+              {/* Minecraft catalogue (KNG-200 phase 3, docs/specs/minecraft-catalog/IMPLEMENTATION_PLAN.md):
+                  server scans, the audit, merges and icon overrides - knk.admin.content, which the
+                  API enforces on every call as well. */}
+              <Route path="/admin/minecraft-catalog" element={
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
+                  <MinecraftCatalogAdminPage />
                 </StaffRoute>
               } />
               {/* Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md, KNG-23):
