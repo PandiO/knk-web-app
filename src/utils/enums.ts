@@ -135,6 +135,8 @@ export enum Controllers {
     SiegeSpawnpoints = 'SiegeSpawnpoints',
     SiegeObjectives = 'SiegeObjectives',
     SiegeLobbies = 'SiegeLobbies',
+    // Arena duels (KNG-210): arenas, battlegrounds and spectator areas
+    Arenas = 'Arenas',
     SiegeConfiguration = 'SiegeConfiguration',
     TitleBrackets = 'TitleBrackets',
     // Player statistics (KNG-34)

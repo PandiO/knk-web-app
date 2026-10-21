@@ -273,6 +273,34 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'rotationCount', label: 'Scenarios', sortable: false },
     ]
   },
+  // Arena duels (KNG-210)
+  arena: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'key', label: 'Key', sortable: false },
+      { key: 'districtName', label: 'District', sortable: false, render: (row: any) => row.districtName ?? '-' },
+      townNameColumn,
+      { key: 'isDuelEnabled', label: 'Duels', sortable: false, render: (row: any) => row.isDuelEnabled ? 'On' : 'Off' },
+      { key: 'battlegroundCount', label: 'Battlegrounds', sortable: false },
+    ]
+  },
+  arenabattleground: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'arenaName', label: 'Arena', sortable: false, render: (row: any) => row.arenaName ?? '-' },
+      { key: 'key', label: 'Key', sortable: false },
+      { key: 'wgRegionId', label: 'Region', sortable: false },
+      { key: 'isEnabled', label: 'Enabled', sortable: false, render: (row: any) => row.isEnabled ? 'Yes' : '-' },
+    ]
+  },
+  arenaspectatorarea: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'arenaName', label: 'Arena', sortable: false, render: (row: any) => row.arenaName ?? '-' },
+      { key: 'wgRegionId', label: 'Region', sortable: false },
+      { key: 'teleportEnabled', label: 'Warp', sortable: false, render: (row: any) => row.teleportEnabled ? 'Yes' : '-' },
+    ]
+  },
   titlebracket: {
     default: [
       ...defaultColumnDefinitions.default,
@@ -1147,6 +1175,44 @@ const siegeLobbyConfig: ObjectConfig = {
   },
 };
 
+// Arena duels (KNG-210): created and edited with their FormConfigurations (seeded in knk-web-api).
+const arenaConfig: ObjectConfig = {
+  type: 'arena',
+  label: 'Arena',
+  icon: <Swords className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    description: commonFields.description,
+    key: { name: 'key', label: 'Key', type: 'text', required: true },
+    isDuelEnabled: { name: 'isDuelEnabled', label: 'Duels enabled', type: 'bool', required: false, defaultValue: true },
+  },
+};
+
+const arenaBattlegroundConfig: ObjectConfig = {
+  type: 'arenabattleground',
+  label: 'Arena Battleground',
+  icon: <Swords className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    key: { name: 'key', label: 'Key', type: 'text', required: true },
+    arenaId: { name: 'arenaId', label: 'Arena Id', type: 'number', required: true },
+    isEnabled: { name: 'isEnabled', label: 'Enabled', type: 'bool', required: false, defaultValue: true },
+  },
+};
+
+const arenaSpectatorAreaConfig: ObjectConfig = {
+  type: 'arenaspectatorarea',
+  label: 'Arena Spectator Area',
+  icon: <Swords className="h-5 w-5" />,
+  fields: {
+    id: commonFields.id,
+    name: commonFields.name,
+    arenaId: { name: 'arenaId', label: 'Arena Id', type: 'number', required: true },
+  },
+};
+
 export const objectConfigs: Record<string, ObjectConfig> = {
   location: locationConfig,
   town: townConfig,
@@ -1167,4 +1233,7 @@ export const objectConfigs: Record<string, ObjectConfig> = {
   clan: clanConfig,
   siegescenario: siegeScenarioConfig,
   siegelobby: siegeLobbyConfig,
+  arena: arenaConfig,
+  arenabattleground: arenaBattlegroundConfig,
+  arenaspectatorarea: arenaSpectatorAreaConfig,
 };
