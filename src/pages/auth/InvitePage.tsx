@@ -81,6 +81,9 @@ export const InvitePage: React.FC = () => {
             <InviteSignupForm
               inviteToken={token}
               lockedEmail={state.invite.email}
+              onRegistered={() => {
+                signedUp.current = true;
+              }}
               onSuccess={() => {
                 signedUp.current = true;
                 navigate(AFTER_SIGNUP_PATH, { replace: true });

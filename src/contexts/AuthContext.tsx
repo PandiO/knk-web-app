@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { authService } from '../services/authService';
 import { UserDto } from '../types/dtos/auth/UserDtos';
-import { LoginRequestDto, RegisterRequestDto } from '../types/dtos/auth/AuthDtos';
+import { LoginRequestDto, RegisterRequestDto, RegisterResult } from '../types/dtos/auth/AuthDtos';
 
 interface AuthContextType {
   user: UserDto | null;
@@ -9,7 +9,7 @@ interface AuthContextType {
   isLoading: boolean;
   error: string | null;
   login: (req: LoginRequestDto) => Promise<UserDto>;
-  register: (req: RegisterRequestDto) => Promise<UserDto>;
+  register: (req: RegisterRequestDto) => Promise<RegisterResult>;
   logout: () => Promise<void>;
   /** Ends every session of this user on every device, then this one. */
   logoutAll: () => Promise<void>;
@@ -45,9 +45,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     setError(null);
     try {
-      const u = await authService.register(req);
-      setUser(u);
-      return u;
+      const result = await authService.register(req);
+      setUser(result.user);
+      return result;
     } catch (err: any) {
       const errorMsg = err?.response?.message || err?.message || 'Registration failed';
       setError(errorMsg);

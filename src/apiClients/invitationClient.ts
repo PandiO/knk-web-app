@@ -2,6 +2,7 @@ import { logging, Controllers, HttpMethod } from '../utils';
 import {
   CheckInvitationRequestDto,
   CheckInvitationResponseDto,
+  CloudflareAccessSyncStatusDto,
   CreatePersonalInvitationsRequestDto,
   CreatePersonalInvitationsResponseDto,
   CreateSharedInvitationRequestDto,
@@ -73,6 +74,11 @@ export class InvitationClient extends ObjectManager {
 
   redemptions(id: number): Promise<InvitationRedemptionDto[]> {
     return this.invokeServiceCall(null, `${id}/redemptions`, Controllers.Invitations, HttpMethod.Get);
+  }
+
+  /** The Cloudflare Access sync's last run (KNG-216). */
+  accessSync(): Promise<CloudflareAccessSyncStatusDto> {
+    return this.invokeServiceCall(null, 'access-sync', Controllers.Invitations, HttpMethod.Get);
   }
 
   /** Anonymous: is this token or code usable now? Every failure is { valid: false, error: 'InvalidInvite' }. */

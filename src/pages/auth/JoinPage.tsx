@@ -95,6 +95,9 @@ export const JoinPage: React.FC = () => {
             </p>
             <InviteSignupForm
               inviteCode={code.trim()}
+              onRegistered={() => {
+                signedUp.current = true;
+              }}
               onSuccess={() => {
                 signedUp.current = true;
                 navigate(AFTER_SIGNUP_PATH, { replace: true });

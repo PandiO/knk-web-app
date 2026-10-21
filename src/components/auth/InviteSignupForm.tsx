@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, KeyRound } from 'lucide-react';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { useAuth } from '../../contexts/AuthContext';
 import { ERROR_MESSAGES, PASSWORD_MIN_LENGTH } from '../../utils/authConstants';
@@ -13,8 +13,11 @@ interface InviteSignupFormProps {
   lockedEmail?: string | null;
   /** A shared code: the redeemer types their own email. */
   inviteCode?: string;
-  /** Called once the account exists and the player is logged in. */
+  /** Called once the account exists and the player is logged in (after the PIN step, if shown). */
   onSuccess: () => void;
+  /** Called as soon as the account exists, before any PIN step, so the page doesn't treat the new
+   *  login as "already signed in" (KNG-216). */
+  onRegistered?: () => void;
   /** The invite stopped working while the form was open (used up, revoked): show the invalid state. */
   onInvalidInvite: () => void;
 }
@@ -37,7 +40,7 @@ const apiMessageOf = (error: any): string | undefined =>
  * account and logs the player in; Minecraft is linked afterwards (KNG-214). When /link kept a verified
  * claim code (game-first), it goes along and the account is linked in the same step.
  */
-export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken, lockedEmail, inviteCode, onSuccess, onInvalidInvite }) => {
+export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken, lockedEmail, inviteCode, onSuccess, onRegistered, onInvalidInvite }) => {
   const { register } = useAuth();
   const [email, setEmail] = useState(lockedEmail ?? '');
   const [password, setPassword] = useState('');
@@ -47,6 +50,8 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
   const [claim, setClaim] = useState<PendingClaim | null>(() => loadPendingClaim());
+  // KNG-216: the API's Cloudflare Access sync is on, so the site asks for a PIN next.
+  const [pinStepFor, setPinStepFor] = useState<string | null>(null);
 
   const validate = (): boolean => {
     const next: Errors = {};
@@ -83,7 +88,7 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
     if (!validate()) return;
     setBusy(true);
     try {
-      await register({
+      const result = await register({
         inviteToken,
         inviteCode,
         email: email.trim(),
@@ -92,6 +97,11 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
         claimCode: claim?.code,
       });
       if (claim) clearPendingClaim();
+      onRegistered?.();
+      if (result?.accessGate) {
+        setPinStepFor(result.user?.email || email.trim());
+        return;
+      }
       onSuccess();
     } catch (error: any) {
       const code = errorCodeOf(error);
@@ -117,6 +127,22 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
       setBusy(false);
     }
   };
+
+  if (pinStepFor) {
+    return (
+      <div className="space-y-5 text-center" data-testid="access-pin-step">
+        <KeyRound className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />
+        <h2 className="text-xl font-semibold text-gray-900">Your account is ready</h2>
+        <p className="text-sm text-gray-700">
+          Next, Cloudflare emails you a one-time PIN to open the site. Use the same address: <strong>{pinStepFor}</strong>.
+        </p>
+        <p className="text-xs text-gray-500">
+          The PIN mail comes from Cloudflare, not from Knights &amp; Kings. After that you stay signed in on this device for a while.
+        </p>
+        <button type="button" onClick={onSuccess} className="w-full btn-primary">Continue</button>
+      </div>
+    );
+  }
 
   const inputClass = (invalid: boolean) =>
     `w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${invalid ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'}`;

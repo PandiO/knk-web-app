@@ -123,6 +123,20 @@ export interface CheckInvitationResponseDto {
   expiresAt?: string | null;
 }
 
+/** GET Invitations/access-sync (KNG-216): the API's Cloudflare Access sync. Never holds emails. */
+export interface CloudflareAccessSyncStatusDto {
+  enabled: boolean;
+  configured: boolean;
+  lastSuccessAt?: string | null;
+  lastAttemptAt?: string | null;
+  /** Null while the last run went through. */
+  lastError?: string | null;
+  pendingAdds: number;
+  pendingRemoves: number;
+  listSize?: number | null;
+  reconcileMinutes: number;
+}
+
 /** Human text for a skipped address. */
 export const SKIP_REASONS: Record<string, string> = {
   InvalidEmail: 'Not a valid email address',

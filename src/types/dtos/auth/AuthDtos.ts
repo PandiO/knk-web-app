@@ -16,6 +16,16 @@ export interface AuthLoginResponseDto {
   refreshToken?: null;
   expiresIn: number;
   user: UserDto;
+  /** Register only (KNG-216): the API's Cloudflare Access sync is on, so Cloudflare emails the new
+   *  player a one-time PIN before the site opens. Absent otherwise. */
+  accessGate?: boolean;
+}
+
+/** What a registration gives the page that asked for it. */
+export interface RegisterResult {
+  user: UserDto;
+  /** Show the "Cloudflare emails you a PIN" step (KNG-216). */
+  accessGate: boolean;
 }
 
 /** POST Auth/refresh (the cookie carries the refresh token). */

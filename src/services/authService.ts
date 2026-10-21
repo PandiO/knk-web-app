@@ -5,6 +5,7 @@ import { UserDto, UserUpdateDto } from "../types/dtos/auth/UserDtos";
 import {
   LoginRequestDto,
   RegisterRequestDto,
+  RegisterResult,
   AuthLoginResponseDto,
   AuthUpdateResponseDto,
   ForgotPasswordResponseDto,
@@ -36,10 +37,10 @@ class AuthService {
   }
 
   /** Registers with a link code. The API answers like login, so the player is logged in (no remember-me). */
-  async register(data: RegisterRequestDto): Promise<UserDto> {
+  async register(data: RegisterRequestDto): Promise<RegisterResult> {
     const res = await authClient.register(data);
     this.startSession(res, false);
-    return res.user;
+    return { user: res.user, accessGate: res.accessGate === true };
   }
 
   /** Ends this session. Local state is cleared even when the API call fails. */

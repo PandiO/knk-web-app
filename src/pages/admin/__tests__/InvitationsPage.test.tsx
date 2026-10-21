@@ -10,6 +10,7 @@ jest.mock('../../../apiClients/invitationClient', () => ({
   invitationClient: {
     list: jest.fn(), options: jest.fn(), createPersonal: jest.fn(), createShared: jest.fn(),
     resend: jest.fn(), rotate: jest.fn(), pause: jest.fn(), resume: jest.fn(), revoke: jest.fn(), redemptions: jest.fn(),
+    accessSync: jest.fn(),
   },
 }));
 
@@ -34,6 +35,46 @@ describe('InvitationsPage', () => {
     jest.resetAllMocks();
     client.options.mockResolvedValue(OPTIONS);
     client.list.mockResolvedValue(page([]));
+    client.accessSync.mockResolvedValue({ enabled: false, configured: true, pendingAdds: 0, pendingRemoves: 0, reconcileMinutes: 5 });
+  });
+
+  describe('Access sync line (KNG-216)', () => {
+    const SYNC = { enabled: true, configured: true, pendingAdds: 0, pendingRemoves: 0, reconcileMinutes: 5, listSize: 12 };
+
+    it('says when the sync is off', async () => {
+      render(<InvitationsPage />);
+
+      expect(await screen.findByTestId('access-sync')).toHaveTextContent('Access sync: off');
+    });
+
+    it('shows the last good run and the pending count', async () => {
+      client.accessSync.mockResolvedValue({ ...SYNC, lastSuccessAt: '2026-10-21T12:04:00Z', pendingAdds: 1 });
+      render(<InvitationsPage />);
+
+      const line = await screen.findByTestId('access-sync');
+      expect(line).toHaveTextContent(/Access sync: last OK .*· 1 pending/);
+      expect(line).toHaveTextContent('12 on the list');
+      expect(line).not.toHaveAttribute('role', 'alert');
+    });
+
+    it('turns red with the last error', async () => {
+      client.accessSync.mockResolvedValue({ ...SYNC, lastError: 'Cloudflare refused to read the list: HTTP 403 (10000: Authentication error).' });
+      render(<InvitationsPage />);
+
+      const line = await screen.findByTestId('access-sync');
+      expect(line).toHaveAttribute('role', 'alert');
+      expect(line).toHaveTextContent('Access sync: failing');
+      expect(line).toHaveTextContent('no successful run yet');
+      expect(line).toHaveTextContent('HTTP 403');
+    });
+
+    it('shows nothing when the status call fails', async () => {
+      client.accessSync.mockRejectedValue({ status: 403 });
+      render(<InvitationsPage />);
+      await screen.findByText('No invitations.');
+
+      expect(screen.queryByTestId('access-sync')).not.toBeInTheDocument();
+    });
   });
 
   it('creates personal invites and shows the links once, with skipped addresses', async () => {

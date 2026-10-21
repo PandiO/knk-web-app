@@ -90,13 +90,21 @@ describe('AuthService', () => {
     it('registers through Auth/register and starts a session without remember-me', async () => {
       mockedAuthClient.register.mockResolvedValue(loginResponse);
 
-      const user = await authService.register(request);
+      const result = await authService.register(request);
 
-      expect(user).toEqual(mockUser);
+      expect(result).toEqual({ user: mockUser, accessGate: false });
       expect(mockedAuthClient.register).toHaveBeenCalledWith(request);
       expect(mockedAuthClient.login).not.toHaveBeenCalled();
       expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('access-token', false);
       expect(mockedTokenService.setRememberMe).not.toHaveBeenCalled();
+    });
+
+    it('passes accessGate on when the Cloudflare Access sync is on (KNG-216)', async () => {
+      mockedAuthClient.register.mockResolvedValue({ ...loginResponse, accessGate: true });
+
+      const result = await authService.register(request);
+
+      expect(result.accessGate).toBe(true);
     });
 
     it('passes API errors through', async () => {

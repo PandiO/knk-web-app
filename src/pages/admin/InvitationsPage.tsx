@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Copy, Pause, Play, RefreshCw, RotateCcw, Send, Ticket, Users, X, XCircle } from 'lucide-react';
+import { Copy, Pause, Play, RefreshCw, RotateCcw, Send, ShieldCheck, Ticket, Users, X, XCircle } from 'lucide-react';
 import { invitationClient } from '../../apiClients/invitationClient';
 import { FeedbackModal } from '../../components/FeedbackModal';
 import {
+  CloudflareAccessSyncStatusDto,
   INVITATION_STATUSES,
   InvitationDto,
   InvitationKind,
@@ -86,11 +87,21 @@ export const InvitationsPage: React.FC = () => {
   const [created, setCreated] = useState<Created | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [accessSync, setAccessSync] = useState<CloudflareAccessSyncStatusDto | null>(null);
   const [drawer, setDrawer] = useState<{ item: InvitationDto; rows: InvitationRedemptionDto[] | null; error?: string } | null>(null);
+
+  const loadAccessSync = useCallback(async () => {
+    try {
+      setAccessSync(await invitationClient.accessSync());
+    } catch {
+      setAccessSync(null);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    loadAccessSync();
     try {
       setPage(await invitationClient.list({ pageNumber, pageSize: PAGE_SIZE, status, kind: tab }));
     } catch (err) {
@@ -98,7 +109,7 @@ export const InvitationsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [pageNumber, status, tab]);
+  }, [pageNumber, status, tab, loadAccessSync]);
 
   useEffect(() => {
     load();
@@ -158,6 +169,8 @@ export const InvitationsPage: React.FC = () => {
           <RefreshCw className="h-4 w-4" /> Refresh
         </button>
       </div>
+
+      {accessSync && <AccessSyncLine status={accessSync} />}
 
       {options && options.registrationMode !== 'Invite' && options.registrationMode !== 'Open' && (
         <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" data-testid="mode-warning">
@@ -316,6 +329,42 @@ export const InvitationsPage: React.FC = () => {
         onClose={() => setFeedback(null)}
       />
     </div>
+  );
+};
+
+function formatTime(iso?: string | null): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * "Access sync: last OK 12:04 · 0 pending" (KNG-216, DESIGN.md § 5.8), red with the last error.
+ * Muted when the sync is off: staff then edit the Cloudflare list by hand.
+ */
+export const AccessSyncLine: React.FC<{ status: CloudflareAccessSyncStatusDto }> = ({ status }) => {
+  if (!status.enabled) {
+    return (
+      <p className="flex items-center gap-1 text-xs text-slate-500" data-testid="access-sync">
+        <ShieldCheck className="h-4 w-4" /> Access sync: off. Add new players to the Cloudflare Access list by hand.
+      </p>
+    );
+  }
+  const pending = status.pendingAdds + status.pendingRemoves;
+  const lastOk = status.lastSuccessAt ? `last OK ${formatTime(status.lastSuccessAt)}` : 'no successful run yet';
+  if (status.lastError) {
+    return (
+      <div className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-800" role="alert" data-testid="access-sync">
+        <span className="font-medium">Access sync: failing</span> · {lastOk} · {pending} pending
+        <span className="mt-0.5 block text-xs">{status.lastError}</span>
+      </div>
+    );
+  }
+  return (
+    <p className="flex items-center gap-1 text-sm text-green-800" data-testid="access-sync">
+      <ShieldCheck className="h-4 w-4" /> Access sync: {lastOk} · {pending} pending
+      {typeof status.listSize === 'number' && <span className="text-slate-500"> · {status.listSize} on the list</span>}
+    </p>
   );
 };
 

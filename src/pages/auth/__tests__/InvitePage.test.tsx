@@ -64,6 +64,29 @@ describe('InvitePage', () => {
     }));
   });
 
+  it('with the Cloudflare Access sync on, shows the PIN step before going on (KNG-216)', async () => {
+    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: '2026-10-28T12:00:00Z' });
+    register.mockImplementation(async () => {
+      // The register call logs the player in; the page must not bounce them to /account.
+      mockedUseAuth.mockReturnValue({ isLoggedIn: true, isLoading: false, register });
+      return { user: { id: 9, email: 'tester@example.com' }, accessGate: true };
+    });
+    render(<InvitePage />);
+
+    await userEvent.type(await screen.findByLabelText('Password'), PASSWORD);
+    await userEvent.type(screen.getByLabelText('Confirm password'), PASSWORD);
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+    const step = await screen.findByTestId('access-pin-step');
+    expect(step).toHaveTextContent('Cloudflare emails you a one-time PIN');
+    expect(step).toHaveTextContent('tester@example.com');
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/account/link', { replace: true });
+  });
+
   it('needs the alpha rules accepted', async () => {
     check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com' });
     render(<InvitePage />);
