@@ -79,6 +79,75 @@ describe('sessionPinnedRows (KNG-136)', () => {
         });
     });
 
+    // KNG-200: hybrid Minecraft rows. Ids start at 1, so 0 / "0" / null mean "unsaved".
+    describe('Minecraft catalogue rows without an id (KNG-200)', () => {
+        it('never keys a row by id 0, "0" or null', () => {
+            expect(tableRowKey({ id: 0, namespaceKey: 'minecraft:torch', isPersisted: false }, 'MinecraftMaterialRef', 0)).toBe('ns:minecraft:torch');
+            expect(tableRowKey({ id: '0', namespaceKey: 'minecraft:torch' }, 'MinecraftMaterialRef', 0)).toBe('ns:minecraft:torch');
+            expect(tableRowKey({ id: null, namespaceKey: 'minecraft:torch' }, 'MinecraftMaterialRef', 0)).toBe('ns:minecraft:torch');
+            expect(tableRowKey({ id: 0, name: 'unsaved' }, 'District', 4)).toBe('index:4');
+            expect(tableRowKey({ id: 12, namespaceKey: 'minecraft:torch' }, 'MinecraftMaterialRef', 0)).toBe('id:12');
+        });
+
+        it('keys unsaved material rows by normalised namespaceKey, so distinct rows stay distinct', () => {
+            const keys = [
+                { id: 0, namespaceKey: 'minecraft:torch' },
+                { id: 0, namespaceKey: 'minecraft:lantern' },
+                { id: null, namespaceKey: ' Stone ' }
+            ].map((row, index) => tableRowKey(row, 'MinecraftMaterialRef', index));
+            expect(keys).toEqual(['ns:minecraft:torch', 'ns:minecraft:lantern', 'ns:minecraft:stone']);
+        });
+
+        it('keys unsaved block rows by normalised namespaceKey and block state', () => {
+            const north = { id: 0, namespaceKey: 'minecraft:oak_stairs', blockStateString: 'minecraft:oak_stairs[facing=north]' };
+            const south = { id: 0, namespaceKey: 'minecraft:oak_stairs', blockStateString: 'minecraft:oak_stairs[facing=south]' };
+            const plain = { id: null, namespaceKey: 'OAK_STAIRS' };
+            expect(tableRowKey(north, 'MinecraftBlockRef', 0)).toBe('bs:minecraft:oak_stairs|minecraft:oak_stairs[facing=north]');
+            expect(tableRowKey(south, 'MinecraftBlockRef', 1)).toBe('bs:minecraft:oak_stairs|minecraft:oak_stairs[facing=south]');
+            expect(tableRowKey(plain, 'MinecraftBlockRef', 2)).toBe('bs:minecraft:oak_stairs|');
+        });
+
+        it('keeps two unsaved material rows apart, whatever stands in for the missing id', () => {
+            const torch = { id: 0, namespaceKey: 'minecraft:torch' };
+            const lantern = { id: 0, namespaceKey: 'minecraft:lantern' };
+            expect(isSameSelection(torch, lantern, 'MinecraftMaterialRef')).toBe(false);
+            expect(isSameSelection({ id: '0', namespaceKey: 'minecraft:torch' }, { id: null, namespaceKey: 'minecraft:lantern' }, 'MinecraftMaterialRef')).toBe(false);
+            expect(isSameSelection({ namespaceKey: 'minecraft:torch' }, { id: 0, namespaceKey: 'minecraft:lantern' }, 'MinecraftMaterialRef')).toBe(false);
+        });
+
+        it('matches an unsaved material row with the same key in another notation', () => {
+            expect(isSameSelection({ id: 0, namespaceKey: 'minecraft:stone' }, { id: null, namespaceKey: ' STONE' }, 'MinecraftMaterialRef')).toBe(true);
+            expect(isSameSelection({ id: 7, namespaceKey: 'minecraft:stone' }, { id: 0, namespaceKey: 'Minecraft:Stone' }, 'MinecraftMaterialRef')).toBe(true);
+            // Two saved rows still compare by id, even with one key (notation duplicates before the audit).
+            expect(isSameSelection({ id: 7, namespaceKey: 'minecraft:stone' }, { id: 8, namespaceKey: 'stone' }, 'MinecraftMaterialRef')).toBe(false);
+        });
+
+        it('compares unsaved block rows by key and block state', () => {
+            const north = { id: 0, namespaceKey: 'minecraft:oak_stairs', blockStateString: 'minecraft:oak_stairs[facing=north]' };
+            const south = { id: 0, namespaceKey: 'minecraft:oak_stairs', blockStateString: 'minecraft:oak_stairs[facing=south]' };
+            expect(isSameSelection(north, south, 'MinecraftBlockRef')).toBe(false);
+            expect(isSameSelection(north, { id: null, namespaceKey: 'oak_stairs', blockStateString: ' minecraft:OAK_STAIRS[facing=north] ' }, 'MinecraftBlockRef')).toBe(true);
+        });
+
+        it('does not treat id 0 as an id for other entity types either', () => {
+            expect(isSameSelection({ id: 0, name: 'a' }, { id: 0, name: 'b' }, 'District')).toBe(false);
+            expect(isSameSelection({ id: '0' }, { id: 0 }, 'District')).toBe(false);
+        });
+
+        it('keeps enchantment refs keyed and compared by their namespaceKey as given', () => {
+            expect(tableRowKey({ id: 0, namespaceKey: 'minecraft:sharpness' }, 'MinecraftEnchantmentRef', 0)).toBe('ns:minecraft:sharpness');
+            expect(isSameSelection({ id: 0, namespaceKey: 'minecraft:sharpness' }, { id: 0, namespaceKey: 'minecraft:sharpness' }, 'MinecraftEnchantmentRef')).toBe(true);
+            expect(isSameSelection({ namespaceKey: 'minecraft:sharpness' }, { namespaceKey: 'SHARPNESS' }, 'MinecraftEnchantmentRef')).toBe(false);
+        });
+
+        it('does not pin or match an id-0 row by id', () => {
+            expect(matchesSearchTerm({ id: 0, name: 'Torch' }, '0')).toBe(false);
+            const section = buildPinnedSection([{ key: 'x', row: { id: 0, name: 'zero' } }], [{ id: 0, name: 'page' }], '', {});
+            expect(section.pinned).toEqual([]);
+            expect(section.pageItems).toEqual([{ id: 0, name: 'page' }]);
+        });
+    });
+
     describe('buildPinnedSection', () => {
         const pins = [
             { key: 'district:501', row: { id: 501, name: 'Old Quarter', townId: 4 } },
