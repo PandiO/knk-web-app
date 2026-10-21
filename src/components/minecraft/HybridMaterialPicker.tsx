@@ -14,6 +14,31 @@ interface HybridMaterialPickerProps {
     multiSelect?: boolean;
 }
 
+/**
+ * KNG-200 phase 4: the `kind` filter for a picker's `categoryFilter` setting. Once a server scan has
+ * completed the API answers from the database and filters on kind (a legacy `category` sent too
+ * overrides it there); before that the hybrid merge ignores it. BLOCK picks blocks, ANY everything,
+ * and anything else - no setting, ITEM, ICON, BANNER - picks items: item blueprints, menus and
+ * icons are items (decision D9).
+ */
+export const materialPickerFilters = (categoryFilter?: string | null): Record<string, string> => {
+    const category = categoryFilter?.trim();
+    const filters: Record<string, string> = {};
+    if (category) {
+        filters.category = category;
+    }
+    switch (category?.toUpperCase()) {
+        case 'BLOCK':
+            filters.kind = 'block';
+            break;
+        case 'ANY':
+            break;
+        default:
+            filters.kind = 'item';
+    }
+    return filters;
+};
+
 export const HybridMaterialPicker: React.FC<HybridMaterialPickerProps> = ({
     label,
     description,
@@ -75,7 +100,7 @@ export const HybridMaterialPicker: React.FC<HybridMaterialPickerProps> = ({
                 initialQuery={{
                     page: 1,
                     pageSize: 10,
-                    filters: categoryFilter ? { category: categoryFilter } : {}
+                    filters: materialPickerFilters(categoryFilter)
                 }}
                 selectionConfig={selectionConfig}
                 selectedItems={selectedItems}
