@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, Loader2, ChevronLeft, ChevronRight, Check, CheckCircle, PlusCircle } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, Loader2, ChevronLeft, ChevronRight, Check, PlusCircle } from 'lucide-react';
 import { PagedQueryDto, PagedResultDto } from '../../types/dtos/common/PagedQuery';
 import { getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { logging } from '../../utils';
@@ -13,16 +13,14 @@ import { buildPinnedSection, isSameSelection, PinnedRow, tableRowKey } from '../
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
 
-/** Green "Existing" / amber "New" pill, shared by the hybrid pickers and the pinned session rows. */
-const RowBadge: React.FC<{ isNew: boolean; label?: string }> = ({ isNew, label }) => (
-    <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${
-        isNew ? 'text-amber-700 bg-amber-100' : 'text-green-700 bg-green-100'
-    }`}>
-        {isNew ? (
-            <><PlusCircle className="h-3 w-3 mr-1" />{label ?? 'New'}</>
-        ) : (
-            <><CheckCircle className="h-3 w-3 mr-1" />{label ?? 'Existing'}</>
-        )}
+/**
+ * Amber "New" pill for the pinned session rows and for hybrid picker rows the database does not
+ * have yet. KNG-200 phase 4 dropped the green "Existing" pill: once the picker answers from the
+ * database every row is saved, so it marked every row.
+ */
+const RowBadge: React.FC<{ label?: string }> = ({ label }) => (
+    <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full text-amber-700 bg-amber-100">
+        <PlusCircle className="h-3 w-3 mr-1" />{label ?? 'New'}
     </span>
 );
 
@@ -647,16 +645,16 @@ export function PagedEntityTable<T extends Record<string, any>>({
                     <td key={column.key} className={`px-6 py-4 whitespace-nowrap text-sm ${
                         selected ? 'text-gray-900 font-medium' : 'text-gray-500'
                     }`}>
-                        {/* check icon in the first column if selected, plus the New/Existing badge */}
+                        {/* check icon in the first column if selected, plus the New badge of an unsaved row */}
                         {colIndex === 0 ? (
                             <div className="flex items-center space-x-2">
                                 {selected && selectionConfig.mode !== 'none' && (
                                     <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
                                 )}
                                 {sessionBadge ? (
-                                    <RowBadge isNew label={sessionBadge} />
-                                ) : isHybridMode && (
-                                    <RowBadge isNew={!(row as any).isPersisted} />
+                                    <RowBadge label={sessionBadge} />
+                                ) : isHybridMode && (row as any).isPersisted === false && (
+                                    <RowBadge />
                                 )}
                                 {creatingKey && (row as any).namespaceKey === creatingKey && (
                                     <Loader2 className="h-4 w-4 animate-spin text-primary" />

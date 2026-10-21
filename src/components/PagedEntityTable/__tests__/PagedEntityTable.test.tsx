@@ -192,4 +192,21 @@ describe('PagedEntityTable', () => {
         render(<PagedEntityTable<Row> entityTypeName="District" columns={columns} pinnedRows={[]} />);
         expect(await screen.findByText('No results found')).toBeInTheDocument();
     });
+
+    // KNG-200 phase 4: in database mode every row is saved, so only an unsaved hybrid row gets a badge.
+    it('shows the New badge only on unsaved hybrid rows and never an "Existing" badge', async () => {
+        search.mockResolvedValue(page([
+            { id: 7, name: 'Torch', namespaceKey: 'minecraft:torch', isPersisted: true },
+            { id: null, name: 'Lantern', namespaceKey: 'minecraft:lantern', isPersisted: false },
+            { id: 9, name: 'Stone', namespaceKey: 'minecraft:stone' }
+        ]));
+        render(<PagedEntityTable<Row> entityTypeName="MinecraftMaterialRef" columns={columns} />);
+        await screen.findByText('Torch');
+        const [torch, lantern, stone] = bodyRows();
+        expect(within(lantern).getByText('New')).toBeInTheDocument();
+        expect(within(torch).queryByText('New')).not.toBeInTheDocument();
+        expect(within(stone).queryByText('New')).not.toBeInTheDocument();
+        expect(screen.queryByText('Existing')).not.toBeInTheDocument();
+        expect(search).toHaveBeenCalledWith(expect.objectContaining({ filters: expect.objectContaining({ SearchHybrid: 'true' }) }));
+    });
 });
