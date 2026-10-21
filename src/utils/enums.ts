@@ -100,6 +100,8 @@ export enum Controllers {
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs',
     MinecraftEnchantmentRefs = 'MinecraftEnchantmentRefs',
+    // Minecraft catalogue maintenance (KNG-200, docs/specs/minecraft-catalog/IMPLEMENTATION_PLAN.md §5.2a)
+    MinecraftCatalog = 'MinecraftCatalog',
     Workflows = 'Workflows',
     WorldTasks = 'WorldTasks',
     GameSettings = 'GameSettings',

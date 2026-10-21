@@ -28,4 +28,8 @@ export interface MinecraftMaterialRefListDto {
     displayName?: string;
     isPersisted?: boolean;
     iconUrl?: string | null;
+    // KNG-200 catalogue fields (read-only); null on hybrid rows from the static catalogue.
+    isItem?: boolean | null;
+    isBlock?: boolean | null;
+    catalogStatus?: string | null;
 }
