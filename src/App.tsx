@@ -23,6 +23,8 @@ import { DISCOVERY_ADMIN_NODE } from './types/dtos/discovery/DiscoveryDtos';
 import { RoadsAdminPage } from './pages/admin/RoadsAdminPage';
 import { ROAD_ADMIN_NODE } from './types/dtos/road/RoadDtos';
 import { EmailLogPage } from './pages/admin/EmailLogPage';
+import { InvitationsPage } from './pages/admin/InvitationsPage';
+import { INVITATION_NODES } from './types/dtos/invitations/InvitationDtos';
 import { EMAIL_ADMIN_NODE } from './types/dtos/email/EmailOutboxDtos';
 import { AccountTransactionsPage } from './pages/AccountTransactionsPage';
 import { BalanceLogPage } from './pages/admin/BalanceLogPage';
@@ -42,7 +44,7 @@ import { OWNER_ANALYTICS_VIEW_NODE } from './types/dtos/analytics/WorldAnalytics
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from './types/dtos/telemetry/TelemetryDtos';
 import { PublicPlayerProfilePage } from './pages/players/PublicPlayerProfilePage';
 import React from 'react';
-import { RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
+import { RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage, InvitePage, JoinPage } from './pages/auth';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { CONTENT_PERMISSION_NODE } from './hooks/useStaffAccess';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -87,6 +89,10 @@ function AppContent() {
               <Route path="/auth/login" element={<LoginPage />} />
               <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+              {/* Invitation sign-up (KNG-212): the personal link drops its token from the URL on load. */}
+              <Route path="/invite/:token" element={<InvitePage />} />
+              <Route path="/invite" element={<InvitePage />} />
+              <Route path="/join" element={<JoinPage />} />
               {/* Emailed GDPR deletion confirmation link; no sign-in needed (KNG-34). */}
               <Route path="/account/delete-data/confirm" element={<ConfirmDataDeletionPage />} />
               <Route path="/account" element={
@@ -94,6 +100,8 @@ function AppContent() {
                   <AccountManagementPage />
                 </ProtectedRoute>
               } />
+              {/* The Minecraft linking step after an invite sign-up arrives with KNG-214; until then the account page. */}
+              <Route path="/account/link" element={<Navigate to="/account" replace />} />
               <Route path="/account/transactions" element={
                 <ProtectedRoute>
                   <AccountTransactionsPage />
@@ -183,6 +191,12 @@ function AppContent() {
               } />
               {/* Mail log (KNG-206): the outbox, a test mail and Retry - knk.admin.config, which
                   the API enforces on every call as well. */}
+              {/* KNG-212: personal invites and shared codes (knk.admin.invites). */}
+              <Route path="/admin/invitations" element={
+                <StaffRoute node={INVITATION_NODES.manage}>
+                  <InvitationsPage />
+                </StaffRoute>
+              } />
               <Route path="/admin/email" element={
                 <StaffRoute node={EMAIL_ADMIN_NODE}>
                   <EmailLogPage />

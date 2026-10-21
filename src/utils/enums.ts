@@ -149,7 +149,9 @@ export enum Controllers {
     // World analytics (KNG-34 link 7), owner only
     WorldAnalytics = 'world-analytics',
     // Mail log behind /admin/email (KNG-206), knk.admin.config
-    EmailOutbox = 'EmailOutbox'
+    EmailOutbox = 'EmailOutbox',
+    // Invitations and the sign-up check (KNG-212).
+    Invitations = 'Invitations'
 }
 
 

@@ -324,7 +324,15 @@ export const AccountManagementPage: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-900">{user.email || 'No email set'}</p>
+                <p className="flex flex-wrap items-center gap-2 text-sm text-gray-900">
+                  {user.email || 'No email set'}
+                  {/* KNG-212: a personal invite's link proves the address. */}
+                  {user.email && user.emailVerified && (
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800" data-testid="email-verified-badge">
+                      Email verified
+                    </span>
+                  )}
+                </p>
               )}
             </div>
 

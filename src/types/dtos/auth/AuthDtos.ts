@@ -72,10 +72,17 @@ export interface AuthValidateTokenResponseDto {
  * account (and so the username); the player only adds an email and a password.
  */
 export interface RegisterRequestDto {
-  linkCode: string;
+  /** The /account link code (today's flow). Leave out when signing up with an invitation. */
+  linkCode?: string;
   email: string;
   password: string;
   passwordConfirmation: string;
+  /** A personal invite's token from /invite/:token (KNG-212; the API's Registration:Mode=Invite). */
+  inviteToken?: string;
+  /** A shared code, KNK-XXXXX-XXXXX, from /join (KNG-212). */
+  inviteCode?: string;
+  /** The claim code from the server's disconnect screen (KNG-214); refused until then. */
+  claimCode?: string;
 }
 
 /** POST Users/validate-link-code/{code}: read-only, it doesn't use up the code. */

@@ -125,6 +125,20 @@ describe('RegisterForm', () => {
     expect(screen.getByRole('link', { name: /reset your password/i })).toHaveAttribute('href', '/auth/forgot-password');
   });
 
+  it('says an invitation is needed when the server is invite-only (KNG-212)', async () => {
+    mockedValidate.mockResolvedValue({ isValid: true, username: 'Steve' });
+    register.mockRejectedValue({ status: 403, response: { error: 'InviteRequired', message: 'You need an invitation to create an account.' } });
+    render(<RegisterForm />);
+    await enterCode();
+    await fillAccount();
+
+    await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+    const notice = await screen.findByTestId('invite-required');
+    expect(notice).toHaveTextContent('You need an invitation to create an account');
+    expect(notice.querySelector('a[href="/join"]')).not.toBeNull();
+  });
+
   it('goes back to the code step when the code expired meanwhile', async () => {
     mockedValidate.mockResolvedValue({ isValid: true, username: 'Steve' });
     register.mockRejectedValue({ status: 400, code: 'InvalidLinkCode' });
