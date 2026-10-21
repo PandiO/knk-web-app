@@ -178,6 +178,9 @@ describe('auditActionLabel', () => {
     expect(auditActionLabel(entry('PrivacyDeletionCancelled', null))).toBe('Data deletion cancelled');
     expect(auditActionLabel(entry('InvitationCreated', null))).toBe('Invitation created');
     expect(auditActionLabel(entry('InvitationRedeemed', null))).toBe('Account created with an invitation');
+    expect(auditActionLabel(entry('MinecraftLinked', null))).toBe('Minecraft account linked');
+    expect(auditActionLabel(entry('MinecraftUnlinked', null))).toBe('Web login detached');
+    expect(auditActionLabel(entry('PlayerAdmitted', null))).toBe('Admitted by staff');
     expect(auditActionLabel(entry('SomethingNew' as AuditLogEntryDto['action'], null))).toBe('SomethingNew');
   });
 });

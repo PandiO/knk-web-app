@@ -19,6 +19,7 @@ import {
 } from '../../types/dtos/currency/CurrencyDtos';
 import { PrivateMessagesPanel } from '../../components/admin/PrivateMessagesPanel';
 import { StaffDataDeletionCard } from '../../components/admin/StaffDataDeletionCard';
+import { PlayerAccessCard } from '../../components/admin/PlayerAccessCard';
 import {
     ActiveMode,
     AuditLogEntryDto,
@@ -410,6 +411,9 @@ export const PlayerProfilePage: React.FC = () => {
                         {modeActionError && <span className="text-xs text-red-600">{modeActionError}</span>}
                     </div>
                 </div>
+
+                {/* Admission and web login: Admit / Detach web login (KNG-214) */}
+                <PlayerAccessCard account={account} onChanged={refreshAfterAction} />
 
                 {/* Account */}
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">

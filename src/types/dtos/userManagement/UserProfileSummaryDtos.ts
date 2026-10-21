@@ -34,6 +34,8 @@ export interface ProfileAccountDto {
   isFullAccount: boolean;
   createdAt: string;
   isActive: boolean;
+  /** May pass the game server's admission gate (KNG-214); absent from an older API. */
+  admitted?: boolean;
 }
 
 export interface EffectivePermissionEntryDto {
@@ -140,7 +142,11 @@ export type AuditAction =
   // Invitations (KNG-212, knk-web-api AuditAction 37-39): create and revoke target the staff member.
   | 'InvitationCreated'
   | 'InvitationRevoked'
-  | 'InvitationRedeemed';
+  | 'InvitationRedeemed'
+  // Minecraft linking and admission (KNG-214, knk-web-api AuditAction 40-42).
+  | 'MinecraftLinked'
+  | 'MinecraftUnlinked'
+  | 'PlayerAdmitted';
 
 export interface AuditLogEntryDto {
   id: number;

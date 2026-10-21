@@ -41,6 +41,10 @@ export const auditActionLabel = (entry: AuditLogEntryDto): string => {
     case 'InvitationCreated': return 'Invitation created';
     case 'InvitationRevoked': return 'Invitation revoked';
     case 'InvitationRedeemed': return 'Account created with an invitation';
+    // KNG-214: Minecraft linking and the admission gate.
+    case 'MinecraftLinked': return 'Minecraft account linked';
+    case 'MinecraftUnlinked': return 'Web login detached';
+    case 'PlayerAdmitted': return 'Admitted by staff';
     default: return entry.action;
   }
 };
