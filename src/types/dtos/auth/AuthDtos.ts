@@ -99,6 +99,20 @@ export interface LinkMinecraftAccountDto {
   linkCode: string;
 }
 
+/**
+ * POST Users/link-minecraft-account. `user` is the surviving account. When the web account was
+ * folded into an existing Minecraft account (KNG-207, invitations DESIGN § 5.4 case B), `merged`
+ * is true, `user` is that account and `accessToken` logs this browser into it, because the
+ * caller's own account is now gone; otherwise `accessToken` is absent.
+ */
+export interface LinkMinecraftAccountResponseDto {
+  user: UserDto;
+  merged?: boolean;
+  accessToken?: string;
+  expiresIn?: number;
+  message?: string;
+}
+
 export interface PasswordStrengthDto {
   score: 0 | 1 | 2 | 3 | 4 | 5;
   label: string;

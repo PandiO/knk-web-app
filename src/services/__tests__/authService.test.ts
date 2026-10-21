@@ -230,6 +230,29 @@ describe('AuthService', () => {
     });
   });
 
+  describe('linkMinecraftAccount', () => {
+    it('stores the access token of the merged account and keeps the remember-me choice (KNG-207)', async () => {
+      mockedTokenService.isRemembered.mockReturnValue(true);
+      mockedAuthClient.linkMinecraftAccount.mockResolvedValue({ user: { ...mockUser, id: 2 }, merged: true, accessToken: 'merged-token', expiresIn: 1800 });
+
+      const result = await authService.linkMinecraftAccount({ linkCode: 'ABCD2345' });
+
+      expect(mockedAuthClient.linkMinecraftAccount).toHaveBeenCalledWith({ linkCode: 'ABCD2345' });
+      expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('merged-token', true);
+      expect(result.merged).toBe(true);
+      expect(result.user.id).toBe(2);
+    });
+
+    it('leaves the session alone when the web account itself was linked (no token)', async () => {
+      mockedAuthClient.linkMinecraftAccount.mockResolvedValue({ user: mockUser, message: 'linked' });
+
+      const result = await authService.linkMinecraftAccount({ linkCode: 'ABCD2345' });
+
+      expect(mockedTokenService.setAccessToken).not.toHaveBeenCalled();
+      expect(result.user).toEqual(mockUser);
+    });
+  });
+
   describe('updateUser', () => {
     it('stores the fresh access token an email change returns', async () => {
       mockedTokenService.isRemembered.mockReturnValue(true);

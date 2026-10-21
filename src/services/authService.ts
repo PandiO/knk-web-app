@@ -8,6 +8,8 @@ import {
   AuthLoginResponseDto,
   AuthUpdateResponseDto,
   ForgotPasswordResponseDto,
+  LinkMinecraftAccountDto,
+  LinkMinecraftAccountResponseDto,
   ResetPasswordResponseDto,
 } from "../types/dtos/auth/AuthDtos";
 import { refreshAccessToken, refreshSession as refreshSessionOutcome } from "./sessionRefresh";
@@ -88,6 +90,20 @@ class AuthService {
    */
   async updateUser(data: UserUpdateDto): Promise<AuthUpdateResponseDto> {
     const res = await authClient.updateUser(data);
+    if (res?.accessToken) {
+      tokenService.setAccessToken(res.accessToken, tokenService.isRemembered());
+    }
+    return res;
+  }
+
+  /**
+   * Links the logged-in web account to a Minecraft account with a code from /account link. When
+   * the API folded this web account into an existing Minecraft account (KNG-207), the response
+   * carries an access token for that account: it is stored so this tab stays logged in as the
+   * merged account instead of the now soft-deleted shell. The caller refreshes the auth context.
+   */
+  async linkMinecraftAccount(data: LinkMinecraftAccountDto): Promise<LinkMinecraftAccountResponseDto> {
+    const res = await authClient.linkMinecraftAccount(data);
     if (res?.accessToken) {
       tokenService.setAccessToken(res.accessToken, tokenService.isRemembered());
     }

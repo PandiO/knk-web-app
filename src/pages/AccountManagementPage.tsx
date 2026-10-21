@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Key, Link as LinkIcon, Save, X, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { authClient } from '../apiClients/authClient';
 import { authService } from '../services/authService';
 import { FeedbackModal } from '../components/FeedbackModal';
 import { validateEmailFormat } from '../utils/passwordValidator';
@@ -144,14 +143,18 @@ export const AccountManagementPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await authClient.linkMinecraftAccount({
+      // After a merge into an existing Minecraft account the API logs this browser into that
+      // account (KNG-207); authService stores the new token before the context reloads the user.
+      const linked = await authService.linkMinecraftAccount({
         linkCode: formData.linkCode,
       });
       await refresh();
       setFeedback({
         open: true,
         title: 'Account Linked',
-        message: 'Your Minecraft account has been successfully linked!',
+        message: linked?.merged
+          ? 'Your web login now belongs to your Minecraft account, which keeps its stats, groups and balances.'
+          : 'Your Minecraft account has been successfully linked!',
         status: 'success',
       });
       setFormData({ ...formData, linkCode: '' });
