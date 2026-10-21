@@ -3,7 +3,7 @@ import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
 import { Calendar, Plus, Minus, X, CheckCircle2, AlertTriangle, Loader2, Info, Pencil, Gamepad2, RefreshCw, WifiOff } from 'lucide-react';
 import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
-import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
+import { getColumnDefinitions } from '../../config/objectConfigs';
 import { HybridMaterialPicker } from '../minecraft/HybridMaterialPicker';
 import { HybridEnchantmentPicker } from '../minecraft/HybridEnchantmentPicker';
 import { ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
@@ -1130,7 +1130,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                             // Remount when the context filters change - the table reads initialQuery once.
                             key={JSON.stringify(pickerFilters?.filters ?? {})}
                             entityTypeName={field.objectType!}
-                            columns={columnDefinitionsRegistry[field.objectType!]?.default || defaultColumnDefinitions.default}
+                            columns={getColumnDefinitions(field.objectType)}
                             initialQuery={{ page: 1, pageSize: 10, filters: pickerFilters?.filters ?? {} }}
                             selectionConfig={selectionConfig}
                             selectedItems={value ? [value] : []}
@@ -1418,7 +1418,7 @@ const ListField: React.FC<FieldRendererProps> = ({
                         <PagedEntityTable
                             key={JSON.stringify(pickerFilters?.filters ?? {})}
                             entityTypeName={field.objectType}
-                            columns={columnDefinitionsRegistry[field.objectType]?.default || defaultColumnDefinitions.default}
+                            columns={getColumnDefinitions(field.objectType)}
                             initialQuery={{ page: 1, pageSize: 5, filters: pickerFilters?.filters ?? {} }}
                             selectionConfig={selectionConfig}
                             selectedItems={items}

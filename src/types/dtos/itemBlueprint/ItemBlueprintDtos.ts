@@ -22,6 +22,8 @@ export interface ItemBlueprintListDto {
     defaultDisplayName: string;
     iconMaterialRefId?: number;
     iconNamespaceKey?: string;
+    /** KNG-200: the icon material's picture (manual override first); null when it has none. */
+    iconUrl?: string | null;
     defaultEnchantmentsCount?: number;
 }
 
