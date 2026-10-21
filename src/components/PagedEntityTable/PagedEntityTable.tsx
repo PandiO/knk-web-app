@@ -820,21 +820,6 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 </div>
             )}
 
-            {/* KNG-200: select all rows of this page (multiple mode); unsaved catalogue rows are saved first */}
-            {selectionConfig.mode === 'multiple' && !loading && data.items.length > 0 && (
-                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                        type="checkbox"
-                        checked={allVisibleSelected}
-                        onChange={handleSelectAll}
-                        disabled={creatingKey !== null || selectingAll}
-                        className="rounded border-gray-300 text-primary focus:ring-primary"
-                    />
-                    Select all on this page
-                    {selectingAll && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-                </label>
-            )}
-
             {/* Table */}
             <div className="w-full overflow-x-auto panel bg-white/95 backdrop-blur">
                 {loading ? (

@@ -376,57 +376,5 @@ describe('PagedEntityTable', () => {
             expect(screen.queryByText('Lantern')).not.toBeInTheDocument();
             expect(screen.queryByText('Tome')).not.toBeInTheDocument();
         });
-
-        it('select all saves the unsaved rows one by one before adding them', async () => {
-            search.mockResolvedValue(page([stone, torch, lantern]));
-            const order: string[] = [];
-            materialClient.persistFromCatalog.mockImplementation(async (key: string) => {
-                order.push(`start ${key}`);
-                await Promise.resolve();
-                order.push(`end ${key}`);
-                return { id: key === 'minecraft:torch' ? 21 : 22, namespaceKey: key };
-            });
-            const onSelectionChange = jest.fn();
-            render(
-                <PagedEntityTable<Row>
-                    entityTypeName="MinecraftMaterialRef"
-                    columns={columns}
-                    selectionConfig={{ mode: 'multiple' }}
-                    selectedItems={[]}
-                    onSelectionChange={onSelectionChange}
-                />
-            );
-            await screen.findByText('Stone');
-            fireEvent.click(screen.getByLabelText('Select all on this page'));
-
-            await waitFor(() => expect(onSelectionChange).toHaveBeenCalledWith([
-                stone,
-                { ...torch, id: 21, isPersisted: true },
-                { ...lantern, id: 22, isPersisted: true }
-            ]));
-            expect(order).toEqual(['start minecraft:torch', 'end minecraft:torch', 'start minecraft:lantern', 'end minecraft:lantern']);
-            expect(materialClient.create).not.toHaveBeenCalled();
-            await waitFor(() => expect(screen.queryByText('New')).not.toBeInTheDocument());
-        });
-
-        it('select all respects max and saves only the rows it adds', async () => {
-            search.mockResolvedValue(page([stone, torch, lantern]));
-            materialClient.persistFromCatalog.mockResolvedValue({ id: 21, namespaceKey: 'minecraft:torch' });
-            const onSelectionChange = jest.fn();
-            render(
-                <PagedEntityTable<Row>
-                    entityTypeName="MinecraftMaterialRef"
-                    columns={columns}
-                    selectionConfig={{ mode: 'multiple', max: 2 }}
-                    selectedItems={[]}
-                    onSelectionChange={onSelectionChange}
-                />
-            );
-            await screen.findByText('Stone');
-            fireEvent.click(screen.getByLabelText('Select all on this page'));
-
-            await waitFor(() => expect(onSelectionChange).toHaveBeenCalledWith([stone, { ...torch, id: 21, isPersisted: true }]));
-            expect(materialClient.persistFromCatalog).toHaveBeenCalledTimes(1);
-        });
     });
 });
