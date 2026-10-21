@@ -90,6 +90,22 @@ describe('CurrencyAlertsPage', () => {
         await waitFor(() => expect(screen.getByText(/Balances reconcile/)).toBeInTheDocument());
     });
 
+    it('shows duel alerts with the new rule codes, linked to their match (KNG-221)', async () => {
+        const held: CurrencyAlertDto = {
+            id: 9, rule: 'DUEL_HOLD', ruleName: 'Duel held for review', severity: 'High', summary: 'Duel 42 held: alice beat bob',
+            userId: 5, username: 'alice', details: { matchId: 42, signals: ['S1'] }, createdAt: '2026-10-21T10:00:00'
+        };
+        (currencyClient.getAlerts as jest.Mock).mockResolvedValue(page([held]));
+        render(<CurrencyAlertsPage />);
+
+        expect(await screen.findByRole('link', { name: 'Duel #42' })).toHaveAttribute('href', '/admin/duels/42');
+        expect(screen.getByRole('option', { name: 'Duel flagged' })).toHaveValue('DUEL_FLAG');
+        expect(screen.getByRole('option', { name: 'Duel held' })).toHaveValue('DUEL_HOLD');
+        expect(screen.getByRole('option', { name: 'R10 Duel pair' })).toHaveValue('R10');
+        fireEvent.change(screen.getByLabelText('Rule'), { target: { value: 'DUEL_HOLD' } });
+        await waitFor(() => expect(currencyClient.getAlerts).toHaveBeenLastCalledWith(expect.objectContaining({ rule: 'DUEL_HOLD' })));
+    });
+
     it('says so when nothing is open', async () => {
         (currencyClient.getAlerts as jest.Mock).mockResolvedValue({ ...page([]), openBySeverity: {} });
         render(<CurrencyAlertsPage />);

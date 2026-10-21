@@ -19,6 +19,7 @@ import {
 } from '../../types/dtos/currency/CurrencyDtos';
 import { PrivateMessagesPanel } from '../../components/admin/PrivateMessagesPanel';
 import { StaffDataDeletionCard } from '../../components/admin/StaffDataDeletionCard';
+import { DuelRestrictionsPanel } from '../../components/admin/DuelRestrictionsPanel';
 import {
     ActiveMode,
     AuditLogEntryDto,
@@ -870,6 +871,10 @@ export const PlayerProfilePage: React.FC = () => {
                         <BalanceLedgerTable userId={userId} pageSize={20} refreshToken={ledgerRefresh} />
                     </div>
                 )}
+
+                {/* Duel restrictions (arena duels P7, KNG-221) - only for holders of knk.admin.duel.review:
+                    this player's restrictions from value-moving duels (alone or as one side of a pair). */}
+                <DuelRestrictionsPanel key={`duel-restrictions-${userId}`} userId={userId} username={account.username} asProfileCard />
 
                 {/* Private messages (docs/specs/private-messages/DESIGN.md §3.4) - only for holders of
                     knk.pmlog.read; each read adds a PrivateMessagesViewed entry to Recent activity. */}

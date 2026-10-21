@@ -311,4 +311,8 @@ export const CURRENCY_ALERT_RULES = [
   { value: 'R7', label: 'R7 Mint rate' },
   { value: 'R8', label: 'R8 Balance cap hit' },
   { value: 'R9', label: 'R9 Probing' },
+  { value: 'R10', label: 'R10 Duel pair' },
+  // Arena duels (KNG-213): a flagged result (paid) and a held one (not paid until staff decide).
+  { value: 'DUEL_FLAG', label: 'Duel flagged' },
+  { value: 'DUEL_HOLD', label: 'Duel held' },
 ] as const;

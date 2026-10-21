@@ -46,7 +46,7 @@ export const SeverityBadge: React.FC<{ severity: CurrencyAlertSeverity }> = ({ s
  * Staff → Currency alerts (currency-payments Phase 5, DESIGN.md §3.7/§3.9): the findings of the
  * API's currency monitor - reconciliation mismatches (R1/R2), transfer funnels, ping-pong,
  * velocity, large or frequent staff adjustments, unusual mint rates, balance-cap hits and
- * probing (R3–R9) - with a filter, the details of each, and Acknowledge. Also the last
+ * probing (R3–R9), and the arena duel rules (R10, DUEL_FLAG, DUEL_HOLD; a duel alert links its match) - with a filter, the details of each, and Acknowledge. Also the last
  * reconciliation run (knk.admin.currency.history) and "Run now". Nothing here changes a balance:
  * a mismatch is reported, never corrected; R1 only switches player transfers off, which is turned
  * back on in the currency policy. Needs knk.admin.currency.alerts (StaffRoute node).
@@ -223,6 +223,11 @@ export const CurrencyAlertsPage: React.FC = () => {
                                                 {alert.transactionPublicId && (
                                                     <Link to={`/admin/economy/transactions/${alert.transactionPublicId}`} className="text-primary hover:underline">
                                                         TX {alert.transactionPublicId}
+                                                    </Link>
+                                                )}
+                                                {typeof alert.details?.matchId === 'number' && (
+                                                    <Link to={`/admin/duels/${alert.details.matchId}`} className="text-primary hover:underline">
+                                                        Duel #{alert.details.matchId}
                                                     </Link>
                                                 )}
                                                 {alert.details && (

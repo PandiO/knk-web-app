@@ -39,6 +39,11 @@ import { OwnerAnalyticsPage } from './pages/owner/OwnerAnalyticsPage';
 import { OWNER_ANALYTICS_VIEW_NODE } from './types/dtos/analytics/WorldAnalyticsDtos';
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from './types/dtos/telemetry/TelemetryDtos';
 import { PublicPlayerProfilePage } from './pages/players/PublicPlayerProfilePage';
+import { DuelHistoryPage } from './pages/admin/duels/DuelHistoryPage';
+import { DuelMatchDetailPage } from './pages/admin/duels/DuelMatchDetailPage';
+import { DuelRestrictionsPage } from './pages/admin/duels/DuelRestrictionsPage';
+import { DuelPolicyPage } from './pages/admin/duels/DuelPolicyPage';
+import { DUEL_REVIEW_NODE } from './types/dtos/duels/DuelDtos';
 import React from 'react';
 import { RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -201,6 +206,28 @@ function AppContent() {
               <Route path="/admin/economy/alerts" element={
                 <StaffRoute node={CURRENCY_NODES.alerts}>
                   <CurrencyAlertsPage />
+                </StaffRoute>
+              } />
+              {/* Arena duels P7 (KNG-221): duel history and review, restrictions and the review policy -
+                  knk.admin.duel.review, which the API enforces on every staff action. */}
+              <Route path="/admin/duels" element={
+                <StaffRoute node={DUEL_REVIEW_NODE}>
+                  <DuelHistoryPage />
+                </StaffRoute>
+              } />
+              <Route path="/admin/duels/restrictions" element={
+                <StaffRoute node={DUEL_REVIEW_NODE}>
+                  <DuelRestrictionsPage />
+                </StaffRoute>
+              } />
+              <Route path="/admin/duels/policy" element={
+                <StaffRoute node={DUEL_REVIEW_NODE}>
+                  <DuelPolicyPage />
+                </StaffRoute>
+              } />
+              <Route path="/admin/duels/:id" element={
+                <StaffRoute node={DUEL_REVIEW_NODE}>
+                  <DuelMatchDetailPage />
                 </StaffRoute>
               } />
               {/* Player statistics (KNG-34): public pages - signed out they show only the

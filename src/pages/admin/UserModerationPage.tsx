@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Loader2, Search, Users, Clock, TrendingDown, List, ChevronLeft, ChevronRight, Coins, SlidersHorizontal, ShieldAlert, MapPinOff } from 'lucide-react';
+import { Loader2, Search, Users, Clock, TrendingDown, List, ChevronLeft, ChevronRight, Coins, SlidersHorizontal, ShieldAlert, MapPinOff, Swords } from 'lucide-react';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { userClient } from '../../apiClients/userClient';
@@ -12,6 +12,7 @@ import { usePermission } from '../../hooks/useStaffAccess';
 import { CURRENCY_NODES } from '../../types/dtos/currency/CurrencyDtos';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { LOCATION_RETENTION_NODES } from '../../types/dtos/locationRetention/LocationRetentionDtos';
+import { DUEL_REVIEW_NODE } from '../../types/dtos/duels/DuelDtos';
 
 // docs/specs/user-management/DESIGN.md §5, IMPLEMENTATION_PLAN.md Phase 3 - a moderation-oriented
 // list separate from the generic ObjectDashboard/PagedEntityTable system, since "users in group
@@ -35,6 +36,7 @@ export const UserModerationPage: React.FC = () => {
     const { allowed: canReadLedger } = usePermission(CURRENCY_NODES.history);
     const { allowed: canEditPolicy } = usePermission(CURRENCY_NODES.policy);
     const { allowed: canSeeAlerts } = usePermission(CURRENCY_NODES.alerts);
+    const { allowed: canReviewDuels } = usePermission(DUEL_REVIEW_NODE);
     const { allowed: canReviewLocations } = usePermission(LOCATION_RETENTION_NODES.view);
 
     const [groups, setGroups] = React.useState<PermissionGroupDto[]>([]);
@@ -205,6 +207,12 @@ export const UserModerationPage: React.FC = () => {
                             <Link to="/admin/economy/alerts" className="btn-secondary text-sm whitespace-nowrap">
                                 <ShieldAlert className="h-4 w-4 mr-2" />
                                 Currency alerts
+                            </Link>
+                        )}
+                        {canReviewDuels && (
+                            <Link to="/admin/duels" className="btn-secondary text-sm whitespace-nowrap">
+                                <Swords className="h-4 w-4 mr-2" />
+                                Duels
                             </Link>
                         )}
                         {canReviewLocations && (

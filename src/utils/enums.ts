@@ -137,6 +137,8 @@ export enum Controllers {
     SiegeLobbies = 'SiegeLobbies',
     // Arena duels (KNG-210): arenas, battlegrounds and spectator areas
     Arenas = 'Arenas',
+    // Arena duels (KNG-213/KNG-221): match history, staff review, restrictions and DuelPolicy
+    DuelMatches = 'DuelMatches',
     SiegeConfiguration = 'SiegeConfiguration',
     TitleBrackets = 'TitleBrackets',
     // Player statistics (KNG-34)
