@@ -37,6 +37,10 @@ export const auditActionLabel = (entry: AuditLogEntryDto): string => {
     case 'PrivacyDeletionExecuted': return 'Data deleted';
     case 'PrivacyDeletionCancelled': return 'Data deletion cancelled';
     case 'PrivacyDeletionConfirmed': return 'Data deletion confirmed by email';
+    // KNG-212: invitations; Details name the invitation, never its code.
+    case 'InvitationCreated': return 'Invitation created';
+    case 'InvitationRevoked': return 'Invitation revoked';
+    case 'InvitationRedeemed': return 'Account created with an invitation';
     default: return entry.action;
   }
 };

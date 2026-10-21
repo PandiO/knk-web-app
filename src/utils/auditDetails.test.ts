@@ -176,6 +176,8 @@ describe('auditActionLabel', () => {
     expect(auditActionLabel(entry('PrivacyDeletionRequested', null))).toBe('Data deletion requested');
     expect(auditActionLabel(entry('PrivacyDeletionExecuted', null))).toBe('Data deleted');
     expect(auditActionLabel(entry('PrivacyDeletionCancelled', null))).toBe('Data deletion cancelled');
+    expect(auditActionLabel(entry('InvitationCreated', null))).toBe('Invitation created');
+    expect(auditActionLabel(entry('InvitationRedeemed', null))).toBe('Account created with an invitation');
     expect(auditActionLabel(entry('SomethingNew' as AuditLogEntryDto['action'], null))).toBe('SomethingNew');
   });
 });

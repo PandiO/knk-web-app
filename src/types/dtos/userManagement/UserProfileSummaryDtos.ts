@@ -136,7 +136,11 @@ export type AuditAction =
   | 'PrivacyDeletionRequested'
   | 'PrivacyDeletionExecuted'
   | 'PrivacyDeletionCancelled'
-  | 'PrivacyDeletionConfirmed';
+  | 'PrivacyDeletionConfirmed'
+  // Invitations (KNG-212, knk-web-api AuditAction 37-39): create and revoke target the staff member.
+  | 'InvitationCreated'
+  | 'InvitationRevoked'
+  | 'InvitationRedeemed';
 
 export interface AuditLogEntryDto {
   id: number;
