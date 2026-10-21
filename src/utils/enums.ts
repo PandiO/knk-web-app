@@ -147,7 +147,9 @@ export enum Controllers {
     // GDPR deletion requests by players and staff (KNG-34, 2026-10-03)
     DataDeletion = 'data-deletion',
     // World analytics (KNG-34 link 7), owner only
-    WorldAnalytics = 'world-analytics'
+    WorldAnalytics = 'world-analytics',
+    // Mail log behind /admin/email (KNG-206), knk.admin.config
+    EmailOutbox = 'EmailOutbox'
 }
 
 

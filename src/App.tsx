@@ -22,6 +22,8 @@ import { DiscoveryAdminPage } from './pages/admin/DiscoveryAdminPage';
 import { DISCOVERY_ADMIN_NODE } from './types/dtos/discovery/DiscoveryDtos';
 import { RoadsAdminPage } from './pages/admin/RoadsAdminPage';
 import { ROAD_ADMIN_NODE } from './types/dtos/road/RoadDtos';
+import { EmailLogPage } from './pages/admin/EmailLogPage';
+import { EMAIL_ADMIN_NODE } from './types/dtos/email/EmailOutboxDtos';
 import { AccountTransactionsPage } from './pages/AccountTransactionsPage';
 import { BalanceLogPage } from './pages/admin/BalanceLogPage';
 import { TransactionDetailPage } from './pages/admin/economy/TransactionDetailPage';
@@ -177,6 +179,13 @@ function AppContent() {
               <Route path="/admin/roads" element={
                 <StaffRoute node={ROAD_ADMIN_NODE}>
                   <RoadsAdminPage />
+                </StaffRoute>
+              } />
+              {/* Mail log (KNG-206): the outbox, a test mail and Retry - knk.admin.config, which
+                  the API enforces on every call as well. */}
+              <Route path="/admin/email" element={
+                <StaffRoute node={EMAIL_ADMIN_NODE}>
+                  <EmailLogPage />
                 </StaffRoute>
               } />
               {/* Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md, KNG-23):
