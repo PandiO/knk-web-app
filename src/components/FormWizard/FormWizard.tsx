@@ -47,7 +47,7 @@ import {
 import { deriveGateGeometryStepData, gateGeometryFieldError, isDerivedGateGeometryField } from '../../utils/forms/gateGeometry';
 import { fillEmptySharedFieldValues, syncSharedFieldValues } from '../../utils/forms/sharedFieldSync';
 import { withLiveEnumOptions } from '../../utils/forms/enumFieldMetadata';
-import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
+import { resolveScannedMaterialRef } from '../../utils/forms/scannedMaterialRef';
 import { ItemBlueprintClient } from '../../apiClients/itemBlueprintClient';
 import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 import { ScanConflictModal, ScanConflictField, ScanConflictChoice } from './ScanConflictModal';
@@ -1343,14 +1343,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         let scannedMaterialLabel = '';
         if (iconMaterialField && typeof output.material === 'string' && output.material) {
             try {
-                const hybridMatches = await minecraftMaterialRefClient.getHybrid(output.material, undefined, 5);
-                const exactMatch = hybridMatches.find(
-                    m => m.namespaceKey.toLowerCase() === output.material.toLowerCase()
-                );
-                const materialRef = await minecraftMaterialRefClient.persistFromCatalog(
-                    output.material,
-                    exactMatch?.category || 'Misc'
-                );
+                // KNG-200 phase 5: get-or-create finds the scanned catalogue row (no hybrid lookup).
+                const materialRef = await resolveScannedMaterialRef(output.material);
                 if (materialRef?.id != null) {
                     scannedMaterialId = materialRef.id;
                     scannedMaterialLabel = materialRef.namespaceKey || output.material;
@@ -1712,14 +1706,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 } else {
                     let iconMaterialRefId: number | undefined;
                     try {
-                        const hybridMatches = await minecraftMaterialRefClient.getHybrid(item.material, undefined, 5);
-                        const exactMaterial = hybridMatches.find(
-                            m => m.namespaceKey.toLowerCase() === item.material.toLowerCase()
-                        );
-                        const materialRef = await minecraftMaterialRefClient.persistFromCatalog(
-                            item.material,
-                            exactMaterial?.category || 'Misc'
-                        );
+                        const materialRef = await resolveScannedMaterialRef(item.material);
                         iconMaterialRefId = materialRef?.id ?? undefined;
                     } catch (error) {
                         console.error('KitScan: failed to resolve MinecraftMaterialRef for', item.material, error);
