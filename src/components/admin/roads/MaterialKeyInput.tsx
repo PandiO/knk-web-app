@@ -1,12 +1,17 @@
 import React from 'react';
 import { minecraftMaterialRefClient } from '../../../apiClients/minecraftMaterialRefClient';
-import { MinecraftHybridMaterialOptionDto } from '../../../types/dtos/minecraftMaterialRef/MinecraftHybridMaterialOptionDto';
+import { MinecraftMaterialRefListDto } from '../../../types/dtos/minecraftMaterialRef/MinecraftMaterialRefDto';
 import { toMaterialKey } from './roadProfileForm';
 
 // Plan D10 / R38: a profile material is a Bukkit Material name typed into a text field, with
-// suggestions from the material catalogue (GET api/MinecraftMaterialRefs/hybrid) - the paged
-// HybridMaterialPicker is too heavy for one table row. Picking a suggestion writes its key in
-// Bukkit form (minecraft:stone_bricks -> STONE_BRICKS).
+// suggestions from the material catalogue - the paged MinecraftMaterialPicker is too heavy for one
+// table row. Picking a suggestion writes its key in Bukkit form (minecraft:stone_bricks ->
+// STONE_BRICKS). KNG-200 phase 5: the suggestions are a picker search on the database catalogue
+// (POST api/MinecraftMaterialRefs/search with Picker=true: saved rows only, Missing hidden, sorted
+// by display name), over every material (category ANY: roads use blocks as well as items).
+
+/** The search filters of the suggestions: a database picker search over all materials. */
+export const MATERIAL_SUGGESTION_FILTERS: Readonly<Record<string, string>> = { Picker: 'true', category: 'ANY' };
 
 /** How many catalogue matches to offer per keystroke. */
 export const MATERIAL_SUGGESTION_LIMIT = 8;
@@ -18,7 +23,7 @@ export const MaterialKeyInput: React.FC<{
   label: string;
   disabled?: boolean;
 }> = ({ value, onChange, label, disabled }) => {
-  const [suggestions, setSuggestions] = React.useState<MinecraftHybridMaterialOptionDto[]>([]);
+  const [suggestions, setSuggestions] = React.useState<MinecraftMaterialRefListDto[]>([]);
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState<string | null>(null);
 
@@ -30,9 +35,14 @@ export const MaterialKeyInput: React.FC<{
     let cancelled = false;
     const timer = setTimeout(() => {
       minecraftMaterialRefClient
-        .getHybrid(query.trim(), undefined, MATERIAL_SUGGESTION_LIMIT)
-        .then((options) => {
-          if (!cancelled) setSuggestions(options ?? []);
+        .searchPaged({
+          page: 1,
+          pageSize: MATERIAL_SUGGESTION_LIMIT,
+          searchTerm: query.trim(),
+          filters: { ...MATERIAL_SUGGESTION_FILTERS }
+        })
+        .then((result) => {
+          if (!cancelled) setSuggestions(result?.items ?? []);
         })
         .catch((err: unknown) => {
           // Suggestions are a convenience; typing the key still works.
@@ -46,7 +56,7 @@ export const MaterialKeyInput: React.FC<{
     };
   }, [query]);
 
-  const pick = (option: MinecraftHybridMaterialOptionDto) => {
+  const pick = (option: MinecraftMaterialRefListDto) => {
     onChange(toMaterialKey(option.namespaceKey));
     setQuery(null);
     setOpen(false);

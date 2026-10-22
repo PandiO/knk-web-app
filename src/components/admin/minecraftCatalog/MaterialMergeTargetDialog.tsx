@@ -5,8 +5,8 @@ import { MinecraftMaterialRefListDto } from '../../../types/dtos/minecraftMateri
 import { MinecraftCatalogAuditMaterialDto } from '../../../types/dtos/minecraftCatalog/MinecraftCatalogDtos';
 import { MinecraftIcon } from '../../minecraft/MinecraftIcon';
 
-// KNG-200 §8 step 4: "merge A into B". The target is picked from the stored materials only
-// (POST MinecraftMaterialRefs/search without SearchHybrid), since a merge needs a real row id.
+// KNG-200 §8 step 4: "merge A into B". The target is picked with the plain admin search
+// (POST MinecraftMaterialRefs/search without the Picker flag), which lists every stored row.
 // Picking only chooses: the card asks for confirmation and runs the merge.
 
 export const MERGE_SEARCH_PAGE_SIZE = 10;

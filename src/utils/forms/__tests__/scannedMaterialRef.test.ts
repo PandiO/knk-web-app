@@ -5,24 +5,22 @@ import { minecraftMaterialRefClient } from '../../../apiClients/minecraftMateria
 // the hybrid lookup (getHybrid) is gone.
 
 jest.mock('../../../apiClients/minecraftMaterialRefClient', () => ({
-    minecraftMaterialRefClient: { persistFromCatalog: jest.fn(), getHybrid: jest.fn(), searchPaged: jest.fn() }
+    minecraftMaterialRefClient: { persistFromCatalog: jest.fn(), searchPaged: jest.fn() }
 }));
 
 const client = minecraftMaterialRefClient as unknown as {
     persistFromCatalog: jest.Mock;
-    getHybrid: jest.Mock;
     searchPaged: jest.Mock;
 };
 
 beforeEach(() => jest.clearAllMocks());
 
 describe('resolveScannedMaterialRef', () => {
-    it('resolves the scanned material through get-or-create with category ITEM, without getHybrid', async () => {
+    it('resolves the scanned material through get-or-create with category ITEM and no search', async () => {
         client.persistFromCatalog.mockResolvedValue({ id: 12, namespaceKey: 'minecraft:diamond_sword' });
         await expect(resolveScannedMaterialRef('minecraft:diamond_sword')).resolves.toEqual({ id: 12, namespaceKey: 'minecraft:diamond_sword' });
         expect(client.persistFromCatalog).toHaveBeenCalledTimes(1);
         expect(client.persistFromCatalog).toHaveBeenCalledWith('minecraft:diamond_sword', 'ITEM');
-        expect(client.getHybrid).not.toHaveBeenCalled();
         expect(client.searchPaged).not.toHaveBeenCalled();
     });
 
