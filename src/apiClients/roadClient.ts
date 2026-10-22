@@ -1,6 +1,8 @@
 import { logging, Controllers, HttpMethod } from '../utils';
 import {
   DomainNavigationDefaultDto,
+  NavigationCompassSettingsDto,
+  UpdateNavigationCompassSettingsDto,
   UpdateDomainNavigationDefaultDto,
   RoadEdgeDto,
   RoadEdgeSearchQuery,
@@ -104,6 +106,16 @@ export class RoadClient extends ObjectManager {
   updateDomainNavigationDefault(domainType: string, change: UpdateDomainNavigationDefaultDto): Promise<DomainNavigationDefaultDto> {
     return this.invokeServiceCall(change, `domain-defaults/${encodeURIComponent(domainType)}`,
       Controllers.NavigationSettings, HttpMethod.Put);
+  }
+
+  // ===== Navigation compass item (api/navigation-settings/compass, KNG-234)
+
+  getNavigationCompassSettings(): Promise<NavigationCompassSettingsDto> {
+    return this.invokeServiceCall(null, 'compass', Controllers.NavigationSettings, HttpMethod.Get);
+  }
+
+  updateNavigationCompassSettings(change: UpdateNavigationCompassSettingsDto): Promise<NavigationCompassSettingsDto> {
+    return this.invokeServiceCall(change, 'compass', Controllers.NavigationSettings, HttpMethod.Put);
   }
 
   // ===== Streets (api/Streets/{id}/road)
