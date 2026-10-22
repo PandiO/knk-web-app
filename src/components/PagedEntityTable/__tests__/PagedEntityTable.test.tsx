@@ -304,26 +304,25 @@ describe('PagedEntityTable', () => {
         });
     });
 
-    // The enchantment catalogue is still hybrid (KNG-200 phase 5 deferred it).
-    describe('hybrid enchantment rows', () => {
-        const sharpness = { id: 5, displayName: 'Sharpness', name: 'Sharpness', namespaceKey: 'minecraft:sharpness', isPersisted: true };
-        const mending = { id: null, displayName: 'Mending', name: 'Mending', namespaceKey: 'minecraft:mending', category: 'TOOL', maxLevel: 1, isPersisted: false };
+    // KNG-250: enchantment refs are an ordinary database table too; the scan creates refs and
+    // definitions, so picking a row never creates anything.
+    describe('Minecraft enchantment table (KNG-250)', () => {
+        const sharpness = { id: 5, displayName: 'Sharpness', name: 'Sharpness', namespaceKey: 'minecraft:sharpness', isCustom: false, catalogStatus: 'Active' };
+        const flashChaos = { id: 9, displayName: 'Flash Chaos', name: 'Flash Chaos', namespaceKey: 'knk:flash_chaos', isCustom: true, catalogStatus: 'Active' };
 
-        it('searches with SearchHybrid and shows the New badge only on unsaved rows', async () => {
-            search.mockResolvedValue(page([sharpness, mending]));
-            render(<PagedEntityTable<Row> entityTypeName="MinecraftEnchantmentRef" columns={columns} />);
+        it('searches enchantments without the SearchHybrid flag, keys rows by id and shows no badges', async () => {
+            search.mockResolvedValue(page([sharpness, flashChaos]));
+            render(<PagedEntityTable<Row> entityTypeName="MinecraftEnchantmentRef" columns={columns} initialQuery={{ filters: { Picker: 'true' } }} />);
             await screen.findByText('Sharpness');
-            expect(search).toHaveBeenCalledWith(expect.objectContaining({ filters: expect.objectContaining({ SearchHybrid: 'true' }) }));
-            const [sharpnessRow, mendingRow] = bodyRows();
-            expect(within(mendingRow).getByText('New')).toBeInTheDocument();
-            expect(within(sharpnessRow).queryByText('New')).not.toBeInTheDocument();
-            expect(bodyRows().map(r => r.getAttribute('data-row-key'))).toEqual(['ns:minecraft:sharpness', 'ns:minecraft:mending']);
+            expect(search).toHaveBeenCalledTimes(1);
+            expect(search.mock.calls[0][0].filters).toEqual({ Picker: 'true' });
+            expect(search.mock.calls[0][0].filters).not.toHaveProperty('SearchHybrid');
+            expect(screen.queryByText('New')).not.toBeInTheDocument();
+            expect(bodyRows().map(r => r.getAttribute('data-row-key'))).toEqual(['id:5', 'id:9']);
         });
 
-        it('saves an unsaved enchantment (ref plus definition) on select and marks the row saved', async () => {
-            search.mockResolvedValue(page([mending]));
-            enchantmentClient.create.mockResolvedValue({ id: 31, namespaceKey: 'minecraft:mending' });
-            definitionClient.create.mockResolvedValue({ id: 1 });
+        it('selects a clicked enchantment without creating a ref or a definition', async () => {
+            search.mockResolvedValue(page([sharpness, flashChaos]));
             const onSelectionChange = jest.fn();
             render(
                 <PagedEntityTable<Row>
@@ -333,31 +332,30 @@ describe('PagedEntityTable', () => {
                     onSelectionChange={onSelectionChange}
                 />
             );
-            fireEvent.click(await screen.findByText('Mending'));
-            await waitFor(() => expect(onSelectionChange).toHaveBeenCalledWith([{ ...mending, id: 31, isPersisted: true }]));
-            expect(enchantmentClient.create).toHaveBeenCalledWith(expect.objectContaining({ namespaceKey: 'minecraft:mending', maxLevel: 1 }));
-            expect(definitionClient.create).toHaveBeenCalledWith(expect.objectContaining({ key: 'minecraft:mending', minecraftEnchantmentRefId: 31 }));
-            expect(within(bodyRows()[0]).queryByText('New')).not.toBeInTheDocument();
-        });
-
-        it("shows the API's refusal when saving fails and selects nothing", async () => {
-            search.mockResolvedValue(page([mending]));
-            enchantmentClient.create.mockRejectedValue(
-                Object.assign(new Error('An enchantment with this key already exists.'), { status: 409 })
-            );
-            const onSelectionChange = jest.fn();
-            render(
-                <PagedEntityTable<Row>
-                    entityTypeName="MinecraftEnchantmentRef"
-                    columns={columns}
-                    selectionConfig={{ mode: 'single' }}
-                    onSelectionChange={onSelectionChange}
-                />
-            );
-            fireEvent.click(await screen.findByText('Mending'));
-            expect(await screen.findByText('An enchantment with this key already exists.')).toBeInTheDocument();
-            expect(onSelectionChange).not.toHaveBeenCalled();
+            fireEvent.click(await screen.findByText('Flash Chaos'));
+            expect(onSelectionChange).toHaveBeenCalledWith([flashChaos]);
+            fireEvent.click(screen.getByText('Sharpness'));
+            expect(onSelectionChange).toHaveBeenLastCalledWith([sharpness]);
+            expect(enchantmentClient.create).not.toHaveBeenCalled();
             expect(definitionClient.create).not.toHaveBeenCalled();
+        });
+
+        it('matches a selected enchantment by id, not by namespaceKey', async () => {
+            // Two rows with one key (a notation duplicate before the scan merges it) stay two selections.
+            const duplicate = { ...sharpness, id: 6, name: 'Sharpness (old)' };
+            search.mockResolvedValue(page([sharpness, duplicate]));
+            const onSelectionChange = jest.fn();
+            render(
+                <PagedEntityTable<Row>
+                    entityTypeName="MinecraftEnchantmentRef"
+                    columns={columns}
+                    selectionConfig={{ mode: 'multiple' }}
+                    selectedItems={[sharpness]}
+                    onSelectionChange={onSelectionChange}
+                />
+            );
+            fireEvent.click(await screen.findByText('Sharpness (old)'));
+            expect(onSelectionChange).toHaveBeenCalledWith([sharpness, duplicate]);
         });
     });
 });

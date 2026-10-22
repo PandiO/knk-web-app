@@ -35,6 +35,8 @@ const materials = minecraftMaterialRefClient as jest.Mocked<typeof minecraftMate
 const scan = (overrides: Partial<MinecraftCatalogScanDto>): MinecraftCatalogScanDto => ({
   id: 7, status: 'Requested', requestedByUserId: 1, worldTaskId: 70, minecraftVersion: null, serverVersion: null,
   entryCount: null, inserted: 0, updated: 0, unchanged: 0, merged: 0, deleted: 0, markedMissing: 0, iconsMissing: 0,
+  enchantmentCount: null, enchantmentsInserted: 0, enchantmentsUpdated: 0, enchantmentsUnchanged: 0, enchantmentsMerged: 0,
+  enchantmentsDeleted: 0, enchantmentsMarkedMissing: 0, enchantmentDefinitionsCreated: 0, enchantmentDefinitionsLinked: 0,
   error: null, createdAt: '2026-10-21T10:00:00Z', completedAt: null,
   ...overrides,
 });
@@ -49,6 +51,7 @@ const emptyAudit = (overrides: Partial<MinecraftCatalogAuditDto> = {}): Minecraf
   readyForConstraints: true, materialCount: 1200, unverifiedCount: 0,
   materialKeyCollisions: [], invalidMaterialKeys: [], notNormalizedMaterialKeys: [], missingIcons: [], missingButReferenced: [],
   blockRefCount: 30, duplicateBlockStates: [], invalidBlockStates: [], unlinkedBlockRefs: [], notCanonicalBlockRefs: [],
+  enchantmentCount: 45, unverifiedEnchantmentCount: 0, missingEnchantmentsReferenced: [],
   ...overrides,
 });
 
@@ -155,6 +158,61 @@ describe('MinecraftCatalogAdminPage - server scan', () => {
     // The page reloads the scans to show the one that is running.
     await waitFor(() => expect(client.getScans).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+describe('MinecraftCatalogAdminPage - enchantments (KNG-250)', () => {
+  it('shows the enchantment counters of a schema 2 scan next to the material counters', async () => {
+    client.getScans.mockResolvedValue([scan({
+      id: 11, status: 'Completed', entryCount: 1480, unchanged: 1480, completedAt: '2026-10-22T10:01:00Z',
+      enchantmentCount: 47, enchantmentsInserted: 3, enchantmentsUpdated: 2, enchantmentsUnchanged: 42,
+      enchantmentsMarkedMissing: 1, enchantmentDefinitionsCreated: 5, enchantmentDefinitionsLinked: 4,
+    })]);
+
+    render(<MinecraftCatalogAdminPage />);
+    const latest = await screen.findByRole('group', { name: 'Latest scan' });
+    const enchantments = within(latest).getByLabelText('Enchantment counters');
+    const value = (label: string) => within(enchantments).getByText(label).nextElementSibling?.textContent;
+    expect(value('Enchantments')).toBe('47');
+    expect(value('Inserted')).toBe('3');
+    expect(value('Unchanged')).toBe('42');
+    expect(value('Missing')).toBe('1');
+    expect(value('Definitions created')).toBe('5');
+    expect(value('Definitions linked')).toBe('4');
+    expect(within(latest).getByLabelText('Material counters')).toHaveTextContent('1480');
+  });
+
+  it('hides the enchantment counters of a schema 1 scan', async () => {
+    client.getScans.mockResolvedValue([scan({ id: 10, status: 'Completed', entryCount: 1480, enchantmentCount: null })]);
+
+    render(<MinecraftCatalogAdminPage />);
+    const latest = await screen.findByRole('group', { name: 'Latest scan' });
+    expect(within(latest).getByLabelText('Material counters')).toBeInTheDocument();
+    expect(within(latest).queryByLabelText('Enchantment counters')).not.toBeInTheDocument();
+    expect(within(latest).queryByText('Definitions created')).not.toBeInTheDocument();
+  });
+
+  it('lists the missing enchantments still used, with the definitions that use them', async () => {
+    client.getAudit.mockResolvedValue(emptyAudit({
+      enchantmentCount: 47,
+      unverifiedEnchantmentCount: 2,
+      missingEnchantmentsReferenced: [{
+        id: 30, namespaceKey: 'knk:old_chaos', displayName: 'Old Chaos', isCustom: true, catalogStatus: 'Missing',
+        definitions: [{ id: 8, key: 'old_chaos', displayName: 'Old Chaos' }, { id: 9, key: 'old_chaos_2', displayName: 'Old Chaos II' }],
+      }],
+    }));
+
+    render(<MinecraftCatalogAdminPage />);
+    const table = await screen.findByRole('table', { name: 'Missing enchantments still used' });
+    expect(screen.getByText('Missing enchantments still used', { selector: 'h3' })).toHaveTextContent('1');
+    expect(within(table).getByText('knk:old_chaos')).toBeInTheDocument();
+    expect(within(table).getByText('Custom')).toBeInTheDocument();
+    expect(within(table).getByText('Old Chaos II')).toBeInTheDocument();
+    expect(within(table).getByText('(definition #8)')).toBeInTheDocument();
+    expect(within(table).getByText('old_chaos_2')).toBeInTheDocument();
+    expect(screen.queryByText('Nothing needs attention.')).not.toBeInTheDocument();
+    expect(screen.getByText('Enchantments:').nextElementSibling).toHaveTextContent('47');
+    expect(screen.getByText('Unverified enchantments:').nextElementSibling).toHaveTextContent('2');
   });
 });
 

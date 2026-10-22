@@ -57,9 +57,10 @@ const BLOCK_REF = 'minecraftblockref';
 const ENCHANTMENT_REF = 'minecraftenchantmentref';
 
 /**
- * KNG-200: the identity of a Minecraft catalogue row apart from its id. A material ref is its
- * normalised namespaceKey, a block ref its normalised namespaceKey plus block state, an enchantment
- * ref its namespaceKey as given (unchanged). Undefined for other entity types or a row without a key.
+ * KNG-200: the identity of a Minecraft catalogue row apart from its id, used only when a row has no
+ * id. A material ref is its normalised namespaceKey, a block ref its normalised namespaceKey plus
+ * block state, an enchantment ref its namespaceKey as given (unchanged). Undefined for other entity
+ * types or a row without a key.
  */
 export function catalogKeyOf(row: Record<string, unknown> | null | undefined, entityTypeName: string): string | undefined {
     if (!row) return undefined;
@@ -116,16 +117,13 @@ export function matchesPickerFilters(row: Record<string, unknown>, filters?: Rec
 }
 
 /**
- * Stable key for a table row: an enchantment ref by its namespaceKey (its unique identifier), any
- * other row by id (0 is no id), an unsaved material ref by its normalised namespaceKey, an unsaved
- * block ref by normalised namespaceKey + block state (KNG-200), else by namespaceKey/blockStateString
- * or its position.
+ * Stable key for a table row: by id (0 is no id). A row without an id is keyed by its catalogue key
+ * (KNG-200): a material ref by its normalised namespaceKey, a block ref by normalised namespaceKey +
+ * block state, an enchantment ref by its namespaceKey; else by namespaceKey/blockStateString or its
+ * position. Enchantment refs are keyed by id like other entities since KNG-250.
  */
 export function tableRowKey(row: Record<string, unknown>, entityTypeName: string, index: number): string {
     const type = entityTypeName.toLowerCase();
-    if (type === ENCHANTMENT_REF && present(row.namespaceKey)) {
-        return `ns:${String(row.namespaceKey)}`;
-    }
     const id = savedIdOf(row);
     if (id !== undefined) return `id:${String(id)}`;
     const catalogKey = catalogKeyOf(row, entityTypeName);
@@ -136,17 +134,14 @@ export function tableRowKey(row: Record<string, unknown>, entityTypeName: string
 }
 
 /**
- * Whether two values are the same selection: enchantment refs by namespaceKey, two rows with an id
- * by id (0 is no id). When one of them has no id, a material ref compares by normalised
- * namespaceKey and a block ref by normalised namespaceKey + block state (KNG-200); any other
- * id-less value only matches itself (two unsaved items are not equal).
+ * Whether two values are the same selection: two rows with an id by id (0 is no id). When one of
+ * them has no id, a material ref compares by normalised namespaceKey, a block ref by normalised
+ * namespaceKey + block state (KNG-200) and an enchantment ref by namespaceKey as given (KNG-250);
+ * any other id-less value only matches itself (two unsaved items are not equal).
  */
 export function isSameSelection(a: Record<string, unknown>, b: Record<string, unknown>, entityTypeName: string): boolean {
     if (a === b) return true;
     if (!a || !b) return false;
-    if (entityTypeName.toLowerCase() === ENCHANTMENT_REF) {
-        return present(a.namespaceKey) && a.namespaceKey === b.namespaceKey;
-    }
     const idA = savedIdOf(a);
     const idB = savedIdOf(b);
     if (idA !== undefined && idB !== undefined) return String(idA) === String(idB);

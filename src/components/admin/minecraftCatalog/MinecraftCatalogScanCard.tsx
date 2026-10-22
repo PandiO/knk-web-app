@@ -28,6 +28,39 @@ const COUNTERS: { key: keyof MinecraftCatalogScanDto; label: string; hint: strin
   { key: 'iconsMissing', label: 'No icon', hint: 'Materials without an icon (set an override below)' },
 ];
 
+// KNG-250 (§12.2): a schema 2 scan also ingests the enchantments, vanilla and knk custom ones, and
+// makes sure each has an EnchantmentDefinition. A schema 1 scan has enchantmentCount null.
+const ENCHANTMENT_COUNTERS: { key: keyof MinecraftCatalogScanDto; label: string; hint: string }[] = [
+  { key: 'enchantmentCount', label: 'Enchantments', hint: 'Enchantments the server sent, vanilla and custom' },
+  { key: 'enchantmentsInserted', label: 'Inserted', hint: 'New enchantments' },
+  { key: 'enchantmentsUpdated', label: 'Updated', hint: 'Existing enchantments whose facts changed' },
+  { key: 'enchantmentsUnchanged', label: 'Unchanged', hint: 'Existing enchantments that were already up to date' },
+  { key: 'enchantmentsMerged', label: 'Merged', hint: 'Notation duplicates merged into the scanned row' },
+  { key: 'enchantmentsDeleted', label: 'Deleted', hint: 'Unused enchantments the server no longer has' },
+  { key: 'enchantmentsMarkedMissing', label: 'Missing', hint: 'Enchantments the server no longer has that definitions still use (see below)' },
+  { key: 'enchantmentDefinitionsCreated', label: 'Definitions created', hint: 'Enchantment definitions created for enchantments that had none' },
+  { key: 'enchantmentDefinitionsLinked', label: 'Definitions linked', hint: 'Existing enchantment definitions linked to their enchantment' },
+];
+
+const hasEnchantmentCounters = (scan: MinecraftCatalogScanDto): boolean =>
+  scan.enchantmentCount !== null && scan.enchantmentCount !== undefined;
+
+const CounterGrid: React.FC<{
+  scan: MinecraftCatalogScanDto;
+  counters: { key: keyof MinecraftCatalogScanDto; label: string; hint: string }[];
+  label: string;
+  className: string;
+}> = ({ scan, counters, label, className }) => (
+  <dl className={`grid grid-cols-2 sm:grid-cols-4 gap-3 ${className}`} aria-label={label}>
+    {counters.map(({ key, label: counterLabel, hint }) => (
+      <div key={key} className="rounded border border-gray-200 bg-white px-3 py-2" title={hint}>
+        <dt className="text-xs text-gray-500">{counterLabel}</dt>
+        <dd className="text-lg font-semibold tabular-nums text-gray-900">{scan[key] ?? '—'}</dd>
+      </div>
+    ))}
+  </dl>
+);
+
 export const MinecraftCatalogScanCard: React.FC<{
   /** Called when a scan reaches Completed or Failed while the page watches it (the audit changed). */
   onScanFinished?: (scan: MinecraftCatalogScanDto) => void;
@@ -247,13 +280,13 @@ const CurrentScan: React.FC<{ scan: MinecraftCatalogScanDto }> = ({ scan }) => (
     {scan.error && (
       <p role="alert" className="text-sm text-red-700">{scan.error}</p>
     )}
-    <dl className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-      {COUNTERS.map(({ key, label, hint }) => (
-        <div key={key} className="rounded border border-gray-200 bg-white px-3 py-2" title={hint}>
-          <dt className="text-xs text-gray-500">{label}</dt>
-          <dd className="text-lg font-semibold tabular-nums text-gray-900">{scan[key] ?? '—'}</dd>
-        </div>
-      ))}
-    </dl>
+    {hasEnchantmentCounters(scan) && <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Materials</h3>}
+    <CounterGrid scan={scan} counters={COUNTERS} label="Material counters" className="lg:grid-cols-8" />
+    {hasEnchantmentCounters(scan) && (
+      <>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Enchantments</h3>
+        <CounterGrid scan={scan} counters={ENCHANTMENT_COUNTERS} label="Enchantment counters" className="lg:grid-cols-9" />
+      </>
+    )}
   </div>
 );

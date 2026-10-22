@@ -507,8 +507,9 @@ describe('normalizeFormSubmission (KNG-195: hybrid catalog pickers)', () => {
             entityMetadata: []
         });
 
-    const saved = { id: 12, namespaceKey: 'minecraft:sharpness', displayName: 'Sharpness', isPersisted: true };
-    const catalogOnly = { id: 0, namespaceKey: 'minecraft:smite', displayName: 'Smite', isPersisted: false };
+    const saved = { id: 12, namespaceKey: 'minecraft:sharpness', displayName: 'Sharpness' };
+    // A value without an id (older stored form data): sent by namespaceKey, which the API resolves.
+    const catalogOnly = { id: 0, namespaceKey: 'minecraft:smite', displayName: 'Smite' };
 
     it('turns a hybrid enchantment pick into an id instead of sending the raw object', () => {
         const normalized = normalize(field({}), { MinecraftEnchantmentRefId: saved });
@@ -524,7 +525,7 @@ describe('normalizeFormSubmission (KNG-195: hybrid catalog pickers)', () => {
         expect(normalized.MinecraftEnchantmentRefNamespaceKey).toBe('minecraft:smite');
     });
 
-    it('does the same for an Object picker on MinecraftEnchantmentRef (it runs the hybrid search too)', () => {
+    it('does the same for an Object picker on MinecraftEnchantmentRef', () => {
         const objectField = field({ fieldType: FieldType.Object, objectType: 'MinecraftEnchantmentRef' });
 
         const unsaved = normalize(objectField, { MinecraftEnchantmentRefId: catalogOnly });
