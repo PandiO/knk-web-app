@@ -16,7 +16,7 @@ const DEFAULTS = {
     matchmakingAnnouncementMarks: [290, 60, 30, 15], killAnnouncementThresholds: [5, 10, 15], killStreakAnnounceAbove: 3,
     headshotMultiplier: 1.5, allowedCommands: ['/siege', '/msg'], spawnPickerDelayTicks: 20,
     enchantDropChancePerMille: 30, allowedEnchantmentKeys: ['minecraft:sharpness'], enchantLevelMin: 1, enchantLevelMax: 2,
-    maxBooksAlive: 10, nonMemberGateView: 'PreLockdownView', updatedAt: '2026-09-25T17:00:00Z'
+    maxBooksAlive: 10, nonMemberGateView: 'PreLockdownView', giveNavigationItem: false, updatedAt: '2026-09-25T17:00:00Z'
 };
 
 describe('SiegeConfigurationPage', () => {
@@ -56,5 +56,17 @@ describe('SiegeConfigurationPage', () => {
         fireEvent.change(screen.getByDisplayValue('1.5'), { target: { value: '99' } });
         fireEvent.click(screen.getByRole('button', { name: /save \(2\)/i }));
         await waitFor(() => expect(screen.getByText('headshotMultiplier must be between 1 and 10.')).toBeInTheDocument());
+    });
+
+    it('switches the global navigation compass on with a checkbox and sends only that', async () => {
+        render(<SiegeConfigurationPage />);
+        const box = await screen.findByLabelText(/Give the navigation compass at the hub/);
+        expect(box).not.toBeChecked();
+
+        fireEvent.click(box);
+        fireEvent.click(screen.getByRole('button', { name: /save \(1\)/i }));
+
+        await waitFor(() => expect(siegeConfigurationClient.update).toHaveBeenCalledWith({ giveNavigationItem: true }));
+        await waitFor(() => expect(screen.getByLabelText(/Give the navigation compass at the hub/)).toBeChecked());
     });
 });
