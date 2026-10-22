@@ -1,11 +1,12 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { HybridMaterialPicker, materialPickerFilters } from '../HybridMaterialPicker';
+import { MinecraftMaterialPicker, materialPickerFilters } from '../MinecraftMaterialPicker';
 import { getSearchFunctionForEntity } from '../../../utils/entityApiMapping';
 
 // KNG-200 phase 4: the material picker filters on kind. Item blueprints, menus and icons pick
 // items, so that is the default; BLOCK picks blocks and ANY everything.
+// KNG-200 phase 5: it is a database-only picker search (Picker: 'true'), no hybrid search.
 
 jest.mock('../../../utils/entityApiMapping', () => ({
     getSearchFunctionForEntity: jest.fn()
@@ -33,34 +34,43 @@ beforeEach(() => {
 });
 
 const renderPicker = (categoryFilter?: string) =>
-    render(<HybridMaterialPicker label="Icon material" value={null} onChange={jest.fn()} categoryFilter={categoryFilter} />);
+    render(<MinecraftMaterialPicker label="Icon material" value={null} onChange={jest.fn()} categoryFilter={categoryFilter} />);
 
 const sentFilters = () => search.mock.calls[search.mock.calls.length - 1][0].filters;
 
-describe('HybridMaterialPicker kind filter', () => {
+describe('MinecraftMaterialPicker filters', () => {
     it('picks items by default', async () => {
         renderPicker();
         await waitFor(() => expect(search).toHaveBeenCalled());
-        expect(sentFilters()).toEqual({ kind: 'item', SearchHybrid: 'true' });
+        expect(sentFilters()).toEqual({ Picker: 'true', kind: 'item' });
     });
 
     it('sends kind=block (and the legacy category) for BLOCK', async () => {
         renderPicker('BLOCK');
         await waitFor(() => expect(search).toHaveBeenCalled());
-        expect(sentFilters()).toEqual({ category: 'BLOCK', kind: 'block', SearchHybrid: 'true' });
+        expect(sentFilters()).toEqual({ Picker: 'true', category: 'BLOCK', kind: 'block' });
     });
 
     it('sends no kind for ANY', async () => {
         renderPicker('ANY');
         await waitFor(() => expect(search).toHaveBeenCalled());
-        expect(sentFilters()).toEqual({ category: 'ANY', SearchHybrid: 'true' });
+        expect(sentFilters()).toEqual({ Picker: 'true', category: 'ANY' });
+    });
+
+    it('sends the picker flag and never the SearchHybrid flag', async () => {
+        renderPicker('BLOCK');
+        await waitFor(() => expect(search).toHaveBeenCalled());
+        expect(search).toHaveBeenCalledTimes(1);
+        expect(sentFilters().Picker).toBe('true');
+        expect(sentFilters()).not.toHaveProperty('SearchHybrid');
     });
 
     it('maps the other legacy settings to items', () => {
-        expect(materialPickerFilters('ICON')).toEqual({ category: 'ICON', kind: 'item' });
-        expect(materialPickerFilters('ITEM')).toEqual({ category: 'ITEM', kind: 'item' });
-        expect(materialPickerFilters('block')).toEqual({ category: 'block', kind: 'block' });
-        expect(materialPickerFilters('  ')).toEqual({ kind: 'item' });
+        expect(materialPickerFilters('ICON')).toEqual({ Picker: 'true', category: 'ICON', kind: 'item' });
+        expect(materialPickerFilters('ITEM')).toEqual({ Picker: 'true', category: 'ITEM', kind: 'item' });
+        expect(materialPickerFilters('BANNER')).toEqual({ Picker: 'true', category: 'BANNER', kind: 'item' });
+        expect(materialPickerFilters('block')).toEqual({ Picker: 'true', category: 'block', kind: 'block' });
+        expect(materialPickerFilters('  ')).toEqual({ Picker: 'true', kind: 'item' });
     });
 
     it('shows the display name, kind and no "Existing" badge for a saved row', async () => {

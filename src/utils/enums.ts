@@ -187,6 +187,8 @@ export enum FieldType {
     Enum = 'Enum',
     Object = 'Object',
     List = 'List',
+    // Renders MinecraftMaterialPicker (database-only since KNG-200 phase 5). The name stays: stored
+    // FormConfigurations hold it as a string; renaming it needs a data migration of formfields.FieldType.
     HybridMinecraftMaterialRefPicker = 'HybridMinecraftMaterialRefPicker',
     HybridMinecraftEnchantmentRefPicker = 'HybridMinecraftEnchantmentRefPicker'
 }

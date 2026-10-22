@@ -4,7 +4,7 @@ import { FieldType } from '../../utils/enums';
 import { Calendar, Plus, Minus, X, CheckCircle2, AlertTriangle, Loader2, Info, Pencil, Gamepad2, RefreshCw, WifiOff } from 'lucide-react';
 import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
 import { getColumnDefinitions } from '../../config/objectConfigs';
-import { HybridMaterialPicker } from '../minecraft/HybridMaterialPicker';
+import { MinecraftMaterialPicker } from '../minecraft/MinecraftMaterialPicker';
 import { HybridEnchantmentPicker } from '../minecraft/HybridEnchantmentPicker';
 import { ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { interpolatePlaceholders } from '../../utils/placeholderInterpolation';
@@ -251,9 +251,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                 />
             );
         case FieldType.HybridMinecraftMaterialRefPicker: {
-            const settings = parseHybridMaterialSettings(field.settingsJson);
+            const settings = parseMaterialPickerSettings(field.settingsJson);
             return withFeedback(
-                <HybridMaterialPicker
+                <MinecraftMaterialPicker
                     label={field.label}
                     description={field.description}
                     value={value}
@@ -298,7 +298,7 @@ const parseWorldTaskTaskType = (settingsJson?: string): string | undefined => {
     }
 };
 
-const parseHybridMaterialSettings = (settingsJson?: string): { categoryFilter?: string; multiSelect: boolean } => {
+const parseMaterialPickerSettings = (settingsJson?: string): { categoryFilter?: string; multiSelect: boolean } => {
     if (!settingsJson) return { multiSelect: false };
     try {
         const parsed = JSON.parse(settingsJson);
@@ -307,7 +307,7 @@ const parseHybridMaterialSettings = (settingsJson?: string): { categoryFilter?: 
             multiSelect: !!parsed.multiSelect
         };
     } catch (err) {
-        console.warn('Failed to parse hybrid material settingsJson', err);
+        console.warn('Failed to parse material picker settingsJson', err);
         return { multiSelect: false };
     }
 };

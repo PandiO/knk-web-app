@@ -1093,9 +1093,9 @@ export const FieldEditor: React.FC<Props> = ({
                                 placeholder='{"categoryFilter":"BLOCK","multiSelect":false}'
                             />
                             <p className="mt-1 text-xs text-gray-500">
-                                Configure categoryFilter or multiSelect for the material picker. Without a
-                                categoryFilter (or with ITEM or ICON) it lists items; BLOCK lists blocks, BANNER
-                                banners and ANY every material.
+                                Configure categoryFilter or multiSelect for the material picker, which lists the
+                                saved materials of the Minecraft catalogue. Without a categoryFilter (or with ITEM
+                                or ICON) it lists items; BLOCK lists blocks, BANNER banners and ANY every material.
                             </p>
                         </div>
                     )}
