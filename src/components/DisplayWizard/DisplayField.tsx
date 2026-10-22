@@ -4,6 +4,7 @@ import { Edit2, Check, X } from 'lucide-react';
 import { DisplayFieldProps } from '../../types/dtos/displayConfig/DisplayModels';
 import { useTemplateParser } from './hooks/useTemplateParser';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { MinecraftIcon } from '../minecraft/MinecraftIcon';
 
 export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: string }> = ({ 
   field, 
@@ -199,18 +200,15 @@ function renderDisplayValue(sourceData: unknown, field: DisplayFieldProps['field
     const data = sourceData as Record<string, unknown>;
     const iconUrl = data.iconUrl || data.IconUrl;
     const namespaceKey = data.namespaceKey || data.NamespaceKey;
-    
-    if (iconUrl) {
+
+    // KNG-200 phase 4: MinecraftIcon shows a placeholder for a missing or broken icon.
+    if (iconUrl || namespaceKey) {
       return (
         <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded flex-1">
-          <img 
-            src={String(iconUrl)} 
+          <MinecraftIcon
+            src={iconUrl ? String(iconUrl) : null}
             alt={String(namespaceKey || 'Material')}
-            className="h-8 w-8 object-contain"
-            onError={(e) => {
-              // Fallback if image fails to load
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
+            size={32}
           />
           <div>
             <div className="text-base text-gray-900 font-medium">

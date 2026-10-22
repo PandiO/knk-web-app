@@ -5,6 +5,7 @@ import { DisplayField } from './DisplayField';
 import { CollectionSection } from './CollectionSection';
 import { ActionButtons } from './ActionButtons';
 import { DisplaySectionProps, ActionButtonsConfigDto } from '../../types/dtos/displayConfig/DisplayModels';
+import { MinecraftIcon } from '../minecraft/MinecraftIcon';
 
 export const DisplaySection: React.FC<DisplaySectionProps> = ({
   section,
@@ -57,25 +58,15 @@ function toCamelCase(str: string): string {
   return str.charAt(0).toLowerCase() + str.slice(1);
 }
 
-// Helper: Render Minecraft material/block icon
-function renderMinecraftIcon(data: Record<string, unknown>): React.ReactElement | null {
+// Helper: Render Minecraft material/block icon. KNG-200 phase 4: MinecraftIcon shows a placeholder
+// for a missing or broken icon (icons are required, D8), so every material/block section has one.
+function renderMinecraftIcon(data: Record<string, unknown>): React.ReactElement {
   const iconUrl = data.iconUrl || data.IconUrl;
-  
-  if (!iconUrl) {
-    return null;
-  }
+  const name = data.displayName || data.DisplayName || data.namespaceKey || data.NamespaceKey || 'Material';
 
   return (
-    <div className="flex items-center justify-center h-24 w-24 bg-gray-100 rounded-lg border border-gray-200 overflow-hidden">
-      <img 
-        src={String(iconUrl)} 
-        alt="Material Icon"
-        className="h-full w-full object-contain p-2"
-        onError={(e) => {
-          // Fallback if image fails to load
-          (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"%3E%3Crect x="3" y="3" width="18" height="18" rx="2" ry="2"/%3E%3C/svg%3E';
-        }}
-      />
+    <div className="flex items-center justify-center h-24 w-24 bg-gray-100 rounded-lg border border-gray-200 overflow-hidden p-2">
+      <MinecraftIcon src={iconUrl ? String(iconUrl) : null} alt={String(name)} size={80} />
     </div>
   );
 }

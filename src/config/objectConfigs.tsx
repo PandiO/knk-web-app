@@ -8,6 +8,7 @@ import {
   pickerTownNames,
   pickerWorldName
 } from '../utils/forms/pickerRowValues';
+import { MinecraftIcon } from '../components/minecraft/MinecraftIcon';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
   default: [
@@ -48,6 +49,33 @@ const streetAddressColumn: ColumnDefinition<any> = {
   render: (row: any) => pickerStreetAddress(row) ?? '-'
 };
 
+// KNG-200 phase 4: material and block icons go through MinecraftIcon, which shows a neutral
+// placeholder for a missing or broken texture instead of the browser's broken-image glyph.
+const minecraftIconColumn = (size: number): ColumnDefinition<any> => ({
+  key: 'iconUrl',
+  label: 'Icon',
+  sortable: false,
+  render: (row: any) => (
+    <MinecraftIcon src={row.iconUrl} alt={row.displayName || row.namespaceKey || row.name || 'Icon'} size={size} />
+  )
+});
+
+/** Item / Block / Item & block, or a dash when the catalogue doesn't know (hybrid rows before a scan). */
+export const minecraftMaterialKindLabel = (row: { isItem?: boolean | null; isBlock?: boolean | null }): string => {
+  if (row.isItem && row.isBlock) return 'Item & block';
+  if (row.isItem) return 'Item';
+  if (row.isBlock) return 'Block';
+  return '\u2014';
+};
+
+// Material and block refs have no `name`; the catalogue's display name (or the key) stands in.
+const minecraftNameColumn = (sortable: boolean): ColumnDefinition<any> => ({
+  key: 'displayName',
+  label: 'Name',
+  sortable,
+  render: (row: any) => row.displayName || row.namespaceKey || '\u2014'
+});
+
 export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefinition<any>[]>> = {
   town: {
     default: [...defaultColumnDefinitions.default, worldColumn]
@@ -75,17 +103,10 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
   },
   minecraftblockref: {
     default: [
-      ...defaultColumnDefinitions.default,
-      { 
-        key: 'iconUrl', 
-        label: 'Icon', 
-        sortable: false,
-        render: (row: any) => row.iconUrl ? (
-          <img src={row.iconUrl} alt={row.namespaceKey} className="h-8 w-8 object-contain" />
-        ) : (
-          <span className="text-gray-400 text-xs">No icon</span>
-        )
-      },
+      { key: 'id', label: 'ID', sortable: true },
+      // The block ref repository sorts by key, not by name.
+      minecraftNameColumn(false),
+      minecraftIconColumn(32),
       { key: 'namespaceKey', label: 'Namespace Key', sortable: true },
       { key: 'logicalType', label: 'Logical Type', sortable: false },
       { key: 'blockStateString', label: 'Block State', sortable: false }
@@ -93,20 +114,20 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
   },
   minecraftmaterialref: {
     default: [
-      ...defaultColumnDefinitions.default,
-      { 
-        key: 'iconUrl', 
-        label: 'Icon', 
-        sortable: false,
-        render: (row: any) => row.iconUrl ? (
-          <img src={row.iconUrl} alt={row.namespaceKey} className="h-8 w-8 object-contain" />
-        ) : (
-          <span className="text-gray-400 text-xs">No icon</span>
-        )
-      },
+      { key: 'id', label: 'ID', sortable: true },
+      minecraftNameColumn(true),
+      minecraftIconColumn(32),
       { key: 'namespaceKey', label: 'Namespace Key', sortable: true },
-      { key: 'category', label: 'Category', sortable: true },
-      { key: 'legacyName', label: 'Legacy Name', sortable: false }
+      { key: 'kind', label: 'Kind', sortable: false, render: (row: any) => minecraftMaterialKindLabel(row) },
+      { key: 'catalogStatus', label: 'Status', sortable: false, render: (row: any) => row.catalogStatus || '\u2014' }
+    ]
+  },
+  // KNG-200 phase 4: the item blueprint overview shows each blueprint's icon material.
+  itemblueprint: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      minecraftIconColumn(24),
+      { key: 'name', label: 'Name', sortable: true }
     ]
   },
   minecraftenchantmentref: {
@@ -280,6 +301,18 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'minExperience', label: 'Min XP', sortable: false },
     ]
   }
+};
+
+/**
+ * The built-in columns for an entity type. Registry keys are lower case, while the object dashboard
+ * and form pickers pass the API's entity name ("ItemBlueprint"), so the lookup ignores case.
+ */
+export const getColumnDefinitions = (entityTypeName: string | null | undefined): ColumnDefinition<any>[] => {
+  if (!entityTypeName) return defaultColumnDefinitions.default;
+  const normalized = entityTypeName.toLowerCase();
+  return columnDefinitionsRegistry[normalized]?.default
+    ?? columnDefinitionsRegistry[entityTypeName]?.default
+    ?? defaultColumnDefinitions.default;
 };
 
 export const commonFields: Record<string, FormField> = {

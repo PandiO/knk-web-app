@@ -1090,10 +1090,12 @@ export const FieldEditor: React.FC<Props> = ({
                                 onChange={e => setField({ ...field, settingsJson: e.target.value })}
                                 rows={2}
                                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                placeholder='{"categoryFilter":"ICON","multiSelect":false}'
+                                placeholder='{"categoryFilter":"BLOCK","multiSelect":false}'
                             />
                             <p className="mt-1 text-xs text-gray-500">
-                                Configure categoryFilter or multiSelect for the hybrid material picker.
+                                Configure categoryFilter or multiSelect for the material picker, which lists the
+                                saved materials of the Minecraft catalogue. Without a categoryFilter (or with ITEM
+                                or ICON) it lists items; BLOCK lists blocks, BANNER banners and ANY every material.
                             </p>
                         </div>
                     )}

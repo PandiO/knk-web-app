@@ -13,6 +13,8 @@
  * A pinned row the current page also holds is always shown (the server accepted it), once, pinned.
  */
 
+import { normalizeBlockStateString, normalizeNamespaceKey } from '../minecraftKeys';
+
 export interface PinnedRow<T = Record<string, unknown>> {
     /** Stable key of the session entry, e.g. "district:12". */
     key: string;
@@ -41,11 +43,46 @@ const idOf = (value: unknown): unknown => {
 
 const present = (value: unknown): boolean => value !== undefined && value !== null && value !== '';
 
+/**
+ * The row's database id, or undefined when it has none. Ids start at 1, so 0 (or "0") is no id: the
+ * hybrid Minecraft search returned unsaved catalogue rows with `id: 0` before KNG-200 (`null` since).
+ */
+const savedIdOf = (value: unknown): unknown => {
+    const id = idOf(value);
+    return present(id) && String(id).trim() !== '0' ? id : undefined;
+};
+
+const MATERIAL_REF = 'minecraftmaterialref';
+const BLOCK_REF = 'minecraftblockref';
+const ENCHANTMENT_REF = 'minecraftenchantmentref';
+
+/**
+ * KNG-200: the identity of a Minecraft catalogue row apart from its id. A material ref is its
+ * normalised namespaceKey, a block ref its normalised namespaceKey plus block state, an enchantment
+ * ref its namespaceKey as given (unchanged). Undefined for other entity types or a row without a key.
+ */
+export function catalogKeyOf(row: Record<string, unknown> | null | undefined, entityTypeName: string): string | undefined {
+    if (!row) return undefined;
+    const type = entityTypeName.toLowerCase();
+    if (type === ENCHANTMENT_REF) {
+        return present(row.namespaceKey) ? String(row.namespaceKey) : undefined;
+    }
+    if (type === MATERIAL_REF) {
+        return normalizeNamespaceKey(row.namespaceKey) || undefined;
+    }
+    if (type === BLOCK_REF) {
+        const namespaceKey = normalizeNamespaceKey(row.namespaceKey);
+        const state = normalizeBlockStateString(row.blockStateString);
+        return namespaceKey || state ? `${namespaceKey}|${state}` : undefined;
+    }
+    return undefined;
+}
+
 export function matchesSearchTerm(row: Record<string, unknown>, searchTerm?: string): boolean {
     const term = (searchTerm ?? '').trim().toLowerCase();
     if (!term) return true;
-    const id = idOf(row);
-    if (present(id) && String(id).toLowerCase() === term) return true;
+    const id = savedIdOf(row);
+    if (id !== undefined && String(id).toLowerCase() === term) return true;
     return LABEL_FIELDS.some(field => {
         const { value } = lookup(row, field);
         return (typeof value === 'string' || typeof value === 'number') && String(value).toLowerCase().includes(term);
@@ -80,32 +117,41 @@ export function matchesPickerFilters(row: Record<string, unknown>, filters?: Rec
 
 /**
  * Stable key for a table row: an enchantment ref by its namespaceKey (its unique identifier), any
- * other row by id, an unsaved hybrid option by namespaceKey/blockStateString, else its position.
+ * other row by id (0 is no id), an unsaved material ref by its normalised namespaceKey, an unsaved
+ * block ref by normalised namespaceKey + block state (KNG-200), else by namespaceKey/blockStateString
+ * or its position.
  */
 export function tableRowKey(row: Record<string, unknown>, entityTypeName: string, index: number): string {
-    if (entityTypeName.toLowerCase() === 'minecraftenchantmentref' && present(row.namespaceKey)) {
+    const type = entityTypeName.toLowerCase();
+    if (type === ENCHANTMENT_REF && present(row.namespaceKey)) {
         return `ns:${String(row.namespaceKey)}`;
     }
-    const id = idOf(row);
-    if (present(id)) return `id:${String(id)}`;
+    const id = savedIdOf(row);
+    if (id !== undefined) return `id:${String(id)}`;
+    const catalogKey = catalogKeyOf(row, entityTypeName);
+    if (catalogKey !== undefined) return `${type === BLOCK_REF ? 'bs' : 'ns'}:${catalogKey}`;
     if (present(row.blockStateString)) return `bs:${String(row.blockStateString)}`;
     if (present(row.namespaceKey)) return `ns:${String(row.namespaceKey)}`;
     return `index:${index}`;
 }
 
 /**
- * Whether two values are the same selection: enchantment refs by namespaceKey, rows with an id by
- * id, id-less values only when they are the same object (two unsaved items are not equal).
+ * Whether two values are the same selection: enchantment refs by namespaceKey, two rows with an id
+ * by id (0 is no id). When one of them has no id, a material ref compares by normalised
+ * namespaceKey and a block ref by normalised namespaceKey + block state (KNG-200); any other
+ * id-less value only matches itself (two unsaved items are not equal).
  */
 export function isSameSelection(a: Record<string, unknown>, b: Record<string, unknown>, entityTypeName: string): boolean {
     if (a === b) return true;
     if (!a || !b) return false;
-    if (entityTypeName.toLowerCase() === 'minecraftenchantmentref') {
+    if (entityTypeName.toLowerCase() === ENCHANTMENT_REF) {
         return present(a.namespaceKey) && a.namespaceKey === b.namespaceKey;
     }
-    const idA = idOf(a);
-    const idB = idOf(b);
-    return present(idA) && present(idB) && String(idA) === String(idB);
+    const idA = savedIdOf(a);
+    const idB = savedIdOf(b);
+    if (idA !== undefined && idB !== undefined) return String(idA) === String(idB);
+    const keyA = catalogKeyOf(a, entityTypeName);
+    return keyA !== undefined && keyA === catalogKeyOf(b, entityTypeName);
 }
 
 export interface PinnedSection<T> {
@@ -131,15 +177,15 @@ export function buildPinnedSection<T extends Record<string, unknown>>(
 
     const pageById = new Map<string, T>();
     pageItems.forEach(item => {
-        const id = idOf(item);
-        if (present(id)) pageById.set(String(id), item);
+        const id = savedIdOf(item);
+        if (id !== undefined) pageById.set(String(id), item);
     });
 
     const seen = new Set<string>();
     const pinned: Array<PinnedRow<T>> = [];
     pinnedRows.forEach(pin => {
-        const id = idOf(pin.row);
-        if (!present(id)) return;
+        const id = savedIdOf(pin.row);
+        if (id === undefined) return;
         const idKey = String(id);
         if (seen.has(idKey)) return;
         const fromPage = pageById.get(idKey);
@@ -153,8 +199,8 @@ export function buildPinnedSection<T extends Record<string, unknown>>(
     return {
         pinned,
         pageItems: pageItems.filter(item => {
-            const id = idOf(item);
-            return !(present(id) && seen.has(String(id)));
+            const id = savedIdOf(item);
+            return !(id !== undefined && seen.has(String(id)));
         })
     };
 }

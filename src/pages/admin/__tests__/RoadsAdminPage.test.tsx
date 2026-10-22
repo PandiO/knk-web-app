@@ -34,7 +34,7 @@ jest.mock('../../../apiClients/townClient', () => ({
   townClient: { searchPaged: jest.fn() },
 }));
 jest.mock('../../../apiClients/minecraftMaterialRefClient', () => ({
-  minecraftMaterialRefClient: { getHybrid: jest.fn() },
+  minecraftMaterialRefClient: { searchPaged: jest.fn() },
 }));
 
 const client = roadClient as jest.Mocked<typeof roadClient>;
@@ -98,7 +98,7 @@ describe('RoadsAdminPage', () => {
     ]);
     streets.searchPaged.mockResolvedValue({ items: [{ id: 5, name: 'Market Street' }, { id: 6, name: 'Harbour Road' }], totalCount: 2, page: 1, pageSize: 1000, totalPages: 1 });
     towns.searchPaged.mockResolvedValue({ items: [{ id: 4, name: 'Kardenna', allowEntry: true, requiredTitle: 0 }], totalCount: 1, page: 1, pageSize: 1000, totalPages: 1 });
-    materials.getHybrid.mockResolvedValue([]);
+    materials.searchPaged.mockResolvedValue({ items: [], totalCount: 0, page: 1, pageSize: 8, totalPages: 0 });
     confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
@@ -305,9 +305,10 @@ describe('RoadsAdminPage', () => {
   describe('profiles', () => {
     it('creates a profile with a material and a scope town', async () => {
       client.createProfile.mockResolvedValue({ ...defaultProfile, id: 3, name: 'Trail' });
-      materials.getHybrid.mockResolvedValue([
-        { namespaceKey: 'minecraft:dirt_path', category: 'block', displayName: 'Dirt Path', isPersisted: false },
-      ]);
+      materials.searchPaged.mockResolvedValue({
+        items: [{ id: 41, namespaceKey: 'minecraft:dirt_path', category: 'BLOCK', displayName: 'Dirt Path', isPersisted: true }],
+        totalCount: 1, page: 1, pageSize: 8, totalPages: 1,
+      });
       renderPage();
       await screen.findByText('Default road');
 
@@ -324,7 +325,11 @@ describe('RoadsAdminPage', () => {
       // Materials: typed key with a catalogue suggestion
       await userEvent.click(screen.getByRole('button', { name: 'Add material' }));
       await userEvent.type(screen.getByLabelText('Material 1 material'), 'dirt');
-      await waitFor(() => expect(materials.getHybrid).toHaveBeenCalledWith('dirt', undefined, 8));
+      // KNG-200 phase 5: a database picker search over every material, not the hybrid catalogue.
+      await waitFor(() => expect(materials.searchPaged).toHaveBeenCalledWith({
+        page: 1, pageSize: 8, searchTerm: 'dirt', filters: { Picker: 'true', category: 'ANY' },
+      }));
+      expect(materials.searchPaged.mock.calls.every(([q]) => !('SearchHybrid' in (q.filters ?? {})))).toBe(true);
       await userEvent.click(await screen.findByRole('option', { name: /DIRT_PATH/ }));
       await userEvent.selectOptions(screen.getByLabelText('DIRT_PATH role'), 'Surface');
 
