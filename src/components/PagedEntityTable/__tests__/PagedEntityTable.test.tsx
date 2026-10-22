@@ -5,6 +5,8 @@ import { PagedEntityTable } from '../PagedEntityTable';
 import { getSearchFunctionForEntity } from '../../../utils/entityApiMapping';
 import { minecraftMaterialRefClient } from '../../../apiClients/minecraftMaterialRefClient';
 import { minecraftBlockRefClient } from '../../../apiClients/minecraftBlockRefClient';
+import { minecraftEnchantmentRefClient } from '../../../apiClients/minecraftEnchantmentRefClient';
+import { enchantmentDefinitionClient } from '../../../apiClients/enchantmentDefinitionClient';
 
 /**
  * KNG-136: PagedEntityTable's first tests - pinned "Created in this form" rows, de-duplication
@@ -24,13 +26,15 @@ jest.mock('../../../apiClients/minecraftMaterialRefClient', () => ({
 jest.mock('../../../apiClients/minecraftBlockRefClient', () => ({
     minecraftBlockRefClient: { create: jest.fn(), getOrCreate: jest.fn() }
 }));
-jest.mock('../../../apiClients/minecraftEnchantmentRefClient', () => ({ minecraftEnchantmentRefClient: {} }));
-jest.mock('../../../apiClients/enchantmentDefinitionClient', () => ({ enchantmentDefinitionClient: {} }));
+jest.mock('../../../apiClients/minecraftEnchantmentRefClient', () => ({ minecraftEnchantmentRefClient: { create: jest.fn() } }));
+jest.mock('../../../apiClients/enchantmentDefinitionClient', () => ({ enchantmentDefinitionClient: { create: jest.fn() } }));
 
 type Row = Record<string, any>;
 
 const materialClient = minecraftMaterialRefClient as unknown as { create: jest.Mock; persistFromCatalog: jest.Mock };
 const blockClient = minecraftBlockRefClient as unknown as { create: jest.Mock; getOrCreate: jest.Mock };
+const enchantmentClient = minecraftEnchantmentRefClient as unknown as { create: jest.Mock };
+const definitionClient = enchantmentDefinitionClient as unknown as { create: jest.Mock };
 
 /** A promise the test resolves itself, to control the order of responses. */
 const deferred = <V,>() => {
@@ -209,65 +213,33 @@ describe('PagedEntityTable', () => {
         expect(await screen.findByText('No results found')).toBeInTheDocument();
     });
 
-    // KNG-200 phase 4: in database mode every row is saved, so only an unsaved hybrid row gets a badge.
-    it('shows the New badge only on unsaved hybrid rows and never an "Existing" badge', async () => {
-        search.mockResolvedValue(page([
-            { id: 7, name: 'Torch', namespaceKey: 'minecraft:torch', isPersisted: true },
-            { id: null, name: 'Lantern', namespaceKey: 'minecraft:lantern', isPersisted: false },
-            { id: 9, name: 'Stone', namespaceKey: 'minecraft:stone' }
-        ]));
-        render(<PagedEntityTable<Row> entityTypeName="MinecraftMaterialRef" columns={columns} />);
-        await screen.findByText('Torch');
-        const [torch, lantern, stone] = bodyRows();
-        expect(within(lantern).getByText('New')).toBeInTheDocument();
-        expect(within(torch).queryByText('New')).not.toBeInTheDocument();
-        expect(within(stone).queryByText('New')).not.toBeInTheDocument();
-        expect(screen.queryByText('Existing')).not.toBeInTheDocument();
-        expect(search).toHaveBeenCalledWith(expect.objectContaining({ filters: expect.objectContaining({ SearchHybrid: 'true' }) }));
-    });
-
-    // KNG-200 phase 1: the hybrid picker before the first scan.
-    describe('hybrid Minecraft rows (KNG-200)', () => {
-        const torch = { id: 0, name: 'Torch', namespaceKey: 'minecraft:torch', category: 'ITEM', isPersisted: false };
-        const lantern = { id: null, name: 'Lantern', namespaceKey: 'minecraft:lantern', category: 'ITEM', isPersisted: false };
+    // KNG-200 phase 5: materials and blocks are database-only, so their tables are plain tables.
+    describe('Minecraft material and block tables (KNG-200 phase 5)', () => {
+        const torch = { id: 7, name: 'Torch', namespaceKey: 'minecraft:torch', category: 'ITEM', isPersisted: true };
         const stone = { id: 3, name: 'Stone', namespaceKey: 'minecraft:stone', category: 'ITEM', isPersisted: true };
 
-        it('keys unsaved rows by namespaceKey, not by id 0, and selects them apart', async () => {
-            search.mockResolvedValue(page([torch, lantern, stone]));
-            materialClient.persistFromCatalog.mockResolvedValue({ id: 21, namespaceKey: 'minecraft:torch' });
-            const onSelectionChange = jest.fn();
-            const { rerender } = render(
-                <PagedEntityTable<Row>
-                    entityTypeName="MinecraftMaterialRef"
-                    columns={columns}
-                    selectionConfig={{ mode: 'multiple' }}
-                    selectedItems={[]}
-                    onSelectionChange={onSelectionChange}
-                />
-            );
+        it('searches materials without the SearchHybrid flag and shows no badges', async () => {
+            search.mockResolvedValue(page([torch, stone]));
+            render(<PagedEntityTable<Row> entityTypeName="MinecraftMaterialRef" columns={columns} />);
             await screen.findByText('Torch');
-            expect(bodyRows().map(r => r.getAttribute('data-row-key'))).toEqual(['ns:minecraft:torch', 'ns:minecraft:lantern', 'id:3']);
-
-            fireEvent.click(screen.getByText('Torch'));
-            await waitFor(() => expect(onSelectionChange).toHaveBeenCalled());
-            const selection = onSelectionChange.mock.calls[0][0];
-            rerender(
-                <PagedEntityTable<Row>
-                    entityTypeName="MinecraftMaterialRef"
-                    columns={columns}
-                    selectionConfig={{ mode: 'multiple' }}
-                    selectedItems={selection}
-                    onSelectionChange={onSelectionChange}
-                />
-            );
-            // Only the torch row is selected; the other unsaved row is not "the same" any more.
-            await waitFor(() => expect(screen.getByText('Torch').closest('tr')!.className).toContain('bg-green-50'));
-            expect(screen.getByText('Lantern').closest('tr')!.className).not.toContain('bg-green-50');
+            expect(search).toHaveBeenCalledTimes(1);
+            expect(search.mock.calls[0][0].filters).not.toHaveProperty('SearchHybrid');
+            expect(screen.queryByText('New')).not.toBeInTheDocument();
+            expect(screen.queryByText('Existing')).not.toBeInTheDocument();
+            expect(bodyRows().map(r => r.getAttribute('data-row-key'))).toEqual(['id:7', 'id:3']);
         });
 
-        it('saves an unsaved material through get-or-create, not create, and marks the row saved', async () => {
+        it('searches blocks without the SearchHybrid flag', async () => {
+            search.mockResolvedValue(page([{ id: 40, name: 'Oak Stairs', namespaceKey: 'minecraft:oak_stairs', blockStateString: 'minecraft:oak_stairs[facing=north]' }]));
+            render(<PagedEntityTable<Row> entityTypeName="MinecraftBlockRef" columns={columns} initialQuery={{ filters: { kind: 'block' } }} />);
+            await screen.findByText('Oak Stairs');
+            expect(search.mock.calls[0][0].filters).toEqual({ kind: 'block' });
+        });
+
+        it('never auto-creates a material, not even for a row marked unsaved', async () => {
+            // An older API could still answer with an unsaved catalogue row; the table just selects it.
+            const lantern = { id: null, name: 'Lantern', namespaceKey: 'minecraft:lantern', category: 'ITEM', isPersisted: false };
             search.mockResolvedValue(page([torch, lantern]));
-            materialClient.persistFromCatalog.mockResolvedValue({ id: 21, namespaceKey: 'minecraft:torch' });
             const onSelectionChange = jest.fn();
             render(
                 <PagedEntityTable<Row>
@@ -277,32 +249,19 @@ describe('PagedEntityTable', () => {
                     onSelectionChange={onSelectionChange}
                 />
             );
-            fireEvent.click(await screen.findByText('Torch'));
-            await waitFor(() => expect(onSelectionChange).toHaveBeenCalledWith([{ ...torch, id: 21, isPersisted: true }]));
-            expect(materialClient.persistFromCatalog).toHaveBeenCalledWith('minecraft:torch', 'ITEM', undefined);
+            fireEvent.click(await screen.findByText('Lantern'));
+            expect(onSelectionChange).toHaveBeenCalledWith([lantern]);
+            expect(within(bodyRows()[1]).queryByText('New')).not.toBeInTheDocument();
+
+            fireEvent.click(screen.getByText('Torch'));
+            expect(onSelectionChange).toHaveBeenLastCalledWith([torch]);
+            expect(materialClient.persistFromCatalog).not.toHaveBeenCalled();
             expect(materialClient.create).not.toHaveBeenCalled();
-
-            const [torchRow, lanternRow] = bodyRows();
-            expect(within(torchRow).queryByText('New')).not.toBeInTheDocument();
-            expect(torchRow.getAttribute('data-row-key')).toBe('id:21');
-            expect(within(lanternRow).getByText('New')).toBeInTheDocument();
         });
 
-        it('marks the row saved when the server spells the key differently', async () => {
-            search.mockResolvedValue(page([{ ...torch, namespaceKey: 'Torch' }]));
-            materialClient.persistFromCatalog.mockResolvedValue({ id: 21, namespaceKey: 'minecraft:torch' });
-            render(
-                <PagedEntityTable<Row> entityTypeName="MinecraftMaterialRef" columns={columns} selectionConfig={{ mode: 'single' }} />
-            );
-            fireEvent.click(await screen.findByText('Torch'));
-            await waitFor(() => expect(bodyRows()[0].getAttribute('data-row-key')).toBe('id:21'));
-        });
-
-        it('saves an unsaved block state through the block get-or-create', async () => {
-            const north = { id: 0, name: 'Oak Stairs', namespaceKey: 'minecraft:oak_stairs', blockStateString: 'minecraft:oak_stairs[facing=north]', logicalType: 'STAIRS', iconUrl: 'n.png', isPersisted: false };
-            const south = { ...north, name: 'Oak Stairs (south)', blockStateString: 'minecraft:oak_stairs[facing=south]', iconUrl: 's.png' };
-            search.mockResolvedValue(page([north, south]));
-            blockClient.getOrCreate.mockResolvedValue({ id: 40, namespaceKey: 'minecraft:oak_stairs' });
+        it('never auto-creates a block state', async () => {
+            const north = { id: 0, name: 'Oak Stairs', namespaceKey: 'minecraft:oak_stairs', blockStateString: 'minecraft:oak_stairs[facing=north]', isPersisted: false };
+            search.mockResolvedValue(page([north]));
             const onSelectionChange = jest.fn();
             render(
                 <PagedEntityTable<Row>
@@ -312,47 +271,14 @@ describe('PagedEntityTable', () => {
                     onSelectionChange={onSelectionChange}
                 />
             );
-            await screen.findByText('Oak Stairs');
-            expect(bodyRows().map(r => r.getAttribute('data-row-key'))).toEqual([
-                'bs:minecraft:oak_stairs|minecraft:oak_stairs[facing=north]',
-                'bs:minecraft:oak_stairs|minecraft:oak_stairs[facing=south]'
-            ]);
-
-            fireEvent.click(screen.getByText('Oak Stairs'));
-            await waitFor(() => expect(onSelectionChange).toHaveBeenCalledWith([{ ...north, id: 40, isPersisted: true }]));
-            expect(blockClient.getOrCreate).toHaveBeenCalledWith({
-                namespaceKey: 'minecraft:oak_stairs',
-                blockStateString: 'minecraft:oak_stairs[facing=north]',
-                logicalType: 'STAIRS',
-                iconUrl: 'n.png'
-            });
+            fireEvent.click(await screen.findByText('Oak Stairs'));
+            expect(onSelectionChange).toHaveBeenCalledWith([north]);
+            expect(blockClient.getOrCreate).not.toHaveBeenCalled();
             expect(blockClient.create).not.toHaveBeenCalled();
-            // Only the saved state loses its badge, not the other state of the same block.
-            const [northRow, southRow] = bodyRows();
-            expect(within(northRow).queryByText('New')).not.toBeInTheDocument();
-            expect(within(southRow).getByText('New')).toBeInTheDocument();
-        });
-
-        it("shows the API's refusal when saving fails and selects nothing", async () => {
-            search.mockResolvedValue(page([torch]));
-            materialClient.persistFromCatalog.mockRejectedValue(
-                Object.assign(new Error('A material with this key already exists.'), { status: 409 })
-            );
-            const onSelectionChange = jest.fn();
-            render(
-                <PagedEntityTable<Row>
-                    entityTypeName="MinecraftMaterialRef"
-                    columns={columns}
-                    selectionConfig={{ mode: 'single' }}
-                    onSelectionChange={onSelectionChange}
-                />
-            );
-            fireEvent.click(await screen.findByText('Torch'));
-            expect(await screen.findByText('A material with this key already exists.')).toBeInTheDocument();
-            expect(onSelectionChange).not.toHaveBeenCalled();
         });
 
         it('ignores a slow earlier search that answers after a later one', async () => {
+            const lantern = { id: 8, name: 'Lantern', namespaceKey: 'minecraft:lantern', category: 'ITEM', isPersisted: true };
             const broad = deferred<ReturnType<typeof page>>();
             const narrow = deferred<ReturnType<typeof page>>();
             search
@@ -375,6 +301,63 @@ describe('PagedEntityTable', () => {
             expect(screen.getByText('Torch')).toBeInTheDocument();
             expect(screen.queryByText('Lantern')).not.toBeInTheDocument();
             expect(screen.queryByText('Tome')).not.toBeInTheDocument();
+        });
+    });
+
+    // The enchantment catalogue is still hybrid (KNG-200 phase 5 deferred it).
+    describe('hybrid enchantment rows', () => {
+        const sharpness = { id: 5, displayName: 'Sharpness', name: 'Sharpness', namespaceKey: 'minecraft:sharpness', isPersisted: true };
+        const mending = { id: null, displayName: 'Mending', name: 'Mending', namespaceKey: 'minecraft:mending', category: 'TOOL', maxLevel: 1, isPersisted: false };
+
+        it('searches with SearchHybrid and shows the New badge only on unsaved rows', async () => {
+            search.mockResolvedValue(page([sharpness, mending]));
+            render(<PagedEntityTable<Row> entityTypeName="MinecraftEnchantmentRef" columns={columns} />);
+            await screen.findByText('Sharpness');
+            expect(search).toHaveBeenCalledWith(expect.objectContaining({ filters: expect.objectContaining({ SearchHybrid: 'true' }) }));
+            const [sharpnessRow, mendingRow] = bodyRows();
+            expect(within(mendingRow).getByText('New')).toBeInTheDocument();
+            expect(within(sharpnessRow).queryByText('New')).not.toBeInTheDocument();
+            expect(bodyRows().map(r => r.getAttribute('data-row-key'))).toEqual(['ns:minecraft:sharpness', 'ns:minecraft:mending']);
+        });
+
+        it('saves an unsaved enchantment (ref plus definition) on select and marks the row saved', async () => {
+            search.mockResolvedValue(page([mending]));
+            enchantmentClient.create.mockResolvedValue({ id: 31, namespaceKey: 'minecraft:mending' });
+            definitionClient.create.mockResolvedValue({ id: 1 });
+            const onSelectionChange = jest.fn();
+            render(
+                <PagedEntityTable<Row>
+                    entityTypeName="MinecraftEnchantmentRef"
+                    columns={columns}
+                    selectionConfig={{ mode: 'single' }}
+                    onSelectionChange={onSelectionChange}
+                />
+            );
+            fireEvent.click(await screen.findByText('Mending'));
+            await waitFor(() => expect(onSelectionChange).toHaveBeenCalledWith([{ ...mending, id: 31, isPersisted: true }]));
+            expect(enchantmentClient.create).toHaveBeenCalledWith(expect.objectContaining({ namespaceKey: 'minecraft:mending', maxLevel: 1 }));
+            expect(definitionClient.create).toHaveBeenCalledWith(expect.objectContaining({ key: 'minecraft:mending', minecraftEnchantmentRefId: 31 }));
+            expect(within(bodyRows()[0]).queryByText('New')).not.toBeInTheDocument();
+        });
+
+        it("shows the API's refusal when saving fails and selects nothing", async () => {
+            search.mockResolvedValue(page([mending]));
+            enchantmentClient.create.mockRejectedValue(
+                Object.assign(new Error('An enchantment with this key already exists.'), { status: 409 })
+            );
+            const onSelectionChange = jest.fn();
+            render(
+                <PagedEntityTable<Row>
+                    entityTypeName="MinecraftEnchantmentRef"
+                    columns={columns}
+                    selectionConfig={{ mode: 'single' }}
+                    onSelectionChange={onSelectionChange}
+                />
+            );
+            fireEvent.click(await screen.findByText('Mending'));
+            expect(await screen.findByText('An enchantment with this key already exists.')).toBeInTheDocument();
+            expect(onSelectionChange).not.toHaveBeenCalled();
+            expect(definitionClient.create).not.toHaveBeenCalled();
         });
     });
 });

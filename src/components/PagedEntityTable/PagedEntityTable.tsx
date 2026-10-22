@@ -4,8 +4,6 @@ import { PagedQueryDto, PagedResultDto } from '../../types/dtos/common/PagedQuer
 import { getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { logging } from '../../utils';
 import { ColumnDefinition } from '../../types/common';
-import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
-import { minecraftBlockRefClient } from '../../apiClients/minecraftBlockRefClient';
 import { minecraftEnchantmentRefClient } from '../../apiClients/minecraftEnchantmentRefClient';
 import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
@@ -14,9 +12,17 @@ import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
 
 /**
- * Amber "New" pill for the pinned session rows and for hybrid picker rows the database does not
- * have yet. KNG-200 phase 4 dropped the green "Existing" pill: once the picker answers from the
- * database every row is saved, so it marked every row.
+ * Entities whose table still searches a hybrid catalogue (saved rows plus unsaved catalogue
+ * entries, `SearchHybrid`), shows unsaved rows as "New" and saves them on select. Since KNG-200
+ * phase 5 that is only `MinecraftEnchantmentRef`; materials and blocks are database-only.
+ */
+const isHybridCatalogEntity = (entityTypeName: string): boolean =>
+    entityTypeName.toLowerCase() === 'minecraftenchantmentref';
+
+/**
+ * Amber "New" pill for the pinned session rows and for unsaved enchantment catalogue rows. KNG-200
+ * phase 4 dropped the green "Existing" pill: once the picker answers from the database every row
+ * is saved, so it marked every row.
  */
 const RowBadge: React.FC<{ label?: string }> = ({ label }) => (
     <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full text-amber-700 bg-amber-100">
@@ -218,8 +224,9 @@ export function PagedEntityTable<T extends Record<string, any>>({
     const [selectingAll, setSelectingAll] = useState(false);
     // KNG-200: numbers the fetches, so only the latest one's response reaches the table.
     const requestSeq = useRef(0);
-    const [isHybridMode, setIsHybridMode] = useState(false);
-    const [isAutoCreateMode, setIsAutoCreateMode] = useState(false);
+    // KNG-200 phase 5: only enchantment refs still come from a hybrid catalogue (unsaved rows,
+    // "New" badges, saved on select). Material and block refs are plain database tables.
+    const isHybridMode = isHybridCatalogEntity(entityTypeName);
 
     const fallbackColumns = useMemo<ColumnDefinition<T>[]>(() => {
         if (columns.length > 0) {
@@ -303,16 +310,6 @@ export function PagedEntityTable<T extends Record<string, any>>({
         return () => clearTimeout(timer);
     }, [searchInput]);
 
-    // Detect hybrid mode on mount
-    useEffect(() => {
-        const normalized = entityTypeName.toLowerCase();
-        const isHybrid = normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref' || normalized === 'minecraftenchantmentref';
-        setIsHybridMode(isHybrid);
-        // Only material and block refs should auto-create on selection; enchantments are pre-persisted
-        const shouldAutoCreate = normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref' || normalized === 'minecraftenchantmentref';
-        setIsAutoCreateMode(shouldAutoCreate);
-    }, [entityTypeName]);
-
     // Fetch data when query changes
     useEffect(() => {
         fetchData();
@@ -336,11 +333,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
             setLoading(true);
             setError(null);
 
-            const normalized = entityTypeName.toLowerCase();
-            
-            // Check if this is a hybrid mode entity
-            if (normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref' || normalized === 'minecraftenchantmentref') {
-                // Use searchPaged with SearchHybrid filter
+            if (isHybridCatalogEntity(entityTypeName)) {
+                // Enchantment refs: the hybrid search merges saved rows with the static catalogue
                 const hybridQuery: PagedQueryDto = {
                     ...query,
                     filters: {
@@ -498,7 +492,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
         if (creatingKey || selectingAll) return;
 
         // An unsaved catalogue row is saved first; an already selected one is just deselected.
-        if (isAutoCreateMode && (row as any).isPersisted === false && !isRowSelected(row)) {
+        if (isHybridMode && (row as any).isPersisted === false && !isRowSelected(row)) {
             await handleCreateAndSelect(row);
             return;
         }
@@ -531,26 +525,13 @@ export function PagedEntityTable<T extends Record<string, any>>({
     };
 
     /**
-     * KNG-200: saves an unsaved catalogue row through get-or-create (materials and blocks), so a key
-     * someone saved in the meantime, or a second quick pick, returns the existing row instead of
-     * failing. Enchantment refs keep their create + definition pair. Returns the saved DTO.
+     * Saves an unsaved enchantment catalogue row (the ref plus its definition) and returns the saved
+     * DTO. Material and block refs have no unsaved rows any more (KNG-200 phase 5).
      */
     const persistUnsavedRow = async (row: T): Promise<any> => {
         const option = row as any;
-        const normalized = entityTypeName.toLowerCase();
 
-        if (normalized === 'minecraftmaterialref') {
-            return minecraftMaterialRefClient.persistFromCatalog(option.namespaceKey, option.category, option.legacyName);
-        }
-        if (normalized === 'minecraftblockref') {
-            return minecraftBlockRefClient.getOrCreate({
-                namespaceKey: option.namespaceKey,
-                blockStateString: option.blockStateString,
-                logicalType: option.logicalType,
-                iconUrl: option.iconUrl
-            });
-        }
-        if (normalized === 'minecraftenchantmentref') {
+        if (isHybridCatalogEntity(entityTypeName)) {
             const created = await minecraftEnchantmentRefClient.create({
                 namespaceKey: option.namespaceKey,
                 legacyName: option.legacyName,
@@ -621,7 +602,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
         setError(null);
         try {
             for (const row of candidates) {
-                if (isAutoCreateMode && (row as any).isPersisted === false) {
+                if (isHybridMode && (row as any).isPersisted === false) {
                     const key = catalogKeyOf(row, entityTypeName);
                     setCreatingKey(key ?? 'creating');
                     const created = await persistUnsavedRow(row);
