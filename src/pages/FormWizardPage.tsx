@@ -19,7 +19,9 @@ import { SavedProgressList } from '../components/FormWizard/SavedProgressList';
 import { FormCancelAction } from '../components/FormWizard/FormCancelAction';
 import { CreatedEntitiesPrompt } from '../components/FormWizard/CreatedEntitiesPrompt';
 import { FormConfigurationImportPanel } from '../components/FormWizard/FormConfigurationImportPanel';
+import { DisplayConfigurationImportPanel } from '../components/FormWizard/DisplayConfigurationImportPanel';
 import { downloadJson, exportFileName } from '../utils/forms/formConfigPortability';
+import { displayExportFileName } from '../utils/displayConfigPortability';
 import { apiRefusalReason } from '../utils/apiRefusalReason';
 import { useConfirm } from '../hooks/useConfirm';
 import { formConfigDeleteMessage, savedDraftCount } from '../utils/forms/formConfigDeleteConfirm';
@@ -78,6 +80,7 @@ export const FormWizardPage: React.FC<Props> = ({
     
     const [formConfigs, setFormConfigs] = useState<FormConfigurationDto[]>([]);
     const [showImportPanel, setShowImportPanel] = useState(false);
+    const [showDisplayImportPanel, setShowDisplayImportPanel] = useState(false);
     const [defaultConfig, setDefaultConfig] = useState<FormConfigurationDto | null>(null);
     const [savedProgress, setSavedProgress] = useState<FormSubmissionProgressSummaryDto[]>([]);
     const [loadingConfigs, setLoadingConfigs] = useState(false);
@@ -625,6 +628,22 @@ export const FormWizardPage: React.FC<Props> = ({
             showFeedback({
                 title: 'Delete failed',
                 message: apiRefusalReason(error) ?? 'Unable to delete the form configuration. Please try again.',
+                status: 'error',
+                onContinue: undefined,
+            });
+        }
+    };
+
+    // knk-displayconfig/1: download a display configuration as a portable JSON file
+    const handleExportDisplayConfiguration = async (config: DisplayConfigurationDto) => {
+        try {
+            const file = await displayConfigClient.exportConfiguration(config.id!);
+            downloadJson(displayExportFileName(config.entityTypeName, config.name), file);
+        } catch (error) {
+            console.error('Failed to export display configuration:', error);
+            showFeedback({
+                title: 'Export failed',
+                message: apiRefusalReason(error) ?? 'Unable to export the display configuration.',
                 status: 'error',
                 onContinue: undefined,
             });
@@ -1213,8 +1232,16 @@ export const FormWizardPage: React.FC<Props> = ({
                                                     onDelete={handleDisplayDelete}
                                                     onCreate={handleCreateDisplayConfiguration}
                                                     onCreateDefault={handleCreateDisplayConfigurationAsDefault}
+                                                    onExport={handleExportDisplayConfiguration}
+                                                    onImport={() => setShowDisplayImportPanel(true)}
                                                 />
                                             )}
+                                            <DisplayConfigurationImportPanel
+                                                open={showDisplayImportPanel}
+                                                entityTypeName={selectedTypeName}
+                                                onClose={() => setShowDisplayImportPanel(false)}
+                                                onImported={() => loadDisplayConfigurations(selectedTypeName)}
+                                            />
                                             
                                             <SavedProgressList
                                                 progressList={savedProgress}
