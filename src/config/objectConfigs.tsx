@@ -68,7 +68,16 @@ export const minecraftMaterialKindLabel = (row: { isItem?: boolean | null; isBlo
   return '\u2014';
 };
 
-// Material and block refs have no `name`; the catalogue's display name (or the key) stands in.
+/** KNG-250: a Custom badge for a knk custom enchantment, plain "Vanilla" for the rest. */
+export const MinecraftEnchantmentKind = ({ isCustom }: { isCustom?: boolean | null }) => (
+  isCustom ? (
+    <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-800">Custom</span>
+  ) : (
+    <span className="text-gray-500">Vanilla</span>
+  )
+);
+
+// Material, block and enchantment refs have no `name`; the catalogue's display name (or the key) stands in.
 const minecraftNameColumn = (sortable: boolean): ColumnDefinition<any> => ({
   key: 'displayName',
   label: 'Name',
@@ -132,21 +141,16 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'categoryName', label: 'Category', sortable: false, render: (row: any) => row.categoryName ?? '-' }
     ]
   },
+  // KNG-250: enchantment refs come from the server scan (vanilla and knk custom enchantments), with
+  // the enchanted book icon the scan resolved.
   minecraftenchantmentref: {
     default: [
-      ...defaultColumnDefinitions.default,
-      { 
-        key: 'iconUrl', 
-        label: 'Icon', 
-        sortable: false,
-        render: (row: any) => row.iconUrl ? (
-          <img src={row.iconUrl} alt={row.namespaceKey} className="h-8 w-8 object-contain" />
-        ) : (
-          <span className="text-gray-400 text-xs">No icon</span>
-        )
-      },
-      { key: 'displayName', label: 'Display Name', sortable: true },
+      { key: 'id', label: 'ID', sortable: true },
+      minecraftNameColumn(true),
+      minecraftIconColumn(32),
       { key: 'namespaceKey', label: 'Namespace Key', sortable: true },
+      { key: 'isCustom', label: 'Kind', sortable: false, render: (row: any) => <MinecraftEnchantmentKind isCustom={row.isCustom} /> },
+      { key: 'catalogStatus', label: 'Status', sortable: false, render: (row: any) => row.catalogStatus || '\u2014' },
       { key: 'category', label: 'Category', sortable: true },
       { key: 'maxLevel', label: 'Max Level', sortable: false },
       { key: 'legacyName', label: 'Legacy Name', sortable: false }

@@ -4,6 +4,7 @@ import { minecraftCatalogClient } from '../../../apiClients/minecraftCatalogClie
 import {
   MinecraftCatalogAuditBlockDto,
   MinecraftCatalogAuditDto,
+  MinecraftCatalogAuditEnchantmentDto,
   MinecraftCatalogAuditMaterialDto,
   MinecraftCatalogBackfillResultDto,
 } from '../../../types/dtos/minecraftCatalog/MinecraftCatalogDtos';
@@ -106,6 +107,8 @@ export const MinecraftCatalogAuditCard: React.FC<{
   const materialIssues = audit
     ? audit.missingButReferenced.length + audit.materialKeyCollisions.length + audit.invalidMaterialKeys.length + audit.notNormalizedMaterialKeys.length
     : 0;
+  // KNG-250: an older API sends no enchantment section.
+  const missingEnchantments = audit?.missingEnchantmentsReferenced ?? [];
 
   return (
     <section className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 space-y-4" aria-labelledby="catalog-audit-heading">
@@ -144,6 +147,12 @@ export const MinecraftCatalogAuditCard: React.FC<{
             <div><dt className="inline">Materials: </dt><dd className="inline font-medium text-gray-900">{audit.materialCount}</dd></div>
             <div><dt className="inline">Unverified: </dt><dd className="inline font-medium text-gray-900">{audit.unverifiedCount}</dd></div>
             <div><dt className="inline">Block refs: </dt><dd className="inline font-medium text-gray-900">{audit.blockRefCount}</dd></div>
+            {audit.enchantmentCount !== undefined && (
+              <div><dt className="inline">Enchantments: </dt><dd className="inline font-medium text-gray-900">{audit.enchantmentCount}</dd></div>
+            )}
+            {audit.unverifiedEnchantmentCount !== undefined && (
+              <div><dt className="inline">Unverified enchantments: </dt><dd className="inline font-medium text-gray-900">{audit.unverifiedEnchantmentCount}</dd></div>
+            )}
             <div className="flex items-center">
               <dt className="inline mr-1">Ready for the phase 4 constraints: </dt>
               <dd className={`inline font-medium ${audit.readyForConstraints ? 'text-green-700' : 'text-amber-700'}`}>
@@ -152,7 +161,7 @@ export const MinecraftCatalogAuditCard: React.FC<{
             </div>
           </dl>
 
-          {materialIssues === 0 && blockIssues === 0 && (
+          {materialIssues === 0 && blockIssues === 0 && missingEnchantments.length === 0 && (
             <p className="flex items-center text-sm text-green-700">
               <CheckCircle2 className="h-4 w-4 mr-2" aria-hidden="true" />
               Nothing needs attention.
@@ -163,6 +172,13 @@ export const MinecraftCatalogAuditCard: React.FC<{
             <AuditGroup title="Missing from the server but still used" count={audit.missingButReferenced.length}
               hint="The latest scan doesn't have these materials, but something still references them. Merge each into its replacement.">
               <MaterialTable label="Missing but referenced materials" rows={audit.missingButReferenced} showReferences action={mergeButton} />
+            </AuditGroup>
+          )}
+
+          {missingEnchantments.length > 0 && (
+            <AuditGroup title="Missing enchantments still used" count={missingEnchantments.length}
+              hint="The latest scan doesn't have these enchantments, but enchantment definitions still use them. Point each definition at another enchantment, or delete it.">
+              <EnchantmentTable label="Missing enchantments still used" rows={missingEnchantments} />
             </AuditGroup>
           )}
 
@@ -309,6 +325,43 @@ const MaterialTable: React.FC<{
             </td>
           )}
           {action && <td className="py-1.5 text-right whitespace-nowrap">{action(row)}</td>}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+);
+
+const EnchantmentTable: React.FC<{ label: string; rows: MinecraftCatalogAuditEnchantmentDto[] }> = ({ label, rows }) => (
+  <table className="min-w-full text-sm" aria-label={label}>
+    <thead>
+      <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b border-gray-200">
+        <th className="py-1.5 pr-3 font-medium">Key</th>
+        <th className="py-1.5 pr-3 font-medium">Name</th>
+        <th className="py-1.5 pr-3 font-medium">Kind</th>
+        <th className="py-1.5 pr-3 font-medium">#</th>
+        <th className="py-1.5 font-medium">Used by</th>
+      </tr>
+    </thead>
+    <tbody>
+      {rows.map((row) => (
+        <tr key={row.id} className="border-b border-gray-100 last:border-0 align-top">
+          <td className="py-1.5 pr-3 font-mono">{row.namespaceKey}</td>
+          <td className="py-1.5 pr-3">{row.displayName ?? '—'}</td>
+          <td className="py-1.5 pr-3">{row.isCustom ? 'Custom' : 'Vanilla'}</td>
+          <td className="py-1.5 pr-3 text-gray-500">{row.id}</td>
+          <td className="py-1.5 text-gray-600">
+            {(row.definitions ?? []).length === 0 ? 'Nothing' : (
+              <ul className="space-y-0.5">
+                {row.definitions.map((definition) => (
+                  <li key={definition.id}>
+                    <span className="text-gray-900">{definition.displayName}</span>{' '}
+                    <span className="font-mono text-xs text-gray-500">{definition.key}</span>{' '}
+                    <span className="text-gray-500">(definition #{definition.id})</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </td>
         </tr>
       ))}
     </tbody>
