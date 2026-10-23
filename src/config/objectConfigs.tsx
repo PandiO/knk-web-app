@@ -183,7 +183,12 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
   gatedoor: {
     default: [
       ...defaultColumnDefinitions.default,
-      { key: 'gateStructureId', label: 'Gate Structure ID', sortable: true },
+      {
+        key: 'gateStructureName',
+        label: 'Gate',
+        sortable: true,
+        render: (row: any) => row.gateStructureName ?? `#${row.gateStructureId}`
+      },
       { key: 'gateType', label: 'Gate Type', sortable: true },
       {
         key: 'openedState',
