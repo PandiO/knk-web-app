@@ -69,6 +69,7 @@ export enum Controllers {
     Structures = 'Structures',
     GateStructures = 'GateStructures',
     GateDoors = 'GateDoors',
+    DomainSubRegions = 'DomainSubRegions',
     Districts = 'Districts',
     Locations = 'Locations',
     Streets = 'Streets',

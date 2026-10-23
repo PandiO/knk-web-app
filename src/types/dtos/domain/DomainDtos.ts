@@ -35,6 +35,20 @@ export interface DomainDto extends DomainTeleportSettingsDto, DomainNavigationDe
     locationId?: number;
     parentDomainId?: number;
     parentDomain?: ParentDomainDto;
+    /** KNG-254: the domain's sub-regions (read-only here; saved through DomainSubRegionClient). */
+    subRegions?: DomainSubRegionDto[];
+}
+
+/**
+ * One of a domain's extra WorldGuard regions (KNG-254, knk-workspace docs/specs/domain-subregions/DESIGN.md). Drawn
+ * through its own world task; the API renames it to domain_<domainId>_sub_<id> when it is saved.
+ */
+export interface DomainSubRegionDto {
+    id?: number;
+    domainId: number;
+    wgRegionId: string;
+    name?: string | null;
+    createdAt?: string;
 }
 
 export interface ParentDomainDto {
