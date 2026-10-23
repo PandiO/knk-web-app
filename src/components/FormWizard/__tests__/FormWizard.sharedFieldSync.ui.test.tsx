@@ -83,7 +83,6 @@ const buildConfig = (): FormConfigurationDto => ({
     configurationName: 'District',
     description: '',
     isDefault: true,
-    isActive: true,
     steps: [
         step('0', 'General', [field('guid-name', 'Name', 'Name'), field('guid-loc-1', 'LocationId', 'Location')]),
         step('1', 'Region', [field('guid-region', 'WgRegionId', 'Region')]),

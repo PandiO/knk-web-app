@@ -98,7 +98,6 @@ const buildConfig = (premium: FormFieldDto = premiumField()): FormConfigurationD
     configurationName: 'Permission group',
     description: '',
     isDefault: true,
-    isActive: true,
     steps: [
         step('0', 'General', [field(KIND_GUID, 'Kind', { label: 'Kind', order: 0 }), { ...premium, order: 1 }]),
         step('1', 'Details', [field('guid-notes', 'Notes', { label: 'Notes' })])

@@ -9,7 +9,7 @@ const field = (id: string, fieldName: string, fieldType: FieldType, extra: Parti
 
 const config = (id: string, entityTypeName: string, fields: FormFieldDto[], extra: Partial<FormConfigurationDto> = {},
     m2mJoinEntityType?: string): FormConfigurationDto => ({
-    id, entityTypeName, configurationName: `${entityTypeName} - Default`, isDefault: true, isActive: true,
+    id, entityTypeName, configurationName: `${entityTypeName} - Default`, isDefault: true,
     steps: [
         { id: `${id}0`, stepName: 'Main', order: 0, fieldOrderJson: '[]', isReusable: false, isLinkedToSource: false,
             hasCompatibilityIssues: false, isManyToManyRelationship: false, childFormSteps: [], fields, conditions: [] },

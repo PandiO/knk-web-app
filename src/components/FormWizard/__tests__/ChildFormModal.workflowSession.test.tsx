@@ -54,7 +54,6 @@ describe('ChildFormModal creates its own workflow session for world-task fields'
             configurationName: 'Gate Door Configuration',
             description: '',
             isDefault: true,
-            isActive: true,
             steps: [
                 {
                     id: '32',

@@ -2365,7 +2365,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         if (geometryError) return geometryError;
 
         for (const validation of field.validations) {
-            if (!validation.isActive) continue;
+            if (validation.isActive === false) continue;
 
             // Parse validation parameters if needed (commented: validation logic placeholder)
             // const params = validation.parametersJson ? JSON.parse(validation.parametersJson) : {};
@@ -2503,7 +2503,9 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         // Check step completion conditions
         if (currentStep?.conditions) {
             for (const condition of currentStep.conditions) {
-                if (condition.conditionType === 'Completion' && condition.isActive) {
+                // A condition is active unless the API says it was switched off (KNG-186: the API sent
+                // false for every condition until 2026-10-23, so none ever ran).
+                if (condition.conditionType === 'Completion' && condition.isActive !== false) {
                     const met = ConditionEvaluator.evaluateConditions(
                         condition.conditionJson,
                         currentStepData,

@@ -27,7 +27,6 @@ const config = (steps: FormStepDto[]): FormConfigurationDto => ({
     configurationName: 'ItemBlueprint Default',
     description: '',
     isDefault: true,
-    isActive: true,
     steps
 });
 

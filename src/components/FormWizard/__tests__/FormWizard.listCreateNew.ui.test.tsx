@@ -90,7 +90,6 @@ describe('FormWizard List+Object "Create New" child form integration', () => {
             configurationName: 'Gate Structure Configuration',
             description: '',
             isDefault: true,
-            isActive: true,
             steps: [
                 {
                     id: '16',

@@ -83,7 +83,6 @@ const config = (id: string, entityTypeName: string, fields: Record<string, unkno
     configurationName: `${entityTypeName} - Default`,
     description: '',
     isDefault: true,
-    isActive: true,
     steps: [{
         id: `${id}0`,
         stepName: 'Main',

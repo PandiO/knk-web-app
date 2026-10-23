@@ -46,9 +46,9 @@ const isOwnedChildCollection = (settingsJson?: string): boolean => {
 };
 
 export const findParentFormFields = (configurations: FormConfigurationDto[], entityTypeName: string): ParentFormField[] => {
-    // Not isActive: the API never sets it (FormConfiguration has no such column, the mapping ignores
-    // it), so every configuration arrived as isActive: false and no parent form was ever found - the
-    // rule builder then checked a parent-form path such as Town.WgRegionId against the child entity.
+    // Only isDefault: a FormConfiguration has no active flag. The DTO used to carry an isActive the
+    // API never set (always false), so no parent form was ever found and the rule builder checked a
+    // parent-form path such as Town.WgRegionId against the child entity; KNG-186 dropped the field.
     const defaults = configurations.filter(c => c.isDefault);
     const result: ParentFormField[] = [];
     const visited = new Set<string>([entityTypeName.toLowerCase()]);

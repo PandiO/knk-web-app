@@ -38,7 +38,6 @@ const buildConfig = (): FormConfigurationDto => ({
     entityTypeName: 'GateStructure',
     configurationName: 'Gate',
     isDefault: true,
-    isActive: true,
     steps: [
         step('General', [
             field(GATE_TYPE_GUID, 'gateType', { fieldType: FieldType.Enum }),

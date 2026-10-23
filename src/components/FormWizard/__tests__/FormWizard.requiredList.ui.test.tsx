@@ -82,7 +82,6 @@ const streetConfig = (districts: FormFieldDto = districtsField()): FormConfigura
     configurationName: 'Street',
     description: '',
     isDefault: true,
-    isActive: true,
     steps: [
         step('0', 'Basics', [field('guid-name', 'Name', { label: 'Name', order: 0 }), districts]),
         step('1', 'Details', [field('guid-notes', 'Notes', { label: 'Notes' })])

@@ -56,7 +56,6 @@ describe('useEnrichedFormContext', () => {
     configurationName: 'District Form',
     description: 'Form to create districts',
     isDefault: true,
-    isActive: true,
     steps: [
       {
         id: '1',
