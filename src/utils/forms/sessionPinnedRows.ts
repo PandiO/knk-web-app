@@ -9,7 +9,9 @@
  *  - a filter `xId` / `x` compares with the row's `xId`, `x` or `x.id` (case-insensitive names);
  *  - `excludeIds` (comma-separated) drops those ids; filters named `prefer...` only order results
  *    on the server and are ignored here;
- *  - any other filter the row can't answer hides the pinned row (the server might have excluded it).
+ *  - any other filter the row can't answer hides the pinned row (the server might have excluded it);
+ *  - a filter with a scope (KNG-263: `CategoryId` → that category and its children) accepts any
+ *    value in the scope, as the server does.
  * A pinned row the current page also holds is always shown (the server accepted it), once, pinned.
  */
 
@@ -101,7 +103,11 @@ function rowFilterValue(row: Record<string, unknown>, filterKey: string): { foun
     return { found: false, value: undefined };
 }
 
-export function matchesPickerFilters(row: Record<string, unknown>, filters?: Record<string, string>): boolean {
+/** KNG-263: per filter key, every value the server accepts for it (e.g. a category and its children). */
+export type FilterScopes = Record<string, ReadonlySet<string>>;
+
+export function matchesPickerFilters(row: Record<string, unknown>, filters?: Record<string, string>,
+                                     scopes?: FilterScopes): boolean {
     if (!filters) return true;
     return Object.entries(filters).every(([filterKey, expected]) => {
         if (/^prefer/i.test(filterKey)) return true;
@@ -112,6 +118,8 @@ export function matchesPickerFilters(row: Record<string, unknown>, filters?: Rec
         const { found, value } = rowFilterValue(row, filterKey);
         if (!found) return false;
         if (!present(value)) return false;
+        const scope = scopes?.[filterKey];
+        if (scope) return scope.has(String(value).trim());
         return String(value).toLowerCase() === String(expected).trim().toLowerCase();
     });
 }
@@ -164,7 +172,8 @@ export function buildPinnedSection<T extends Record<string, unknown>>(
     pinnedRows: Array<PinnedRow<T>> | undefined,
     pageItems: T[],
     searchTerm: string | undefined,
-    filters: Record<string, string> | undefined
+    filters: Record<string, string> | undefined,
+    scopes?: FilterScopes
 ): PinnedSection<T> {
     if (!pinnedRows || pinnedRows.length === 0) {
         return { pinned: [], pageItems };
@@ -184,7 +193,7 @@ export function buildPinnedSection<T extends Record<string, unknown>>(
         const idKey = String(id);
         if (seen.has(idKey)) return;
         const fromPage = pageById.get(idKey);
-        if (!fromPage && !(matchesSearchTerm(pin.row, searchTerm) && matchesPickerFilters(pin.row, filters))) {
+        if (!fromPage && !(matchesSearchTerm(pin.row, searchTerm) && matchesPickerFilters(pin.row, filters, scopes))) {
             return;
         }
         seen.add(idKey);

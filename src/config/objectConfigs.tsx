@@ -136,7 +136,9 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
     default: [
       { key: 'id', label: 'ID', sortable: true },
       minecraftIconColumn(24),
-      { key: 'name', label: 'Name', sortable: true }
+      { key: 'name', label: 'Name', sortable: true },
+      // KNG-263: next to the table's Category filter.
+      { key: 'categoryName', label: 'Category', sortable: false, render: (row: any) => row.categoryName ?? '-' }
     ]
   },
   // KNG-250: enchantment refs come from the server scan (vanilla and knk custom enchantments), with

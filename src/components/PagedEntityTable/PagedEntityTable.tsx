@@ -5,8 +5,17 @@ import { getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { logging } from '../../utils';
 import { ColumnDefinition } from '../../types/common';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
-import { buildPinnedSection, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
+import { buildPinnedSection, FilterScopes, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
+import { CategoryFilterSelect } from './CategoryFilterSelect';
 import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
+
+/** KNG-263: entities whose table offers a Category filter (a category includes its children). */
+const CATEGORY_FILTER_ENTITIES = new Set(['itemblueprint']);
+const CATEGORY_FILTER_KEY = 'CategoryId';
+
+/** Whether the caller (e.g. a form field's picker filters) already fixes the category. */
+const hasImposedCategoryFilter = (filters?: Record<string, string>): boolean =>
+    Object.keys(filters ?? {}).some(filterKey => ['category', 'categoryid'].includes(filterKey.toLowerCase()));
 
 /**
  * Amber "New" pill for the pinned session rows ("Created in this form"). The hybrid catalogue
@@ -210,6 +219,22 @@ export function PagedEntityTable<T extends Record<string, any>>({
     const [error, setError] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(query.searchTerm || '');
     const [internalSelection, setInternalSelection] = useState<T[]>(selectedItems);
+    // KNG-263: the category filter's chosen category and the ids it covers (itself and its children).
+    const showCategoryFilter = CATEGORY_FILTER_ENTITIES.has(entityTypeName.toLowerCase())
+        && !hasImposedCategoryFilter(initialQuery.filters);
+    const [categoryScope, setCategoryScope] = useState<ReadonlySet<string> | undefined>(undefined);
+
+    const handleCategoryFilterChange = (categoryId: string | undefined, covered: ReadonlySet<string> | undefined) => {
+        setCategoryScope(covered);
+        setQuery(prev => {
+            const { [CATEGORY_FILTER_KEY]: _previous, ...otherFilters } = prev.filters ?? {};
+            return {
+                ...prev,
+                page: 1,
+                filters: categoryId ? { ...otherFilters, [CATEGORY_FILTER_KEY]: categoryId } : otherFilters
+            };
+        });
+    };
     // KNG-200: numbers the fetches, so only the latest one's response reaches the table.
     const requestSeq = useRef(0);
 
@@ -482,10 +507,10 @@ export function PagedEntityTable<T extends Record<string, any>>({
         onSelectionChange?.(newSelection);
     };
 
-    const section = useMemo(
-        () => buildPinnedSection(pinnedRows, data.items, query.searchTerm, query.filters),
-        [pinnedRows, data.items, query.searchTerm, query.filters]
-    );
+    const section = useMemo(() => {
+        const scopes: FilterScopes | undefined = categoryScope ? { [CATEGORY_FILTER_KEY]: categoryScope } : undefined;
+        return buildPinnedSection(pinnedRows, data.items, query.searchTerm, query.filters, scopes);
+    }, [pinnedRows, data.items, query.searchTerm, query.filters, categoryScope]);
 
     // added: determine if pagination should be shown
     const shouldShowPagination = !loading && data.items.length > 0 && data.totalCount > query.pageSize;
@@ -553,7 +578,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
     return (
         <div className="w-full space-y-4">
             {/* Toolbar - changed: conditionally render based on showSearchBar prop */}
-            {(showSearchBar || toolbarActions) && (
+            {(showSearchBar || toolbarActions || showCategoryFilter) && (
                 <div className="flex items-center justify-between">
                     {showSearchBar && (
                         <div className="relative flex-1 max-w-md">
@@ -567,8 +592,16 @@ export function PagedEntityTable<T extends Record<string, any>>({
                             />
                         </div>
                     )}
-                    {toolbarActions && (
+                    {showCategoryFilter && (
                         <div className={showSearchBar ? 'ml-4' : ''}>
+                            <CategoryFilterSelect
+                                value={query.filters?.[CATEGORY_FILTER_KEY]}
+                                onChange={handleCategoryFilterChange}
+                            />
+                        </div>
+                    )}
+                    {toolbarActions && (
+                        <div className={showSearchBar || showCategoryFilter ? 'ml-4' : ''}>
                             {toolbarActions}
                         </div>
                     )}
