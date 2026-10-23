@@ -14,7 +14,7 @@ import { apiRefusalReason } from '../../utils/apiRefusalReason';
  * shown on a 400.
  */
 
-type FieldKind = 'int' | 'decimal' | 'intList' | 'stringList' | 'gateView';
+type FieldKind = 'int' | 'decimal' | 'intList' | 'stringList' | 'gateView' | 'boolean';
 
 interface FieldSpec {
     key: keyof UpdateSiegeConfigurationDto;
@@ -71,6 +71,13 @@ const SECTIONS: Array<{ title: string; description: string; fields: FieldSpec[] 
         ],
     },
     {
+        title: 'Navigation compass',
+        description: 'KNG-234. The item itself (material and display name) is set on the roads / navigation admin page. A lobby or a scenario can override this with its own "Navigation compass" choice (lobby first, then scenario, then this).',
+        fields: [
+            { key: 'giveNavigationItem', label: 'Give the navigation compass at the hub', kind: 'boolean', help: 'Players get it when they are teleported to the hub (the warm-up) and lose it with the inventory restore after the match.' },
+        ],
+    },
+    {
         title: 'Gates',
         description: 'How non-members see siege gates (§8.5).',
         fields: [
@@ -107,6 +114,8 @@ const parseText = (text: string, kind: FieldKind): { value?: unknown; error?: st
             return { value: trimmed === '' ? [] : trimmed.split('\n').map(l => l.trim()).filter(Boolean) };
         case 'gateView':
             return { value: trimmed };
+        case 'boolean':
+            return trimmed === 'true' || trimmed === 'false' ? { value: trimmed === 'true' } : { error: 'Yes or no required.' };
     }
 };
 
@@ -237,6 +246,8 @@ export const SiegeConfigurationPage: React.FC = () => {
                                     <span className="block text-sm font-medium text-gray-700 mb-1">{field.label}</span>
                                     {field.kind === 'stringList' ? (
                                         <textarea rows={4} value={text} onChange={e => onChange(e.target.value)} className={inputClass} />
+                                    ) : field.kind === 'boolean' ? (
+                                        <input type="checkbox" checked={text === 'true'} onChange={e => onChange(e.target.checked ? 'true' : 'false')} className="h-4 w-4 rounded border-gray-300" />
                                     ) : field.kind === 'gateView' ? (
                                         <select value={text} onChange={e => onChange(e.target.value)} className={inputClass}>
                                             <option value="PreLockdownView">Pre-lockdown view (default)</option>
