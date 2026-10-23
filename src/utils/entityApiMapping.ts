@@ -13,6 +13,7 @@ import { KitClient } from '../apiClients/kitClient';
 import { EnchantmentDefinitionClient } from '../apiClients/enchantmentDefinitionClient';
 import { GateStructureClient } from '../apiClients/gateStructureClient';
 import { GateDoorClient } from '../apiClients/gateDoorClient';
+import { DomainSubRegionClient } from '../apiClients/domainSubRegionClient';
 import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
 import { LocationClient } from '../apiClients/locationClient';
 import { MinecraftEnchantmentRefClient } from '../apiClients/minecraftEnchantmentRefClient';
@@ -161,6 +162,8 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => GateStructureClient.getInstance().getById(Number(id), true);
         case 'gatedoor':
             return (id) => GateDoorClient.getInstance().getById(Number(id), true);
+        case 'domainsubregion':
+            return (id) => DomainSubRegionClient.getInstance().getById(Number(id));
         case 'location':
             return (id) => LocationClient.getInstance().getById(Number(id));
         case 'itemblueprint':
@@ -232,6 +235,8 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => GateStructureClient.getInstance().update(entity);
         case 'gatedoor':
             return (entity) => GateDoorClient.getInstance().update(entity);
+        case 'domainsubregion':
+            return (entity) => DomainSubRegionClient.getInstance().update(entity);
         case 'location':
             return (entity) => LocationClient.getInstance().update(entity);
         case 'itemblueprint':
@@ -301,6 +306,8 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => GateStructureClient.getInstance().delete(Number(id));
         case 'gatedoor':
             return (id) => GateDoorClient.getInstance().delete(Number(id));
+        case 'domainsubregion':
+            return (id) => DomainSubRegionClient.getInstance().delete(Number(id));
         case 'location':
             return (id) => LocationClient.getInstance().delete(Number(id));
         case 'itemblueprint':
@@ -368,6 +375,8 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => GateStructureClient.getInstance().create(entity);
         case 'gatedoor':
             return (entity) => GateDoorClient.getInstance().create(entity);
+        case 'domainsubregion':
+            return (entity) => DomainSubRegionClient.getInstance().create(entity);
         case 'location':
             return (entity) => LocationClient.getInstance().create(entity);
         case 'itemblueprint':
