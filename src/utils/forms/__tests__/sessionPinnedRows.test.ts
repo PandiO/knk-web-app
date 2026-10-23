@@ -192,3 +192,25 @@ describe('sessionPinnedRows (KNG-136)', () => {
         });
     });
 });
+
+describe('filter scopes (KNG-263)', () => {
+    const sword = { id: 7, name: 'Iron Sword', categoryId: 2 };
+    const helmet = { id: 8, name: 'Helmet', categoryId: 5 };
+    const weapons = { CategoryId: new Set(['1', '2', '3']) };
+
+    it('a category filter accepts a row of a child category', () => {
+        expect(matchesPickerFilters(sword, { CategoryId: '1' }, weapons)).toBe(true);
+        expect(matchesPickerFilters(helmet, { CategoryId: '1' }, weapons)).toBe(false);
+    });
+
+    it('without a scope the value must match exactly, as before', () => {
+        expect(matchesPickerFilters(sword, { CategoryId: '1' })).toBe(false);
+        expect(matchesPickerFilters(sword, { CategoryId: '2' })).toBe(true);
+    });
+
+    it('buildPinnedSection keeps pinned rows of child categories', () => {
+        const section = buildPinnedSection([{ key: 'ib:7', row: sword }, { key: 'ib:8', row: helmet }], [], '',
+            { CategoryId: '1' }, weapons);
+        expect(section.pinned.map(pin => pin.key)).toEqual(['ib:7']);
+    });
+});
