@@ -68,8 +68,8 @@ describe('material columns', () => {
 });
 
 describe('item blueprint columns', () => {
-  it('has an Icon column right after the ID', () => {
-    expect(columnDefinitionsRegistry.itemblueprint.default.map(c => c.key)).toEqual(['id', 'iconUrl', 'name']);
+  it('has an Icon column right after the ID and the Category last (KNG-263)', () => {
+    expect(columnDefinitionsRegistry.itemblueprint.default.map(c => c.key)).toEqual(['id', 'iconUrl', 'name', 'categoryName']);
   });
 
   it('renders the icon material picture', () => {

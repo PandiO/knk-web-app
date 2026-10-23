@@ -7,7 +7,8 @@ import { ColumnDefinition } from '../../types/common';
 import { minecraftEnchantmentRefClient } from '../../apiClients/minecraftEnchantmentRefClient';
 import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
-import { buildPinnedSection, catalogKeyOf, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
+import { buildPinnedSection, catalogKeyOf, FilterScopes, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
+import { CategoryFilterSelect } from './CategoryFilterSelect';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
 
@@ -18,6 +19,14 @@ import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
  */
 const isHybridCatalogEntity = (entityTypeName: string): boolean =>
     entityTypeName.toLowerCase() === 'minecraftenchantmentref';
+
+/** KNG-263: entities whose table offers a Category filter (a category includes its children). */
+const CATEGORY_FILTER_ENTITIES = new Set(['itemblueprint']);
+const CATEGORY_FILTER_KEY = 'CategoryId';
+
+/** Whether the caller (e.g. a form field's picker filters) already fixes the category. */
+const hasImposedCategoryFilter = (filters?: Record<string, string>): boolean =>
+    Object.keys(filters ?? {}).some(filterKey => ['category', 'categoryid'].includes(filterKey.toLowerCase()));
 
 /**
  * Amber "New" pill for the pinned session rows and for unsaved enchantment catalogue rows. KNG-200
@@ -222,6 +231,22 @@ export function PagedEntityTable<T extends Record<string, any>>({
     const [internalSelection, setInternalSelection] = useState<T[]>(selectedItems);
     const [creatingKey, setCreatingKey] = useState<string | null>(null);
     const [selectingAll, setSelectingAll] = useState(false);
+    // KNG-263: the category filter's chosen category and the ids it covers (itself and its children).
+    const showCategoryFilter = CATEGORY_FILTER_ENTITIES.has(entityTypeName.toLowerCase())
+        && !hasImposedCategoryFilter(initialQuery.filters);
+    const [categoryScope, setCategoryScope] = useState<ReadonlySet<string> | undefined>(undefined);
+
+    const handleCategoryFilterChange = (categoryId: string | undefined, covered: ReadonlySet<string> | undefined) => {
+        setCategoryScope(covered);
+        setQuery(prev => {
+            const { [CATEGORY_FILTER_KEY]: _previous, ...otherFilters } = prev.filters ?? {};
+            return {
+                ...prev,
+                page: 1,
+                filters: categoryId ? { ...otherFilters, [CATEGORY_FILTER_KEY]: categoryId } : otherFilters
+            };
+        });
+    };
     // KNG-200: numbers the fetches, so only the latest one's response reaches the table.
     const requestSeq = useRef(0);
     // KNG-200 phase 5: only enchantment refs still come from a hybrid catalogue (unsaved rows,
@@ -635,10 +660,10 @@ export function PagedEntityTable<T extends Record<string, any>>({
     const allVisibleSelected = data.items.length > 0 && 
         data.items.every(row => isRowSelected(row));
 
-    const section = useMemo(
-        () => buildPinnedSection(pinnedRows, data.items, query.searchTerm, query.filters),
-        [pinnedRows, data.items, query.searchTerm, query.filters]
-    );
+    const section = useMemo(() => {
+        const scopes: FilterScopes | undefined = categoryScope ? { [CATEGORY_FILTER_KEY]: categoryScope } : undefined;
+        return buildPinnedSection(pinnedRows, data.items, query.searchTerm, query.filters, scopes);
+    }, [pinnedRows, data.items, query.searchTerm, query.filters, categoryScope]);
 
     // added: handle create and select for hybrid mode
     const handleCreateAndSelect = async (row: T) => {
@@ -750,7 +775,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
     return (
         <div className="w-full space-y-4">
             {/* Toolbar - changed: conditionally render based on showSearchBar prop */}
-            {(showSearchBar || toolbarActions) && (
+            {(showSearchBar || toolbarActions || showCategoryFilter) && (
                 <div className="flex items-center justify-between">
                     {showSearchBar && (
                         <div className="relative flex-1 max-w-md">
@@ -764,8 +789,16 @@ export function PagedEntityTable<T extends Record<string, any>>({
                             />
                         </div>
                     )}
-                    {toolbarActions && (
+                    {showCategoryFilter && (
                         <div className={showSearchBar ? 'ml-4' : ''}>
+                            <CategoryFilterSelect
+                                value={query.filters?.[CATEGORY_FILTER_KEY]}
+                                onChange={handleCategoryFilterChange}
+                            />
+                        </div>
+                    )}
+                    {toolbarActions && (
+                        <div className={showSearchBar || showCategoryFilter ? 'ml-4' : ''}>
                             {toolbarActions}
                         </div>
                     )}
