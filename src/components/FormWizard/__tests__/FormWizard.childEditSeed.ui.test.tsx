@@ -46,6 +46,7 @@ jest.mock('../../../apiClients/fieldValidationRuleClient', () => ({
     fieldValidationRuleClient: {
         getByFormConfigurationId: jest.fn(),
         validateField: jest.fn(),
+        validateFields: jest.fn(),
         resolvePlaceholders: jest.fn(),
         resolveDependencies: jest.fn()
     }
@@ -148,6 +149,13 @@ describe('Edit instance seeds the child form from what the parent holds (KNG-134
         (displayConfigClient.getDefaultByEntityType as jest.Mock).mockRejectedValue(new Error('none'));
         (fieldValidationRuleClient.getByFormConfigurationId as jest.Mock).mockResolvedValue([]);
         (fieldValidationRuleClient.validateField as jest.Mock).mockResolvedValue({ isValid: true, isBlocking: true, message: 'ok' });
+        (fieldValidationRuleClient.validateFields as jest.Mock).mockImplementation(async (request: { fields: Array<{ fieldId: number; fieldValue: unknown }>; formContextData?: Record<string, unknown> }) => {
+            const results: Record<string, unknown> = {};
+            for (const item of request.fields) {
+                results[String(item.fieldId)] = await fieldValidationRuleClient.validateField({ ...item, formContextData: request.formContextData });
+            }
+            return { results };
+        });
         (formSubmissionClient.getByEntityTypeNameFiltered as jest.Mock).mockResolvedValue([]);
         (formSubmissionClient.create as jest.Mock).mockImplementation(async (p: Record<string, unknown>) => ({ ...p, id: 'progress-1' }));
         (formSubmissionClient.update as jest.Mock).mockImplementation(async (p: Record<string, unknown>) => p);
