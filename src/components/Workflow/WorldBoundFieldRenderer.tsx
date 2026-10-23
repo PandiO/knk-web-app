@@ -413,6 +413,8 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const [isLoading, setIsLoading] = useState(false);
     const [extractionSucceeded, setExtractionSucceeded] = useState(false);
     const [extractionError, setExtractionError] = useState<string | null>(null);
+    // KNG-268: why the API refused to create the task (e.g. a region door without its captured region).
+    const [createError, setCreateError] = useState<string | null>(null);
     const [copiedText, setCopiedText] = useState<string | null>(null);
     const onChangeRef = useRef(onChange);
     // The value the field holds right now, for the polling closure (KNG-134: Replace keeps the id).
@@ -504,9 +506,9 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     pollingIntervalRef.current = null;
                 }
 
-                // If task failed, show error and stop polling
+                // If task failed, stop polling. The "Task Failed" banner shows the reason (KNG-268:
+                // also setting it as the extraction error showed it twice).
                 if (updatedStatus === 'failed') {
-                    setExtractionError(updated.errorMessage || 'Task failed in Minecraft');
                     console.error('WorldTask failed:', updated.errorMessage);
                     clearInterval(pollInterval);
                     pollingIntervalRef.current = null;
@@ -534,6 +536,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         }
 
         setIsLoading(true);
+        setCreateError(null);
         try {
             if (isGateBlockScan) {
                 // Item 5 (docs/features/gate-structure-animation/
@@ -617,6 +620,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             setTaskId(created.id);  // Start polling for status updates
         } catch (error) {
             console.error('Failed to create world task:', error);
+            setCreateError(error instanceof Error && error.message ? error.message : 'The task could not be started.');
         } finally {
             setIsLoading(false);
         }
@@ -656,6 +660,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         (!!task && taskStatus === 'completed' && !extractionSucceeded && !extractionError) ||
         (!!task && taskStatus === 'completed' && extractionSucceeded) ||
         !!extractionError ||
+        !!createError ||
         (!!task && taskStatus === 'failed');
 
     useEffect(() => {
@@ -800,6 +805,16 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     <p className="text-xs text-red-700 mt-1">
                         {extractionError}
                     </p>
+                </div>
+            )}
+
+            {/* KNG-268: the API refused to start the task, with its reason */}
+            {createError && !task && (
+                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-sm font-medium text-red-800">
+                        ❌ Couldn't start
+                    </p>
+                    <p className="text-xs text-red-700 mt-1">{createError}</p>
                 </div>
             )}
 
