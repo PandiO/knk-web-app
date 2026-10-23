@@ -4,25 +4,24 @@ import { PagedQueryDto, PagedResultDto } from '../../types/dtos/common/PagedQuer
 import { getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { logging } from '../../utils';
 import { ColumnDefinition } from '../../types/common';
-import { minecraftEnchantmentRefClient } from '../../apiClients/minecraftEnchantmentRefClient';
-import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
-import { buildPinnedSection, catalogKeyOf, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
-import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { buildPinnedSection, FilterScopes, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
+import { CategoryFilterSelect } from './CategoryFilterSelect';
 import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
 
-/**
- * Entities whose table still searches a hybrid catalogue (saved rows plus unsaved catalogue
- * entries, `SearchHybrid`), shows unsaved rows as "New" and saves them on select. Since KNG-200
- * phase 5 that is only `MinecraftEnchantmentRef`; materials and blocks are database-only.
- */
-const isHybridCatalogEntity = (entityTypeName: string): boolean =>
-    entityTypeName.toLowerCase() === 'minecraftenchantmentref';
+/** KNG-263: entities whose table offers a Category filter (a category includes its children). */
+const CATEGORY_FILTER_ENTITIES = new Set(['itemblueprint']);
+const CATEGORY_FILTER_KEY = 'CategoryId';
+
+/** Whether the caller (e.g. a form field's picker filters) already fixes the category. */
+const hasImposedCategoryFilter = (filters?: Record<string, string>): boolean =>
+    Object.keys(filters ?? {}).some(filterKey => ['category', 'categoryid'].includes(filterKey.toLowerCase()));
 
 /**
- * Amber "New" pill for the pinned session rows and for unsaved enchantment catalogue rows. KNG-200
- * phase 4 dropped the green "Existing" pill: once the picker answers from the database every row
- * is saved, so it marked every row.
+ * Amber "New" pill for the pinned session rows ("Created in this form"). The hybrid catalogue
+ * tables that also showed it on unsaved rows are gone: materials and blocks since KNG-200 phase 5,
+ * enchantments since KNG-250. Every table row is a saved database row, and picking one never
+ * creates anything.
  */
 const RowBadge: React.FC<{ label?: string }> = ({ label }) => (
     <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full text-amber-700 bg-amber-100">
@@ -220,13 +219,24 @@ export function PagedEntityTable<T extends Record<string, any>>({
     const [error, setError] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(query.searchTerm || '');
     const [internalSelection, setInternalSelection] = useState<T[]>(selectedItems);
-    const [creatingKey, setCreatingKey] = useState<string | null>(null);
-    const [selectingAll, setSelectingAll] = useState(false);
+    // KNG-263: the category filter's chosen category and the ids it covers (itself and its children).
+    const showCategoryFilter = CATEGORY_FILTER_ENTITIES.has(entityTypeName.toLowerCase())
+        && !hasImposedCategoryFilter(initialQuery.filters);
+    const [categoryScope, setCategoryScope] = useState<ReadonlySet<string> | undefined>(undefined);
+
+    const handleCategoryFilterChange = (categoryId: string | undefined, covered: ReadonlySet<string> | undefined) => {
+        setCategoryScope(covered);
+        setQuery(prev => {
+            const { [CATEGORY_FILTER_KEY]: _previous, ...otherFilters } = prev.filters ?? {};
+            return {
+                ...prev,
+                page: 1,
+                filters: categoryId ? { ...otherFilters, [CATEGORY_FILTER_KEY]: categoryId } : otherFilters
+            };
+        });
+    };
     // KNG-200: numbers the fetches, so only the latest one's response reaches the table.
     const requestSeq = useRef(0);
-    // KNG-200 phase 5: only enchantment refs still come from a hybrid catalogue (unsaved rows,
-    // "New" badges, saved on select). Material and block refs are plain database tables.
-    const isHybridMode = isHybridCatalogEntity(entityTypeName);
 
     const fallbackColumns = useMemo<ColumnDefinition<T>[]>(() => {
         if (columns.length > 0) {
@@ -333,26 +343,9 @@ export function PagedEntityTable<T extends Record<string, any>>({
             setLoading(true);
             setError(null);
 
-            if (isHybridCatalogEntity(entityTypeName)) {
-                // Enchantment refs: the hybrid search merges saved rows with the static catalogue
-                const hybridQuery: PagedQueryDto = {
-                    ...query,
-                    filters: {
-                        ...query.filters,
-                        SearchHybrid: 'true'
-                    }
-                };
-                
-                const searchFn = getSearchFunctionForEntity(entityTypeName);
-                const result = await searchFn(hybridQuery);
-
-                if (isLatest()) setData(result);
-            } else {
-                // Normal paged search
-                const searchFn = getSearchFunctionForEntity(entityTypeName);
-                const result = await searchFn(query);
-                if (isLatest()) setData(result);
-            }
+            const searchFn = getSearchFunctionForEntity(entityTypeName);
+            const result = await searchFn(query);
+            if (isLatest()) setData(result);
         } catch (err) {
             // A failed request a later one has replaced says nothing about the current results.
             if (!isLatest()) return;
@@ -475,26 +468,16 @@ export function PagedEntityTable<T extends Record<string, any>>({
         }
     };
 
-    // Enchantment refs compare by namespaceKey, other rows by id (see isSameSelection).
+    // Rows compare by id (see isSameSelection).
     const isRowSelected = (row: T): boolean =>
         internalSelection.some(item => isSameSelection(item, row, entityTypeName));
 
-    // added: handle row selection with hybrid mode support
-    const handleRowSelection = async (row: T, event?: React.MouseEvent) => {
+    const handleRowSelection = (row: T, event?: React.MouseEvent) => {
         if (selectionConfig.mode === 'none') return;
 
         // Prevent triggering onRowClick when clicking checkbox
         if (event) {
             event.stopPropagation();
-        }
-
-        // While a catalogue row is being saved the selection is about to change: ignore clicks.
-        if (creatingKey || selectingAll) return;
-
-        // An unsaved catalogue row is saved first; an already selected one is just deselected.
-        if (isHybridMode && (row as any).isPersisted === false && !isRowSelected(row)) {
-            await handleCreateAndSelect(row);
-            return;
         }
 
         let newSelection: T[];
@@ -524,158 +507,10 @@ export function PagedEntityTable<T extends Record<string, any>>({
         onSelectionChange?.(newSelection);
     };
 
-    /**
-     * Saves an unsaved enchantment catalogue row (the ref plus its definition) and returns the saved
-     * DTO. Material and block refs have no unsaved rows any more (KNG-200 phase 5).
-     */
-    const persistUnsavedRow = async (row: T): Promise<any> => {
-        const option = row as any;
-
-        if (isHybridCatalogEntity(entityTypeName)) {
-            const created = await minecraftEnchantmentRefClient.create({
-                namespaceKey: option.namespaceKey,
-                legacyName: option.legacyName,
-                category: option.category,
-                maxLevel: option.maxLevel,
-                displayName: option.displayName,
-                iconUrl: option.iconUrl
-            });
-            await enchantmentDefinitionClient.create({
-                key: option.namespaceKey,
-                displayName: option.displayName,
-                maxLevel: option.maxLevel,
-                isCustom: false,
-                minecraftEnchantmentRefId: created.id
-            });
-            return created;
-        }
-        return undefined;
-    };
-
-    /** The row as saved: its new id, marked persisted. */
-    const asSaved = (row: T, id: unknown): T => ({ ...row, id, isPersisted: true } as T);
-
-    /**
-     * Marks the page's unsaved rows of the saved catalogue entries as saved. Rows match by catalogue
-     * key (normalised namespaceKey, plus block state for blocks), not by the exact spelling.
-     */
-    const markRowsSaved = (saved: Array<{ key: string | undefined; id: unknown }>) => {
-        const savedByKey = new Map<string, unknown>();
-        saved.forEach(entry => {
-            if (entry.key !== undefined) savedByKey.set(entry.key, entry.id);
-        });
-        if (savedByKey.size === 0) return;
-        setData(prev => ({
-            ...prev,
-            items: prev.items.map(item => {
-                if ((item as any).isPersisted !== false) return item;
-                const key = catalogKeyOf(item, entityTypeName);
-                return key !== undefined && savedByKey.has(key) ? asSaved(item, savedByKey.get(key)) : item;
-            })
-        }));
-    };
-
-    /**
-     * "Select all on this page" (multiple mode): adds the page's rows that are not selected yet, up to
-     * `max`. Unsaved catalogue rows are saved one after the other first (KNG-200); when one fails the
-     * rows before it are still added and the error is shown. Unchecking removes the page's rows,
-     * unless that would go below `min`.
-     */
-    const handleSelectAll = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (selectionConfig.mode !== 'multiple' || creatingKey || selectingAll) return;
-
-        if (!event.target.checked) {
-            const remaining = internalSelection.filter(item => !data.items.some(row => isSameSelection(item, row, entityTypeName)));
-            if (selectionConfig.min && remaining.length < selectionConfig.min) return;
-            setInternalSelection(remaining);
-            onSelectionChange?.(remaining);
-            return;
-        }
-
-        const room = selectionConfig.max ? Math.max(selectionConfig.max - internalSelection.length, 0) : Infinity;
-        const candidates = data.items.filter(row => !isRowSelected(row)).slice(0, room);
-        if (candidates.length === 0) return;
-
-        const toAdd: T[] = [];
-        const saved: Array<{ key: string | undefined; id: unknown }> = [];
-        setSelectingAll(true);
-        setError(null);
-        try {
-            for (const row of candidates) {
-                if (isHybridMode && (row as any).isPersisted === false) {
-                    const key = catalogKeyOf(row, entityTypeName);
-                    setCreatingKey(key ?? 'creating');
-                    const created = await persistUnsavedRow(row);
-                    if (!created?.id) continue;
-                    saved.push({ key, id: created.id });
-                    const savedRow = asSaved(row, created.id);
-                    if (!toAdd.some(item => isSameSelection(item, savedRow, entityTypeName))
-                        && !internalSelection.some(item => isSameSelection(item, savedRow, entityTypeName))) {
-                        toAdd.push(savedRow);
-                    }
-                } else {
-                    toAdd.push(row);
-                }
-            }
-        } catch (err) {
-            setError(apiRefusalReason(err) ?? 'Failed to create item');
-        } finally {
-            setCreatingKey(null);
-            setSelectingAll(false);
-        }
-
-        markRowsSaved(saved);
-        if (toAdd.length > 0) {
-            const newSelection = [...internalSelection, ...toAdd];
-            setInternalSelection(newSelection);
-            onSelectionChange?.(newSelection);
-        }
-    };
-
-    const allVisibleSelected = data.items.length > 0 && 
-        data.items.every(row => isRowSelected(row));
-
-    const section = useMemo(
-        () => buildPinnedSection(pinnedRows, data.items, query.searchTerm, query.filters),
-        [pinnedRows, data.items, query.searchTerm, query.filters]
-    );
-
-    // added: handle create and select for hybrid mode
-    const handleCreateAndSelect = async (row: T) => {
-        if (creatingKey || selectingAll) return;
-        const key = catalogKeyOf(row, entityTypeName);
-        setCreatingKey(key ?? 'creating');
-        setError(null);
-
-        try {
-            const created = await persistUnsavedRow(row);
-
-            if (created?.id) {
-                markRowsSaved([{ key, id: created.id }]);
-
-                // Select the saved item (once: get-or-create may return a row that is already selected)
-                const updatedRow = asSaved(row, created.id);
-                let newSelection: T[];
-
-                if (selectionConfig.mode === 'single') {
-                    newSelection = [updatedRow];
-                } else {
-                    const others = internalSelection.filter(item => !isSameSelection(item, updatedRow, entityTypeName));
-                    if (selectionConfig.max && others.length >= selectionConfig.max) {
-                        return;
-                    }
-                    newSelection = [...others, updatedRow];
-                }
-
-                setInternalSelection(newSelection);
-                onSelectionChange?.(newSelection);
-            }
-        } catch (err) {
-            setError(apiRefusalReason(err) ?? 'Failed to create item');
-        } finally {
-            setCreatingKey(null);
-        }
-    };
+    const section = useMemo(() => {
+        const scopes: FilterScopes | undefined = categoryScope ? { [CATEGORY_FILTER_KEY]: categoryScope } : undefined;
+        return buildPinnedSection(pinnedRows, data.items, query.searchTerm, query.filters, scopes);
+    }, [pinnedRows, data.items, query.searchTerm, query.filters, categoryScope]);
 
     // added: determine if pagination should be shown
     const shouldShowPagination = !loading && data.items.length > 0 && data.totalCount > query.pageSize;
@@ -711,20 +546,13 @@ export function PagedEntityTable<T extends Record<string, any>>({
                     <td key={column.key} className={`px-6 py-4 whitespace-nowrap text-sm ${
                         selected ? 'text-gray-900 font-medium' : 'text-gray-500'
                     }`}>
-                        {/* check icon in the first column if selected, plus the New badge of an unsaved row */}
+                        {/* check icon in the first column if selected, plus the badge of a pinned row */}
                         {colIndex === 0 ? (
                             <div className="flex items-center space-x-2">
                                 {selected && selectionConfig.mode !== 'none' && (
                                     <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
                                 )}
-                                {sessionBadge ? (
-                                    <RowBadge label={sessionBadge} />
-                                ) : isHybridMode && (row as any).isPersisted === false && (
-                                    <RowBadge />
-                                )}
-                                {creatingKey && catalogKeyOf(row, entityTypeName) === creatingKey && (
-                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                )}
+                                {sessionBadge && <RowBadge label={sessionBadge} />}
                                 <span>{renderCellValue(row, column)}</span>
                             </div>
                         ) : (
@@ -750,7 +578,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
     return (
         <div className="w-full space-y-4">
             {/* Toolbar - changed: conditionally render based on showSearchBar prop */}
-            {(showSearchBar || toolbarActions) && (
+            {(showSearchBar || toolbarActions || showCategoryFilter) && (
                 <div className="flex items-center justify-between">
                     {showSearchBar && (
                         <div className="relative flex-1 max-w-md">
@@ -764,8 +592,16 @@ export function PagedEntityTable<T extends Record<string, any>>({
                             />
                         </div>
                     )}
-                    {toolbarActions && (
+                    {showCategoryFilter && (
                         <div className={showSearchBar ? 'ml-4' : ''}>
+                            <CategoryFilterSelect
+                                value={query.filters?.[CATEGORY_FILTER_KEY]}
+                                onChange={handleCategoryFilterChange}
+                            />
+                        </div>
+                    )}
+                    {toolbarActions && (
+                        <div className={showSearchBar || showCategoryFilter ? 'ml-4' : ''}>
                             {toolbarActions}
                         </div>
                     )}

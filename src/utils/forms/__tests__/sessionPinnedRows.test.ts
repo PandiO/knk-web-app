@@ -52,10 +52,10 @@ describe('sessionPinnedRows (KNG-136)', () => {
     });
 
     describe('tableRowKey', () => {
-        it('keys by id, namespaceKey for enchantment refs, else by position', () => {
+        it('keys by id (enchantment refs too), else by catalogue key or position', () => {
             expect(tableRowKey({ id: 5 }, 'District', 0)).toBe('id:5');
-            expect(tableRowKey({ id: 5, namespaceKey: 'minecraft:sharpness' }, 'MinecraftEnchantmentRef', 0)).toBe('ns:minecraft:sharpness');
-            expect(tableRowKey({ namespaceKey: 'minecraft:stone', isPersisted: false }, 'MinecraftMaterialRef', 2)).toBe('ns:minecraft:stone');
+            expect(tableRowKey({ id: 5, namespaceKey: 'minecraft:sharpness' }, 'MinecraftEnchantmentRef', 0)).toBe('id:5');
+            expect(tableRowKey({ namespaceKey: 'minecraft:stone' }, 'MinecraftMaterialRef', 2)).toBe('ns:minecraft:stone');
             expect(tableRowKey({ name: 'no id' }, 'District', 3)).toBe('index:3');
         });
     });
@@ -70,7 +70,19 @@ describe('sessionPinnedRows (KNG-136)', () => {
             expect(isSameSelection(a, a, 'District')).toBe(true);
         });
 
-        it('matches enchantment refs by namespaceKey', () => {
+        // KNG-250: enchantment refs are saved rows like any other entity; the namespaceKey only
+        // stands in when a value has no id.
+        it('matches enchantment refs by id, and by namespaceKey only without an id', () => {
+            expect(isSameSelection(
+                { id: 1, namespaceKey: 'minecraft:sharpness' },
+                { id: 1, namespaceKey: 'minecraft:sharpness' },
+                'MinecraftEnchantmentRef'
+            )).toBe(true);
+            expect(isSameSelection(
+                { id: 1, namespaceKey: 'minecraft:sharpness' },
+                { id: 2, namespaceKey: 'minecraft:sharpness' },
+                'MinecraftEnchantmentRef'
+            )).toBe(false);
             expect(isSameSelection(
                 { id: 1, namespaceKey: 'minecraft:sharpness' },
                 { namespaceKey: 'minecraft:sharpness' },
@@ -82,7 +94,7 @@ describe('sessionPinnedRows (KNG-136)', () => {
     // KNG-200: hybrid Minecraft rows. Ids start at 1, so 0 / "0" / null mean "unsaved".
     describe('Minecraft catalogue rows without an id (KNG-200)', () => {
         it('never keys a row by id 0, "0" or null', () => {
-            expect(tableRowKey({ id: 0, namespaceKey: 'minecraft:torch', isPersisted: false }, 'MinecraftMaterialRef', 0)).toBe('ns:minecraft:torch');
+            expect(tableRowKey({ id: 0, namespaceKey: 'minecraft:torch' }, 'MinecraftMaterialRef', 0)).toBe('ns:minecraft:torch');
             expect(tableRowKey({ id: '0', namespaceKey: 'minecraft:torch' }, 'MinecraftMaterialRef', 0)).toBe('ns:minecraft:torch');
             expect(tableRowKey({ id: null, namespaceKey: 'minecraft:torch' }, 'MinecraftMaterialRef', 0)).toBe('ns:minecraft:torch');
             expect(tableRowKey({ id: 0, name: 'unsaved' }, 'District', 4)).toBe('index:4');
@@ -134,8 +146,9 @@ describe('sessionPinnedRows (KNG-136)', () => {
             expect(isSameSelection({ id: '0' }, { id: 0 }, 'District')).toBe(false);
         });
 
-        it('keeps enchantment refs keyed and compared by their namespaceKey as given', () => {
+        it('keys and compares id-less enchantment refs by their namespaceKey as given', () => {
             expect(tableRowKey({ id: 0, namespaceKey: 'minecraft:sharpness' }, 'MinecraftEnchantmentRef', 0)).toBe('ns:minecraft:sharpness');
+            expect(tableRowKey({ id: 12, namespaceKey: 'minecraft:sharpness' }, 'MinecraftEnchantmentRef', 0)).toBe('id:12');
             expect(isSameSelection({ id: 0, namespaceKey: 'minecraft:sharpness' }, { id: 0, namespaceKey: 'minecraft:sharpness' }, 'MinecraftEnchantmentRef')).toBe(true);
             expect(isSameSelection({ namespaceKey: 'minecraft:sharpness' }, { namespaceKey: 'SHARPNESS' }, 'MinecraftEnchantmentRef')).toBe(false);
         });
@@ -190,5 +203,27 @@ describe('sessionPinnedRows (KNG-136)', () => {
             );
             expect(section.pinned.map(p => p.key)).toEqual(['district:501', 'district:502']);
         });
+    });
+});
+
+describe('filter scopes (KNG-263)', () => {
+    const sword = { id: 7, name: 'Iron Sword', categoryId: 2 };
+    const helmet = { id: 8, name: 'Helmet', categoryId: 5 };
+    const weapons = { CategoryId: new Set(['1', '2', '3']) };
+
+    it('a category filter accepts a row of a child category', () => {
+        expect(matchesPickerFilters(sword, { CategoryId: '1' }, weapons)).toBe(true);
+        expect(matchesPickerFilters(helmet, { CategoryId: '1' }, weapons)).toBe(false);
+    });
+
+    it('without a scope the value must match exactly, as before', () => {
+        expect(matchesPickerFilters(sword, { CategoryId: '1' })).toBe(false);
+        expect(matchesPickerFilters(sword, { CategoryId: '2' })).toBe(true);
+    });
+
+    it('buildPinnedSection keeps pinned rows of child categories', () => {
+        const section = buildPinnedSection([{ key: 'ib:7', row: sword }, { key: 'ib:8', row: helmet }], [], '',
+            { CategoryId: '1' }, weapons);
+        expect(section.pinned.map(pin => pin.key)).toEqual(['ib:7']);
     });
 });

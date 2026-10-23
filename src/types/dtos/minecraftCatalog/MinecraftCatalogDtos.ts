@@ -25,6 +25,21 @@ export interface MinecraftCatalogScanDto {
   deleted: number;
   markedMissing: number;
   iconsMissing: number;
+  /**
+   * KNG-250 (§12.2): enchantments the server sent, vanilla and custom; null for a schema 1 scan
+   * (an older plugin), whose enchantment counters are all 0.
+   */
+  enchantmentCount: number | null;
+  enchantmentsInserted: number;
+  enchantmentsUpdated: number;
+  enchantmentsUnchanged: number;
+  enchantmentsMerged: number;
+  enchantmentsDeleted: number;
+  enchantmentsMarkedMissing: number;
+  /** EnchantmentDefinitions the scan created for enchantments that had none (§12.4 step 5). */
+  enchantmentDefinitionsCreated: number;
+  /** Existing unlinked EnchantmentDefinitions the scan linked to their enchantment. */
+  enchantmentDefinitionsLinked: number;
   error: string | null;
   createdAt: string;
   completedAt: string | null;
@@ -54,6 +69,23 @@ export interface MinecraftCatalogAuditBlockDto {
   stateKey: string | null;
 }
 
+/** An EnchantmentDefinition that uses an enchantment ref (KNG-250). */
+export interface MinecraftCatalogAuditEnchantmentDefinitionDto {
+  id: number;
+  key: string;
+  displayName: string;
+}
+
+/** An enchantment ref in the audit, with the definitions that use it (KNG-250). */
+export interface MinecraftCatalogAuditEnchantmentDto {
+  id: number;
+  namespaceKey: string;
+  displayName: string | null;
+  isCustom: boolean;
+  catalogStatus: string;
+  definitions: MinecraftCatalogAuditEnchantmentDefinitionDto[];
+}
+
 /** Read-only report of what blocks the phase 4 constraints and what needs a merge (§8 step 3). */
 export interface MinecraftCatalogAuditDto {
   readyForConstraints: boolean;
@@ -74,6 +106,11 @@ export interface MinecraftCatalogAuditDto {
   invalidBlockStates: MinecraftCatalogAuditBlockDto[];
   unlinkedBlockRefs: MinecraftCatalogAuditBlockDto[];
   notCanonicalBlockRefs: MinecraftCatalogAuditBlockDto[];
+  /** KNG-250 (§12.5): enchantment refs, and those no scan has seen yet. */
+  enchantmentCount: number;
+  unverifiedEnchantmentCount: number;
+  /** Enchantments not in the latest scan that an EnchantmentDefinition still uses. */
+  missingEnchantmentsReferenced: MinecraftCatalogAuditEnchantmentDto[];
 }
 
 /** What the backfill changed (§8 step 2). A second run reports zeros. */

@@ -1,3 +1,6 @@
+/** Catalogue status of an enchantment ref (KNG-250): Unverified until a scan has seen it, Missing once a scan no longer has it. */
+export type MinecraftEnchantmentCatalogStatus = 'Unverified' | 'Active' | 'Missing';
+
 export interface MinecraftEnchantmentRefDto {
     id?: number;
     namespaceKey: string;
@@ -7,7 +10,9 @@ export interface MinecraftEnchantmentRefDto {
     maxLevel?: number | null;
     displayName?: string | null;
     isCustom?: boolean;
-    isPersisted?: boolean;
+    // KNG-250 catalogue fields (read-only), set by the server scan.
+    catalogStatus?: MinecraftEnchantmentCatalogStatus | null;
+    lastSeenVersion?: string | null;
 }
 
 export interface MinecraftEnchantmentRefListDto {
@@ -18,7 +23,10 @@ export interface MinecraftEnchantmentRefListDto {
     iconUrl?: string | null;
     maxLevel?: number | null;
     displayName?: string | null;
-    isPersisted?: boolean;
+    isCustom?: boolean;
+    // KNG-250 catalogue fields (read-only), set by the server scan.
+    catalogStatus?: MinecraftEnchantmentCatalogStatus | null;
+    lastSeenVersion?: string | null;
 }
 
 export interface MinecraftEnchantmentRefCreateDto {

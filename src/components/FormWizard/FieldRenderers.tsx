@@ -5,7 +5,7 @@ import { Calendar, Plus, Minus, X, CheckCircle2, AlertTriangle, Loader2, Info, P
 import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
 import { getColumnDefinitions } from '../../config/objectConfigs';
 import { MinecraftMaterialPicker } from '../minecraft/MinecraftMaterialPicker';
-import { HybridEnchantmentPicker } from '../minecraft/HybridEnchantmentPicker';
+import { EnchantmentOriginFilter, MinecraftEnchantmentPicker, parseOriginFilter } from '../minecraft/MinecraftEnchantmentPicker';
 import { ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { interpolatePlaceholders } from '../../utils/placeholderInterpolation';
 import { isHeadlessTaskType } from '../Workflow/WorldBoundFieldRenderer';
@@ -267,9 +267,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
             );
         }
         case FieldType.HybridMinecraftEnchantmentRefPicker: {
-            const settings = parseHybridEnchantmentSettings(field.settingsJson);
+            const settings = parseEnchantmentPickerSettings(field.settingsJson);
             return withFeedback(
-                <HybridEnchantmentPicker
+                <MinecraftEnchantmentPicker
                     label={field.label}
                     description={field.description}
                     value={value}
@@ -277,7 +277,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     required={field.isRequired}
                     error={error}
                     categoryFilter={settings.categoryFilter}
-                    placeholder={field.placeholder}
+                    originFilter={settings.originFilter}
                     disabled={field.isReadOnly}
                 />
             );
@@ -312,16 +312,18 @@ const parseMaterialPickerSettings = (settingsJson?: string): { categoryFilter?: 
     }
 };
 
-const parseHybridEnchantmentSettings = (settingsJson?: string): { categoryFilter?: string } => {
-    if (!settingsJson) return {};
+// KNG-250: `originFilter` ('all' | 'vanilla' | 'custom') sets the picker's initial filter.
+const parseEnchantmentPickerSettings = (settingsJson?: string): { categoryFilter?: string; originFilter: EnchantmentOriginFilter } => {
+    if (!settingsJson) return { originFilter: 'all' };
     try {
         const parsed = JSON.parse(settingsJson);
         return {
-            categoryFilter: parsed.categoryFilter
+            categoryFilter: parsed.categoryFilter,
+            originFilter: parseOriginFilter(parsed.originFilter)
         };
     } catch (err) {
-        console.warn('Failed to parse hybrid enchantment settingsJson', err);
-        return {};
+        console.warn('Failed to parse enchantment picker settingsJson', err);
+        return { originFilter: 'all' };
     }
 };
 

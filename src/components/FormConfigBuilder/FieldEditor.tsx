@@ -1100,6 +1100,24 @@ export const FieldEditor: React.FC<Props> = ({
                         </div>
                     )}
 
+                    {field.fieldType === FieldType.HybridMinecraftEnchantmentRefPicker && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Settings JSON</label>
+                            <textarea
+                                value={field.settingsJson || ''}
+                                onChange={e => setField({ ...field, settingsJson: e.target.value })}
+                                rows={2}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                placeholder='{"originFilter":"custom"}'
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                The enchantment picker lists the saved vanilla and custom enchantments of the Minecraft
+                                catalogue. originFilter (all, vanilla or custom) sets its initial filter; categoryFilter
+                                limits it to one category.
+                            </p>
+                        </div>
+                    )}
+
                     {/* In-Game Action (World Task) configuration */}
                     <div className="mt-4 p-3 rounded-md border border-gray-200">
                         <div className="flex items-center justify-between">

@@ -7,7 +7,6 @@ import {
     MinecraftEnchantmentRefUpdateDto,
     MinecraftEnchantmentRefListDto
 } from "../types/dtos/minecraftEnchantmentRef/MinecraftEnchantmentRefDto";
-import { MinecraftHybridEnchantmentOptionDto } from "../types/dtos/minecraftEnchantmentRef/MinecraftHybridEnchantmentOptionDto";
 
 export class MinecraftEnchantmentRefClient extends ObjectManager {
     private static instance: MinecraftEnchantmentRefClient;
@@ -28,27 +27,8 @@ export class MinecraftEnchantmentRefClient extends ObjectManager {
         return this.invokeServiceCall(null, `${id}`, Controllers.MinecraftEnchantmentRefs, HttpMethod.Get);
     }
 
-    getHybrid(search?: string, category?: string, take?: number): Promise<MinecraftHybridEnchantmentOptionDto[]> {
-        const params = new URLSearchParams();
-        if (search) params.append('search', search);
-        if (category) params.append('category', category);
-        if (take) params.append('take', take.toString());
-
-        const endpoint = `hybrid${params.toString() ? '?' + params.toString() : ''}`;
-        return this.invokeServiceCall(null, endpoint, Controllers.MinecraftEnchantmentRefs, HttpMethod.Get);
-    }
-
     create(data: MinecraftEnchantmentRefCreateDto): Promise<MinecraftEnchantmentRefDto> {
         return this.invokeServiceCall(data, MinecraftEnchantmentRefOperation.Create, Controllers.MinecraftEnchantmentRefs, HttpMethod.Post);
-    }
-
-    persistFromCatalog(namespaceKey: string, category?: string, legacyName?: string): Promise<MinecraftEnchantmentRefDto> {
-        return this.invokeServiceCall(
-            { namespaceKey, category, legacyName },
-            'get-or-create',
-            Controllers.MinecraftEnchantmentRefs,
-            HttpMethod.Post
-        );
     }
 
     update(data: MinecraftEnchantmentRefUpdateDto & { id: number }): Promise<MinecraftEnchantmentRefDto> {
@@ -59,6 +39,11 @@ export class MinecraftEnchantmentRefClient extends ObjectManager {
         return this.invokeServiceCall(null, `${id}`, Controllers.MinecraftEnchantmentRefs, HttpMethod.Delete);
     }
 
+    /**
+     * Paged search. With the filter `Picker: 'true'` it is the picker search (KNG-250): Missing rows
+     * hidden, sorted by display name, `origin` = `vanilla` | `custom` (absent = all) and the legacy
+     * `category` filter. Without it, the admin table of every row.
+     */
     searchPaged(queryParams: PagedQueryDto): Promise<PagedResultDto<MinecraftEnchantmentRefListDto>> {
         return this.invokeServiceCall(queryParams, MinecraftEnchantmentRefOperation.SearchPaged, Controllers.MinecraftEnchantmentRefs, HttpMethod.Post);
     }
