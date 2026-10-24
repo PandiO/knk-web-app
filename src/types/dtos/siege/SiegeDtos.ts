@@ -193,6 +193,10 @@ export interface SiegeConfigurationDto {
     nonMemberGateView: SiegeNonMemberGateView;
     /** KNG-234: the global default for giving players the navigation compass at the hub. */
     giveNavigationItem: boolean;
+    /** Seconds of matchmaking left after /siege skip (players with knk.siege.skip); floored at vote close + 1 by the plugin. */
+    playerSkipMatchmakingSeconds: number;
+    /** Seconds of matchmaking left after /siege admin skip; same floor (legacy T-31). */
+    adminSkipMatchmakingSeconds: number;
     updatedAt?: string;
 }
 

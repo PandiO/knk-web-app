@@ -49,6 +49,14 @@ const SECTIONS: Array<{ title: string; description: string; fields: FieldSpec[] 
         ],
     },
     {
+        title: 'Skipping matchmaking',
+        description: 'How much matchmaking is left after /siege skip. Skipping a cooldown always starts matchmaking at once. The plugin never shortens matchmaking to less than one second before voting closes, whatever is set here.',
+        fields: [
+            { key: 'playerSkipMatchmakingSeconds', label: 'Player skip leaves (seconds)', kind: 'int', help: '/siege skip for players with knk.siege.skip (default 60).' },
+            { key: 'adminSkipMatchmakingSeconds', label: 'Admin skip leaves (seconds)', kind: 'int', help: '/siege admin skip (default 31: one second before voting closes).' },
+        ],
+    },
+    {
         title: 'Combat and chat',
         description: 'Kill announcements, headshots, respawn and the command filter.',
         fields: [
