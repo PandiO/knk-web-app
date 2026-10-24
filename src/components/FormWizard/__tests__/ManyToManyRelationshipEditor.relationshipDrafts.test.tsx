@@ -70,7 +70,6 @@ describe('ManyToManyRelationshipEditor relationship drafts', () => {
             entityTypeName: 'ItemBlueprintDefaultEnchantment',
             configurationName: 'Join config',
             isDefault: true,
-            isActive: true,
             steps: [
                 {
                     stepName: 'Join fields',

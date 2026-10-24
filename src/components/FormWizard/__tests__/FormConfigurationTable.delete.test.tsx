@@ -14,7 +14,6 @@ const config: FormConfigurationDto = {
     entityTypeName: 'Town',
     configurationName: 'Town form',
     isDefault: false,
-    isActive: true,
     steps: [],
 };
 

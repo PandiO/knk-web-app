@@ -49,6 +49,7 @@ jest.mock('../../../apiClients/fieldValidationRuleClient', () => ({
     fieldValidationRuleClient: {
         getByFormConfigurationId: jest.fn(),
         validateField: jest.fn(),
+        validateFields: jest.fn(),
         resolvePlaceholders: jest.fn(),
         resolveDependencies: jest.fn()
     }
@@ -89,7 +90,6 @@ const config = (id: string, entityTypeName: string, fields: Record<string, unkno
     configurationName: `${entityTypeName} - Default`,
     description: '',
     isDefault: true,
-    isActive: true,
     steps: [{
         id: `${id}0`,
         stepName: 'Main',
@@ -160,6 +160,13 @@ describe('Siege authoring: Scenario -> Team -> Spawnpoint owned nesting', () => 
                 }]
                 : []);
         (fieldValidationRuleClient.validateField as jest.Mock).mockResolvedValue({ isValid: true, isBlocking: false, message: 'ok' });
+        (fieldValidationRuleClient.validateFields as jest.Mock).mockImplementation(async (request: { fields: Array<{ fieldId: number; fieldValue: unknown }>; formContextData?: Record<string, unknown> }) => {
+            const results: Record<string, unknown> = {};
+            for (const item of request.fields) {
+                results[String(item.fieldId)] = await fieldValidationRuleClient.validateField({ ...item, formContextData: request.formContextData });
+            }
+            return { results };
+        });
         (formSubmissionClient.getByEntityTypeNameFiltered as jest.Mock).mockResolvedValue([]);
         (formSubmissionClient.create as jest.Mock).mockImplementation(async (p: Record<string, unknown>) => ({ ...p, id: 'progress-1' }));
         (formSubmissionClient.update as jest.Mock).mockImplementation(async (p: Record<string, unknown>) => p);

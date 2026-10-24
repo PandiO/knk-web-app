@@ -20,7 +20,6 @@ const configWithFields = (fields: FormFieldDto[]): FormConfigurationDto => ({
     entityTypeName: 'GateDoor',
     configurationName: 'Gate Door Configuration',
     isDefault: true,
-    isActive: true,
     steps: [
         {
             stepName: 'General Information',
@@ -54,7 +53,6 @@ describe('findParentLinkField', () => {
             entityTypeName: 'GateDoor',
             configurationName: 'Gate Door Configuration',
             isDefault: true,
-            isActive: true,
             steps: [
                 {
                     stepName: 'Step 1',

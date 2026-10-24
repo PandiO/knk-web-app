@@ -35,6 +35,7 @@ export interface FieldValidationDto {
     validationType: ValidationType;
     parametersJson?: string;
     errorMessage?: string;
+    /** False switches the validation off; the API sends true unless an admin turned it off (KNG-186). */
     isActive: boolean;
 }
 
@@ -59,6 +60,7 @@ export interface StepConditionDto {
     conditionType: 'Entry' | 'Completion';
     conditionJson: string;
     errorMessage?: string;
+    /** False switches the condition off; the API sends true unless an admin turned it off (KNG-186). */
     isActive: boolean;
 }
 
@@ -132,7 +134,6 @@ export interface FormConfigurationDto {
     description?: string;
     isDefault: boolean;
     stepOrderJson?: string;
-    isActive: boolean;
     createdAt?: string;
     updatedAt?: string;
     steps: FormStepDto[];

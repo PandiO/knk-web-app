@@ -48,6 +48,35 @@ export interface ValidateFieldRequestDto {
     fieldValue: any;
     dependencyValue?: any;
     formContextData?: { [fieldName: string]: any };
+    /**
+     * KNG-269: what the form is about, so the API can answer from its log of the last run: the entity
+     * type name and id in edit mode, or "FormSubmissionProgress" and the draft id. Without a subject
+     * every rule runs.
+     */
+    subjectType?: string;
+    subjectId?: number;
+    /** KNG-269: run every rule even when the log holds a matching result (Re-check). */
+    force?: boolean;
+}
+
+/** KNG-269: every rule-bearing field of a step in one request. */
+export interface ValidateFieldsBatchRequestDto {
+    fields: ValidateFieldsBatchItemDto[];
+    formContextData?: { [fieldName: string]: any };
+    subjectType?: string;
+    subjectId?: number;
+    force?: boolean;
+}
+
+export interface ValidateFieldsBatchItemDto {
+    fieldId: number;
+    fieldValue: any;
+    dependencyValue?: any;
+}
+
+export interface ValidateFieldsBatchResultDto {
+    /** Keyed by field id (JSON object keys, so strings at runtime). */
+    results: { [fieldId: string]: ValidationResultDto };
 }
 
 export interface ValidationMetadataDto {
@@ -57,6 +86,8 @@ export interface ValidationMetadataDto {
     dependencyValue?: any;
     /** Set when the check couldn't be completed due to a system problem (e.g. "PluginUnreachable") rather than a genuine validation failure. */
     failureReason?: string;
+    /** KNG-269: answered from the API's log of an earlier run; executedAt is that run's time. */
+    fromCache?: boolean;
 }
 
 export interface ValidationResultDto {

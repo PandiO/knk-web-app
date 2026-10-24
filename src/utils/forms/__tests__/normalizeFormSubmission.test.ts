@@ -64,7 +64,6 @@ describe('normalizeFormSubmission (many-to-many join entries)', () => {
         entityTypeName: 'ItemBlueprint',
         configurationName: 'Item Blueprint',
         isDefault: true,
-        isActive: true,
         steps: [step]
     };
 
@@ -154,7 +153,6 @@ describe('normalizeFormSubmission (world task locations)', () => {
         entityTypeName: 'GateStructure',
         configurationName: 'Gate Structure',
         isDefault: true,
-        isActive: true,
         steps: [{
             stepName: 'Geometry: Plane Grid',
             order: 0,
@@ -277,7 +275,6 @@ describe('normalizeFormSubmission (world task scan summary fields)', () => {
         entityTypeName: 'GateStructure',
         configurationName: 'Gate Structure',
         isDefault: true,
-        isActive: true,
         steps: [{
             stepName: 'Block scans',
             order: 0,
@@ -334,7 +331,6 @@ describe('normalizeFormSubmission (scalar API types)', () => {
         entityTypeName: 'GateStructure',
         configurationName: 'Gate Structure',
         isDefault: true,
-        isActive: true,
         steps: [{
             stepName: 'Gate settings',
             order: 0,
@@ -388,7 +384,6 @@ describe('normalizeFormSubmission (KNG-133: entities that were never saved)', ()
         entityTypeName: 'Street',
         configurationName: 'Street',
         isDefault: true,
-        isActive: true,
         steps: [{ stepName: 'Main', order: 0, fields } as FormStepDto]
     });
 
@@ -500,7 +495,6 @@ describe('normalizeFormSubmission (KNG-195: hybrid catalog pickers)', () => {
                 entityTypeName: 'EnchantmentDefinition',
                 configurationName: 'EnchantmentDefinition',
                 isDefault: true,
-                isActive: true,
                 steps: [{ stepName: 'Main', order: 0, fields: [f] } as FormStepDto]
             },
             rawFormValue,

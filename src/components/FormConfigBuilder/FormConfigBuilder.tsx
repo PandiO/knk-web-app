@@ -31,7 +31,6 @@ export const FormConfigBuilder: React.FC = () => {
         configurationName: '',
         description: '',
         isDefault: false,
-        isActive: true,
         steps: []
     });
 

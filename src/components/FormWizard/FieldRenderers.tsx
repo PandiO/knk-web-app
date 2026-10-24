@@ -8,6 +8,7 @@ import { MinecraftMaterialPicker } from '../minecraft/MinecraftMaterialPicker';
 import { EnchantmentOriginFilter, MinecraftEnchantmentPicker, parseOriginFilter } from '../minecraft/MinecraftEnchantmentPicker';
 import { ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { interpolatePlaceholders } from '../../utils/placeholderInterpolation';
+import { describeCheckedAgo } from '../../utils/forms/validationResultAge';
 import { isHeadlessTaskType } from '../Workflow/WorldBoundFieldRenderer';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { DisplayFieldDto } from '../../types/dtos/displayConfig/DisplayModels';
@@ -345,6 +346,10 @@ export const parseListFieldSettings = (settingsJson?: string): { ownedChildColle
 };
 
 const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pending?: boolean; onRetryValidation?: () => void }> = ({ validationResult, pending, onRetryValidation }) => {
+    // KNG-269: a result the API answered from its log of an earlier run says so, with that run's age,
+    // and offers a Re-check that runs the rule for real.
+    const checkedAgo = validationResult?.metadata?.fromCache ? describeCheckedAgo(validationResult.metadata.executedAt) : null;
+    const checkedNote = checkedAgo ? <span className="ml-1 text-gray-500">· checked {checkedAgo}</span> : null;
     const retryButton = onRetryValidation ? (
         <button
             type="button"
@@ -352,7 +357,7 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
             disabled={!!pending}
             className="ml-2 text-xs px-2 py-1 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
-            Re-run validation
+            {checkedAgo ? 'Re-check' : 'Re-run validation'}
         </button>
     ) : null;
 
@@ -376,7 +381,7 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
         return (
             <div className="flex items-center justify-between text-xs text-green-700">
                 <div className="flex items-center">
-                    <CheckCircle2 className="h-4 w-4 mr-1" /> {message}
+                    <CheckCircle2 className="h-4 w-4 mr-1" /> {message}{checkedNote}
                 </div>
                 {retryButton}
             </div>
@@ -411,7 +416,7 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
         <div className={`flex items-start justify-between text-xs ${color}`}>
             <div className="flex items-start">
                 <Icon className="h-4 w-4 mr-1 mt-0.5" />
-                <span>{message || 'Validation failed.'}</span>
+                <span>{message || 'Validation failed.'}{checkedNote}</span>
             </div>
             {retryButton}
         </div>

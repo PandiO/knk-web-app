@@ -35,7 +35,6 @@ const districtConfig = (): FormConfigurationDto => ({
     entityTypeName: 'District',
     configurationName: 'District',
     isDefault: true,
-    isActive: true,
     steps: [
         step('General', [field('name', { fieldType: FieldType.String }), field('Location')]),
         step('Region', [field('wgRegionId', { fieldType: FieldType.String })]),

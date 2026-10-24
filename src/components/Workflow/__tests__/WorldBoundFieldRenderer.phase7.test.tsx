@@ -32,7 +32,6 @@ describe('WorldBoundFieldRenderer - Phase 7 E2E Tests', () => {
         entityTypeName: 'Town',
         configurationName: 'Town Form',
         isDefault: true,
-        isActive: true,
         steps: [
             {
                 id: '1',
