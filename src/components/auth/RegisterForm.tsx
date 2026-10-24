@@ -25,6 +25,8 @@ interface FormErrors {
   confirmPassword?: string;
   /** Errors about the Minecraft account itself (AlreadyRegistered). */
   account?: string;
+  /** Registration is invite-only and this account isn't admitted (KNG-212 InviteRequired). */
+  invite?: string;
   general?: string;
 }
 
@@ -150,6 +152,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
       const code = errorCodeOf(error);
       if (code === 'DuplicateEmail') {
         setErrors({ email: ERROR_MESSAGES.DuplicateEmail });
+      } else if (code === 'InviteRequired') {
+        setErrors({ invite: ERROR_MESSAGES.InviteRequired });
       } else if (code === 'AlreadyRegistered') {
         setErrors({ account: ERROR_MESSAGES.AlreadyRegistered });
       } else if (code === 'InvalidLinkCode') {
@@ -198,6 +202,15 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
         {errors.general && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4" role="alert">
             <p className="text-sm font-medium text-red-800">{errors.general}</p>
+          </div>
+        )}
+
+        {errors.invite && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4" role="alert" data-testid="invite-required">
+            <p className="text-sm font-medium text-amber-900">{errors.invite}</p>
+            <p className="mt-1 text-sm text-amber-900">
+              Got an invitation code? <Link to="/join" className="font-medium underline">Sign up with it</Link>.
+            </p>
           </div>
         )}
 

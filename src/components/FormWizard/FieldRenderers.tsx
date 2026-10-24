@@ -1188,7 +1188,11 @@ const ListField: React.FC<FieldRendererProps> = ({
     );
 
     const hasItems = items.length > 0;
-    const worldTaskLabel = isHeadlessTaskType(parseWorldTaskTaskType(field.settingsJson))
+    // KNG-268: a headless scan list (a gate's closed/open block scan) is filled by the scan only:
+    // no picker (scanned blocks have no search, it showed "Failed to load data") and a count
+    // instead of one card per scanned block.
+    const isScanList = isHeadlessTaskType(parseWorldTaskTaskType(field.settingsJson));
+    const worldTaskLabel = isScanList
         ? (hasItems ? 'Re-scan in Minecraft' : 'Scan in Minecraft')
         : (hasItems ? 'Replace via Minecraft' : 'Send to Minecraft');
 
@@ -1326,8 +1330,14 @@ const ListField: React.FC<FieldRendererProps> = ({
                 </div>
             ) : (
                 <>
+                    {isScanList && (
+                        <p className="mb-3 text-xs text-gray-700">
+                            {items.length > 0 ? `${items.length} blocks scanned.` : 'Not scanned yet.'}
+                        </p>
+                    )}
+
                     {/* changed: moved selected items display above the table */}
-                    {items.length > 0 && (
+                    {!isScanList && items.length > 0 && (
                         <div className="mb-3 space-y-2">
                             <p className="text-xs font-medium text-gray-700">
                                 Selected ({items.length}):
@@ -1421,7 +1431,7 @@ const ListField: React.FC<FieldRendererProps> = ({
                         </p>
                     )}
 
-                    {!field.isReadOnly && !ownedChildCollection && !pickerFilters?.unavailableReason && <div className="border border-gray-200 rounded-md p-4">
+                    {!field.isReadOnly && !isScanList && !ownedChildCollection && !pickerFilters?.unavailableReason && <div className="border border-gray-200 rounded-md p-4">
                         <PagedEntityTable
                             key={JSON.stringify(pickerFilters?.filters ?? {})}
                             entityTypeName={field.objectType}

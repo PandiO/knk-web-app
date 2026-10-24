@@ -11,6 +11,7 @@ import {
   ResetPasswordResponseDto,
   AccountMergeDto,
   LinkMinecraftAccountDto,
+  LinkMinecraftAccountResponseDto,
   ValidateLinkCodeResponseDto,
 } from "../types/dtos/auth/AuthDtos";
 import { UserDto, UserUpdateDto } from "../types/dtos/auth/UserDtos";
@@ -83,10 +84,11 @@ export class AuthClient extends ObjectManager {
   }
 
   /**
-   * Link a legacy web-only account (email and password, no Minecraft account) to the Minecraft
-   * account a link code belongs to. Requires authentication.
+   * Link a web-only account (email and password, no Minecraft account) to the Minecraft account a
+   * link code belongs to. Requires authentication. Prefer `authService.linkMinecraftAccount`,
+   * which also stores the new access token the API issues after a merge (KNG-207).
    */
-  linkMinecraftAccount(data: LinkMinecraftAccountDto): Promise<UserDto> {
+  linkMinecraftAccount(data: LinkMinecraftAccountDto): Promise<LinkMinecraftAccountResponseDto> {
     return this.invokeServiceCall(data, "link-minecraft-account", Controllers.Users, HttpMethod.Post);
   }
 }

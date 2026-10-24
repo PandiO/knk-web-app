@@ -25,6 +25,8 @@ jest.mock('../../../apiClients/roadClient', () => ({
     updateEdge: jest.fn(),
     getDomainNavigationDefaults: jest.fn(),
     updateDomainNavigationDefault: jest.fn(),
+    getNavigationCompassSettings: jest.fn(),
+    updateNavigationCompassSettings: jest.fn(),
   },
 }));
 jest.mock('../../../apiClients/streetClient', () => ({
@@ -96,6 +98,10 @@ describe('RoadsAdminPage', () => {
       { domainType: 'Town', defaultMode: 'Spawn', overrideCount: 0, roadAccess: 'Applies', roadAccessOverrideCount: 0 },
       { domainType: 'GateStructure', defaultMode: 'Region', overrideCount: 1, roadAccess: 'Applies', roadAccessOverrideCount: 0 },
     ]);
+    client.getNavigationCompassSettings.mockResolvedValue({
+      enabled: true, material: 'COMPASS', displayName: 'Navigation Compass', nameMatch: 'Exact',
+      siegeEnabled: true, generalEnabled: false, generalTargets: '', updatedAt: null,
+    });
     streets.searchPaged.mockResolvedValue({ items: [{ id: 5, name: 'Market Street' }, { id: 6, name: 'Harbour Road' }], totalCount: 2, page: 1, pageSize: 1000, totalPages: 1 });
     towns.searchPaged.mockResolvedValue({ items: [{ id: 4, name: 'Kardenna', allowEntry: true, requiredTitle: 0 }], totalCount: 1, page: 1, pageSize: 1000, totalPages: 1 });
     materials.searchPaged.mockResolvedValue({ items: [], totalCount: 0, page: 1, pageSize: 8, totalPages: 0 });

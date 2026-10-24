@@ -1,5 +1,6 @@
 import { GateDoorClient } from '../gateDoorClient';
 import { Controllers, HttpMethod } from '../../utils';
+import { getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { GateDoorDto, GateDoorStateUpdateDto, GateDoorHealthUpdateDto, GateDoorOperationalSettingsUpdateDto } from '../../types/dtos/gateStructure/GateDoorDto';
 import { GateBlockSnapshotCreateDto } from '../../types/dtos/gateStructure/GateBlockSnapshotDto';
 
@@ -18,6 +19,23 @@ describe('GateDoorClient', () => {
   it('getByStructureId lists the doors of a gate structure', async () => {
     await client.getByStructureId(14);
     expect(invokeSpy).toHaveBeenCalledWith(null, '14/doors', Controllers.GateStructures, HttpMethod.Get);
+  });
+
+  it('searchPaged posts to GateDoors/search (KNG-273)', async () => {
+    const query = { pageNumber: 1, pageSize: 10, searchTerm: 'main' } as any;
+    await client.searchPaged(query);
+    expect(invokeSpy).toHaveBeenCalledWith(query, 'search', Controllers.GateDoors, HttpMethod.Post);
+  });
+
+  it('is registered for the dashboard and object pickers (KNG-273)', async () => {
+    invokeSpy.mockResolvedValue({ items: [{ id: 17, name: 'Main gate' }], totalCount: 1, pageNumber: 2, pageSize: 5 });
+
+    const result = await getSearchFunctionForEntity('GateDoor')({ page: 2, pageSize: 5 } as any);
+
+    expect(invokeSpy).toHaveBeenCalledWith(expect.objectContaining({ pageNumber: 2, pageSize: 5 }), 'search',
+      Controllers.GateDoors, HttpMethod.Post);
+    expect(result.items).toEqual([{ id: 17, name: 'Main gate' }]);
+    expect(result.totalCount).toBe(1);
   });
 
   it('getById calls gate doors endpoint with id', async () => {

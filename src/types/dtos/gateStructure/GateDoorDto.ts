@@ -108,6 +108,21 @@ export interface GateDoorDto {
   fallbackMaterialRef?: MinecraftMaterialRefDto;
 }
 
+/** KNG-273: one row of POST /api/GateDoors/search (the GateDoor dashboard and pickers). */
+export interface GateDoorListDto {
+  id: number;
+  name: string;
+  gateStructureId: number;
+  gateStructureName?: string | null;
+  gateType: GateType;
+  motionType: MotionType;
+  geometryDefinitionMode: GeometryDefinitionMode;
+  openedState: GateDoorOpenState;
+  isActive: boolean;
+  healthCurrent: number;
+  healthMax: number;
+}
+
 export interface GateDoorStateUpdateDto {
   openedState: GateDoorOpenState;
   isDestroyed: boolean;
