@@ -9,9 +9,13 @@
  *  - a filter `xId` / `x` compares with the row's `xId`, `x` or `x.id` (case-insensitive names);
  *  - `excludeIds` (comma-separated) drops those ids; filters named `prefer...` only order results
  *    on the server and are ignored here;
- *  - any other filter the row can't answer hides the pinned row (the server might have excluded it).
+ *  - any other filter the row can't answer hides the pinned row (the server might have excluded it);
+ *  - a filter with a scope (KNG-263: `CategoryId` → that category and its children) accepts any
+ *    value in the scope, as the server does.
  * A pinned row the current page also holds is always shown (the server accepted it), once, pinned.
  */
+
+import { normalizeBlockStateString, normalizeNamespaceKey } from '../minecraftKeys';
 
 export interface PinnedRow<T = Record<string, unknown>> {
     /** Stable key of the session entry, e.g. "district:12". */
@@ -41,11 +45,47 @@ const idOf = (value: unknown): unknown => {
 
 const present = (value: unknown): boolean => value !== undefined && value !== null && value !== '';
 
+/**
+ * The row's database id, or undefined when it has none. Ids start at 1, so 0 (or "0") is no id: the
+ * hybrid Minecraft search returned unsaved catalogue rows with `id: 0` before KNG-200 (`null` since).
+ */
+const savedIdOf = (value: unknown): unknown => {
+    const id = idOf(value);
+    return present(id) && String(id).trim() !== '0' ? id : undefined;
+};
+
+const MATERIAL_REF = 'minecraftmaterialref';
+const BLOCK_REF = 'minecraftblockref';
+const ENCHANTMENT_REF = 'minecraftenchantmentref';
+
+/**
+ * KNG-200: the identity of a Minecraft catalogue row apart from its id, used only when a row has no
+ * id. A material ref is its normalised namespaceKey, a block ref its normalised namespaceKey plus
+ * block state, an enchantment ref its namespaceKey as given (unchanged). Undefined for other entity
+ * types or a row without a key.
+ */
+export function catalogKeyOf(row: Record<string, unknown> | null | undefined, entityTypeName: string): string | undefined {
+    if (!row) return undefined;
+    const type = entityTypeName.toLowerCase();
+    if (type === ENCHANTMENT_REF) {
+        return present(row.namespaceKey) ? String(row.namespaceKey) : undefined;
+    }
+    if (type === MATERIAL_REF) {
+        return normalizeNamespaceKey(row.namespaceKey) || undefined;
+    }
+    if (type === BLOCK_REF) {
+        const namespaceKey = normalizeNamespaceKey(row.namespaceKey);
+        const state = normalizeBlockStateString(row.blockStateString);
+        return namespaceKey || state ? `${namespaceKey}|${state}` : undefined;
+    }
+    return undefined;
+}
+
 export function matchesSearchTerm(row: Record<string, unknown>, searchTerm?: string): boolean {
     const term = (searchTerm ?? '').trim().toLowerCase();
     if (!term) return true;
-    const id = idOf(row);
-    if (present(id) && String(id).toLowerCase() === term) return true;
+    const id = savedIdOf(row);
+    if (id !== undefined && String(id).toLowerCase() === term) return true;
     return LABEL_FIELDS.some(field => {
         const { value } = lookup(row, field);
         return (typeof value === 'string' || typeof value === 'number') && String(value).toLowerCase().includes(term);
@@ -63,7 +103,11 @@ function rowFilterValue(row: Record<string, unknown>, filterKey: string): { foun
     return { found: false, value: undefined };
 }
 
-export function matchesPickerFilters(row: Record<string, unknown>, filters?: Record<string, string>): boolean {
+/** KNG-263: per filter key, every value the server accepts for it (e.g. a category and its children). */
+export type FilterScopes = Record<string, ReadonlySet<string>>;
+
+export function matchesPickerFilters(row: Record<string, unknown>, filters?: Record<string, string>,
+                                     scopes?: FilterScopes): boolean {
     if (!filters) return true;
     return Object.entries(filters).every(([filterKey, expected]) => {
         if (/^prefer/i.test(filterKey)) return true;
@@ -74,38 +118,43 @@ export function matchesPickerFilters(row: Record<string, unknown>, filters?: Rec
         const { found, value } = rowFilterValue(row, filterKey);
         if (!found) return false;
         if (!present(value)) return false;
+        const scope = scopes?.[filterKey];
+        if (scope) return scope.has(String(value).trim());
         return String(value).toLowerCase() === String(expected).trim().toLowerCase();
     });
 }
 
 /**
- * Stable key for a table row: an enchantment ref by its namespaceKey (its unique identifier), any
- * other row by id, an unsaved hybrid option by namespaceKey/blockStateString, else its position.
+ * Stable key for a table row: by id (0 is no id). A row without an id is keyed by its catalogue key
+ * (KNG-200): a material ref by its normalised namespaceKey, a block ref by normalised namespaceKey +
+ * block state, an enchantment ref by its namespaceKey; else by namespaceKey/blockStateString or its
+ * position. Enchantment refs are keyed by id like other entities since KNG-250.
  */
 export function tableRowKey(row: Record<string, unknown>, entityTypeName: string, index: number): string {
-    if (entityTypeName.toLowerCase() === 'minecraftenchantmentref' && present(row.namespaceKey)) {
-        return `ns:${String(row.namespaceKey)}`;
-    }
-    const id = idOf(row);
-    if (present(id)) return `id:${String(id)}`;
+    const type = entityTypeName.toLowerCase();
+    const id = savedIdOf(row);
+    if (id !== undefined) return `id:${String(id)}`;
+    const catalogKey = catalogKeyOf(row, entityTypeName);
+    if (catalogKey !== undefined) return `${type === BLOCK_REF ? 'bs' : 'ns'}:${catalogKey}`;
     if (present(row.blockStateString)) return `bs:${String(row.blockStateString)}`;
     if (present(row.namespaceKey)) return `ns:${String(row.namespaceKey)}`;
     return `index:${index}`;
 }
 
 /**
- * Whether two values are the same selection: enchantment refs by namespaceKey, rows with an id by
- * id, id-less values only when they are the same object (two unsaved items are not equal).
+ * Whether two values are the same selection: two rows with an id by id (0 is no id). When one of
+ * them has no id, a material ref compares by normalised namespaceKey, a block ref by normalised
+ * namespaceKey + block state (KNG-200) and an enchantment ref by namespaceKey as given (KNG-250);
+ * any other id-less value only matches itself (two unsaved items are not equal).
  */
 export function isSameSelection(a: Record<string, unknown>, b: Record<string, unknown>, entityTypeName: string): boolean {
     if (a === b) return true;
     if (!a || !b) return false;
-    if (entityTypeName.toLowerCase() === 'minecraftenchantmentref') {
-        return present(a.namespaceKey) && a.namespaceKey === b.namespaceKey;
-    }
-    const idA = idOf(a);
-    const idB = idOf(b);
-    return present(idA) && present(idB) && String(idA) === String(idB);
+    const idA = savedIdOf(a);
+    const idB = savedIdOf(b);
+    if (idA !== undefined && idB !== undefined) return String(idA) === String(idB);
+    const keyA = catalogKeyOf(a, entityTypeName);
+    return keyA !== undefined && keyA === catalogKeyOf(b, entityTypeName);
 }
 
 export interface PinnedSection<T> {
@@ -123,7 +172,8 @@ export function buildPinnedSection<T extends Record<string, unknown>>(
     pinnedRows: Array<PinnedRow<T>> | undefined,
     pageItems: T[],
     searchTerm: string | undefined,
-    filters: Record<string, string> | undefined
+    filters: Record<string, string> | undefined,
+    scopes?: FilterScopes
 ): PinnedSection<T> {
     if (!pinnedRows || pinnedRows.length === 0) {
         return { pinned: [], pageItems };
@@ -131,19 +181,19 @@ export function buildPinnedSection<T extends Record<string, unknown>>(
 
     const pageById = new Map<string, T>();
     pageItems.forEach(item => {
-        const id = idOf(item);
-        if (present(id)) pageById.set(String(id), item);
+        const id = savedIdOf(item);
+        if (id !== undefined) pageById.set(String(id), item);
     });
 
     const seen = new Set<string>();
     const pinned: Array<PinnedRow<T>> = [];
     pinnedRows.forEach(pin => {
-        const id = idOf(pin.row);
-        if (!present(id)) return;
+        const id = savedIdOf(pin.row);
+        if (id === undefined) return;
         const idKey = String(id);
         if (seen.has(idKey)) return;
         const fromPage = pageById.get(idKey);
-        if (!fromPage && !(matchesSearchTerm(pin.row, searchTerm) && matchesPickerFilters(pin.row, filters))) {
+        if (!fromPage && !(matchesSearchTerm(pin.row, searchTerm) && matchesPickerFilters(pin.row, filters, scopes))) {
             return;
         }
         seen.add(idKey);
@@ -153,8 +203,8 @@ export function buildPinnedSection<T extends Record<string, unknown>>(
     return {
         pinned,
         pageItems: pageItems.filter(item => {
-            const id = idOf(item);
-            return !(present(id) && seen.has(String(id)));
+            const id = savedIdOf(item);
+            return !(id !== undefined && seen.has(String(id)));
         })
     };
 }

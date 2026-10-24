@@ -8,6 +8,14 @@ import {
   AddReusableSectionRequestDto,
   AddReusableFieldRequestDto
 } from '../types/dtos/displayConfig/DisplayModels';
+import {
+  DisplayConfigurationImportOptions,
+  DisplayConfigurationImportResult,
+  DisplayConfigurationSeed,
+  PortableDisplayConfiguration
+} from '../types/dtos/displayConfig/DisplayPortabilityModels';
+import { serviceCall } from '../services/serviceCall';
+import ConfigurationHelper from '../utils/config-helper';
 
 export class DisplayConfigClient extends ObjectManager {
   private static instance: DisplayConfigClient;
@@ -209,7 +217,58 @@ export class DisplayConfigClient extends ObjectManager {
     const operation = `addfield/${sectionId}`;
     return this.invokeServiceCall(payload, `${sectionId}/fields/add-from-template`, Controllers.DisplaySections, HttpMethod.Post);
   }
+
+  // ===== PORTABLE EXPORT/IMPORT AND BUNDLED SEEDS (knk-displayconfig/1) =====
+
+  /** The configuration as a portable "knk-displayconfig/1" file. */
+  exportConfiguration(id: string): Promise<PortableDisplayConfiguration> {
+    return this.invokeServiceCall(null, `${id}/export`, Controllers.DisplayConfigurations, HttpMethod.Get);
+  }
+
+  getSeeds(): Promise<DisplayConfigurationSeed[]> {
+    return this.invokeServiceCall(null, 'seeds', Controllers.DisplayConfigurations, HttpMethod.Get);
+  }
+
+  /** Import (or dry-run) a file. Resolves with the result for Invalid/AlreadyImported too (400/409 carry it). */
+  importConfiguration(file: PortableDisplayConfiguration, options: DisplayConfigurationImportOptions): Promise<DisplayConfigurationImportResult> {
+    return this.invokeImport(`import?${importQuery(options)}`, file);
+  }
+
+  importSeed(name: string, options: DisplayConfigurationImportOptions): Promise<DisplayConfigurationImportResult> {
+    return this.invokeImport(`seeds/${encodeURIComponent(name)}/import?${importQuery(options)}`, {});
+  }
+
+  /**
+   * Like invokeServiceCall, but an import's refusal (400 Invalid, 409 AlreadyImported) is a normal answer shown in
+   * the import panel, so it resolves with the result instead of raising the global error toast. Other failures
+   * (403, 404, network) still reject.
+   */
+  private invokeImport(operation: string, data: unknown): Promise<DisplayConfigurationImportResult> {
+    return new Promise((resolve, reject) => {
+      serviceCall.invokeApiService({
+        operation,
+        controller: Controllers.DisplayConfigurations,
+        httpMethod: HttpMethod.Post,
+        fetchApiUrl: ConfigurationHelper.gatewayApiUrl,
+        requestData: data,
+        responseHandler: {
+          success: (result: DisplayConfigurationImportResult) => resolve(result),
+          error: (err: any) => {
+            const body = err?.response;
+            if (body && typeof body === 'object' && typeof body.status === 'string' && Array.isArray(body.errors)) {
+              resolve(body as DisplayConfigurationImportResult);
+            } else {
+              reject(err);
+            }
+          }
+        }
+      });
+    });
+  }
 }
+
+const importQuery = (options: DisplayConfigurationImportOptions) =>
+  `dryRun=${options.dryRun ? 'true' : 'false'}&makeDefault=${options.makeDefault ? 'true' : 'false'}&asDraft=${options.asDraft ? 'true' : 'false'}`;
 
 export const displayConfigClient = DisplayConfigClient.getInstance();
 

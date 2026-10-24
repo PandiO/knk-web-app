@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
 import { columnDefinitionsRegistry } from '../../config/objectConfigs';
 
-interface HybridMaterialPickerProps {
+interface MinecraftMaterialPickerProps {
     label: string;
     description?: string;
     value: any | any[] | null;
@@ -14,7 +14,39 @@ interface HybridMaterialPickerProps {
     multiSelect?: boolean;
 }
 
-export const HybridMaterialPicker: React.FC<HybridMaterialPickerProps> = ({
+/**
+ * The search filters of a material picker for its `categoryFilter` setting (KNG-200 phases 4-5).
+ * `Picker: 'true'` makes `POST api/MinecraftMaterialRefs/search` a picker search: database rows
+ * only, Missing rows hidden, sorted by display name, with display name and effective icon. It
+ * filters on `kind`; a legacy `category` sent too overrides it there (BANNER picks keys with
+ * `_banner`). BLOCK picks blocks, ANY everything, and anything else - no setting, ITEM, ICON,
+ * BANNER - picks items: item blueprints, menus and icons are items (decision D9).
+ */
+export const materialPickerFilters = (categoryFilter?: string | null): Record<string, string> => {
+    const category = categoryFilter?.trim();
+    const filters: Record<string, string> = { Picker: 'true' };
+    if (category) {
+        filters.category = category;
+    }
+    switch (category?.toUpperCase()) {
+        case 'BLOCK':
+            filters.kind = 'block';
+            break;
+        case 'ANY':
+            break;
+        default:
+            filters.kind = 'item';
+    }
+    return filters;
+};
+
+/**
+ * Picks saved Minecraft materials from the database catalogue (filled by a server scan). It used to
+ * be the hybrid picker that merged in a static catalogue and saved rows on select; since KNG-200
+ * phase 5 every row is a saved one. Stored form fields still use the field type
+ * `HybridMinecraftMaterialRefPicker`, which renders this component.
+ */
+export const MinecraftMaterialPicker: React.FC<MinecraftMaterialPickerProps> = ({
     label,
     description,
     value,
@@ -75,7 +107,7 @@ export const HybridMaterialPicker: React.FC<HybridMaterialPickerProps> = ({
                 initialQuery={{
                     page: 1,
                     pageSize: 10,
-                    filters: categoryFilter ? { category: categoryFilter } : {}
+                    filters: materialPickerFilters(categoryFilter)
                 }}
                 selectionConfig={selectionConfig}
                 selectedItems={selectedItems}

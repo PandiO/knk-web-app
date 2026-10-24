@@ -1,5 +1,6 @@
 import { FormConfigurationDto, FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../enums';
+import { isDomainEntityType } from './domainWorld';
 
 /**
  * Given a child (or join) entity's own FormConfiguration and a parent entity type name, finds
@@ -41,6 +42,19 @@ export function findParentLinkField(
         );
         if (linkField) {
             return linkField;
+        }
+    }
+
+    // KNG-254: a child of any domain type links back through a field typed as the Domain base class (a
+    // DomainSubRegion's "DomainId" serves Towns, Districts, Structures and Gates alike).
+    if (isDomainEntityType(parentEntityTypeName) && parentEntityTypeName.toLowerCase() !== 'domain') {
+        for (const step of childConfig.steps) {
+            const linkField = step.fields.find(
+                f => f.fieldType === FieldType.Object && (f.objectType || '').toLowerCase() === 'domain'
+            );
+            if (linkField) {
+                return linkField;
+            }
         }
     }
 

@@ -477,3 +477,78 @@ describe('normalizeFormSubmission (KNG-133: entities that were never saved)', ()
         expect(() => normalize([locationField], { LocationId: { name: 'Gate' } })).not.toThrow();
     });
 });
+
+describe('normalizeFormSubmission (KNG-195: hybrid catalog pickers)', () => {
+    const field = (overrides: Partial<FormFieldDto>): FormFieldDto => ({
+        fieldName: 'MinecraftEnchantmentRefId',
+        label: 'Vanilla enchantment',
+        fieldType: FieldType.HybridMinecraftEnchantmentRefPicker,
+        isRequired: false,
+        isReadOnly: false,
+        order: 0,
+        isReusable: false,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        validations: [],
+        ...overrides
+    });
+
+    const normalize = (f: FormFieldDto, rawFormValue: Record<string, unknown>) =>
+        normalizeFormSubmission({
+            entityTypeName: 'EnchantmentDefinition',
+            formConfiguration: {
+                entityTypeName: 'EnchantmentDefinition',
+                configurationName: 'EnchantmentDefinition',
+                isDefault: true,
+                isActive: true,
+                steps: [{ stepName: 'Main', order: 0, fields: [f] } as FormStepDto]
+            },
+            rawFormValue,
+            entityMetadata: []
+        });
+
+    const saved = { id: 12, namespaceKey: 'minecraft:sharpness', displayName: 'Sharpness' };
+    // A value without an id (older stored form data): sent by namespaceKey, which the API resolves.
+    const catalogOnly = { id: 0, namespaceKey: 'minecraft:smite', displayName: 'Smite' };
+
+    it('turns a hybrid enchantment pick into an id instead of sending the raw object', () => {
+        const normalized = normalize(field({}), { MinecraftEnchantmentRefId: saved });
+
+        expect(normalized.MinecraftEnchantmentRefId).toBe(12);
+        expect(normalized.MinecraftEnchantmentRefNamespaceKey).toBe('minecraft:sharpness');
+    });
+
+    it('sends an unsaved catalog enchantment by namespaceKey, not as id 0', () => {
+        const normalized = normalize(field({}), { MinecraftEnchantmentRefId: catalogOnly });
+
+        expect(normalized).not.toHaveProperty('MinecraftEnchantmentRefId');
+        expect(normalized.MinecraftEnchantmentRefNamespaceKey).toBe('minecraft:smite');
+    });
+
+    it('does the same for an Object picker on MinecraftEnchantmentRef', () => {
+        const objectField = field({ fieldType: FieldType.Object, objectType: 'MinecraftEnchantmentRef' });
+
+        const unsaved = normalize(objectField, { MinecraftEnchantmentRefId: catalogOnly });
+        expect(unsaved).not.toHaveProperty('MinecraftEnchantmentRefId');
+        expect(unsaved.MinecraftEnchantmentRefNamespaceKey).toBe('minecraft:smite');
+
+        expect(normalize(objectField, { MinecraftEnchantmentRefId: saved }).MinecraftEnchantmentRefId).toBe(12);
+        expect(normalize(objectField, { MinecraftEnchantmentRefId: 12 }).MinecraftEnchantmentRefId).toBe(12);
+    });
+
+    it('sends an unsaved catalog material by namespaceKey under the field-named key', () => {
+        const materialField = field({
+            fieldName: 'IconMaterialRefId',
+            label: 'Material',
+            fieldType: FieldType.HybridMinecraftMaterialRefPicker
+        });
+
+        const normalized = normalize(materialField, {
+            IconMaterialRefId: { id: 0, namespaceKey: 'minecraft:iron_sword', isPersisted: false }
+        });
+
+        expect(normalized).not.toHaveProperty('IconMaterialRefId');
+        expect(normalized.IconMaterialRefNamespaceKey).toBe('minecraft:iron_sword');
+        expect(normalize(materialField, { IconMaterialRefId: { id: 5, namespaceKey: 'minecraft:stone' } }).IconMaterialRefId).toBe(5);
+    });
+});

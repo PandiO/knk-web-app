@@ -254,3 +254,32 @@ export interface UpdateDomainNavigationDefaultDto {
   defaultMode?: NavigationDestinationMode;
   roadAccess?: RoadAccessRule;
 }
+
+// ===== Navigation compass (KNG-234, knk-web-api Dtos/NavigationSettingsDtos.cs)
+
+/** How the item's display name is compared with the configured one. */
+export const NAVIGATION_COMPASS_NAME_MATCHES = ['Exact', 'Contains'] as const;
+export type NavigationCompassNameMatch = typeof NAVIGATION_COMPASS_NAME_MATCHES[number];
+
+/**
+ * Which item works as the navigation compass in game, and where. The game server binds the behaviour to any
+ * item whose material and plain display name match, so an item handed out from an item blueprint with that
+ * material and name works at once.
+ */
+export interface NavigationCompassSettingsDto {
+  enabled: boolean;
+  /** e.g. `COMPASS` or `minecraft:recovery_compass`. */
+  material: string;
+  /** Colour codes are ignored; empty matches any name (material only). */
+  displayName: string;
+  nameMatch: NavigationCompassNameMatch;
+  siegeEnabled: boolean;
+  generalEnabled: boolean;
+  /** Destinations outside a siege, one `/navigate` argument per line, in cycle order. */
+  generalTargets: string;
+  /** Null while nothing was ever saved (the defaults are shown). */
+  updatedAt?: string | null;
+}
+
+/** Any of the fields; a field left out stays as it is. */
+export type UpdateNavigationCompassSettingsDto = Partial<Omit<NavigationCompassSettingsDto, 'updatedAt'>>;

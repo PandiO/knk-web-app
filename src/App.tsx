@@ -26,6 +26,7 @@ import { EmailLogPage } from './pages/admin/EmailLogPage';
 import { InvitationsPage } from './pages/admin/InvitationsPage';
 import { INVITATION_NODES } from './types/dtos/invitations/InvitationDtos';
 import { EMAIL_ADMIN_NODE } from './types/dtos/email/EmailOutboxDtos';
+import { MinecraftCatalogAdminPage } from './pages/admin/MinecraftCatalogAdminPage';
 import { AccountTransactionsPage } from './pages/AccountTransactionsPage';
 import { BalanceLogPage } from './pages/admin/BalanceLogPage';
 import { TransactionDetailPage } from './pages/admin/economy/TransactionDetailPage';
@@ -210,6 +211,14 @@ function AppContent() {
               <Route path="/admin/email" element={
                 <StaffRoute node={EMAIL_ADMIN_NODE}>
                   <EmailLogPage />
+                </StaffRoute>
+              } />
+              {/* Minecraft catalogue (KNG-200 phase 3, docs/specs/minecraft-catalog/IMPLEMENTATION_PLAN.md):
+                  server scans, the audit, merges and icon overrides - knk.admin.content, which the
+                  API enforces on every call as well. */}
+              <Route path="/admin/minecraft-catalog" element={
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
+                  <MinecraftCatalogAdminPage />
                 </StaffRoute>
               } />
               {/* Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md, KNG-23):

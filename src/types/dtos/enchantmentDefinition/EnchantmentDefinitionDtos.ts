@@ -21,7 +21,7 @@ export interface EnchantmentDefinitionCreateDto {
     isCustom: boolean;
     maxLevel?: number;
     minecraftEnchantmentRefId?: number;
-    enchantmentNamespaceKey?: string; // For hybrid picker
+    enchantmentNamespaceKey?: string; // Links (or creates as Unverified) the ref with this key when no ref id is sent
     abilityDefinition?: AbilityDefinitionUpsertDto;
 }
 
