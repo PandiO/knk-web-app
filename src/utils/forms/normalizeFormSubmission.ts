@@ -220,6 +220,16 @@ function isWorldTaskScanSummaryField(field: FormFieldDto): boolean {
     }
 }
 
+/**
+ * Removes a leading or trailing whitespace run that contains a line break. The String field is a textarea
+ * (FieldRenderers), so Enter in a Name field used to send "Residential District\n", which the action bar in game
+ * rendered as a missing glyph. Plain spaces at the ends are kept: a chat prefix such as "[Admin] " means them, and
+ * the API trims domain names itself (DomainNameRules).
+ */
+export function stripEdgeLineBreaks(value: string): string {
+    return value.replace(/^\s*[\r\n]\s*/, '').replace(/\s*[\r\n]\s*$/, '');
+}
+
 function normalizeScalarValue(field: FormFieldDto, rawValue: any): any {
     if (rawValue === null || rawValue === undefined || typeof rawValue !== 'string') {
         return rawValue;
@@ -237,6 +247,10 @@ function normalizeScalarValue(field: FormFieldDto, rawValue: any): any {
             (field.fieldType !== FieldType.Integer || Number.isInteger(numericValue))) {
             return numericValue;
         }
+    }
+
+    if (field.fieldType === FieldType.String) {
+        return stripEdgeLineBreaks(rawValue);
     }
 
     return rawValue;
