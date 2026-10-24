@@ -90,13 +90,21 @@ describe('AuthService', () => {
     it('registers through Auth/register and starts a session without remember-me', async () => {
       mockedAuthClient.register.mockResolvedValue(loginResponse);
 
-      const user = await authService.register(request);
+      const result = await authService.register(request);
 
-      expect(user).toEqual(mockUser);
+      expect(result).toEqual({ user: mockUser, accessGate: false });
       expect(mockedAuthClient.register).toHaveBeenCalledWith(request);
       expect(mockedAuthClient.login).not.toHaveBeenCalled();
       expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('access-token', false);
       expect(mockedTokenService.setRememberMe).not.toHaveBeenCalled();
+    });
+
+    it('passes accessGate on when the Cloudflare Access sync is on (KNG-216)', async () => {
+      mockedAuthClient.register.mockResolvedValue({ ...loginResponse, accessGate: true });
+
+      const result = await authService.register(request);
+
+      expect(result.accessGate).toBe(true);
     });
 
     it('passes API errors through', async () => {
@@ -227,6 +235,29 @@ describe('AuthService', () => {
 
       await expect(authService.autoLogin()).resolves.toBeNull();
       expect(mockedTokenService.clearAll).toHaveBeenCalled();
+    });
+  });
+
+  describe('linkMinecraftAccount', () => {
+    it('stores the access token of the merged account and keeps the remember-me choice (KNG-207)', async () => {
+      mockedTokenService.isRemembered.mockReturnValue(true);
+      mockedAuthClient.linkMinecraftAccount.mockResolvedValue({ user: { ...mockUser, id: 2 }, merged: true, accessToken: 'merged-token', expiresIn: 1800 });
+
+      const result = await authService.linkMinecraftAccount({ linkCode: 'ABCD2345' });
+
+      expect(mockedAuthClient.linkMinecraftAccount).toHaveBeenCalledWith({ linkCode: 'ABCD2345' });
+      expect(mockedTokenService.setAccessToken).toHaveBeenCalledWith('merged-token', true);
+      expect(result.merged).toBe(true);
+      expect(result.user.id).toBe(2);
+    });
+
+    it('leaves the session alone when the web account itself was linked (no token)', async () => {
+      mockedAuthClient.linkMinecraftAccount.mockResolvedValue({ user: mockUser, message: 'linked' });
+
+      const result = await authService.linkMinecraftAccount({ linkCode: 'ABCD2345' });
+
+      expect(mockedTokenService.setAccessToken).not.toHaveBeenCalled();
+      expect(result.user).toEqual(mockUser);
     });
   });
 

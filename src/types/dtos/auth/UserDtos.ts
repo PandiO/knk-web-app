@@ -9,6 +9,8 @@ export interface UserDto {
   username: string;
   email?: string | null;
   emailVerified: boolean;
+  /** True once the account has a Minecraft UUID; a web account made from an invite has none until it links (KNG-212). */
+  minecraftLinked?: boolean;
   accountCreatedVia: AccountCreationMethod;
   lastPasswordChangeAt?: Date | null;
   lastEmailChangeAt?: Date | null;
