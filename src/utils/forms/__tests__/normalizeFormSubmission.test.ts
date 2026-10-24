@@ -1,4 +1,4 @@
-import { normalizeFormSubmission, UnsavedRelationshipValueError } from '../normalizeFormSubmission';
+import { normalizeFormSubmission, stripEdgeLineBreaks, UnsavedRelationshipValueError } from '../normalizeFormSubmission';
 import { FieldType } from '../../enums';
 import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../../../types/dtos/forms/FormModels';
 import { EntityMetadataDto, FieldMetadataDto } from '../../../types/dtos/metadata/MetadataModels';
@@ -361,6 +361,70 @@ describe('normalizeFormSubmission (scalar API types)', () => {
             ContinuousDamageMultiplier: 1.5,
             ClosedRegionData: null
         });
+    });
+});
+
+describe('normalizeFormSubmission (String fields: line breaks the textarea let through)', () => {
+    const createField = (fieldName: string, fieldType: FieldType): FormFieldDto => ({
+        fieldName,
+        label: fieldName,
+        fieldType,
+        isRequired: false,
+        isReadOnly: false,
+        order: 0,
+        isReusable: false,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        validations: []
+    });
+
+    const config: FormConfigurationDto = {
+        entityTypeName: 'District',
+        configurationName: 'District',
+        isDefault: true,
+        steps: [{
+            stepName: 'Basics',
+            order: 0,
+            fields: [
+                createField('name', FieldType.String),
+                createField('description', FieldType.String),
+                createField('wgRegionId', FieldType.String)
+            ]
+        } as FormStepDto]
+    };
+
+    it('drops a newline typed at the end or start of a String field, and the spaces around it', () => {
+        const normalized = normalizeFormSubmission({
+            entityTypeName: 'District',
+            formConfiguration: config,
+            rawFormValue: {
+                name: 'Residential District\n',
+                description: '\r\n  Homes and \n gardens \n\r\n',
+                wgRegionId: 'domain_12'
+            }
+        });
+
+        expect(normalized).toMatchObject({
+            name: 'Residential District',
+            description: 'Homes and \n gardens',
+            wgRegionId: 'domain_12'
+        });
+    });
+
+    it('keeps plain leading/trailing spaces (a chat prefix means them) and non-String values', () => {
+        expect(stripEdgeLineBreaks('[Admin] ')).toBe('[Admin] ');
+        expect(stripEdgeLineBreaks(' Foo ')).toBe(' Foo ');
+        expect(stripEdgeLineBreaks('Foo \n')).toBe('Foo');
+        expect(stripEdgeLineBreaks('\n')).toBe('');
+        expect(stripEdgeLineBreaks('Two\nlines')).toBe('Two\nlines');
+
+        const normalized = normalizeFormSubmission({
+            entityTypeName: 'District',
+            formConfiguration: config,
+            rawFormValue: { name: ' Cinix ', description: null, wgRegionId: 42 }
+        });
+
+        expect(normalized).toMatchObject({ name: ' Cinix ', description: null, wgRegionId: 42 });
     });
 });
 
