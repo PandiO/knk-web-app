@@ -2579,8 +2579,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     reconciled.visibility.visibleFieldNames[nextIndex]
                 ));
                 setErrors({});
-                // CRITICAL: Clear validation results when advancing to prevent contamination from previous steps
-                setValidationResults({});
+                // Validation results are kept (keyed by field id, so a step can't show another's): going
+                // back to a step shows what its rules said, incl. "checked … ago" + Re-check (KNG-269).
                 return nextIndex;
             });
         } else {
@@ -2668,8 +2668,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             visibility.visibleFieldNames[previousIndex]
         ));
         setErrors({});
-        // CRITICAL: Clear validation results when retreating to prevent contamination from previous steps
-        setValidationResults({});
+        // Validation results are kept across steps (see handleNext).
         setCurrentStepIndex(previousIndex);
     };
 

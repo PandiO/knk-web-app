@@ -206,6 +206,25 @@ describe('FormWizard validation result log (KNG-269)', () => {
         await onDetailsStep();
     });
 
+    it('a passing result answered from the log stays visible when going back to the step', async () => {
+        resumedDraft();
+        (fieldValidationRuleClient.validateFields as jest.Mock).mockResolvedValue(batchAnswer({
+            isValid: true, isBlocking: false, message: 'Name is free',
+            metadata: { validationType: 'ConditionalRequired', executedAt: twoHoursAgo(), fromCache: true }
+        }));
+
+        render(<FormWizard entityName="District" userId="1" existingProgressId="55" />);
+        await screen.findByDisplayValue('Old Quarter');
+        clickNext();
+        await onDetailsStep();
+
+        fireEvent.click(screen.getByRole('button', { name: /^previous$/i }));
+
+        expect(await screen.findByText(/Name is free/)).toBeInTheDocument();
+        expect(screen.getByText(/checked 2 h ago/)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^re-check$/i })).toBeInTheDocument();
+    });
+
     it('in edit mode the subject is the entity', async () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(config);
         (getFetchByIdFunctionForEntity as jest.Mock).mockReturnValue(async () => ({ id: 17, Name: 'Old Quarter' }));
