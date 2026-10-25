@@ -5,6 +5,7 @@ import '@testing-library/jest-dom';
 import { InvitePage } from '../InvitePage';
 import { invitationClient } from '../../../apiClients/invitationClient';
 import { useAuth } from '../../../contexts/AuthContext';
+import { loadPendingInvite, savePendingInvite } from '../../../utils/pendingInvite';
 
 const TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123456';
 const PASSWORD = 'Kn1ghts&Kings!';
@@ -28,6 +29,7 @@ describe('InvitePage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    sessionStorage.clear();
     mockToken = TOKEN;
     window.history.replaceState(null, '', `/invite/${TOKEN}`);
     mockedUseAuth.mockReturnValue({ isLoggedIn: false, isLoading: false, register });
@@ -62,6 +64,40 @@ describe('InvitePage', () => {
     expect(register).toHaveBeenCalledWith(expect.objectContaining({
       inviteToken: TOKEN, email: 'tester@example.com', password: PASSWORD, passwordConfirmation: PASSWORD,
     }));
+    expect(loadPendingInvite()).toBeNull();
+  });
+
+  // 2026-10-25: a tester clicked "Log in" here, then "Create an account", and lost the invitation.
+  it('keeps the invitation for the tab and sends "Log in" back here', async () => {
+    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: '2026-10-28T12:00:00Z' });
+    render(<InvitePage />);
+
+    await screen.findByLabelText('Email');
+
+    expect(loadPendingInvite()).toEqual({ token: TOKEN, email: 'tester@example.com', expiresAt: '2026-10-28T12:00:00Z' });
+    expect(screen.getByText(/New here\? Sign up with this invitation/)).toBeInTheDocument();
+    const note = screen.getByTestId('signup-login-note');
+    expect(note).toHaveTextContent(/Already have an account\?/);
+    expect(note.querySelector('a')).toHaveAttribute('href', '/auth/login?returnTo=%2Finvite');
+  });
+
+  it('resumes the kept invitation when opened without a token (back from the login page)', async () => {
+    savePendingInvite({ token: TOKEN, email: 'tester@example.com', expiresAt: new Date(Date.now() + 60_000).toISOString() });
+    mockToken = undefined;
+    window.history.replaceState(null, '', '/invite');
+    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: '2026-10-28T12:00:00Z' });
+    render(<InvitePage />);
+
+    expect(await screen.findByLabelText('Email')).toHaveValue('tester@example.com');
+    expect(check).toHaveBeenCalledWith({ token: TOKEN });
+  });
+
+  it('forgets a kept invitation that turns out invalid', async () => {
+    check.mockResolvedValue({ valid: false, error: 'InvalidInvite' });
+    render(<InvitePage />);
+
+    await screen.findByTestId('invalid-invite');
+    expect(loadPendingInvite()).toBeNull();
   });
 
   it('with the Cloudflare Access sync on, shows the PIN step before going on (KNG-216)', async () => {

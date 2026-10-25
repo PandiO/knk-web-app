@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, KeyRound } from 'lucide-react';
 import { admissionClient } from '../../apiClients/admissionClient';
 import { useAuth } from '../../contexts/AuthContext';
@@ -9,6 +9,7 @@ import { authService } from '../../services/authService';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import {
   CLAIM_CODE_LENGTH,
+  CLAIM_CODE_STAYS_VALID,
   PendingClaim,
   clearPendingClaim,
   formatClaimCode,
@@ -19,29 +20,32 @@ import {
 
 type Step = 'code' | 'checking' | 'verified' | 'linking' | 'linked';
 
-const INVALID_CODE = 'This code is invalid or has expired. Join the server again for a new one.';
+const INVALID_CODE = `This code is invalid or has expired. ${CLAIM_CODE_STAYS_VALID}`;
 
 /**
  * /link (KNG-214, DESIGN.md § 5.3), open without an account: the player enters the claim code from the
  * server's disconnect screen. Once the API has verified it, a logged-in player without Minecraft links
  * straight away; anyone else logs in or signs up with an invitation, and the verified code is kept in
  * sessionStorage for its 15 minutes so it survives that detour (the invite pages and /account/link pick
- * it up).
+ * it up). `/link?code=XXXX-XXXX` (from the register page, which recognises a claim code typed into its
+ * link-code field) fills the code in and checks it at once; the code leaves the address bar.
  */
 export const LinkPage: React.FC = () => {
   usePageTitle('Link your Minecraft account');
   useNoReferrer();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isLoggedIn, user, refresh } = useAuth();
+  // Read once: the URL no longer holds it after the replaceState below.
+  const [codeFromUrl] = useState(() => searchParams.get('code') ?? '');
   const [claim, setClaim] = useState<PendingClaim | null>(() => loadPendingClaim());
   const [step, setStep] = useState<Step>(() => (loadPendingClaim() ? 'verified' : 'code'));
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(() => formatClaimCode(codeFromUrl));
   const [error, setError] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState('');
 
-  const check = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const normalized = normalizeClaimCode(code);
+  const checkCode = async (value: string) => {
+    const normalized = normalizeClaimCode(value);
     if (normalized.length !== CLAIM_CODE_LENGTH) {
       setError(`Enter the ${CLAIM_CODE_LENGTH}-character code from the server, like K7QH-M2XA.`);
       return;
@@ -65,6 +69,16 @@ export const LinkPage: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (!codeFromUrl) return;
+    if (window.location.search) {
+      window.history.replaceState(window.history.state, '', '/link');
+    }
+    if (!loadPendingClaim()) checkCode(codeFromUrl);
+    // Only the code the page was opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codeFromUrl]);
+
   const linkNow = async () => {
     if (!claim) return;
     setError(null);
@@ -75,7 +89,7 @@ export const LinkPage: React.FC = () => {
       await refresh();
       setStep('linked');
     } catch (err) {
-      setError(apiRefusalReason(err) ?? 'Linking failed. Try again, or join the server again for a new code.');
+      setError(`${apiRefusalReason(err) ?? 'Linking failed.'} ${CLAIM_CODE_STAYS_VALID}`);
       setStep('verified');
     }
   };
@@ -111,7 +125,14 @@ export const LinkPage: React.FC = () => {
         )}
 
         {(step === 'code' || step === 'checking') && (
-          <form noValidate onSubmit={check} className="space-y-4">
+          <form
+            noValidate
+            onSubmit={e => {
+              e.preventDefault();
+              checkCode(code);
+            }}
+            className="space-y-4"
+          >
             <p className="text-sm text-gray-600">
               Joining the server showed you a code on the disconnect screen. Enter it here. Never give this code to anyone; staff never ask for it.
             </p>

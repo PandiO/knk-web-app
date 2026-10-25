@@ -95,6 +95,7 @@ export const JoinPage: React.FC = () => {
             </p>
             <InviteSignupForm
               inviteCode={code.trim()}
+              loginReturnTo={`/join?code=${encodeURIComponent(code.trim())}`}
               onRegistered={() => {
                 signedUp.current = true;
               }}

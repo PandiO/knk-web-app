@@ -41,6 +41,8 @@ describe('JoinPage', () => {
     const email = await screen.findByLabelText('Email');
     expect(check).toHaveBeenCalledWith({ code: 'KNK-7QH4M-2XA9P' });
     expect(email).not.toHaveAttribute('readonly');
+    // "Log in" comes back to this code (2026-10-25).
+    expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/auth/login?returnTo=%2Fjoin%3Fcode%3DKNK-7QH4M-2XA9P');
     await userEvent.type(email, 'player@example.com');
     await userEvent.type(screen.getByLabelText('Password'), PASSWORD);
     await userEvent.type(screen.getByLabelText('Confirm password'), PASSWORD);

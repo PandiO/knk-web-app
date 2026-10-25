@@ -97,6 +97,14 @@ export interface RegisterRequestDto {
 }
 
 /** POST Admission/claim/check (KNG-214): is this claim code active, and for which Minecraft name? */
+/** Security:Registration:Mode as the API reports it (GET Auth/registration-info). */
+export type RegistrationMode = 'LinkCode' | 'Invite' | 'Open';
+
+/** GET Auth/registration-info (anonymous): only the mode, so the sign-up and login pages can route a newcomer. */
+export interface RegistrationInfoDto {
+  mode: RegistrationMode | string;
+}
+
 export interface ClaimCheckResponseDto {
   valid: boolean;
   minecraftName?: string | null;

@@ -8,20 +8,32 @@ import { RegisterForm } from './RegisterForm';
 import { authClient } from '../../apiClients/authClient';
 import { useAuth } from '../../contexts/AuthContext';
 import { ERROR_MESSAGES } from '../../utils/authConstants';
-import { normalizeLinkCode } from '../../utils/linkCode';
+import { normalizeLinkCode, normalizeLinkCodeInput } from '../../utils/linkCode';
+import { fetchRegistrationMode, resetRegistrationModeCache } from '../../hooks/useRegistrationMode';
+
+const mockNavigate = jest.fn();
 
 // virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
 jest.mock('react-router-dom', () => ({
   Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode }) => <a href={to} {...rest}>{children}</a>,
+  useNavigate: () => mockNavigate,
 }), { virtual: true });
 jest.mock('../../apiClients/authClient', () => ({
-  authClient: { validateLinkCode: jest.fn() },
+  authClient: { validateLinkCode: jest.fn(), registrationInfo: jest.fn() },
 }));
 jest.mock('../../contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 
 const mockedValidate = authClient.validateLinkCode as jest.Mock;
+const mockedInfo = authClient.registrationInfo as jest.Mock;
 const mockedUseAuth = useAuth as jest.Mock;
 const PASSWORD = 'Kn1ghts&Kings!';
+
+/** The mode the form finds cached, so tests that don't await it see no late state update. */
+async function withMode(mode: string) {
+  resetRegistrationModeCache();
+  mockedInfo.mockResolvedValue({ mode });
+  await fetchRegistrationMode();
+}
 
 async function enterCode(code = 'ABCD1234') {
   await userEvent.type(screen.getByTestId('link-code'), code);
@@ -37,8 +49,9 @@ async function fillAccount(email = 'steve@example.com') {
 describe('RegisterForm', () => {
   const register = jest.fn();
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await withMode('LinkCode');
     mockedUseAuth.mockReturnValue({ register });
   });
 
@@ -58,7 +71,7 @@ describe('RegisterForm', () => {
     register.mockResolvedValue({ id: 5, username: 'Steve' });
     render(<RegisterForm onRegistering={onRegistering} onRegistrationSuccess={onRegistrationSuccess} />);
 
-    await enterCode('abcd-1234');
+    await enterCode('abcd1234');
     expect(mockedValidate).toHaveBeenCalledWith('ABCD1234');
     expect(await screen.findByTestId('link-code-owner')).toHaveTextContent('This code belongs to Steve.');
 
@@ -85,6 +98,40 @@ describe('RegisterForm', () => {
 
     expect(await screen.findByText(ERROR_MESSAGES.InvalidLinkCode)).toBeInTheDocument();
     expect(screen.queryByLabelText(/email address/i)).not.toBeInTheDocument();
+  });
+
+  it('sends a claim code typed as XXXX-XXXX to /link instead of checking it as a link code (2026-10-25)', async () => {
+    render(<RegisterForm />);
+
+    await userEvent.type(screen.getByTestId('link-code'), 'k7qh-m2xa');
+
+    expect(screen.getByTestId('link-code')).toHaveValue('K7QH-M2XA');
+    expect(screen.getByTestId('claim-code-detected')).toHaveTextContent(/disconnect screen/);
+    await userEvent.click(screen.getByRole('button', { name: /continue with this code/i }));
+    expect(mockNavigate).toHaveBeenCalledWith('/link?code=K7QH-M2XA');
+    expect(mockedValidate).not.toHaveBeenCalled();
+  });
+
+  it('hints at the claim flow when a refused link code could be a claim code without its dash', async () => {
+    mockedValidate.mockResolvedValue({ isValid: false });
+    render(<RegisterForm />);
+
+    await enterCode('k7qhm2xa');
+
+    expect(await screen.findByText(ERROR_MESSAGES.InvalidLinkCode)).toBeInTheDocument();
+    const hint = screen.getByTestId('claim-code-hint');
+    expect(hint).toHaveTextContent(/15 minutes/);
+    expect(hint.querySelector('a')).toHaveAttribute('href', '/link?code=K7QH-M2XA');
+  });
+
+  it('gives no claim hint for a refused code with a letter a claim code never has', async () => {
+    mockedValidate.mockResolvedValue({ isValid: false });
+    render(<RegisterForm />);
+
+    await enterCode('ABCDOLIL');
+
+    expect(await screen.findByText(ERROR_MESSAGES.InvalidLinkCode)).toBeInTheDocument();
+    expect(screen.queryByTestId('claim-code-hint')).not.toBeInTheDocument();
   });
 
   it('asks for all 8 characters before calling the API', async () => {
@@ -167,8 +214,107 @@ describe('RegisterForm', () => {
   });
 });
 
+describe('RegisterForm with invitations on (Mode=Invite, 2026-10-25)', () => {
+  const register = jest.fn();
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await withMode('Invite');
+    mockedUseAuth.mockReturnValue({ register });
+  });
+
+  async function openInviteStep() {
+    render(<RegisterForm />);
+    return screen.findByTestId('invite-mode');
+  }
+
+  it('opens on the invitation step and folds the link-code form away', async () => {
+    const step = await openInviteStep();
+
+    expect(step).toHaveTextContent(/invite-only/i);
+    expect(screen.getByRole('heading', { name: /sign up with your invitation/i })).toBeInTheDocument();
+    expect(screen.queryByTestId('link-code')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /check code/i })).not.toBeInTheDocument();
+    expect(mockedValidate).not.toHaveBeenCalled();
+  });
+
+  it('sends an invitation code to /join', async () => {
+    await openInviteStep();
+
+    await userEvent.type(screen.getByTestId('invite-entry'), 'knk-7qh4m-2xa9p');
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/join?code=KNK-7QH4M-2XA9P');
+  });
+
+  it('sends the code from the disconnect screen to /link', async () => {
+    await openInviteStep();
+
+    await userEvent.type(screen.getByTestId('invite-entry'), 'k7qh-m2xa{enter}');
+
+    expect(mockNavigate).toHaveBeenCalledWith('/link?code=K7QH-M2XA');
+  });
+
+  it('opens the link-code form, filled in, for 8 plain characters', async () => {
+    await openInviteStep();
+
+    await userEvent.type(screen.getByTestId('invite-entry'), 'abcd1234');
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.getByTestId('link-code')).toHaveValue('ABCD1234');
+    expect(screen.getByTestId('grandfathered-note')).toBeInTheDocument();
+  });
+
+  it('asks for a code before continuing', async () => {
+    await openInviteStep();
+
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/KNK-XXXXX-XXXXX/);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('keeps the link-code path for players from before the invitations, behind a question', async () => {
+    mockedValidate.mockResolvedValue({ isValid: true, username: 'Steve' });
+    await openInviteStep();
+
+    await userEvent.click(screen.getByRole('button', { name: /already playing and got a code from \/account link/i }));
+
+    expect(screen.getByRole('heading', { name: /enter your link code/i })).toBeInTheDocument();
+    expect(screen.queryByTestId('invite-mode')).not.toBeInTheDocument();
+    await enterCode('ABCD1234');
+    expect(await screen.findByTestId('link-code-owner')).toHaveTextContent('Steve');
+
+    // And back.
+    await userEvent.click(screen.getByRole('button', { name: /use a different code/i }));
+    await userEvent.click(screen.getByRole('button', { name: /sign up with your invitation instead/i }));
+    expect(screen.getByTestId('invite-mode')).toBeInTheDocument();
+  });
+
+  it('behaves as before while the mode is unknown (the API could not be asked)', async () => {
+    resetRegistrationModeCache();
+    mockedInfo.mockReset().mockRejectedValue(new TypeError('Failed to fetch'));
+    render(<RegisterForm />);
+
+    expect(screen.getByTestId('link-code')).toBeInTheDocument();
+    await waitFor(() => expect(mockedInfo).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockedInfo.mock.results[0].value).rejects.toBeInstanceOf(TypeError));
+    expect(screen.queryByTestId('invite-mode')).not.toBeInTheDocument();
+  });
+});
+
 describe('normalizeLinkCode', () => {
   it('uppercases, drops separators and caps the length', () => {
     expect(normalizeLinkCode('ab-cd 12_34xyz')).toBe('ABCD1234');
+  });
+
+  it('keeps one dash while typing, so a claim code stays recognisable', () => {
+    expect(normalizeLinkCodeInput('k7qh-m2xa')).toBe('K7QH-M2XA');
+    expect(normalizeLinkCodeInput('k7qh–m2xa')).toBe('K7QH-M2XA');
+    expect(normalizeLinkCodeInput('ab-cd-12 34xyz')).toBe('AB-CD1234');
+    expect(normalizeLinkCodeInput('abcd1234xyz')).toBe('ABCD1234');
+    expect(normalizeLinkCodeInput('k7qh-m2xa99')).toBe('K7QH-M2XA');
+    expect(normalizeLinkCode(normalizeLinkCodeInput('abcd1234xyz'))).toBe('ABCD1234');
   });
 });

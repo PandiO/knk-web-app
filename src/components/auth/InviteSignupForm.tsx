@@ -5,7 +5,8 @@ import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { useAuth } from '../../contexts/AuthContext';
 import { ERROR_MESSAGES, PASSWORD_MIN_LENGTH } from '../../utils/authConstants';
 import { calculatePasswordStrength, validateEmailFormat, validatePasswordPolicy } from '../../utils/passwordValidator';
-import { PendingClaim, clearPendingClaim, loadPendingClaim } from '../../utils/claimCode';
+import { CLAIM_CODE_STAYS_VALID, PendingClaim, clearPendingClaim, loadPendingClaim } from '../../utils/claimCode';
+import { buildLoginRedirect } from '../../utils/returnTo';
 
 interface InviteSignupFormProps {
   /** A personal invite: its token and the address it was sent to (shown locked). */
@@ -20,6 +21,8 @@ interface InviteSignupFormProps {
   onRegistered?: () => void;
   /** The invite stopped working while the form was open (used up, revoked): show the invalid state. */
   onInvalidInvite: () => void;
+  /** Where "Log in" brings the player back to afterwards (the invite page itself), so the invite isn't lost. */
+  loginReturnTo?: string;
 }
 
 interface Errors {
@@ -40,7 +43,7 @@ const apiMessageOf = (error: any): string | undefined =>
  * account and logs the player in; Minecraft is linked afterwards (KNG-214). When /link kept a verified
  * claim code (game-first), it goes along and the account is linked in the same step.
  */
-export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken, lockedEmail, inviteCode, onSuccess, onRegistered, onInvalidInvite }) => {
+export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken, lockedEmail, inviteCode, onSuccess, onRegistered, onInvalidInvite, loginReturnTo }) => {
   const { register } = useAuth();
   const [email, setEmail] = useState(lockedEmail ?? '');
   const [password, setPassword] = useState('');
@@ -109,7 +112,9 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
         // The game code no longer works; nothing was created. Without it the account can still be made.
         clearPendingClaim();
         setClaim(null);
-        setErrors({ general: `${apiMessageOf(error) ?? 'The code from the server no longer works.'} Submit again to create your account without it; you can link Minecraft on the next page.` });
+        const why = apiMessageOf(error) ?? 'The code from the server no longer works.';
+        const stillValid = code === 'InvalidClaimCode' ? ` ${CLAIM_CODE_STAYS_VALID}` : '';
+        setErrors({ general: `${why}${stillValid} Submit again to create your account without it; you can link Minecraft on the next page.` });
       } else if (code === 'InvalidInvite') {
         onInvalidInvite();
       } else if (code === 'DuplicateEmail') {
@@ -234,8 +239,9 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
         {busy ? 'Creating your account…' : 'Create account'}
       </button>
 
-      <p className="text-center text-sm text-gray-600">
-        Already have an account? <Link to="/auth/login" className="font-medium text-primary hover:text-primary-dark">Log in</Link>
+      <p className="text-center text-sm text-gray-600" data-testid="signup-login-note">
+        This creates a <strong>new</strong> account. Already have an account?{' '}
+        <Link to={buildLoginRedirect(loginReturnTo)} className="font-medium text-primary hover:text-primary-dark">Log in</Link>
       </p>
     </form>
   );

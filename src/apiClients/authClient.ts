@@ -13,6 +13,7 @@ import {
   LinkMinecraftAccountDto,
   LinkMinecraftAccountResponseDto,
   ValidateLinkCodeResponseDto,
+  RegistrationInfoDto,
 } from "../types/dtos/auth/AuthDtos";
 import { UserDto, UserUpdateDto } from "../types/dtos/auth/UserDtos";
 
@@ -43,6 +44,15 @@ export class AuthClient extends ObjectManager {
   /** Registration with a link code from `/account link`; answers like login (the player is logged in). */
   register(data: RegisterRequestDto): Promise<AuthLoginResponseDto> {
     return this.invokeServiceCall(data, "register", Controllers.Auth, HttpMethod.Post);
+  }
+
+  /**
+   * Which registration mode the server runs (LinkCode, Invite or Open), without a login, so the
+   * sign-up and login pages don't send a newcomer to a form that can't succeed. Prefer the
+   * `useRegistrationMode` hook, which caches the answer.
+   */
+  registrationInfo(): Promise<RegistrationInfoDto> {
+    return this.invokeServiceCall(null, "registration-info", Controllers.Auth, HttpMethod.Get);
   }
 
   logout(): Promise<void> {

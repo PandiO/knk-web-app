@@ -9,10 +9,12 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { loadPendingClaim, savePendingClaim } from '../../../utils/claimCode';
 
 const mockNavigate = jest.fn();
+let mockSearch = '';
 
 jest.mock('react-router-dom', () => ({
   Link: ({ to, children, className }: { to: string; children: React.ReactNode; className?: string }) => <a href={to} className={className}>{children}</a>,
   useNavigate: () => mockNavigate,
+  useSearchParams: () => [new URLSearchParams(mockSearch)],
 }), { virtual: true });
 jest.mock('../../../contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('../../../apiClients/admissionClient', () => ({ admissionClient: { checkClaim: jest.fn() } }));
@@ -29,19 +31,47 @@ describe('LinkPage (/link)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     sessionStorage.clear();
+    mockSearch = '';
+    window.history.replaceState(null, '', '/link');
     mockedUseAuth.mockReturnValue({ isLoggedIn: false, user: null, refresh });
   });
 
-  it('says when a code is invalid and keeps nothing', async () => {
+  it('says when a code is invalid, that it stays valid 15 minutes, and keeps nothing', async () => {
     checkClaim.mockResolvedValue({ valid: false });
     render(<LinkPage />);
 
     await userEvent.type(screen.getByLabelText('Code from the server'), 'zzzzzzzz');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/invalid or has expired/i);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/invalid or has expired/i);
+    expect(alert).toHaveTextContent(/stays valid for 15 minutes/);
     expect(checkClaim).toHaveBeenCalledWith('ZZZZZZZZ');
     expect(loadPendingClaim()).toBeNull();
+  });
+
+  // 2026-10-25: the register page sends a claim code typed into its link-code field here.
+  it('checks a code from the URL at once and drops it from the address bar', async () => {
+    mockSearch = '?code=K7QH-M2XA';
+    window.history.replaceState(null, '', '/link?code=K7QH-M2XA');
+    const expiresAt = inAMinute();
+    checkClaim.mockResolvedValue({ valid: true, minecraftName: 'Steve', expiresAt });
+    render(<LinkPage />);
+
+    expect(await screen.findByText(/Verified: Minecraft account/)).toHaveTextContent('Steve');
+    expect(checkClaim).toHaveBeenCalledTimes(1);
+    expect(checkClaim).toHaveBeenCalledWith('K7QHM2XA');
+    expect(window.location.search).toBe('');
+    expect(loadPendingClaim()).toEqual({ code: 'K7QHM2XA', minecraftName: 'Steve', expiresAt });
+  });
+
+  it('leaves a refused URL code in the field to correct', async () => {
+    mockSearch = '?code=K7QH-M2XZ';
+    checkClaim.mockResolvedValue({ valid: false });
+    render(<LinkPage />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/15 minutes/);
+    expect(screen.getByLabelText('Code from the server')).toHaveValue('K7QH-M2XZ');
   });
 
   it('logged out: verifies the code, keeps it, and offers log in or an invitation', async () => {

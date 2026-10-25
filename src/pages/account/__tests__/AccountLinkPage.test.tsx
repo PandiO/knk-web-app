@@ -65,6 +65,41 @@ describe('AccountLinkPage (/account/link)', () => {
     await waitFor(() => expect(linkCall).toHaveBeenCalledWith({ linkCode: 'ABCDOLIL' }));
   });
 
+  // 2026-10-25: a claim code typed as on the disconnect screen is recognised, and a refusal says it stays valid.
+  it('recognises a claim code typed as XXXX-XXXX and folds its look-alikes like the API', async () => {
+    linkCall.mockResolvedValue({ user: { id: 5 } });
+    render(<AccountLinkPage />);
+
+    await userEvent.type(screen.getByLabelText('Code from the server'), 'k7qh-m2xo');
+
+    expect(screen.getByLabelText('Code from the server')).toHaveValue('K7QH-M2XO');
+    expect(screen.getByTestId('claim-recognised')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Link account' }));
+    await waitFor(() => expect(linkCall).toHaveBeenCalledWith({ linkCode: 'K7QHM2X0' }));
+  });
+
+  it('says a refused claim code stays valid for 15 minutes', async () => {
+    linkCall.mockRejectedValue({ status: 400, response: { error: 'InvalidClaimCode', message: 'This code is invalid or has expired.' } });
+    render(<AccountLinkPage />);
+
+    await userEvent.type(screen.getByLabelText('Code from the server'), 'K7QH-M2XA');
+    await userEvent.click(screen.getByRole('button', { name: 'Link account' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('This code is invalid or has expired.');
+    expect(alert).toHaveTextContent(/stays valid for 15 minutes/);
+  });
+
+  it('says so for the kept code from /link too', async () => {
+    linkCall.mockRejectedValue({ status: 400, response: { error: 'InvalidClaimCode', message: 'This code is invalid or has expired.' } });
+    savePendingClaim({ code: 'K7QHM2XA', minecraftName: 'Steve', expiresAt: new Date(Date.now() + 60_000).toISOString() });
+    render(<AccountLinkPage />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Link account' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/15 minutes/);
+  });
+
   it('shows the API refusal', async () => {
     linkCall.mockRejectedValue({ status: 400, response: { error: 'OperationFailed', message: 'Invalid or expired link code' } });
     render(<AccountLinkPage />);
@@ -72,7 +107,9 @@ describe('AccountLinkPage (/account/link)', () => {
     await userEvent.type(screen.getByLabelText('Code from the server'), 'ZZZZZZZZ');
     await userEvent.click(screen.getByRole('button', { name: 'Link account' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid or expired link code');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Invalid or expired link code');
+    expect(alert).not.toHaveTextContent(/15 minutes/);
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
