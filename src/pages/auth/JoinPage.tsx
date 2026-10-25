@@ -6,7 +6,10 @@ import { InviteSignupForm } from '../../components/auth/InviteSignupForm';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { useNoReferrer } from '../../hooks/useNoReferrer';
-import { AFTER_SIGNUP_PATH, InvalidInvite } from './InvitePage';
+import { InvalidInvite } from './InvitePage';
+import { AFTER_SIGNUP_PATH } from '../../utils/onboardingPaths';
+import { useOnboardingInfo } from '../../hooks/useOnboardingInfo';
+import { OnboardingJourney } from '../../components/auth/OnboardingJourney';
 
 type Step = 'code' | 'checking' | 'invalid' | 'signup';
 
@@ -20,6 +23,7 @@ export const JoinPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { isLoggedIn, isLoading } = useAuth();
+  const { accessGate } = useOnboardingInfo();
   const [code, setCode] = useState(() => searchParams.get('code') ?? '');
   const [step, setStep] = useState<Step>(() => (searchParams.get('code') ? 'checking' : 'code'));
   const signedUp = useRef(false);
@@ -90,11 +94,16 @@ export const JoinPage: React.FC = () => {
 
         {step === 'signup' && (
           <>
-            <p className="mb-6 text-center text-sm text-gray-600">
+            <p className="mb-4 text-center text-sm text-gray-600">
               Code <span className="font-mono">{code.trim()}</span> is valid. Choose the email and password for your account.
             </p>
+            <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">What happens next</p>
+              <OnboardingJourney accessGate={accessGate} />
+            </div>
             <InviteSignupForm
               inviteCode={code.trim()}
+              loginReturnTo={`/join?code=${encodeURIComponent(code.trim())}`}
               onRegistered={() => {
                 signedUp.current = true;
               }}

@@ -1,4 +1,12 @@
-import { clearPendingClaim, formatClaimCode, loadPendingClaim, normalizeClaimCode, savePendingClaim } from '../claimCode';
+import {
+  clearPendingClaim,
+  couldBeClaimCode,
+  formatClaimCode,
+  loadPendingClaim,
+  looksLikeClaimCode,
+  normalizeClaimCode,
+  savePendingClaim,
+} from '../claimCode';
 
 describe('claim codes (KNG-214)', () => {
   beforeEach(() => sessionStorage.clear());
@@ -9,6 +17,23 @@ describe('claim codes (KNG-214)', () => {
     expect(normalizeClaimCode('K7QHM2XA99')).toBe('K7QHM2XA');
     expect(formatClaimCode('k7qhm2xa')).toBe('K7QH-M2XA');
     expect(formatClaimCode('k7q')).toBe('K7Q');
+  });
+
+  it('tells a claim code typed as on the disconnect screen from a link code (2026-10-25)', () => {
+    expect(looksLikeClaimCode('K7QH-M2XA')).toBe(true);
+    expect(looksLikeClaimCode(' k7qh-m2xa ')).toBe(true);
+    expect(looksLikeClaimCode('K7QH – M2XA')).toBe(true);
+    expect(looksLikeClaimCode('K7QHM2XA')).toBe(false);
+    expect(looksLikeClaimCode('ABC-DOLIL')).toBe(false);
+    expect(looksLikeClaimCode('KNK-7QH4M-2XA9P')).toBe(false);
+    expect(looksLikeClaimCode('')).toBe(false);
+  });
+
+  it('knows which 8 characters could be a claim code without its dash', () => {
+    expect(couldBeClaimCode('K7QHM2XA')).toBe(true);
+    expect(couldBeClaimCode('ABCDOLIL')).toBe(false); // O, L and I are not Crockford
+    expect(couldBeClaimCode('ABCDEFGU')).toBe(false); // nor U
+    expect(couldBeClaimCode('K7QH')).toBe(false);
   });
 
   it('keeps a verified code until it expires', () => {

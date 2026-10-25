@@ -11,6 +11,10 @@ import { InvokeServiceArgs } from "./interfaces";
  */
 export const requestFailureToast = (err: unknown, controller: string): string | null => {
     const status = (err as { status?: number } | null)?.status;
+    // A missing Cloudflare Access session has its own banner (CloudflareSessionBanner).
+    if ((err as { code?: unknown } | null)?.code === 'CloudflareSession') {
+        return null;
+    }
     if (status === undefined) {
         return "Can't reach the server. Check your connection and try again.";
     }

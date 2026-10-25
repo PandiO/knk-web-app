@@ -4,6 +4,9 @@ import { Eye, EyeOff } from 'lucide-react';
 import { ERROR_MESSAGES } from '../../utils/authConstants';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { useOnboardingInfo } from '../../hooks/useOnboardingInfo';
+import { signupPath } from '../../utils/signupPath';
+import { isCloudflareSessionError } from '../../services/cloudflareAccess';
 
 interface LoginFormProps {
   /** Called after a successful login; the login page decides where to go. */
@@ -24,6 +27,9 @@ interface FormErrors {
 
 /** A user-facing message for a failed login. Never says which of the two fields was wrong. */
 export function describeLoginError(error: any): string {
+  if (isCloudflareSessionError(error)) {
+    return error.message;
+  }
   const code = error?.code ?? error?.response?.error;
   const status = error?.status;
   if (code === 'TooManyAttempts' || status === 429) {
@@ -46,6 +52,10 @@ export function describeLoginError(error: any): string {
 
 export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
   const { login } = useAuth();
+  // With invitations on, "Create an account" continues the invite flow (/invite, /link or /join)
+  // instead of the link-code register page, which can't succeed for a newcomer (2026-10-25).
+  const { mode, inviteSignup, accessGate } = useOnboardingInfo();
+  const signupTo = signupPath(mode);
   // Remember me is opt-in: without it the session ends when the browser closes.
   const [form, setForm] = useState<FormState>({ login: '', password: '', rememberMe: false });
   const [errors, setErrors] = useState<FormErrors>({});
@@ -218,11 +228,22 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
         {isSubmitting ? 'Logging in…' : 'Log In'}
       </button>
 
+      {accessGate && (
+        <p className="text-center text-xs text-gray-500" data-testid="access-gate-note">
+          First time on this device? Cloudflare asks for your email and emails you a 6-digit code before this page opens.
+        </p>
+      )}
+
       <div className="text-center text-sm text-gray-600">
         <span>New here? </span>
-        <Link to="/auth/register" className="text-primary hover:text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary rounded px-2 py-1">
+        <Link to={signupTo} className="text-primary hover:text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary rounded px-2 py-1">
           Create an account
         </Link>
+        {inviteSignup && (
+          <p className="mt-1 text-xs text-gray-500" data-testid="invite-only-note">
+            The alpha is invite-only: you sign up with your invitation link or code, or with the code the server showed you.
+          </p>
+        )}
       </div>
     </form>
   );
