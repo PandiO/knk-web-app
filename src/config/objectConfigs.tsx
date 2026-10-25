@@ -316,21 +316,23 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'battlegroundCount', label: 'Battlegrounds', sortable: false },
     ]
   },
-  arenabattleground: {
+  // Rev. 6: battlegrounds, spectator areas and the lobby are arena areas with their regions.
+  arenaarea: {
     default: [
       ...defaultColumnDefinitions.default,
       { key: 'arenaName', label: 'Arena', sortable: false, render: (row: any) => row.arenaName ?? '-' },
+      { key: 'kind', label: 'Kind', sortable: false },
       { key: 'key', label: 'Key', sortable: false },
-      { key: 'wgRegionId', label: 'Region', sortable: false },
+      { key: 'regions', label: 'Regions', sortable: false, render: (row: any) => String(row.regions?.length ?? 0) },
       { key: 'isEnabled', label: 'Enabled', sortable: false, render: (row: any) => row.isEnabled ? 'Yes' : '-' },
     ]
   },
-  arenaspectatorarea: {
+  arenaarearegion: {
     default: [
       ...defaultColumnDefinitions.default,
-      { key: 'arenaName', label: 'Arena', sortable: false, render: (row: any) => row.arenaName ?? '-' },
+      { key: 'areaKey', label: 'Area', sortable: false, render: (row: any) => row.areaKey ?? '-' },
       { key: 'wgRegionId', label: 'Region', sortable: false },
-      { key: 'teleportEnabled', label: 'Warp', sortable: false, render: (row: any) => row.teleportEnabled ? 'Yes' : '-' },
+      { key: 'worldName', label: 'World', sortable: false },
     ]
   },
   titlebracket: {
@@ -1229,31 +1231,31 @@ const arenaConfig: ObjectConfig = {
     name: commonFields.name,
     description: commonFields.description,
     key: { name: 'key', label: 'Key', type: 'text', required: true },
-    isDuelEnabled: { name: 'isDuelEnabled', label: 'Duels enabled', type: 'bool', required: false, defaultValue: true },
+    // Rev. 6: a new arena starts closed; duels need its lobby area first.
+    isDuelEnabled: { name: 'isDuelEnabled', label: 'Duels enabled', type: 'bool', required: false, defaultValue: false },
   },
 };
 
-const arenaBattlegroundConfig: ObjectConfig = {
-  type: 'arenabattleground',
-  label: 'Arena Battleground',
+const arenaAreaConfig: ObjectConfig = {
+  type: 'arenaarea',
+  label: 'Arena Area',
   icon: <Swords className="h-5 w-5" />,
   fields: {
     id: commonFields.id,
-    name: commonFields.name,
     key: { name: 'key', label: 'Key', type: 'text', required: true },
     arenaId: { name: 'arenaId', label: 'Arena Id', type: 'number', required: true },
-    isEnabled: { name: 'isEnabled', label: 'Enabled', type: 'bool', required: false, defaultValue: true },
+    isEnabled: { name: 'isEnabled', label: 'Enabled', type: 'bool', required: false, defaultValue: false },
   },
 };
 
-const arenaSpectatorAreaConfig: ObjectConfig = {
-  type: 'arenaspectatorarea',
-  label: 'Arena Spectator Area',
+const arenaAreaRegionConfig: ObjectConfig = {
+  type: 'arenaarearegion',
+  label: 'Arena Area Region',
   icon: <Swords className="h-5 w-5" />,
   fields: {
     id: commonFields.id,
-    name: commonFields.name,
-    arenaId: { name: 'arenaId', label: 'Arena Id', type: 'number', required: true },
+    arenaAreaId: { name: 'arenaAreaId', label: 'Area Id', type: 'number', required: true },
+    wgRegionId: { name: 'wgRegionId', label: 'Region', type: 'text', required: true },
   },
 };
 
@@ -1278,6 +1280,6 @@ export const objectConfigs: Record<string, ObjectConfig> = {
   siegescenario: siegeScenarioConfig,
   siegelobby: siegeLobbyConfig,
   arena: arenaConfig,
-  arenabattleground: arenaBattlegroundConfig,
-  arenaspectatorarea: arenaSpectatorAreaConfig,
+  arenaarea: arenaAreaConfig,
+  arenaarearegion: arenaAreaRegionConfig,
 };

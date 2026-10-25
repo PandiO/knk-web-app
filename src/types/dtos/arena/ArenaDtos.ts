@@ -1,4 +1,4 @@
-// Arena duels (KNG-210, knk-workspace docs/specs/arena-duels/DESIGN.md §4.1-4.2). Mirrors knk-web-api Dtos/ArenaDtos.cs.
+// Arena duels (KNG-210, knk-workspace docs/specs/arena-duels/DESIGN.md §4.1-4.2, areas rev. 6). Mirrors knk-web-api Dtos/ArenaDtos.cs.
 
 export type DuelGearMode = 'OWN_GEAR_KEEP' | 'OWN_GEAR_DROP' | 'FIXED_KIT' | 'KIT_CHOICE';
 
@@ -9,40 +9,42 @@ export interface ArenaKitDto {
     kitName?: string | null;
 }
 
-export interface ArenaBattlegroundDto {
+/** Arena duels rev. 6: what an arena area is for. */
+export type ArenaAreaKind = 'BATTLEGROUND' | 'SPECTATOR' | 'LOBBY';
+
+/** One WorldGuard region of an arena area (api/Arenas/areas/regions); renamed arena_<arenaId>_<kind>_<id> on save. */
+export interface ArenaAreaRegionDto {
     id?: number | null;
-    name: string;
-    description?: string | null;
-    allowEntry?: boolean | null;
-    allowExit?: boolean | null;
+    arenaAreaId: number;
     wgRegionId: string;
     worldName?: string | null;
-    locationId?: number | null;
+    createdAt?: string | null;
+    arenaId?: number | null;
+    areaKind?: ArenaAreaKind | null;
+    areaKey?: string | null;
+}
+
+/**
+ * A battleground, spectator area or lobby of an arena (rev. 6: the arena's own sub-structure, not a domain), read and
+ * written through api/Arenas/areas. Fields of another kind are cleared by the API; regions are read-only here.
+ */
+export interface ArenaAreaDto {
+    id?: number | null;
     arenaId: number;
-    arenaName?: string | null;
+    kind: ArenaAreaKind;
     key: string;
+    name?: string | null;
     sortOrder?: number | null;
     isEnabled?: boolean | null;
     spawnALocationId?: number | null;
     spawnBLocationId?: number | null;
-}
-
-export interface ArenaSpectatorAreaDto {
-    id?: number | null;
-    name: string;
-    description?: string | null;
-    allowEntry?: boolean | null;
-    allowExit?: boolean | null;
-    wgRegionId: string;
-    worldName?: string | null;
-    locationId?: number | null;
-    arenaId: number;
-    arenaName?: string | null;
-    teleportEnabled?: boolean | null;
-    teleportPriceGems?: number | null;
+    arrivalLocationId?: number | null;
     teleportMinTitleBracketId?: number | null;
-    teleportMinPremiumGroupId?: number | null;
-    teleportRequiresDiscovery?: boolean | null;
+    teleportPriceGems?: number | null;
+    arenaName?: string | null;
+    arenaWgRegionId?: string | null;
+    teleportMinTitleBracketName?: string | null;
+    regions?: ArenaAreaRegionDto[] | null;
 }
 
 /** A null setting on create/update keeps its current value (the design default on create). */
@@ -59,7 +61,6 @@ export interface ArenaDto {
     districtId: number;
     streetId: number;
     houseNumber?: number | null;
-    lobbyLocationId?: number | null;
     exitLocationId?: number | null;
     isDuelEnabled?: boolean | null;
     maxQueuedMatches?: number | null;
@@ -90,8 +91,10 @@ export interface ArenaDto {
     announceFriendly?: boolean | null;
     /** Replace-set in list order; null keeps the current kits. */
     eligibleKits?: ArenaKitDto[] | null;
-    battlegrounds?: ArenaBattlegroundDto[] | null;
-    spectatorAreas?: ArenaSpectatorAreaDto[] | null;
+    /** Read-only: battlegrounds, spectator areas and the lobby with their regions (rev. 6). */
+    areas?: ArenaAreaDto[] | null;
+    /** Read-only: the arena domain's own sub-regions (KNG-253). */
+    subRegions?: { id?: number | null; domainId?: number | null; wgRegionId: string; name?: string | null }[] | null;
 }
 
 export interface ArenaListDto {
@@ -106,4 +109,5 @@ export interface ArenaListDto {
     districtName?: string | null;
     townName?: string | null;
     battlegroundCount: number;
+    areaCount?: number;
 }

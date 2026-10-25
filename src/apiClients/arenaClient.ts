@@ -2,10 +2,10 @@ import { ObjectManager } from './objectManager';
 import { logging } from '../utils';
 import { Controllers, HttpMethod } from '../utils/enums';
 import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
-import { ArenaBattlegroundDto, ArenaDto, ArenaListDto, ArenaSpectatorAreaDto } from '../types/dtos/arena/ArenaDtos';
+import { ArenaAreaDto, ArenaAreaRegionDto, ArenaDto, ArenaListDto } from '../types/dtos/arena/ArenaDtos';
 
-// Arena duels (KNG-210): arenas, battlegrounds and spectator areas all live under api/Arenas. The eligible kits
-// travel in the arena payload as an M2M set (null keeps it, [] clears it).
+// Arena duels (KNG-210): arenas and (rev. 6) their areas and the areas' regions all live under api/Arenas. The
+// eligible kits travel in the arena payload as an M2M set (null keeps it, [] clears it).
 export class ArenaClient extends ObjectManager {
     private static instance: ArenaClient;
 
@@ -42,67 +42,69 @@ export class ArenaClient extends ObjectManager {
     }
 }
 
-export class ArenaBattlegroundClient extends ObjectManager {
-    private static instance: ArenaBattlegroundClient;
+/** Rev. 6: battlegrounds, spectator areas and the lobby (api/Arenas/areas). */
+export class ArenaAreaClient extends ObjectManager {
+    private static instance: ArenaAreaClient;
 
     public static getInstance() {
-        if (!ArenaBattlegroundClient.instance) {
-            ArenaBattlegroundClient.instance = new ArenaBattlegroundClient();
-            ArenaBattlegroundClient.instance.logger = logging.getLogger('ArenaBattlegroundClient');
+        if (!ArenaAreaClient.instance) {
+            ArenaAreaClient.instance = new ArenaAreaClient();
+            ArenaAreaClient.instance.logger = logging.getLogger('ArenaAreaClient');
         }
-        return ArenaBattlegroundClient.instance;
+        return ArenaAreaClient.instance;
     }
 
-    getById(id: number): Promise<ArenaBattlegroundDto> {
-        return this.invokeServiceCall(null, `battlegrounds/${id}`, Controllers.Arenas, HttpMethod.Get);
+    getById(id: number): Promise<ArenaAreaDto> {
+        return this.invokeServiceCall(null, `areas/${id}`, Controllers.Arenas, HttpMethod.Get);
     }
 
-    create(data: ArenaBattlegroundDto): Promise<ArenaBattlegroundDto> {
-        return this.invokeServiceCall(data, 'battlegrounds', Controllers.Arenas, HttpMethod.Post);
+    create(data: ArenaAreaDto): Promise<ArenaAreaDto> {
+        return this.invokeServiceCall(data, 'areas', Controllers.Arenas, HttpMethod.Post);
     }
 
-    update(data: ArenaBattlegroundDto): Promise<void> {
-        return this.invokeServiceCall(data, `battlegrounds/${data.id}`, Controllers.Arenas, HttpMethod.Put);
+    update(data: ArenaAreaDto): Promise<ArenaAreaDto> {
+        return this.invokeServiceCall(data, `areas/${data.id}`, Controllers.Arenas, HttpMethod.Put);
     }
 
     delete(id: number): Promise<void> {
-        return this.invokeServiceCall(null, `battlegrounds/${id}`, Controllers.Arenas, HttpMethod.Delete);
+        return this.invokeServiceCall(null, `areas/${id}`, Controllers.Arenas, HttpMethod.Delete);
     }
 
-    searchPaged(queryParams: PagedQueryDto): Promise<PagedResultDto<ArenaBattlegroundDto>> {
-        return this.invokeServiceCall(queryParams, 'battlegrounds/search', Controllers.Arenas, HttpMethod.Post);
+    searchPaged(queryParams: PagedQueryDto): Promise<PagedResultDto<ArenaAreaDto>> {
+        return this.invokeServiceCall(queryParams, 'areas/search', Controllers.Arenas, HttpMethod.Post);
     }
 }
 
-export class ArenaSpectatorAreaClient extends ObjectManager {
-    private static instance: ArenaSpectatorAreaClient;
+/** Rev. 6: the regions of an arena area (api/Arenas/areas/regions), renamed on save by the API. */
+export class ArenaAreaRegionClient extends ObjectManager {
+    private static instance: ArenaAreaRegionClient;
 
     public static getInstance() {
-        if (!ArenaSpectatorAreaClient.instance) {
-            ArenaSpectatorAreaClient.instance = new ArenaSpectatorAreaClient();
-            ArenaSpectatorAreaClient.instance.logger = logging.getLogger('ArenaSpectatorAreaClient');
+        if (!ArenaAreaRegionClient.instance) {
+            ArenaAreaRegionClient.instance = new ArenaAreaRegionClient();
+            ArenaAreaRegionClient.instance.logger = logging.getLogger('ArenaAreaRegionClient');
         }
-        return ArenaSpectatorAreaClient.instance;
+        return ArenaAreaRegionClient.instance;
     }
 
-    getById(id: number): Promise<ArenaSpectatorAreaDto> {
-        return this.invokeServiceCall(null, `spectator-areas/${id}`, Controllers.Arenas, HttpMethod.Get);
+    getById(id: number): Promise<ArenaAreaRegionDto> {
+        return this.invokeServiceCall(null, `areas/regions/${id}`, Controllers.Arenas, HttpMethod.Get);
     }
 
-    create(data: ArenaSpectatorAreaDto): Promise<ArenaSpectatorAreaDto> {
-        return this.invokeServiceCall(data, 'spectator-areas', Controllers.Arenas, HttpMethod.Post);
+    create(data: ArenaAreaRegionDto): Promise<ArenaAreaRegionDto> {
+        return this.invokeServiceCall(data, 'areas/regions', Controllers.Arenas, HttpMethod.Post);
     }
 
-    update(data: ArenaSpectatorAreaDto): Promise<void> {
-        return this.invokeServiceCall(data, `spectator-areas/${data.id}`, Controllers.Arenas, HttpMethod.Put);
+    update(data: ArenaAreaRegionDto): Promise<ArenaAreaRegionDto> {
+        return this.invokeServiceCall(data, `areas/regions/${data.id}`, Controllers.Arenas, HttpMethod.Put);
     }
 
     delete(id: number): Promise<void> {
-        return this.invokeServiceCall(null, `spectator-areas/${id}`, Controllers.Arenas, HttpMethod.Delete);
+        return this.invokeServiceCall(null, `areas/regions/${id}`, Controllers.Arenas, HttpMethod.Delete);
     }
 
-    searchPaged(queryParams: PagedQueryDto): Promise<PagedResultDto<ArenaSpectatorAreaDto>> {
-        return this.invokeServiceCall(queryParams, 'spectator-areas/search', Controllers.Arenas, HttpMethod.Post);
+    searchPaged(queryParams: PagedQueryDto): Promise<PagedResultDto<ArenaAreaRegionDto>> {
+        return this.invokeServiceCall(queryParams, 'areas/regions/search', Controllers.Arenas, HttpMethod.Post);
     }
 }
 

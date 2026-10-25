@@ -32,7 +32,7 @@ import { SiegeSpawnpointClient } from '../apiClients/siegeSpawnpointClient';
 import { SiegeObjectiveClient } from '../apiClients/siegeObjectiveClient';
 import { SiegeLobbyClient } from '../apiClients/siegeLobbyClient';
 import { TitleBracketClient } from '../apiClients/titleBracketClient';
-import { ArenaClient, ArenaBattlegroundClient, ArenaSpectatorAreaClient } from '../apiClients/arenaClient';
+import { ArenaClient, ArenaAreaClient, ArenaAreaRegionClient } from '../apiClients/arenaClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -135,10 +135,10 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
         // Arena duels (KNG-210). 'arenakit' has no case: like KitContent it only travels in the arena payload.
         case 'arena':
             return withPagedQueryMapping((query) => ArenaClient.getInstance().searchPaged(query));
-        case 'arenabattleground':
-            return withPagedQueryMapping((query) => ArenaBattlegroundClient.getInstance().searchPaged(query));
-        case 'arenaspectatorarea':
-            return withPagedQueryMapping((query) => ArenaSpectatorAreaClient.getInstance().searchPaged(query));
+        case 'arenaarea':
+            return withPagedQueryMapping((query) => ArenaAreaClient.getInstance().searchPaged(query));
+        case 'arenaarearegion':
+            return withPagedQueryMapping((query) => ArenaAreaRegionClient.getInstance().searchPaged(query));
         default:
             throw new Error(`No search function registered for entity type: ${entityTypeName}`);
     }
@@ -214,10 +214,10 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => TitleBracketClient.getInstance().getById(Number(id));
         case 'arena':
             return (id) => ArenaClient.getInstance().getById(Number(id));
-        case 'arenabattleground':
-            return (id) => ArenaBattlegroundClient.getInstance().getById(Number(id));
-        case 'arenaspectatorarea':
-            return (id) => ArenaSpectatorAreaClient.getInstance().getById(Number(id));
+        case 'arenaarea':
+            return (id) => ArenaAreaClient.getInstance().getById(Number(id));
+        case 'arenaarearegion':
+            return (id) => ArenaAreaRegionClient.getInstance().getById(Number(id));
         default:
             throw new Error(`No fetchById function registered for entity type: ${entityTypeName}`);
     }
@@ -291,10 +291,10 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => SiegeLobbyClient.getInstance().update(entity);
         case 'arena':
             return (entity) => ArenaClient.getInstance().update(entity);
-        case 'arenabattleground':
-            return (entity) => ArenaBattlegroundClient.getInstance().update(entity);
-        case 'arenaspectatorarea':
-            return (entity) => ArenaSpectatorAreaClient.getInstance().update(entity);
+        case 'arenaarea':
+            return (entity) => ArenaAreaClient.getInstance().update(entity);
+        case 'arenaarearegion':
+            return (entity) => ArenaAreaRegionClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -366,10 +366,10 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => SiegeLobbyClient.getInstance().delete(Number(id));
         case 'arena':
             return (id) => ArenaClient.getInstance().delete(Number(id));
-        case 'arenabattleground':
-            return (id) => ArenaBattlegroundClient.getInstance().delete(Number(id));
-        case 'arenaspectatorarea':
-            return (id) => ArenaSpectatorAreaClient.getInstance().delete(Number(id));
+        case 'arenaarea':
+            return (id) => ArenaAreaClient.getInstance().delete(Number(id));
+        case 'arenaarearegion':
+            return (id) => ArenaAreaRegionClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -443,10 +443,10 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => SiegeLobbyClient.getInstance().create(entity);
         case 'arena':
             return (entity) => ArenaClient.getInstance().create(entity);
-        case 'arenabattleground':
-            return (entity) => ArenaBattlegroundClient.getInstance().create(entity);
-        case 'arenaspectatorarea':
-            return (entity) => ArenaSpectatorAreaClient.getInstance().create(entity);
+        case 'arenaarea':
+            return (entity) => ArenaAreaClient.getInstance().create(entity);
+        case 'arenaarearegion':
+            return (entity) => ArenaAreaRegionClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }
