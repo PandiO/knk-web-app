@@ -69,6 +69,7 @@ export enum Controllers {
     Structures = 'Structures',
     GateStructures = 'GateStructures',
     GateDoors = 'GateDoors',
+    DomainSubRegions = 'DomainSubRegions',
     Districts = 'Districts',
     Locations = 'Locations',
     Streets = 'Streets',
@@ -100,6 +101,8 @@ export enum Controllers {
     MinecraftBlockRefs = 'MinecraftBlockRefs',
     MinecraftMaterialRefs = 'MinecraftMaterialRefs',
     MinecraftEnchantmentRefs = 'MinecraftEnchantmentRefs',
+    // Minecraft catalogue maintenance (KNG-200, docs/specs/minecraft-catalog/IMPLEMENTATION_PLAN.md §5.2a)
+    MinecraftCatalog = 'MinecraftCatalog',
     Workflows = 'Workflows',
     WorldTasks = 'WorldTasks',
     GameSettings = 'GameSettings',
@@ -151,7 +154,13 @@ export enum Controllers {
     // GDPR deletion requests by players and staff (KNG-34, 2026-10-03)
     DataDeletion = 'data-deletion',
     // World analytics (KNG-34 link 7), owner only
-    WorldAnalytics = 'world-analytics'
+    WorldAnalytics = 'world-analytics',
+    // Mail log behind /admin/email (KNG-206), knk.admin.config
+    EmailOutbox = 'EmailOutbox',
+    // Invitations and the sign-up check (KNG-212).
+    Invitations = 'Invitations',
+    // The game server's admission gate; /link checks claim codes before login (KNG-214).
+    Admission = 'Admission'
 }
 
 
@@ -189,6 +198,8 @@ export enum FieldType {
     Enum = 'Enum',
     Object = 'Object',
     List = 'List',
+    // Renders MinecraftMaterialPicker (database-only since KNG-200 phase 5). The name stays: stored
+    // FormConfigurations hold it as a string; renaming it needs a data migration of formfields.FieldType.
     HybridMinecraftMaterialRefPicker = 'HybridMinecraftMaterialRefPicker',
     HybridMinecraftEnchantmentRefPicker = 'HybridMinecraftEnchantmentRefPicker'
 }

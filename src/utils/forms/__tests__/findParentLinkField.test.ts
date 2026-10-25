@@ -20,7 +20,6 @@ const configWithFields = (fields: FormFieldDto[]): FormConfigurationDto => ({
     entityTypeName: 'GateDoor',
     configurationName: 'Gate Door Configuration',
     isDefault: true,
-    isActive: true,
     steps: [
         {
             stepName: 'General Information',
@@ -54,7 +53,6 @@ describe('findParentLinkField', () => {
             entityTypeName: 'GateDoor',
             configurationName: 'Gate Door Configuration',
             isDefault: true,
-            isActive: true,
             steps: [
                 {
                     stepName: 'Step 1',
@@ -110,5 +108,17 @@ describe('findParentLinkField', () => {
         ]);
 
         expect(findParentLinkField(config, 'GateStructure')).toBeNull();
+    });
+
+    it('links a child of any domain type through a Domain-typed field (KNG-254 sub-regions)', () => {
+        const config = { ...configWithFields([
+            baseField({ fieldName: 'Name' }),
+            baseField({ fieldName: 'DomainId', fieldType: FieldType.Object, objectType: 'Domain' })
+        ]), entityTypeName: 'DomainSubRegion' };
+
+        expect(findParentLinkField(config, 'GateStructure')?.fieldName).toBe('DomainId');
+        expect(findParentLinkField(config, 'town')?.fieldName).toBe('DomainId');
+        expect(findParentLinkField(config, 'Domain')?.fieldName).toBe('DomainId');
+        expect(findParentLinkField(config, 'Kit')).toBeNull();
     });
 });

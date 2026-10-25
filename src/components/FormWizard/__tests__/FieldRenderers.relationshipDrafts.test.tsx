@@ -48,7 +48,6 @@ describe('FieldRenderer relationship drafts on an owned child collection', () =>
             entityTypeName: 'GateDoor',
             configurationName: 'Gate Door Configuration',
             isDefault: true,
-            isActive: true,
             steps: [
                 {
                     stepName: 'General Information',

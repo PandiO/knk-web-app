@@ -96,6 +96,8 @@ export interface SiegeScenarioDto {
     lockdownScenarioArea: boolean;
     allowRecapture: boolean;
     enchantDropsEnabled: boolean;
+    /** KNG-234: Inherit follows the global setting; the lobby's own choice wins over this one. */
+    navigationItem?: SiegeNavigationItemMode;
     // Owned children - read-only here, created/edited through their own endpoints.
     teams?: SiegeTeamDto[];
     objectives?: SiegeObjectiveDto[];
@@ -147,6 +149,8 @@ export interface SiegeLobbyDto {
     cooldownSeconds: number;
     voteCandidateCount: number;
     allowRandomVote: boolean;
+    /** KNG-234: wins over the scenario's choice and the global setting. */
+    navigationItem?: SiegeNavigationItemMode;
     scheduleJson?: string | null;
     rotation?: SiegeLobbyScenarioDto[] | null;
 }
@@ -159,6 +163,9 @@ export interface SiegeLobbyListDto {
     mode: SiegeLobbyMode;
     rotationCount: number;
 }
+
+/** Whether siege players get the navigation compass at the hub: a lobby's or scenario's own choice, or defer upward. */
+export type SiegeNavigationItemMode = 'Inherit' | 'Give' | 'DoNotGive';
 
 export interface SiegeConfigurationDto {
     captureAttackBase: number;
@@ -184,6 +191,12 @@ export interface SiegeConfigurationDto {
     enchantLevelMax: number;
     maxBooksAlive: number;
     nonMemberGateView: SiegeNonMemberGateView;
+    /** KNG-234: the global default for giving players the navigation compass at the hub. */
+    giveNavigationItem: boolean;
+    /** Seconds of matchmaking left after /siege skip (players with knk.siege.skip); floored at vote close + 1 by the plugin. */
+    playerSkipMatchmakingSeconds: number;
+    /** Seconds of matchmaking left after /siege admin skip; same floor (legacy T-31). */
+    adminSkipMatchmakingSeconds: number;
     updatedAt?: string;
 }
 

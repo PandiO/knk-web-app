@@ -31,7 +31,6 @@ export const FormConfigBuilder: React.FC = () => {
         configurationName: '',
         description: '',
         isDefault: false,
-        isActive: true,
         steps: []
     });
 
@@ -625,7 +624,7 @@ export const FormConfigBuilder: React.FC = () => {
                         <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                             <p className="text-xs text-blue-800">
                                 Configure <span className="font-semibold">Auto-fill Value Projection</span> per field inside the Step Field Editor.
-                                Projection rules can copy selected object values (for example from hybrid pickers) into other form fields,
+                                Projection rules can copy selected object values (for example from material or enchantment pickers) into other form fields,
                                 and save-time validation blocks circular mappings automatically.
                             </p>
                         </div>

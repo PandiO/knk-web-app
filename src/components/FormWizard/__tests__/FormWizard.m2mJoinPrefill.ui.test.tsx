@@ -94,7 +94,6 @@ const itemBlueprintConfig = (fields: Record<string, unknown>[]) => ({
     configurationName: 'ItemBlueprint Default',
     description: '',
     isDefault: true,
-    isActive: true,
     steps: [
         {
             id: '11',

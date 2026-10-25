@@ -158,7 +158,13 @@ function hasLocationCoordinates(value: Record<string, unknown>): boolean {
     return keys.includes('x') && keys.includes('y') && keys.includes('z');
 }
 
-/** Extract id / namespaceKey for hybrid material/block picker values */
+/**
+ * Entity types whose pickers run the hybrid search (persisted rows plus the Minecraft catalog, see
+ * PagedEntityTable): a catalog row that isn't saved yet comes back with id 0 and only its namespaceKey.
+ */
+const HYBRID_CATALOG_ENTITY_TYPES = new Set(['minecraftmaterialref', 'minecraftblockref', 'minecraftenchantmentref']);
+
+/** Extract id / namespaceKey for hybrid material/block/enchantment picker values */
 function extractHybridIdentifiers(value: any): { id?: any; namespaceKey?: string } {
     if (value === null || value === undefined) return {};
 
@@ -167,8 +173,10 @@ function extractHybridIdentifiers(value: any): { id?: any; namespaceKey?: string
     }
 
     if (typeof value === 'object') {
-        const id = (value as any).id ?? (value as any).Id;
+        const rawId = (value as any).id ?? (value as any).Id;
         const namespaceKey = (value as any).namespaceKey ?? (value as any).NamespaceKey;
+        // KNG-195: id 0 is a catalog row that isn't saved yet, not a real id - send its namespaceKey instead.
+        const id = rawId === 0 || rawId === '0' ? undefined : rawId;
         return { id, namespaceKey };
     }
 
@@ -212,6 +220,16 @@ function isWorldTaskScanSummaryField(field: FormFieldDto): boolean {
     }
 }
 
+/**
+ * Removes a leading or trailing whitespace run that contains a line break. The String field is a textarea
+ * (FieldRenderers), so Enter in a Name field used to send "Residential District\n", which the action bar in game
+ * rendered as a missing glyph. Plain spaces at the ends are kept: a chat prefix such as "[Admin] " means them, and
+ * the API trims domain names itself (DomainNameRules).
+ */
+export function stripEdgeLineBreaks(value: string): string {
+    return value.replace(/^\s*[\r\n]\s*/, '').replace(/\s*[\r\n]\s*$/, '');
+}
+
 function normalizeScalarValue(field: FormFieldDto, rawValue: any): any {
     if (rawValue === null || rawValue === undefined || typeof rawValue !== 'string') {
         return rawValue;
@@ -229,6 +247,10 @@ function normalizeScalarValue(field: FormFieldDto, rawValue: any): any {
             (field.fieldType !== FieldType.Integer || Number.isInteger(numericValue))) {
             return numericValue;
         }
+    }
+
+    if (field.fieldType === FieldType.String) {
+        return stripEdgeLineBreaks(rawValue);
     }
 
     return rawValue;
@@ -340,7 +362,8 @@ function normalizeManyToManyRelationshipField(args: {
  * - Collection relationships: { items: [{...}, {...}] } -> { itemIds: ["1", "2"] }
  * - Direct ID fields: { parentCategoryId: "123" } -> { parentCategoryId: "123" } (unchanged)
  * - Scalar fields: { name: "Test" } -> { name: "Test" } (unchanged)
- * - Hybrid material/block picker: populates Id (or Ids) plus NamespaceKey fallback when id missing
+ * - Hybrid material/block/enchantment picker (and an Object picker on one of those catalog types):
+ *   populates Id (or Ids) plus a NamespaceKey fallback when the picked row isn't saved yet
  *
  * Throws UnsavedRelationshipValueError (KNG-133) when an Object (other than Location) or List
  * relationship field holds an entity with no id: it was never saved and can't be sent as an id.
@@ -353,6 +376,9 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
     
     const normalized: Record<string, any> = {};
     const worldTaskScanSummaryFieldNames = new Set<string>();
+    // Hybrid catalog fields whose own key may be left out on purpose (an unsaved row is sent by
+    // namespaceKey only), so the "copy anything left over" pass below must not add it back as id 0.
+    const hybridFieldNames = new Set<string>();
 
     // Collect all fields from all steps
     const allFields: FormFieldDto[] = [];
@@ -393,9 +419,24 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
             return;
         }
 
-        // Special handling for hybrid Minecraft material/block picker
-        if (field.fieldType === FieldType.HybridMinecraftMaterialRefPicker) {
-            handleHybridMaterialField(field, fieldName, rawValue, normalized);
+        // Special handling for hybrid Minecraft material/block/enchantment pickers. KNG-195: the enchantment
+        // picker used to fall through and be sent as a raw object, which no API DTO can bind.
+        if (field.fieldType === FieldType.HybridMinecraftMaterialRefPicker ||
+            field.fieldType === FieldType.HybridMinecraftEnchantmentRefPicker) {
+            hybridFieldNames.add(fieldName);
+            handleHybridRefField(field, fieldName, rawValue, normalized);
+            return;
+        }
+
+        // KNG-195: an Object picker on a catalog type runs the same hybrid search, so an unsaved catalog
+        // row (id 0) must be sent by namespaceKey too, or the link is silently not saved.
+        if (field.fieldType === FieldType.Object &&
+            HYBRID_CATALOG_ENTITY_TYPES.has(field.objectType?.toLowerCase() ?? '') &&
+            rawValue !== null &&
+            typeof rawValue === 'object' &&
+            !Array.isArray(rawValue)) {
+            hybridFieldNames.add(fieldName);
+            handleHybridRefField(field, fieldName, rawValue, normalized);
             return;
         }
 
@@ -434,7 +475,7 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
     // (e.g., id for updates, or other backend-generated fields)
     // IMPORTANT: Extract IDs from any objects to handle foreign key fields
     Object.keys(rawFormValue).forEach(key => {
-        if (worldTaskScanSummaryFieldNames.has(key)) {
+        if (worldTaskScanSummaryFieldNames.has(key) || hybridFieldNames.has(key)) {
             return;
         }
         if (!(key in normalized)) {
@@ -579,16 +620,18 @@ function handleCollectionRelationship(
 }
 
 /**
- * Handles normalization for HybridMinecraftMaterialRefPicker fields.
- * Supports single or multi-select, and falls back to namespaceKey when id is missing.
+ * Handles normalization for HybridMinecraftMaterialRefPicker / HybridMinecraftEnchantmentRefPicker fields
+ * (and Object fields on those catalog types). Supports single or multi-select, and falls back to
+ * namespaceKey when id is missing (an unsaved catalog row arrives with id 0, which is not sent).
  * 
  * For single selection: Outputs both `{fieldName}Id` and `{fieldName}NamespaceKey`
  * For multi selection: Outputs both `{fieldName}Ids` and `{fieldName}NamespaceKeys`
  * 
- * This allows the backend to create new MinecraftMaterialRef/MinecraftBlockRef entities
- * when only namespaceKey is provided (unpersisted catalog items).
+ * This allows the backend to create new MinecraftMaterialRef/MinecraftBlockRef/MinecraftEnchantmentRef
+ * entities when only namespaceKey is provided (unpersisted catalog items). The API accepts these
+ * field-named keys (e.g. IconMaterialRefNamespaceKey, MinecraftEnchantmentRefNamespaceKey).
  */
-function handleHybridMaterialField(
+function handleHybridRefField(
     _field: FormFieldDto,
     fieldName: string,
     rawValue: any,

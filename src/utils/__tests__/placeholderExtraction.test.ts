@@ -20,7 +20,6 @@ describe("buildPlaceholderContext", () => {
             entityTypeName: "District",
             configurationName: "District Config",
             isDefault: true,
-            isActive: true,
             steps: [
                 {
                     stepName: "Step 1",
@@ -77,7 +76,6 @@ describe("buildPlaceholderContext", () => {
             entityTypeName: "Structure",
             configurationName: "Structure Config",
             isDefault: true,
-            isActive: true,
             steps: [
                 {
                     stepName: "Step 1",
@@ -144,7 +142,6 @@ describe("buildPlaceholderContext", () => {
             entityTypeName: "District",
             configurationName: "District Config",
             isDefault: true,
-            isActive: true,
             steps: [
                 {
                     stepName: "Step 1",
@@ -217,7 +214,6 @@ describe("buildPlaceholderContext", () => {
             entityTypeName: "District",
             configurationName: "District Config",
             isDefault: true,
-            isActive: true,
             steps: [
                 {
                     stepName: "Step 1",
@@ -325,7 +321,6 @@ describe("placeholderDisplayValue (KNG-173)", () => {
             entityTypeName: "Structure",
             configurationName: "Structure Config",
             isDefault: true,
-            isActive: true,
             steps: [
                 {
                     stepName: "Step 1",

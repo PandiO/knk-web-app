@@ -47,7 +47,7 @@ import {
 import { deriveGateGeometryStepData, gateGeometryFieldError, isDerivedGateGeometryField } from '../../utils/forms/gateGeometry';
 import { fillEmptySharedFieldValues, syncSharedFieldValues } from '../../utils/forms/sharedFieldSync';
 import { withLiveEnumOptions } from '../../utils/forms/enumFieldMetadata';
-import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
+import { resolveScannedMaterialRef } from '../../utils/forms/scannedMaterialRef';
 import { ItemBlueprintClient } from '../../apiClients/itemBlueprintClient';
 import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 import { ScanConflictModal, ScanConflictField, ScanConflictChoice } from './ScanConflictModal';
@@ -480,11 +480,20 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         return null;
     };
 
+    // KNG-269: what this form is about, so the API can answer a rule from its log of the last run
+    // instead of running it again: the entity in edit mode, else the draft once it has been saved.
+    const validationSubject = (): { subjectType?: string; subjectId?: number } => {
+        if (entityId && Number.isFinite(Number(entityId))) return { subjectType: entityName, subjectId: Number(entityId) };
+        if (progressId && Number.isFinite(Number(progressId))) return { subjectType: 'FormSubmissionProgress', subjectId: Number(progressId) };
+        return {};
+    };
+
     const triggerFieldValidation = (
         field: FormFieldDto,
         fieldValue: unknown,
         stepsData: AllStepsData,
-        debounce = true
+        debounce = true,
+        force = false
     ) => {
         const fieldId = field.id ? Number(field.id) : NaN;
         if (!fieldId || Number.isNaN(fieldId)) return;
@@ -525,7 +534,9 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     fieldId,
                     fieldValue,
                     dependencyValue,
-                    formContextData: contextData
+                    formContextData: contextData,
+                    ...validationSubject(),
+                    force
                 });
                 console.log(`[VALIDATION_TRACE] Field ${fieldId} validation result:`, result);
                 
@@ -637,35 +648,43 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         const normalizedSteps = normalizeAllStepsData(config, stepsData);
         const contextData = buildFormContextData(config, normalizedSteps);
 
-        return Promise.all(
-            targets.map(async ({ field, fieldId }) => {
-                setValidationLoading(prev => ({ ...prev, [fieldId]: true }));
-                try {
-                    const value = normalizedSteps[stepIndex]?.[field.fieldName];
-                    const result = await fieldValidationRuleClient.validateField({ fieldId, fieldValue: value, formContextData: contextData });
-                    setValidationResults(prev => ({ ...prev, [fieldId]: result }));
-                    if (result.isValid) {
-                        setErrors(prev => {
-                            const copy = { ...prev };
-                            delete copy[field.fieldName];
-                            return copy;
-                        });
-                    } else if (result.isBlocking) {
-                        const message = interpolatePlaceholders(result.message, result.placeholders) || `${field.label} failed validation`;
-                        setErrors(prev => ({ ...prev, [field.fieldName]: message }));
-                    }
-                    return { fieldId, result };
-                } catch (err) {
-                    console.error('Validation execution failed:', err);
-                    const fallback: ValidationResultDto = { isValid: false, isBlocking: true, message: 'Validation failed to execute.' };
-                    setValidationResults(prev => ({ ...prev, [fieldId]: fallback }));
-                    setErrors(prev => ({ ...prev, [field.fieldName]: fallback.message || `${field.label} failed validation` }));
-                    return { fieldId, result: fallback };
-                } finally {
-                    setValidationLoading(prev => ({ ...prev, [fieldId]: false }));
-                }
-            })
-        );
+        const setLoading = (loading: boolean) => setValidationLoading(prev => {
+            const next = { ...prev };
+            targets.forEach(({ fieldId }) => { next[fieldId] = loading; });
+            return next;
+        });
+        const apply = (field: FormFieldDto, fieldId: number, result: ValidationResultDto) => {
+            setValidationResults(prev => ({ ...prev, [fieldId]: result }));
+            if (result.isValid) {
+                setErrors(prev => {
+                    const copy = { ...prev };
+                    delete copy[field.fieldName];
+                    return copy;
+                });
+            } else if (result.isBlocking) {
+                const message = interpolatePlaceholders(result.message, result.placeholders) || `${field.label} failed validation`;
+                setErrors(prev => ({ ...prev, [field.fieldName]: message }));
+            }
+            return { fieldId, result };
+        };
+        const failed = (): ValidationResultDto => ({ isValid: false, isBlocking: true, message: 'Validation failed to execute.' });
+
+        // KNG-269: one request for the whole step; the API answers each rule from its result log where
+        // the rule and its inputs are unchanged and runs the rest.
+        setLoading(true);
+        try {
+            const batch = await fieldValidationRuleClient.validateFields({
+                fields: targets.map(({ field, fieldId }) => ({ fieldId, fieldValue: normalizedSteps[stepIndex]?.[field.fieldName] })),
+                formContextData: contextData,
+                ...validationSubject()
+            });
+            return targets.map(({ field, fieldId }) => apply(field, fieldId, batch.results?.[String(fieldId)] ?? failed()));
+        } catch (err) {
+            console.error('Validation execution failed:', err);
+            return targets.map(({ field, fieldId }) => apply(field, fieldId, failed()));
+        } finally {
+            setLoading(false);
+        }
     };
 
     const loadJoinEntityMetadata = async (cfg: FormConfigurationDto): Promise<Record<string, EntityMetadataDto>> => {
@@ -1343,14 +1362,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         let scannedMaterialLabel = '';
         if (iconMaterialField && typeof output.material === 'string' && output.material) {
             try {
-                const hybridMatches = await minecraftMaterialRefClient.getHybrid(output.material, undefined, 5);
-                const exactMatch = hybridMatches.find(
-                    m => m.namespaceKey.toLowerCase() === output.material.toLowerCase()
-                );
-                const materialRef = await minecraftMaterialRefClient.persistFromCatalog(
-                    output.material,
-                    exactMatch?.category || 'Misc'
-                );
+                // KNG-200 phase 5: get-or-create finds the scanned catalogue row (no hybrid lookup).
+                const materialRef = await resolveScannedMaterialRef(output.material);
                 if (materialRef?.id != null) {
                     scannedMaterialId = materialRef.id;
                     scannedMaterialLabel = materialRef.namespaceKey || output.material;
@@ -1712,14 +1725,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 } else {
                     let iconMaterialRefId: number | undefined;
                     try {
-                        const hybridMatches = await minecraftMaterialRefClient.getHybrid(item.material, undefined, 5);
-                        const exactMaterial = hybridMatches.find(
-                            m => m.namespaceKey.toLowerCase() === item.material.toLowerCase()
-                        );
-                        const materialRef = await minecraftMaterialRefClient.persistFromCatalog(
-                            item.material,
-                            exactMaterial?.category || 'Misc'
-                        );
+                        const materialRef = await resolveScannedMaterialRef(item.material);
                         iconMaterialRefId = materialRef?.id ?? undefined;
                     } catch (error) {
                         console.error('KitScan: failed to resolve MinecraftMaterialRef for', item.material, error);
@@ -2378,7 +2384,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         if (geometryError) return geometryError;
 
         for (const validation of field.validations) {
-            if (!validation.isActive) continue;
+            if (validation.isActive === false) continue;
 
             // Parse validation parameters if needed (commented: validation logic placeholder)
             // const params = validation.parametersJson ? JSON.parse(validation.parametersJson) : {};
@@ -2516,7 +2522,9 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         // Check step completion conditions
         if (currentStep?.conditions) {
             for (const condition of currentStep.conditions) {
-                if (condition.conditionType === 'Completion' && condition.isActive) {
+                // A condition is active unless the API says it was switched off (KNG-186: the API sent
+                // false for every condition until 2026-10-23, so none ever ran).
+                if (condition.conditionType === 'Completion' && condition.isActive !== false) {
                     const met = ConditionEvaluator.evaluateConditions(
                         condition.conditionJson,
                         currentStepData,
@@ -2571,8 +2579,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     reconciled.visibility.visibleFieldNames[nextIndex]
                 ));
                 setErrors({});
-                // CRITICAL: Clear validation results when advancing to prevent contamination from previous steps
-                setValidationResults({});
+                // Validation results are kept (keyed by field id, so a step can't show another's): going
+                // back to a step shows what its rules said, incl. "checked … ago" + Re-check (KNG-269).
                 return nextIndex;
             });
         } else {
@@ -2660,8 +2668,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             visibility.visibleFieldNames[previousIndex]
         ));
         setErrors({});
-        // CRITICAL: Clear validation results when retreating to prevent contamination from previous steps
-        setValidationResults({});
+        // Validation results are kept across steps (see handleNext).
         setCurrentStepIndex(previousIndex);
     };
 
@@ -2900,7 +2907,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                             };
                             const fieldValue = stepsDataForValidation[currentStepIndex]?.[field.fieldName];
 
-                            triggerFieldValidation(field, fieldValue, stepsDataForValidation, false);
+                            // Re-run / Re-check: a real run, past the API's result log (KNG-269).
+                            triggerFieldValidation(field, fieldValue, stepsDataForValidation, false, true);
                             revalidateDependents(fieldId, stepsDataForValidation);
                         };
 

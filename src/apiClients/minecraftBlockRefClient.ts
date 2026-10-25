@@ -31,6 +31,14 @@ export class MinecraftBlockRefClient extends ObjectManager {
         return this.invokeServiceCall(data, MinecraftBlockRefOperation.Create, Controllers.MinecraftBlockRefs, HttpMethod.Post);
     }
 
+    /**
+     * KNG-200: the saved block ref for this key and state, created when there is none (`POST
+     * get-or-create`). Use it instead of create for a catalogue option: create fails on an existing row.
+     */
+    getOrCreate(data: MinecraftBlockRefCreateDto): Promise<MinecraftBlockRefDto> {
+        return this.invokeServiceCall(data, 'get-or-create', Controllers.MinecraftBlockRefs, HttpMethod.Post);
+    }
+
     update(data: MinecraftBlockRefUpdateDto & { id: number }): Promise<MinecraftBlockRefDto> {
         return this.invokeServiceCall(data, `${data.id}`, Controllers.MinecraftBlockRefs, HttpMethod.Put);
     }

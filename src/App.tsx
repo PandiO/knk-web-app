@@ -22,6 +22,11 @@ import { DiscoveryAdminPage } from './pages/admin/DiscoveryAdminPage';
 import { DISCOVERY_ADMIN_NODE } from './types/dtos/discovery/DiscoveryDtos';
 import { RoadsAdminPage } from './pages/admin/RoadsAdminPage';
 import { ROAD_ADMIN_NODE } from './types/dtos/road/RoadDtos';
+import { EmailLogPage } from './pages/admin/EmailLogPage';
+import { InvitationsPage } from './pages/admin/InvitationsPage';
+import { INVITATION_NODES } from './types/dtos/invitations/InvitationDtos';
+import { EMAIL_ADMIN_NODE } from './types/dtos/email/EmailOutboxDtos';
+import { MinecraftCatalogAdminPage } from './pages/admin/MinecraftCatalogAdminPage';
 import { AccountTransactionsPage } from './pages/AccountTransactionsPage';
 import { BalanceLogPage } from './pages/admin/BalanceLogPage';
 import { TransactionDetailPage } from './pages/admin/economy/TransactionDetailPage';
@@ -45,7 +50,10 @@ import { DuelRestrictionsPage } from './pages/admin/duels/DuelRestrictionsPage';
 import { DuelPolicyPage } from './pages/admin/duels/DuelPolicyPage';
 import { DUEL_REVIEW_NODE } from './types/dtos/duels/DuelDtos';
 import React from 'react';
-import { RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage } from './pages/auth';
+import { RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage, InvitePage, JoinPage } from './pages/auth';
+import { LinkPage } from './pages/auth/LinkPage';
+import { AccountLinkPage } from './pages/account/AccountLinkPage';
+import { UnlinkedBanner } from './components/UnlinkedBanner';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { CONTENT_PERMISSION_NODE } from './hooks/useStaffAccess';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -83,6 +91,7 @@ function AppContent() {
         <div className="pt-16 p-8">
           <div className="max-w-7xl mx-auto space-y-12">
             {/* A crash in one page shows a recoverable message instead of a blank app (X-4, KNG-141). */}
+            <UnlinkedBanner />
             <RouteErrorBoundary>
             <Routes>
               <Route path="/" element={<LandingPage />} />
@@ -90,11 +99,23 @@ function AppContent() {
               <Route path="/auth/login" element={<LoginPage />} />
               <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+              {/* Invitation sign-up (KNG-212): the personal link drops its token from the URL on load. */}
+              <Route path="/invite/:token" element={<InvitePage />} />
+              <Route path="/invite" element={<InvitePage />} />
+              <Route path="/join" element={<JoinPage />} />
+              {/* The claim code from the server's disconnect screen, before or without login (KNG-214). */}
+              <Route path="/link" element={<LinkPage />} />
               {/* Emailed GDPR deletion confirmation link; no sign-in needed (KNG-34). */}
               <Route path="/account/delete-data/confirm" element={<ConfirmDataDeletionPage />} />
               <Route path="/account" element={
                 <ProtectedRoute>
                   <AccountManagementPage />
+                </ProtectedRoute>
+              } />
+              {/* The Minecraft linking step after an invite sign-up (KNG-214). */}
+              <Route path="/account/link" element={
+                <ProtectedRoute>
+                  <AccountLinkPage />
                 </ProtectedRoute>
               } />
               <Route path="/account/transactions" element={
@@ -182,6 +203,27 @@ function AppContent() {
               <Route path="/admin/roads" element={
                 <StaffRoute node={ROAD_ADMIN_NODE}>
                   <RoadsAdminPage />
+                </StaffRoute>
+              } />
+              {/* Mail log (KNG-206): the outbox, a test mail and Retry - knk.admin.config, which
+                  the API enforces on every call as well. */}
+              {/* KNG-212: personal invites and shared codes (knk.admin.invites). */}
+              <Route path="/admin/invitations" element={
+                <StaffRoute node={INVITATION_NODES.manage}>
+                  <InvitationsPage />
+                </StaffRoute>
+              } />
+              <Route path="/admin/email" element={
+                <StaffRoute node={EMAIL_ADMIN_NODE}>
+                  <EmailLogPage />
+                </StaffRoute>
+              } />
+              {/* Minecraft catalogue (KNG-200 phase 3, docs/specs/minecraft-catalog/IMPLEMENTATION_PLAN.md):
+                  server scans, the audit, merges and icon overrides - knk.admin.content, which the
+                  API enforces on every call as well. */}
+              <Route path="/admin/minecraft-catalog" element={
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
+                  <MinecraftCatalogAdminPage />
                 </StaffRoute>
               } />
               {/* Currency ledger Phase 4 (docs/specs/currency-payments/IMPLEMENTATION_PLAN.md, KNG-23):

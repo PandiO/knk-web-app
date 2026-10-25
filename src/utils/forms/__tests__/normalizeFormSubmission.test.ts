@@ -1,4 +1,4 @@
-import { normalizeFormSubmission, UnsavedRelationshipValueError } from '../normalizeFormSubmission';
+import { normalizeFormSubmission, stripEdgeLineBreaks, UnsavedRelationshipValueError } from '../normalizeFormSubmission';
 import { FieldType } from '../../enums';
 import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../../../types/dtos/forms/FormModels';
 import { EntityMetadataDto, FieldMetadataDto } from '../../../types/dtos/metadata/MetadataModels';
@@ -64,7 +64,6 @@ describe('normalizeFormSubmission (many-to-many join entries)', () => {
         entityTypeName: 'ItemBlueprint',
         configurationName: 'Item Blueprint',
         isDefault: true,
-        isActive: true,
         steps: [step]
     };
 
@@ -154,7 +153,6 @@ describe('normalizeFormSubmission (world task locations)', () => {
         entityTypeName: 'GateStructure',
         configurationName: 'Gate Structure',
         isDefault: true,
-        isActive: true,
         steps: [{
             stepName: 'Geometry: Plane Grid',
             order: 0,
@@ -277,7 +275,6 @@ describe('normalizeFormSubmission (world task scan summary fields)', () => {
         entityTypeName: 'GateStructure',
         configurationName: 'Gate Structure',
         isDefault: true,
-        isActive: true,
         steps: [{
             stepName: 'Block scans',
             order: 0,
@@ -334,7 +331,6 @@ describe('normalizeFormSubmission (scalar API types)', () => {
         entityTypeName: 'GateStructure',
         configurationName: 'Gate Structure',
         isDefault: true,
-        isActive: true,
         steps: [{
             stepName: 'Gate settings',
             order: 0,
@@ -368,6 +364,70 @@ describe('normalizeFormSubmission (scalar API types)', () => {
     });
 });
 
+describe('normalizeFormSubmission (String fields: line breaks the textarea let through)', () => {
+    const createField = (fieldName: string, fieldType: FieldType): FormFieldDto => ({
+        fieldName,
+        label: fieldName,
+        fieldType,
+        isRequired: false,
+        isReadOnly: false,
+        order: 0,
+        isReusable: false,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        validations: []
+    });
+
+    const config: FormConfigurationDto = {
+        entityTypeName: 'District',
+        configurationName: 'District',
+        isDefault: true,
+        steps: [{
+            stepName: 'Basics',
+            order: 0,
+            fields: [
+                createField('name', FieldType.String),
+                createField('description', FieldType.String),
+                createField('wgRegionId', FieldType.String)
+            ]
+        } as FormStepDto]
+    };
+
+    it('drops a newline typed at the end or start of a String field, and the spaces around it', () => {
+        const normalized = normalizeFormSubmission({
+            entityTypeName: 'District',
+            formConfiguration: config,
+            rawFormValue: {
+                name: 'Residential District\n',
+                description: '\r\n  Homes and \n gardens \n\r\n',
+                wgRegionId: 'domain_12'
+            }
+        });
+
+        expect(normalized).toMatchObject({
+            name: 'Residential District',
+            description: 'Homes and \n gardens',
+            wgRegionId: 'domain_12'
+        });
+    });
+
+    it('keeps plain leading/trailing spaces (a chat prefix means them) and non-String values', () => {
+        expect(stripEdgeLineBreaks('[Admin] ')).toBe('[Admin] ');
+        expect(stripEdgeLineBreaks(' Foo ')).toBe(' Foo ');
+        expect(stripEdgeLineBreaks('Foo \n')).toBe('Foo');
+        expect(stripEdgeLineBreaks('\n')).toBe('');
+        expect(stripEdgeLineBreaks('Two\nlines')).toBe('Two\nlines');
+
+        const normalized = normalizeFormSubmission({
+            entityTypeName: 'District',
+            formConfiguration: config,
+            rawFormValue: { name: ' Cinix ', description: null, wgRegionId: 42 }
+        });
+
+        expect(normalized).toMatchObject({ name: ' Cinix ', description: null, wgRegionId: 42 });
+    });
+});
+
 describe('normalizeFormSubmission (KNG-133: entities that were never saved)', () => {
     const relationshipField = (overrides: Partial<FormFieldDto>): FormFieldDto => ({
         fieldName: 'Districts',
@@ -388,7 +448,6 @@ describe('normalizeFormSubmission (KNG-133: entities that were never saved)', ()
         entityTypeName: 'Street',
         configurationName: 'Street',
         isDefault: true,
-        isActive: true,
         steps: [{ stepName: 'Main', order: 0, fields } as FormStepDto]
     });
 
@@ -475,5 +534,79 @@ describe('normalizeFormSubmission (KNG-133: entities that were never saved)', ()
         expect(normalize([locationField], { LocationId: captured }).Location).toEqual(captured);
         // A Location without coordinates keeps the old behaviour (left out, not an error).
         expect(() => normalize([locationField], { LocationId: { name: 'Gate' } })).not.toThrow();
+    });
+});
+
+describe('normalizeFormSubmission (KNG-195: hybrid catalog pickers)', () => {
+    const field = (overrides: Partial<FormFieldDto>): FormFieldDto => ({
+        fieldName: 'MinecraftEnchantmentRefId',
+        label: 'Vanilla enchantment',
+        fieldType: FieldType.HybridMinecraftEnchantmentRefPicker,
+        isRequired: false,
+        isReadOnly: false,
+        order: 0,
+        isReusable: false,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        validations: [],
+        ...overrides
+    });
+
+    const normalize = (f: FormFieldDto, rawFormValue: Record<string, unknown>) =>
+        normalizeFormSubmission({
+            entityTypeName: 'EnchantmentDefinition',
+            formConfiguration: {
+                entityTypeName: 'EnchantmentDefinition',
+                configurationName: 'EnchantmentDefinition',
+                isDefault: true,
+                steps: [{ stepName: 'Main', order: 0, fields: [f] } as FormStepDto]
+            },
+            rawFormValue,
+            entityMetadata: []
+        });
+
+    const saved = { id: 12, namespaceKey: 'minecraft:sharpness', displayName: 'Sharpness' };
+    // A value without an id (older stored form data): sent by namespaceKey, which the API resolves.
+    const catalogOnly = { id: 0, namespaceKey: 'minecraft:smite', displayName: 'Smite' };
+
+    it('turns a hybrid enchantment pick into an id instead of sending the raw object', () => {
+        const normalized = normalize(field({}), { MinecraftEnchantmentRefId: saved });
+
+        expect(normalized.MinecraftEnchantmentRefId).toBe(12);
+        expect(normalized.MinecraftEnchantmentRefNamespaceKey).toBe('minecraft:sharpness');
+    });
+
+    it('sends an unsaved catalog enchantment by namespaceKey, not as id 0', () => {
+        const normalized = normalize(field({}), { MinecraftEnchantmentRefId: catalogOnly });
+
+        expect(normalized).not.toHaveProperty('MinecraftEnchantmentRefId');
+        expect(normalized.MinecraftEnchantmentRefNamespaceKey).toBe('minecraft:smite');
+    });
+
+    it('does the same for an Object picker on MinecraftEnchantmentRef', () => {
+        const objectField = field({ fieldType: FieldType.Object, objectType: 'MinecraftEnchantmentRef' });
+
+        const unsaved = normalize(objectField, { MinecraftEnchantmentRefId: catalogOnly });
+        expect(unsaved).not.toHaveProperty('MinecraftEnchantmentRefId');
+        expect(unsaved.MinecraftEnchantmentRefNamespaceKey).toBe('minecraft:smite');
+
+        expect(normalize(objectField, { MinecraftEnchantmentRefId: saved }).MinecraftEnchantmentRefId).toBe(12);
+        expect(normalize(objectField, { MinecraftEnchantmentRefId: 12 }).MinecraftEnchantmentRefId).toBe(12);
+    });
+
+    it('sends an unsaved catalog material by namespaceKey under the field-named key', () => {
+        const materialField = field({
+            fieldName: 'IconMaterialRefId',
+            label: 'Material',
+            fieldType: FieldType.HybridMinecraftMaterialRefPicker
+        });
+
+        const normalized = normalize(materialField, {
+            IconMaterialRefId: { id: 0, namespaceKey: 'minecraft:iron_sword', isPersisted: false }
+        });
+
+        expect(normalized).not.toHaveProperty('IconMaterialRefId');
+        expect(normalized.IconMaterialRefNamespaceKey).toBe('minecraft:iron_sword');
+        expect(normalize(materialField, { IconMaterialRefId: { id: 5, namespaceKey: 'minecraft:stone' } }).IconMaterialRefId).toBe(5);
     });
 });

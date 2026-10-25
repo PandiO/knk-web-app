@@ -21,7 +21,6 @@ const config = (steps: Array<{ fields: FormFieldDto[]; isManyToManyRelationship?
     entityTypeName: 'Location',
     configurationName: 'Location - Default',
     isDefault: true,
-    isActive: true,
     steps: steps.map((step, index) => ({
         id: String(index),
         stepName: `Step ${index}`,

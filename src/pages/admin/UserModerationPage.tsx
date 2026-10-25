@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Loader2, Search, Users, Clock, TrendingDown, List, ChevronLeft, ChevronRight, Coins, SlidersHorizontal, ShieldAlert, MapPinOff, Swords } from 'lucide-react';
+import { Loader2, Search, Users, Clock, TrendingDown, List, ChevronLeft, ChevronRight, Coins, SlidersHorizontal, ShieldAlert, MapPinOff, Swords, Ticket } from 'lucide-react';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { userClient } from '../../apiClients/userClient';
@@ -10,6 +10,7 @@ import { UserListDto } from '../../types/dtos/auth/UserDtos';
 import { toApiPagedQuery } from '../../utils/entityApiMapping';
 import { usePermission } from '../../hooks/useStaffAccess';
 import { CURRENCY_NODES } from '../../types/dtos/currency/CurrencyDtos';
+import { INVITATION_NODES } from '../../types/dtos/invitations/InvitationDtos';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { LOCATION_RETENTION_NODES } from '../../types/dtos/locationRetention/LocationRetentionDtos';
 import { DUEL_REVIEW_NODE } from '../../types/dtos/duels/DuelDtos';
@@ -38,6 +39,7 @@ export const UserModerationPage: React.FC = () => {
     const { allowed: canSeeAlerts } = usePermission(CURRENCY_NODES.alerts);
     const { allowed: canReviewDuels } = usePermission(DUEL_REVIEW_NODE);
     const { allowed: canReviewLocations } = usePermission(LOCATION_RETENTION_NODES.view);
+    const { allowed: canManageInvites } = usePermission(INVITATION_NODES.manage);
 
     const [groups, setGroups] = React.useState<PermissionGroupDto[]>([]);
     const [groupsLoading, setGroupsLoading] = React.useState(true);
@@ -213,6 +215,12 @@ export const UserModerationPage: React.FC = () => {
                             <Link to="/admin/duels" className="btn-secondary text-sm whitespace-nowrap">
                                 <Swords className="h-4 w-4 mr-2" />
                                 Duels
+                            </Link>
+                        )}
+                        {canManageInvites && (
+                            <Link to="/admin/invitations" className="btn-secondary text-sm whitespace-nowrap">
+                                <Ticket className="h-4 w-4 mr-2" />
+                                Invitations
                             </Link>
                         )}
                         {canReviewLocations && (

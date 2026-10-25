@@ -16,6 +16,16 @@ export interface AuthLoginResponseDto {
   refreshToken?: null;
   expiresIn: number;
   user: UserDto;
+  /** Register only (KNG-216): the API's Cloudflare Access sync is on, so Cloudflare emails the new
+   *  player a one-time PIN before the site opens. Absent otherwise. */
+  accessGate?: boolean;
+}
+
+/** What a registration gives the page that asked for it. */
+export interface RegisterResult {
+  user: UserDto;
+  /** Show the "Cloudflare emails you a PIN" step (KNG-216). */
+  accessGate: boolean;
 }
 
 /** POST Auth/refresh (the cookie carries the refresh token). */
@@ -72,10 +82,25 @@ export interface AuthValidateTokenResponseDto {
  * account (and so the username); the player only adds an email and a password.
  */
 export interface RegisterRequestDto {
-  linkCode: string;
+  /** The /account link code (today's flow). Leave out when signing up with an invitation. */
+  linkCode?: string;
   email: string;
   password: string;
   passwordConfirmation: string;
+  /** A personal invite's token from /invite/:token (KNG-212; the API's Registration:Mode=Invite). */
+  inviteToken?: string;
+  /** A shared code, KNK-XXXXX-XXXXX, from /join (KNG-212). */
+  inviteCode?: string;
+  /** The claim code from the server's disconnect screen (KNG-214, game-first): only together with an
+   *  invite; the new account is linked to that Minecraft account in the same step. */
+  claimCode?: string;
+}
+
+/** POST Admission/claim/check (KNG-214): is this claim code active, and for which Minecraft name? */
+export interface ClaimCheckResponseDto {
+  valid: boolean;
+  minecraftName?: string | null;
+  expiresAt?: string | null;
 }
 
 /** POST Users/validate-link-code/{code}: read-only, it doesn't use up the code. */
@@ -97,6 +122,20 @@ export interface AccountMergeDto {
 
 export interface LinkMinecraftAccountDto {
   linkCode: string;
+}
+
+/**
+ * POST Users/link-minecraft-account. `user` is the surviving account. When the web account was
+ * folded into an existing Minecraft account (KNG-207, invitations DESIGN § 5.4 case B), `merged`
+ * is true, `user` is that account and `accessToken` logs this browser into it, because the
+ * caller's own account is now gone; otherwise `accessToken` is absent.
+ */
+export interface LinkMinecraftAccountResponseDto {
+  user: UserDto;
+  merged?: boolean;
+  accessToken?: string;
+  expiresIn?: number;
+  message?: string;
 }
 
 export interface PasswordStrengthDto {

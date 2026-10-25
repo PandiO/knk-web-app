@@ -11,6 +11,8 @@ import {
     UpdateFieldValidationRuleDto,
     ValidatePathRequest,
     ValidateFieldRequestDto,
+    ValidateFieldsBatchRequestDto,
+    ValidateFieldsBatchResultDto,
     ValidationResultDto,
     ValidationIssueDto
 } from "../types/dtos/forms/FieldValidationRuleDtos";
@@ -24,6 +26,7 @@ export enum FieldValidationRuleOperation {
     GetByField = "by-field/",
     GetByConfiguration = "by-configuration/",
     Validate = "validate",
+    ValidateBatch = "validate-batch",
     ResolveDependencies = "resolve-dependencies",
     ValidatePath = "validate-path",
     EntityProperties = "entity/",
@@ -69,6 +72,11 @@ export class FieldValidationRuleClient extends ObjectManager {
 
     validateField(request: ValidateFieldRequestDto): Promise<ValidationResultDto> {
         return this.invokeServiceCall(request, FieldValidationRuleOperation.Validate, Controllers.FieldValidationRules, HttpMethod.Post);
+    }
+
+    /** KNG-269: one round trip for every rule-bearing field of a step. */
+    validateFields(request: ValidateFieldsBatchRequestDto): Promise<ValidateFieldsBatchResultDto> {
+        return this.invokeServiceCall(request, FieldValidationRuleOperation.ValidateBatch, Controllers.FieldValidationRules, HttpMethod.Post);
     }
 
     resolveDependencies(request: DependencyResolutionRequest): Promise<DependencyResolutionResponse> {

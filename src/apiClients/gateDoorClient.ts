@@ -1,12 +1,14 @@
 import { logging, Controllers, HttpMethod } from "../utils";
 import {
     GateDoorDto,
+    GateDoorListDto,
     GateDoorStateUpdateDto,
     GateDoorHealthUpdateDto,
     GateDoorOperationalSettingsUpdateDto
 } from "../types/dtos/gateStructure/GateDoorDto";
 import { GateBlockSnapshotCreateDto, GateBlockSnapshotDto } from "../types/dtos/gateStructure/GateBlockSnapshotDto";
 import { ObjectManager } from "./objectManager";
+import { PagedQueryDto, PagedResultDto } from "../types/dtos/common/PagedQuery";
 import { findValueByFieldName } from "../utils/fieldNameMapper";
 
 // GateDoorClient - introduced by item 5's multi-door support (see
@@ -26,6 +28,11 @@ export class GateDoorClient extends ObjectManager {
 
     getByStructureId(gateStructureId: number): Promise<GateDoorDto[]> {
         return this.invokeServiceCall(null, `${gateStructureId}/doors`, Controllers.GateStructures, HttpMethod.Get);
+    }
+
+    // KNG-273: the flat, paged door list (POST /api/GateDoors/search) behind the dashboard.
+    searchPaged(queryParams: PagedQueryDto): Promise<PagedResultDto<GateDoorListDto>> {
+        return this.invokeServiceCall(queryParams, 'search', Controllers.GateDoors, HttpMethod.Post);
     }
 
     getById(id: number, includeSnapshots?: boolean): Promise<GateDoorDto> {

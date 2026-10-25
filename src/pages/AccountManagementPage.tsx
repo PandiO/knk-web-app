@@ -2,13 +2,10 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Key, Link as LinkIcon, Save, X, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { authClient } from '../apiClients/authClient';
 import { authService } from '../services/authService';
 import { FeedbackModal } from '../components/FeedbackModal';
 import { validateEmailFormat } from '../utils/passwordValidator';
 import { MyDiscoveriesSection } from '../components/discovery/MyDiscoveriesSection';
-import { LINK_CODE_LENGTH, normalizeLinkCode } from '../utils/linkCode';
-import { appConfig } from '../config/appConfig';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { MyStatisticsSection } from './statistics/MyStatisticsSection';
 import { MyDataDeletionSection } from '../components/privacy/MyDataDeletionSection';
@@ -25,7 +22,6 @@ export const AccountManagementPage: React.FC = () => {
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
-    linkCode: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -123,44 +119,6 @@ export const AccountManagementPage: React.FC = () => {
         open: true,
         title: 'Update Failed',
         message: apiRefusalReason(error) ?? 'Failed to update password. Please verify your current password.',
-        status: 'error',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleLinkMinecraftAccount = async () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (formData.linkCode.length !== LINK_CODE_LENGTH) {
-      newErrors.linkCode = `Enter the ${LINK_CODE_LENGTH}-character code from /account link`;
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await authClient.linkMinecraftAccount({
-        linkCode: formData.linkCode,
-      });
-      await refresh();
-      setFeedback({
-        open: true,
-        title: 'Account Linked',
-        message: 'Your Minecraft account has been successfully linked!',
-        status: 'success',
-      });
-      setFormData({ ...formData, linkCode: '' });
-      setErrors({});
-    } catch (error) {
-      setFeedback({
-        open: true,
-        title: 'Link Failed',
-        message: apiRefusalReason(error) ?? 'Failed to link Minecraft account. Please check your link code.',
         status: 'error',
       });
     } finally {
@@ -321,7 +279,15 @@ export const AccountManagementPage: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-900">{user.email || 'No email set'}</p>
+                <p className="flex flex-wrap items-center gap-2 text-sm text-gray-900">
+                  {user.email || 'No email set'}
+                  {/* KNG-212: a personal invite's link proves the address. */}
+                  {user.email && user.emailVerified && (
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800" data-testid="email-verified-badge">
+                      Email verified
+                    </span>
+                  )}
+                </p>
               )}
             </div>
 
@@ -419,53 +385,21 @@ export const AccountManagementPage: React.FC = () => {
               )}
             </div>
 
-            {/* Link Minecraft Account */}
+            {/* Link Minecraft Account: the linking step has its own page since KNG-214 (claim or /account link code). */}
             {!user.uuid && (
               <div className="pb-6">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center mb-4">
                   <LinkIcon className="h-5 w-5 mr-2" />
                   Link Minecraft Account
                 </h2>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <h3 className="text-sm font-semibold text-blue-900 mb-2">Connect Your Minecraft Account</h3>
-                  <p className="text-sm text-blue-800 mb-4">
-                    This web account isn't linked to a Minecraft account yet. Get a code in game and paste it here:
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800 mb-3">
+                    This web account isn't linked to a Minecraft account yet, so you can't play.
                   </p>
-                  <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800 mb-4">
-                    <li>Join <code className="bg-blue-100 px-1 py-0.5 rounded font-mono text-xs">{appConfig.minecraft.serverAddress}</code> in Minecraft</li>
-                    <li>Type <code className="bg-blue-100 px-1 py-0.5 rounded font-mono text-xs">/account link</code> in chat</li>
-                    <li>Paste the {LINK_CODE_LENGTH}-character code below (valid for 20 minutes) and click "Link Account"</li>
-                  </ol>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label htmlFor="account-link-code" className="block text-sm font-medium text-gray-700 mb-2">
-                      Link Code from Minecraft
-                    </label>
-                    <input
-                      id="account-link-code"
-                      type="text"
-                      autoComplete="one-time-code"
-                      spellCheck={false}
-                      value={formData.linkCode}
-                      onChange={(e) => setFormData({ ...formData, linkCode: normalizeLinkCode(e.target.value) })}
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 font-mono ${
-                        errors.linkCode ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
-                      }`}
-                      placeholder="ABCD1234"
-                    />
-                    {errors.linkCode && (
-                      <p className="mt-1 text-sm text-red-600">{errors.linkCode}</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleLinkMinecraftAccount}
-                    disabled={isSubmitting}
-                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                  >
+                  <Link to="/account/link" className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     <LinkIcon className="h-4 w-4 mr-2" />
-                    Link Account
-                  </button>
+                    Link your Minecraft account
+                  </Link>
                 </div>
               </div>
             )}

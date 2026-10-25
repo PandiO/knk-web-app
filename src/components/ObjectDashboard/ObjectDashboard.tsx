@@ -6,7 +6,7 @@ import type { ObjectTypeExplorerGroup } from '../ObjectTypeExplorer';
 import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 // @ts-ignore: side-effect import for CSS without type declarations
 import './ObjectDashboard.css';
-import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
+import { getColumnDefinitions } from '../../config/objectConfigs';
 import { FeedbackModal } from '../FeedbackModal';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
 import { usePageTitle } from '../../hooks/usePageTitle';
@@ -264,7 +264,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                     {selectedType && (
                         <PagedEntityTable
                             entityTypeName={selectedType}
-                            columns={columnDefinitionsRegistry[selectedType]?.default || defaultColumnDefinitions.default}
+                            columns={getColumnDefinitions(selectedType)}
                             initialQuery={{ page: 1, pageSize: 10 }}
                             onRowClick={(row) => handleView(selectedType, row)}
                             refreshKey={refreshKey}

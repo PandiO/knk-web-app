@@ -1,30 +1,46 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, Loader2, ChevronLeft, ChevronRight, Check, CheckCircle, PlusCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, Loader2, ChevronLeft, ChevronRight, Check, PlusCircle } from 'lucide-react';
 import { PagedQueryDto, PagedResultDto } from '../../types/dtos/common/PagedQuery';
 import { getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { logging } from '../../utils';
 import { ColumnDefinition } from '../../types/common';
-import { minecraftMaterialRefClient } from '../../apiClients/minecraftMaterialRefClient';
-import { minecraftBlockRefClient } from '../../apiClients/minecraftBlockRefClient';
-import { minecraftEnchantmentRefClient } from '../../apiClients/minecraftEnchantmentRefClient';
-import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
-import { buildPinnedSection, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
-import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { buildPinnedSection, FilterScopes, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
+import { CategoryFilterSelect } from './CategoryFilterSelect';
 import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
 
-/** Green "Existing" / amber "New" pill, shared by the hybrid pickers and the pinned session rows. */
-const RowBadge: React.FC<{ isNew: boolean; label?: string }> = ({ isNew, label }) => (
-    <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${
-        isNew ? 'text-amber-700 bg-amber-100' : 'text-green-700 bg-green-100'
-    }`}>
-        {isNew ? (
-            <><PlusCircle className="h-3 w-3 mr-1" />{label ?? 'New'}</>
-        ) : (
-            <><CheckCircle className="h-3 w-3 mr-1" />{label ?? 'Existing'}</>
-        )}
+/** KNG-263: entities whose table offers a Category filter (a category includes its children). */
+const CATEGORY_FILTER_ENTITIES = new Set(['itemblueprint']);
+const CATEGORY_FILTER_KEY = 'CategoryId';
+
+/** Whether the caller (e.g. a form field's picker filters) already fixes the category. */
+const hasImposedCategoryFilter = (filters?: Record<string, string>): boolean =>
+    Object.keys(filters ?? {}).some(filterKey => ['category', 'categoryid'].includes(filterKey.toLowerCase()));
+
+/**
+ * Amber "New" pill for the pinned session rows ("Created in this form"). The hybrid catalogue
+ * tables that also showed it on unsaved rows are gone: materials and blocks since KNG-200 phase 5,
+ * enchantments since KNG-250. Every table row is a saved database row, and picking one never
+ * creates anything.
+ */
+const RowBadge: React.FC<{ label?: string }> = ({ label }) => (
+    <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full text-amber-700 bg-amber-100">
+        <PlusCircle className="h-3 w-3 mr-1" />{label ?? 'New'}
     </span>
 );
+
+/**
+ * Row keys made unique: a key that occurs again gets a `#n` suffix, so React never sees two rows
+ * with one key (an older API could return the same catalogue entry twice in other notation).
+ */
+const uniqueRowKeys = (keys: string[]): string[] => {
+    const counts = new Map<string, number>();
+    return keys.map(key => {
+        const count = counts.get(key) ?? 0;
+        counts.set(key, count + 1);
+        return count === 0 ? key : `${key}#${count}`;
+    });
+};
 
 /**
  * Configuration for row selection behavior in the table.
@@ -203,9 +219,24 @@ export function PagedEntityTable<T extends Record<string, any>>({
     const [error, setError] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(query.searchTerm || '');
     const [internalSelection, setInternalSelection] = useState<T[]>(selectedItems);
-    const [creatingKey, setCreatingKey] = useState<string | null>(null);
-    const [isHybridMode, setIsHybridMode] = useState(false);
-    const [isAutoCreateMode, setIsAutoCreateMode] = useState(false);
+    // KNG-263: the category filter's chosen category and the ids it covers (itself and its children).
+    const showCategoryFilter = CATEGORY_FILTER_ENTITIES.has(entityTypeName.toLowerCase())
+        && !hasImposedCategoryFilter(initialQuery.filters);
+    const [categoryScope, setCategoryScope] = useState<ReadonlySet<string> | undefined>(undefined);
+
+    const handleCategoryFilterChange = (categoryId: string | undefined, covered: ReadonlySet<string> | undefined) => {
+        setCategoryScope(covered);
+        setQuery(prev => {
+            const { [CATEGORY_FILTER_KEY]: _previous, ...otherFilters } = prev.filters ?? {};
+            return {
+                ...prev,
+                page: 1,
+                filters: categoryId ? { ...otherFilters, [CATEGORY_FILTER_KEY]: categoryId } : otherFilters
+            };
+        });
+    };
+    // KNG-200: numbers the fetches, so only the latest one's response reaches the table.
+    const requestSeq = useRef(0);
 
     const fallbackColumns = useMemo<ColumnDefinition<T>[]>(() => {
         if (columns.length > 0) {
@@ -289,16 +320,6 @@ export function PagedEntityTable<T extends Record<string, any>>({
         return () => clearTimeout(timer);
     }, [searchInput]);
 
-    // Detect hybrid mode on mount
-    useEffect(() => {
-        const normalized = entityTypeName.toLowerCase();
-        const isHybrid = normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref' || normalized === 'minecraftenchantmentref';
-        setIsHybridMode(isHybrid);
-        // Only material and block refs should auto-create on selection; enchantments are pre-persisted
-        const shouldAutoCreate = normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref' || normalized === 'minecraftenchantmentref';
-        setIsAutoCreateMode(shouldAutoCreate);
-    }, [entityTypeName]);
-
     // Fetch data when query changes
     useEffect(() => {
         fetchData();
@@ -316,39 +337,23 @@ export function PagedEntityTable<T extends Record<string, any>>({
     }, [selectedItems, entityTypeName]);
 
     const fetchData = useCallback(async () => {
+        const seq = ++requestSeq.current;
+        const isLatest = () => seq === requestSeq.current;
         try {
             setLoading(true);
             setError(null);
 
-            const normalized = entityTypeName.toLowerCase();
-            
-            // Check if this is a hybrid mode entity
-            if (normalized === 'minecraftmaterialref' || normalized === 'minecraftblockref' || normalized === 'minecraftenchantmentref') {
-                // Use searchPaged with SearchHybrid filter
-                const hybridQuery: PagedQueryDto = {
-                    ...query,
-                    filters: {
-                        ...query.filters,
-                        SearchHybrid: 'true'
-                    }
-                };
-                
-                const searchFn = getSearchFunctionForEntity(entityTypeName);
-                const result = await searchFn(hybridQuery);
-                
-                setData(result);
-            } else {
-                // Normal paged search
-                const searchFn = getSearchFunctionForEntity(entityTypeName);
-                const result = await searchFn(query);
-                setData(result);
-            }
+            const searchFn = getSearchFunctionForEntity(entityTypeName);
+            const result = await searchFn(query);
+            if (isLatest()) setData(result);
         } catch (err) {
+            // A failed request a later one has replaced says nothing about the current results.
+            if (!isLatest()) return;
             console.error('Failed to fetch data:', err);
             setError('Failed to load data');
             logging.errorHandler.next(`ErrorMessage.${entityTypeName}.LoadFailed`);
         } finally {
-            setLoading(false);
+            if (isLatest()) setLoading(false);
         }
     }, [query, entityTypeName]);
 
@@ -463,23 +468,16 @@ export function PagedEntityTable<T extends Record<string, any>>({
         }
     };
 
-    // Enchantment refs compare by namespaceKey, other rows by id (see isSameSelection).
+    // Rows compare by id (see isSameSelection).
     const isRowSelected = (row: T): boolean =>
         internalSelection.some(item => isSameSelection(item, row, entityTypeName));
 
-    // added: handle row selection with hybrid mode support
-    const handleRowSelection = async (row: T, event?: React.MouseEvent) => {
+    const handleRowSelection = (row: T, event?: React.MouseEvent) => {
         if (selectionConfig.mode === 'none') return;
 
         // Prevent triggering onRowClick when clicking checkbox
         if (event) {
             event.stopPropagation();
-        }
-
-        // Check if this is an auto-create mode unpersisted item (materials/blocks only)
-        if (isAutoCreateMode && (row as any).isPersisted === false) {
-            await handleCreateAndSelect(row);
-            return;
         }
 
         let newSelection: T[];
@@ -509,109 +507,10 @@ export function PagedEntityTable<T extends Record<string, any>>({
         onSelectionChange?.(newSelection);
     };
 
-    // added: handle select all checkbox
-    const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (selectionConfig.mode !== 'multiple') return;
-
-        if (event.target.checked) {
-            // Select all visible items (respecting max)
-            const itemsToSelect = selectionConfig.max
-                ? data.items.slice(0, selectionConfig.max)
-                : data.items;
-            setInternalSelection(itemsToSelect);
-            onSelectionChange?.(itemsToSelect);
-        } else {
-            // Check if we can deselect all (min constraint)
-            if (!selectionConfig.min || selectionConfig.min === 0) {
-                setInternalSelection([]);
-                onSelectionChange?.([]);
-            }
-        }
-    };
-
-    const allVisibleSelected = data.items.length > 0 && 
-        data.items.every(row => isRowSelected(row));
-
-    const section = useMemo(
-        () => buildPinnedSection(pinnedRows, data.items, query.searchTerm, query.filters),
-        [pinnedRows, data.items, query.searchTerm, query.filters]
-    );
-
-    // added: handle create and select for hybrid mode
-    const handleCreateAndSelect = async (row: T) => {
-        if (creatingKey) return;
-        const option = row as any;
-        setCreatingKey(option.namespaceKey || option.blockStateString);
-        
-        try {
-            const normalized = entityTypeName.toLowerCase();
-            let created: any;
-            
-            if (normalized === 'minecraftmaterialref') {
-                created = await minecraftMaterialRefClient.create({
-                    namespaceKey: option.namespaceKey,
-                    category: option.category,
-                    legacyName: option.legacyName,
-                    iconUrl: option.iconUrl
-                });
-            } else if (normalized === 'minecraftblockref') {
-                created = await minecraftBlockRefClient.create({
-                    namespaceKey: option.namespaceKey,
-                    blockStateString: option.blockStateString,
-                    logicalType: option.logicalType,
-                    iconUrl: option.iconUrl
-                });
-            } else if (normalized === 'minecraftenchantmentref') {
-                created = await minecraftEnchantmentRefClient.create({
-                    namespaceKey: option.namespaceKey,
-                    legacyName: option.legacyName,
-                    category: option.category,
-                    maxLevel: option.maxLevel,
-                    displayName: option.displayName,
-                    iconUrl: option.iconUrl
-                });
-                await enchantmentDefinitionClient.create({
-                    key: option.namespaceKey,
-                    displayName: option.displayName,
-                    maxLevel: option.maxLevel,
-                    isCustom: false,
-                    minecraftEnchantmentRefId: created.id
-                });
-            }
-
-            if (created?.id) {
-                // Update the data items
-                setData(prev => ({
-                    ...prev,
-                    items: prev.items.map(item => 
-                        ((item as any).namespaceKey === option.namespaceKey)
-                            ? { ...item, id: created.id, isPersisted: true } as T
-                            : item
-                    )
-                }));
-
-                // Select the newly created item
-                const updatedRow = { ...row, id: created.id, isPersisted: true } as T;
-                let newSelection: T[];
-                
-                if (selectionConfig.mode === 'single') {
-                    newSelection = [updatedRow];
-                } else {
-                    if (selectionConfig.max && internalSelection.length >= selectionConfig.max) {
-                        return;
-                    }
-                    newSelection = [...internalSelection, updatedRow];
-                }
-                
-                setInternalSelection(newSelection);
-                onSelectionChange?.(newSelection);
-            }
-        } catch (err) {
-            setError(apiRefusalReason(err) ?? 'Failed to create item');
-        } finally {
-            setCreatingKey(null);
-        }
-    };
+    const section = useMemo(() => {
+        const scopes: FilterScopes | undefined = categoryScope ? { [CATEGORY_FILTER_KEY]: categoryScope } : undefined;
+        return buildPinnedSection(pinnedRows, data.items, query.searchTerm, query.filters, scopes);
+    }, [pinnedRows, data.items, query.searchTerm, query.filters, categoryScope]);
 
     // added: determine if pagination should be shown
     const shouldShowPagination = !loading && data.items.length > 0 && data.totalCount > query.pageSize;
@@ -647,20 +546,13 @@ export function PagedEntityTable<T extends Record<string, any>>({
                     <td key={column.key} className={`px-6 py-4 whitespace-nowrap text-sm ${
                         selected ? 'text-gray-900 font-medium' : 'text-gray-500'
                     }`}>
-                        {/* check icon in the first column if selected, plus the New/Existing badge */}
+                        {/* check icon in the first column if selected, plus the badge of a pinned row */}
                         {colIndex === 0 ? (
                             <div className="flex items-center space-x-2">
                                 {selected && selectionConfig.mode !== 'none' && (
                                     <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
                                 )}
-                                {sessionBadge ? (
-                                    <RowBadge isNew label={sessionBadge} />
-                                ) : isHybridMode && (
-                                    <RowBadge isNew={!(row as any).isPersisted} />
-                                )}
-                                {creatingKey && (row as any).namespaceKey === creatingKey && (
-                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                )}
+                                {sessionBadge && <RowBadge label={sessionBadge} />}
                                 <span>{renderCellValue(row, column)}</span>
                             </div>
                         ) : (
@@ -686,7 +578,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
     return (
         <div className="w-full space-y-4">
             {/* Toolbar - changed: conditionally render based on showSearchBar prop */}
-            {(showSearchBar || toolbarActions) && (
+            {(showSearchBar || toolbarActions || showCategoryFilter) && (
                 <div className="flex items-center justify-between">
                     {showSearchBar && (
                         <div className="relative flex-1 max-w-md">
@@ -700,8 +592,16 @@ export function PagedEntityTable<T extends Record<string, any>>({
                             />
                         </div>
                     )}
-                    {toolbarActions && (
+                    {showCategoryFilter && (
                         <div className={showSearchBar ? 'ml-4' : ''}>
+                            <CategoryFilterSelect
+                                value={query.filters?.[CATEGORY_FILTER_KEY]}
+                                onChange={handleCategoryFilterChange}
+                            />
+                        </div>
+                    )}
+                    {toolbarActions && (
+                        <div className={showSearchBar || showCategoryFilter ? 'ml-4' : ''}>
                             {toolbarActions}
                         </div>
                     )}
@@ -795,7 +695,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                     </td>
                                 </tr>
                             ) : (
-                                section.pageItems.map((row, index) => renderRow(row, tableRowKey(row, entityTypeName, index)))
+                                uniqueRowKeys(section.pageItems.map((row, index) => tableRowKey(row, entityTypeName, index)))
+                                    .map((rowKey, index) => renderRow(section.pageItems[index], rowKey))
                             )}
                         </tbody>
                     </table>

@@ -77,7 +77,7 @@ const step = (id: string, stepName: string, fields: Record<string, unknown>[], e
 });
 
 const SCENARIO_CONFIG = {
-    id: '40', entityTypeName: 'SiegeScenario', configurationName: 'SiegeScenario - Default', isDefault: true, isActive: true,
+    id: '40', entityTypeName: 'SiegeScenario', configurationName: 'SiegeScenario - Default', isDefault: true,
     steps: [
         step('400', 'Gates', [field({ id: '401', fieldName: 'Gates', label: 'Gates', fieldType: 'List', objectType: 'SiegeScenarioGate' })], {
             isManyToManyRelationship: true, relatedEntityPropertyName: 'Gates', joinEntityType: 'SiegeScenarioGate', subConfigurationId: '41'
@@ -86,7 +86,7 @@ const SCENARIO_CONFIG = {
 };
 
 const GATE_JOIN_CONFIG = {
-    id: '41', entityTypeName: 'SiegeScenarioGate', configurationName: 'SiegeScenarioGate - Join Entry', isDefault: true, isActive: true,
+    id: '41', entityTypeName: 'SiegeScenarioGate', configurationName: 'SiegeScenarioGate - Join Entry', isDefault: true,
     steps: [
         step('410', 'Gate', [
             field({ id: '411', fieldName: 'GateStructureId', label: 'Gate', fieldType: 'Object', objectType: 'GateStructure', isRequired: true, order: 0 }),

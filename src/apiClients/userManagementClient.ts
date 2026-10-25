@@ -57,6 +57,16 @@ class UserManagementClient extends ObjectManager {
     return this.invokeServiceCall({ activeMode }, `${userId}/vanish-mode`, Controllers.Users, HttpMethod.Post);
   }
 
+  // KNG-214, knk.admin.user.manage: let a player through the admission gate without an invitation,
+  // and take a web login off a Minecraft account (the remedy for a code given away).
+  admit(userId: number): Promise<{ changed: boolean }> {
+    return this.invokeServiceCall(null, `${userId}/admit`, Controllers.Users, HttpMethod.Post);
+  }
+
+  detachWebLogin(userId: number): Promise<void> {
+    return this.invokeServiceCall(null, `${userId}/detach-web-login`, Controllers.Users, HttpMethod.Post);
+  }
+
   // Developer request 2026-09-25: a web quick action for the same coins/gems/XP adjustment the
   // /knk user in-game command wraps - both call this identical PUT /api/users/{id}/balances.
   // Since the currency ledger (KNG-21 Phase 2) the server applies Add/Remove/Set itself (no

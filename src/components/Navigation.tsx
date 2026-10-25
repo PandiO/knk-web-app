@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route } from 'lucide-react';
+import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { CONTENT_PERMISSION_NODE, usePermission, useStaffAccess } from '../hooks/useStaffAccess';
 import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
@@ -8,6 +8,8 @@ import { DISCOVERY_ADMIN_NODE } from '../types/dtos/discovery/DiscoveryDtos';
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from '../types/dtos/telemetry/TelemetryDtos';
 import { OWNER_ANALYTICS_VIEW_NODE } from '../types/dtos/analytics/WorldAnalyticsDtos';
 import { ROAD_ADMIN_NODE } from '../types/dtos/road/RoadDtos';
+import { EMAIL_ADMIN_NODE } from '../types/dtos/email/EmailOutboxDtos';
+import { INVITATION_NODES } from '../types/dtos/invitations/InvitationDtos';
 import { NavLayout, pickNavLayout } from './navLayout';
 
 // added: explicit types for object types prop
@@ -32,11 +34,17 @@ const NAV_LINKS: NavLink[] = [
   { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings, staffOnly: true },
   // Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables
   { to: '/admin/siege-configuration', label: 'Siege Settings', Icon: Swords, staffOnly: true },
+  // KNG-206: the mail log and test mail, next to the other config pages (knk.admin.config).
+  { to: '/admin/email', label: 'Mail', Icon: Mail, node: EMAIL_ADMIN_NODE },
   { to: '/admin/lootboxes', label: 'Lootboxes', Icon: Gift, node: LOOTBOX_ADMIN_NODE },
   { to: '/admin/discovery', label: 'Discovery', Icon: Compass, node: DISCOVERY_ADMIN_NODE },
   // Road navigation Phase 5 (docs/specs/navigation/IMPLEMENTATION_PLAN.md): profiles, tiles, edges
   { to: '/admin/roads', label: 'Roads', Icon: Route, node: ROAD_ADMIN_NODE },
+  // KNG-200 phase 3: server scans, audit, merges and icon overrides of the material catalogue
+  { to: '/admin/minecraft-catalog', label: 'Minecraft catalogue', Icon: Boxes, node: CONTENT_PERMISSION_NODE },
   { to: '/admin/users', label: 'Moderation', Icon: Users, exact: true, staffOnly: true },
+  // KNG-212: invitations for the closed alpha (knk.admin.invites).
+  { to: '/admin/invitations', label: 'Invitations', Icon: Ticket, node: INVITATION_NODES.manage },
   // KNG-34 link 6: owner-only pages (shown only for an exact grant of the node, D24 - see usePermission).
   { to: '/owner/telemetry', label: 'Diagnostics', Icon: Activity, node: OWNER_TELEMETRY_VIEW_NODE },
   { to: '/owner/privacy', label: 'Data deletion', Icon: ShieldOff, node: OWNER_PRIVACY_MANAGE_NODE },
@@ -76,6 +84,7 @@ export function Navigation({ objectTypes }: Props) {
     [OWNER_PRIVACY_MANAGE_NODE]: usePermission(OWNER_PRIVACY_MANAGE_NODE).allowed,
     [OWNER_ANALYTICS_VIEW_NODE]: usePermission(OWNER_ANALYTICS_VIEW_NODE).allowed,
     [ROAD_ADMIN_NODE]: usePermission(ROAD_ADMIN_NODE).allowed,
+    [EMAIL_ADMIN_NODE]: usePermission(EMAIL_ADMIN_NODE).allowed,
   };
   const navLinks = NAV_LINKS.filter(link => (!link.staffOnly || isStaff) && (!link.node || nodeAccess[link.node]));
 

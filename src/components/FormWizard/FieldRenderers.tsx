@@ -3,11 +3,12 @@ import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
 import { Calendar, Plus, Minus, X, CheckCircle2, AlertTriangle, Loader2, Info, Pencil, Gamepad2, RefreshCw, WifiOff } from 'lucide-react';
 import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
-import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../../config/objectConfigs';
-import { HybridMaterialPicker } from '../minecraft/HybridMaterialPicker';
-import { HybridEnchantmentPicker } from '../minecraft/HybridEnchantmentPicker';
+import { getColumnDefinitions } from '../../config/objectConfigs';
+import { MinecraftMaterialPicker } from '../minecraft/MinecraftMaterialPicker';
+import { EnchantmentOriginFilter, MinecraftEnchantmentPicker, parseOriginFilter } from '../minecraft/MinecraftEnchantmentPicker';
 import { ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { interpolatePlaceholders } from '../../utils/placeholderInterpolation';
+import { describeCheckedAgo } from '../../utils/forms/validationResultAge';
 import { isHeadlessTaskType } from '../Workflow/WorldBoundFieldRenderer';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { DisplayFieldDto } from '../../types/dtos/displayConfig/DisplayModels';
@@ -251,9 +252,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                 />
             );
         case FieldType.HybridMinecraftMaterialRefPicker: {
-            const settings = parseHybridMaterialSettings(field.settingsJson);
+            const settings = parseMaterialPickerSettings(field.settingsJson);
             return withFeedback(
-                <HybridMaterialPicker
+                <MinecraftMaterialPicker
                     label={field.label}
                     description={field.description}
                     value={value}
@@ -267,9 +268,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
             );
         }
         case FieldType.HybridMinecraftEnchantmentRefPicker: {
-            const settings = parseHybridEnchantmentSettings(field.settingsJson);
+            const settings = parseEnchantmentPickerSettings(field.settingsJson);
             return withFeedback(
-                <HybridEnchantmentPicker
+                <MinecraftEnchantmentPicker
                     label={field.label}
                     description={field.description}
                     value={value}
@@ -277,7 +278,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                     required={field.isRequired}
                     error={error}
                     categoryFilter={settings.categoryFilter}
-                    placeholder={field.placeholder}
+                    originFilter={settings.originFilter}
                     disabled={field.isReadOnly}
                 />
             );
@@ -298,7 +299,7 @@ const parseWorldTaskTaskType = (settingsJson?: string): string | undefined => {
     }
 };
 
-const parseHybridMaterialSettings = (settingsJson?: string): { categoryFilter?: string; multiSelect: boolean } => {
+const parseMaterialPickerSettings = (settingsJson?: string): { categoryFilter?: string; multiSelect: boolean } => {
     if (!settingsJson) return { multiSelect: false };
     try {
         const parsed = JSON.parse(settingsJson);
@@ -307,21 +308,23 @@ const parseHybridMaterialSettings = (settingsJson?: string): { categoryFilter?: 
             multiSelect: !!parsed.multiSelect
         };
     } catch (err) {
-        console.warn('Failed to parse hybrid material settingsJson', err);
+        console.warn('Failed to parse material picker settingsJson', err);
         return { multiSelect: false };
     }
 };
 
-const parseHybridEnchantmentSettings = (settingsJson?: string): { categoryFilter?: string } => {
-    if (!settingsJson) return {};
+// KNG-250: `originFilter` ('all' | 'vanilla' | 'custom') sets the picker's initial filter.
+const parseEnchantmentPickerSettings = (settingsJson?: string): { categoryFilter?: string; originFilter: EnchantmentOriginFilter } => {
+    if (!settingsJson) return { originFilter: 'all' };
     try {
         const parsed = JSON.parse(settingsJson);
         return {
-            categoryFilter: parsed.categoryFilter
+            categoryFilter: parsed.categoryFilter,
+            originFilter: parseOriginFilter(parsed.originFilter)
         };
     } catch (err) {
-        console.warn('Failed to parse hybrid enchantment settingsJson', err);
-        return {};
+        console.warn('Failed to parse enchantment picker settingsJson', err);
+        return { originFilter: 'all' };
     }
 };
 
@@ -343,6 +346,10 @@ export const parseListFieldSettings = (settingsJson?: string): { ownedChildColle
 };
 
 const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pending?: boolean; onRetryValidation?: () => void }> = ({ validationResult, pending, onRetryValidation }) => {
+    // KNG-269: a result the API answered from its log of an earlier run says so, with that run's age,
+    // and offers a Re-check that runs the rule for real.
+    const checkedAgo = validationResult?.metadata?.fromCache ? describeCheckedAgo(validationResult.metadata.executedAt) : null;
+    const checkedNote = checkedAgo ? <span className="ml-1 text-gray-500">· checked {checkedAgo}</span> : null;
     const retryButton = onRetryValidation ? (
         <button
             type="button"
@@ -350,7 +357,7 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
             disabled={!!pending}
             className="ml-2 text-xs px-2 py-1 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
-            Re-run validation
+            {checkedAgo ? 'Re-check' : 'Re-run validation'}
         </button>
     ) : null;
 
@@ -374,7 +381,7 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
         return (
             <div className="flex items-center justify-between text-xs text-green-700">
                 <div className="flex items-center">
-                    <CheckCircle2 className="h-4 w-4 mr-1" /> {message}
+                    <CheckCircle2 className="h-4 w-4 mr-1" /> {message}{checkedNote}
                 </div>
                 {retryButton}
             </div>
@@ -409,7 +416,7 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
         <div className={`flex items-start justify-between text-xs ${color}`}>
             <div className="flex items-start">
                 <Icon className="h-4 w-4 mr-1 mt-0.5" />
-                <span>{message || 'Validation failed.'}</span>
+                <span>{message || 'Validation failed.'}{checkedNote}</span>
             </div>
             {retryButton}
         </div>
@@ -1130,7 +1137,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                             // Remount when the context filters change - the table reads initialQuery once.
                             key={JSON.stringify(pickerFilters?.filters ?? {})}
                             entityTypeName={field.objectType!}
-                            columns={columnDefinitionsRegistry[field.objectType!]?.default || defaultColumnDefinitions.default}
+                            columns={getColumnDefinitions(field.objectType)}
                             initialQuery={{ page: 1, pageSize: 10, filters: pickerFilters?.filters ?? {} }}
                             selectionConfig={selectionConfig}
                             selectedItems={value ? [value] : []}
@@ -1181,7 +1188,11 @@ const ListField: React.FC<FieldRendererProps> = ({
     );
 
     const hasItems = items.length > 0;
-    const worldTaskLabel = isHeadlessTaskType(parseWorldTaskTaskType(field.settingsJson))
+    // KNG-268: a headless scan list (a gate's closed/open block scan) is filled by the scan only:
+    // no picker (scanned blocks have no search, it showed "Failed to load data") and a count
+    // instead of one card per scanned block.
+    const isScanList = isHeadlessTaskType(parseWorldTaskTaskType(field.settingsJson));
+    const worldTaskLabel = isScanList
         ? (hasItems ? 'Re-scan in Minecraft' : 'Scan in Minecraft')
         : (hasItems ? 'Replace via Minecraft' : 'Send to Minecraft');
 
@@ -1319,8 +1330,14 @@ const ListField: React.FC<FieldRendererProps> = ({
                 </div>
             ) : (
                 <>
+                    {isScanList && (
+                        <p className="mb-3 text-xs text-gray-700">
+                            {items.length > 0 ? `${items.length} blocks scanned.` : 'Not scanned yet.'}
+                        </p>
+                    )}
+
                     {/* changed: moved selected items display above the table */}
-                    {items.length > 0 && (
+                    {!isScanList && items.length > 0 && (
                         <div className="mb-3 space-y-2">
                             <p className="text-xs font-medium text-gray-700">
                                 Selected ({items.length}):
@@ -1414,11 +1431,11 @@ const ListField: React.FC<FieldRendererProps> = ({
                         </p>
                     )}
 
-                    {!field.isReadOnly && !ownedChildCollection && !pickerFilters?.unavailableReason && <div className="border border-gray-200 rounded-md p-4">
+                    {!field.isReadOnly && !isScanList && !ownedChildCollection && !pickerFilters?.unavailableReason && <div className="border border-gray-200 rounded-md p-4">
                         <PagedEntityTable
                             key={JSON.stringify(pickerFilters?.filters ?? {})}
                             entityTypeName={field.objectType}
-                            columns={columnDefinitionsRegistry[field.objectType]?.default || defaultColumnDefinitions.default}
+                            columns={getColumnDefinitions(field.objectType)}
                             initialQuery={{ page: 1, pageSize: 5, filters: pickerFilters?.filters ?? {} }}
                             selectionConfig={selectionConfig}
                             selectedItems={items}

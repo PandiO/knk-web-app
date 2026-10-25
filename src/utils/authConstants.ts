@@ -46,7 +46,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   InvalidCredentials: "That email or Minecraft name and password don't match.",
   NetworkError: "Network error. Please try again",
   ServerError: "Something went wrong. Please try again",
-  RegistrationFailed: "Registration failed. Please check your information and try again"
+  RegistrationFailed: "Registration failed. Please check your information and try again",
+  InviteRequired: "You need an invitation to create an account"
 };
 
 export const SUCCESS_MESSAGES: Record<string, string> = {

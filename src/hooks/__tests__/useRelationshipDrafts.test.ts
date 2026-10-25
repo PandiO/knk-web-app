@@ -22,7 +22,6 @@ const gateDoorConfig: FormConfigurationDto = {
     entityTypeName: 'GateDoor',
     configurationName: 'Gate Door Configuration',
     isDefault: true,
-    isActive: true,
     steps: [
         {
             stepName: 'General Information',

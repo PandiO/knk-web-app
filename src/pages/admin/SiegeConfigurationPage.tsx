@@ -14,7 +14,7 @@ import { apiRefusalReason } from '../../utils/apiRefusalReason';
  * shown on a 400.
  */
 
-type FieldKind = 'int' | 'decimal' | 'intList' | 'stringList' | 'gateView';
+type FieldKind = 'int' | 'decimal' | 'intList' | 'stringList' | 'gateView' | 'boolean';
 
 interface FieldSpec {
     key: keyof UpdateSiegeConfigurationDto;
@@ -49,6 +49,14 @@ const SECTIONS: Array<{ title: string; description: string; fields: FieldSpec[] 
         ],
     },
     {
+        title: 'Skipping matchmaking',
+        description: 'How much matchmaking is left after /siege skip. Skipping a cooldown always starts matchmaking at once. The plugin never shortens matchmaking to less than one second before voting closes, whatever is set here.',
+        fields: [
+            { key: 'playerSkipMatchmakingSeconds', label: 'Player skip leaves (seconds)', kind: 'int', help: '/siege skip for players with knk.siege.skip (default 60).' },
+            { key: 'adminSkipMatchmakingSeconds', label: 'Admin skip leaves (seconds)', kind: 'int', help: '/siege admin skip (default 31: one second before voting closes).' },
+        ],
+    },
+    {
         title: 'Combat and chat',
         description: 'Kill announcements, headshots, respawn and the command filter.',
         fields: [
@@ -68,6 +76,13 @@ const SECTIONS: Array<{ title: string; description: string; fields: FieldSpec[] 
             { key: 'enchantLevelMin', label: 'Minimum level', kind: 'int' },
             { key: 'enchantLevelMax', label: 'Maximum level', kind: 'int' },
             { key: 'maxBooksAlive', label: 'Max books alive per match', kind: 'int' },
+        ],
+    },
+    {
+        title: 'Navigation compass',
+        description: 'KNG-234. The item itself (material and display name) is set on the roads / navigation admin page. A lobby or a scenario can override this with its own "Navigation compass" choice (lobby first, then scenario, then this).',
+        fields: [
+            { key: 'giveNavigationItem', label: 'Give the navigation compass at the hub', kind: 'boolean', help: 'Players get it when they are teleported to the hub (the warm-up) and lose it with the inventory restore after the match.' },
         ],
     },
     {
@@ -107,6 +122,8 @@ const parseText = (text: string, kind: FieldKind): { value?: unknown; error?: st
             return { value: trimmed === '' ? [] : trimmed.split('\n').map(l => l.trim()).filter(Boolean) };
         case 'gateView':
             return { value: trimmed };
+        case 'boolean':
+            return trimmed === 'true' || trimmed === 'false' ? { value: trimmed === 'true' } : { error: 'Yes or no required.' };
     }
 };
 
@@ -237,6 +254,8 @@ export const SiegeConfigurationPage: React.FC = () => {
                                     <span className="block text-sm font-medium text-gray-700 mb-1">{field.label}</span>
                                     {field.kind === 'stringList' ? (
                                         <textarea rows={4} value={text} onChange={e => onChange(e.target.value)} className={inputClass} />
+                                    ) : field.kind === 'boolean' ? (
+                                        <input type="checkbox" checked={text === 'true'} onChange={e => onChange(e.target.checked ? 'true' : 'false')} className="h-4 w-4 rounded border-gray-300" />
                                     ) : field.kind === 'gateView' ? (
                                         <select value={text} onChange={e => onChange(e.target.value)} className={inputClass}>
                                             <option value="PreLockdownView">Pre-lockdown view (default)</option>
