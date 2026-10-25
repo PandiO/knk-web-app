@@ -97,6 +97,24 @@ export interface RegisterRequestDto {
 }
 
 /** POST Admission/claim/check (KNG-214): is this claim code active, and for which Minecraft name? */
+/** Security:Registration:Mode as the API reports it (GET Auth/registration-info). */
+export type RegistrationMode = 'LinkCode' | 'Invite' | 'Open';
+
+/** GET Auth/onboarding-info (anonymous): what the sign-up, link and login pages need to guide a newcomer. */
+export interface OnboardingInfoDto {
+  registrationMode: RegistrationMode | string;
+  /** The site sits behind Cloudflare Access (the API's sync is on): a new account gets the one-time code step. */
+  accessGate?: boolean;
+  publicBaseUrl?: string;
+}
+
+/** The checked form of OnboardingInfoDto the app works with (`useOnboardingInfo`). */
+export interface OnboardingInfo {
+  registrationMode: RegistrationMode;
+  accessGate: boolean;
+  publicBaseUrl: string;
+}
+
 export interface ClaimCheckResponseDto {
   valid: boolean;
   minecraftName?: string | null;

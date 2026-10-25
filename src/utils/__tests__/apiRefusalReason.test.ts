@@ -16,6 +16,12 @@ describe('apiRefusalReason', () => {
         expect(apiRefusalReason(withBody(400, '<html>Bad Request</html>'))).toBeUndefined();
     });
 
+    it('passes the Cloudflare Access wording through (no HTTP status, 2026-10-25)', () => {
+        const error = Object.assign(new Error("Your Cloudflare sign-in has expired or isn't active on this device."), { code: 'CloudflareSession' });
+        expect(apiRefusalReason(error)).toMatch(/Cloudflare sign-in/);
+        expect(apiRefusalReason(new TypeError('Failed to fetch'))).toBeUndefined();
+    });
+
     it('has a plain reason for a 403 without a message', () => {
         expect(apiRefusalReason(apiError(403, 'HTTP 403: Forbidden'))).toBe("You don't have permission to do this.");
     });

@@ -7,6 +7,7 @@ import { AccountManagementPage } from './pages/AccountManagementPage';
 import ObjectDashboard from './components/ObjectDashboard';
 import { objectConfigs } from './config/objectConfigs';
 import { ToastRegion } from './components/ToastRegion';
+import { CloudflareSessionBanner } from './components/CloudflareSessionBanner';
 import { RouteErrorBoundary } from './components/ErrorBoundary';
 import { FormWizardPage } from './pages/FormWizardPage';
 import { FormConfigBuilder } from './components/FormConfigBuilder/FormConfigBuilder';
@@ -327,6 +328,7 @@ function AppContent() {
           </div>
         </div>
         <ToastRegion />
+        <CloudflareSessionBanner />
       </div>
     </Router>
   );

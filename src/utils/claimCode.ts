@@ -15,6 +15,26 @@ export function normalizeClaimCode(value: string): string {
     .slice(0, CLAIM_CODE_LENGTH);
 }
 
+/**
+ * Typed the way the disconnect screen shows it, XXXX-XXXX: the dash is what tells a claim code from
+ * an /account link code (8 characters, no dash) when one is typed into the other's field.
+ */
+export function looksLikeClaimCode(raw: string): boolean {
+  return /^[0-9A-Za-z]{4}\s?[-\u2013\u2014]\s?[0-9A-Za-z]{4}$/.test(raw.trim());
+}
+
+/**
+ * Could these 8 link-code characters be a claim code typed without its dash? Crockford base32 has
+ * no I, L, O or U, so a code with one of them is certainly not a claim code. A hint, not a verdict.
+ */
+export function couldBeClaimCode(normalizedCode: string): boolean {
+  return normalizedCode.length === CLAIM_CODE_LENGTH && !/[ILOU]/.test(normalizedCode);
+}
+
+/** Said on every claim-code refusal (a tester thought a rejected code was used up, 2026-10-25). */
+export const CLAIM_CODE_STAYS_VALID =
+  'The same code stays valid for 15 minutes: join the server again and the screen shows it again, or a new code once it has expired.';
+
 /** XXXX-XXXX, as on the disconnect screen. */
 export function formatClaimCode(code: string): string {
   const normalized = normalizeClaimCode(code);

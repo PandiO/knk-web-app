@@ -7,16 +7,21 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { useNoReferrer } from '../../hooks/useNoReferrer';
 import { CheckInvitationResponseDto } from '../../types/dtos/invitations/InvitationDtos';
+import { clearPendingInvite, loadPendingInvite, savePendingInvite } from '../../utils/pendingInvite';
+import { AFTER_SIGNUP_PATH } from '../../utils/onboardingPaths';
+import { useOnboardingInfo } from '../../hooks/useOnboardingInfo';
+import { OnboardingJourney } from '../../components/auth/OnboardingJourney';
 
-/** Where a new account goes next: the Minecraft linking step (KNG-214; /account until it exists). */
-export const AFTER_SIGNUP_PATH = '/account/link';
+export { AFTER_SIGNUP_PATH };
 
 type CheckState = { status: 'checking' } | { status: 'invalid' } | { status: 'valid'; invite: CheckInvitationResponseDto };
 
 /**
  * /invite/:token (KNG-212, DESIGN.md § 5.3): the personal invitation link from the mail. The token is
  * removed from the address bar before anything else happens, then checked; the form shows the invited
- * address locked.
+ * address locked. A valid token is kept for the tab (sessionStorage), so /invite without a token
+ * resumes it after a detour through the login page, and the login page's "Create an account" can
+ * point back here (2026-10-25: a tester clicked Log in here and lost the invitation).
  */
 export const InvitePage: React.FC = () => {
   usePageTitle('Accept your invitation');
@@ -24,8 +29,10 @@ export const InvitePage: React.FC = () => {
   const params = useParams<{ token?: string }>();
   const navigate = useNavigate();
   const { isLoggedIn, isLoading } = useAuth();
-  // Read once: the URL no longer holds it after the replaceState below.
-  const [token] = useState(() => params.token ?? '');
+  const { accessGate } = useOnboardingInfo();
+  // Read once: the URL no longer holds it after the replaceState below. Without one, the token kept
+  // from an earlier visit in this tab.
+  const [token] = useState(() => params.token || loadPendingInvite()?.token || '');
   const [state, setState] = useState<CheckState>(token ? { status: 'checking' } : { status: 'invalid' });
   const signedUp = useRef(false);
 
@@ -41,7 +48,13 @@ export const InvitePage: React.FC = () => {
     invitationClient.check({ token })
       .then(result => {
         if (cancelled) return;
-        setState(result?.valid && result.kind === 'Personal' ? { status: 'valid', invite: result } : { status: 'invalid' });
+        if (result?.valid && result.kind === 'Personal') {
+          savePendingInvite({ token, email: result.email, expiresAt: result.expiresAt });
+          setState({ status: 'valid', invite: result });
+        } else {
+          clearPendingInvite();
+          setState({ status: 'invalid' });
+        }
       })
       .catch(() => {
         if (!cancelled) setState({ status: 'invalid' });
@@ -74,21 +87,30 @@ export const InvitePage: React.FC = () => {
 
         {state.status === 'valid' && (
           <>
-            <p className="mb-6 text-center text-sm text-gray-600">
-              Choose a password to create your account. The invitation is valid until{' '}
-              {state.invite.expiresAt ? new Date(state.invite.expiresAt).toLocaleString() : 'it expires'}.
+            <p className="mb-4 text-center text-sm text-gray-600">
+              New here? Sign up with this invitation: choose a password and your account is created. The invitation is
+              valid until {state.invite.expiresAt ? new Date(state.invite.expiresAt).toLocaleString() : 'it expires'}.
             </p>
+            <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">What happens next</p>
+              <OnboardingJourney accessGate={accessGate} />
+            </div>
             <InviteSignupForm
               inviteToken={token}
               lockedEmail={state.invite.email}
+              loginReturnTo="/invite"
               onRegistered={() => {
                 signedUp.current = true;
+                clearPendingInvite();
               }}
               onSuccess={() => {
                 signedUp.current = true;
                 navigate(AFTER_SIGNUP_PATH, { replace: true });
               }}
-              onInvalidInvite={() => setState({ status: 'invalid' })}
+              onInvalidInvite={() => {
+                clearPendingInvite();
+                setState({ status: 'invalid' });
+              }}
             />
           </>
         )}

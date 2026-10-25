@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { RegisterForm } from '../../components/auth/RegisterForm';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { useRegistrationMode } from '../../hooks/useOnboardingInfo';
 
 /** How long the "Done" step shows before the player lands on their account page. */
 const DONE_REDIRECT_MS = 3000;
@@ -11,6 +12,7 @@ export const RegisterPage: React.FC = () => {
     usePageTitle('Create account');
     const navigate = useNavigate();
     const { isLoggedIn, isLoading } = useAuth();
+    const { inviteSignup } = useRegistrationMode();
     // Set before the account is created, so logging in through the form isn't mistaken for
     // "already logged in".
     const [registering, setRegistering] = useState(false);
@@ -39,7 +41,9 @@ export const RegisterPage: React.FC = () => {
                         Create Your Account
                     </h1>
                     <p className="mt-2 text-base sm:text-lg text-gray-600">
-                        Your web account belongs to your Minecraft account. Get a code in game, then pick an email and a password.
+                        {inviteSignup
+                            ? 'Knights & Kings is in closed alpha: new accounts are created with an invitation.'
+                            : 'Your web account belongs to your Minecraft account. Get a code in game, then pick an email and a password.'}
                     </p>
                 </div>
 
