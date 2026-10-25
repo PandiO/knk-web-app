@@ -1,5 +1,5 @@
 import { RegistrationMode } from '../types/dtos/auth/AuthDtos';
-import { isInviteSignup } from '../hooks/useRegistrationMode';
+import { isInviteSignup } from '../hooks/useOnboardingInfo';
 import { loadPendingClaim } from './claimCode';
 import { loadPendingInvite } from './pendingInvite';
 

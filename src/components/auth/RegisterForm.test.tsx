@@ -9,7 +9,7 @@ import { authClient } from '../../apiClients/authClient';
 import { useAuth } from '../../contexts/AuthContext';
 import { ERROR_MESSAGES } from '../../utils/authConstants';
 import { normalizeLinkCode, normalizeLinkCodeInput } from '../../utils/linkCode';
-import { fetchRegistrationMode, resetRegistrationModeCache } from '../../hooks/useRegistrationMode';
+import { fetchOnboardingInfo, resetOnboardingInfoCache } from '../../hooks/useOnboardingInfo';
 
 const mockNavigate = jest.fn();
 
@@ -19,20 +19,20 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }), { virtual: true });
 jest.mock('../../apiClients/authClient', () => ({
-  authClient: { validateLinkCode: jest.fn(), registrationInfo: jest.fn() },
+  authClient: { validateLinkCode: jest.fn(), onboardingInfo: jest.fn() },
 }));
 jest.mock('../../contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 
 const mockedValidate = authClient.validateLinkCode as jest.Mock;
-const mockedInfo = authClient.registrationInfo as jest.Mock;
+const mockedInfo = authClient.onboardingInfo as jest.Mock;
 const mockedUseAuth = useAuth as jest.Mock;
 const PASSWORD = 'Kn1ghts&Kings!';
 
 /** The mode the form finds cached, so tests that don't await it see no late state update. */
 async function withMode(mode: string) {
-  resetRegistrationModeCache();
-  mockedInfo.mockResolvedValue({ mode });
-  await fetchRegistrationMode();
+  resetOnboardingInfoCache();
+  mockedInfo.mockResolvedValue({ registrationMode: mode });
+  await fetchOnboardingInfo();
 }
 
 async function enterCode(code = 'ABCD1234') {
@@ -293,7 +293,7 @@ describe('RegisterForm with invitations on (Mode=Invite, 2026-10-25)', () => {
   });
 
   it('behaves as before while the mode is unknown (the API could not be asked)', async () => {
-    resetRegistrationModeCache();
+    resetOnboardingInfoCache();
     mockedInfo.mockReset().mockRejectedValue(new TypeError('Failed to fetch'));
     render(<RegisterForm />);
 

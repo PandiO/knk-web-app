@@ -7,6 +7,7 @@ import { usePageTitle } from '../../hooks/usePageTitle';
 import { useNoReferrer } from '../../hooks/useNoReferrer';
 import { authService } from '../../services/authService';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { useOnboardingInfo } from '../../hooks/useOnboardingInfo';
 import {
   CLAIM_CODE_LENGTH,
   CLAIM_CODE_STAYS_VALID,
@@ -36,6 +37,7 @@ export const LinkPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isLoggedIn, user, refresh } = useAuth();
+  const { accessGate } = useOnboardingInfo();
   // Read once: the URL no longer holds it after the replaceState below.
   const [codeFromUrl] = useState(() => searchParams.get('code') ?? '');
   const [claim, setClaim] = useState<PendingClaim | null>(() => loadPendingClaim());
@@ -189,6 +191,13 @@ export const LinkPage: React.FC = () => {
                     Got an invitation mail? Open its link now; your Minecraft account is linked when you create the account.
                     Or enter an invitation code:
                   </p>
+                  <ol className="mt-3 space-y-1 text-sm text-gray-700" data-testid="link-journey" aria-label="In this order">
+                    <li className="flex gap-2"><span className="w-5 flex-shrink-0 text-right">1.</span><span>Invitation code or link → sign-up (your Minecraft account <strong>{claim.minecraftName}</strong> is linked in that step).</span></li>
+                    {accessGate && (
+                      <li className="flex gap-2"><span className="w-5 flex-shrink-0 text-right">2.</span><span><strong>Cloudflare</strong> then asks for your email and emails you a 6-digit code (sender: Cloudflare); enter it to open the site.</span></li>
+                    )}
+                    <li className="flex gap-2"><span className="w-5 flex-shrink-0 text-right">{accessGate ? 3 : 2}.</span><span>Join the server again and play.</span></li>
+                  </ol>
                   <form noValidate onSubmit={joinWithInvite} className="mt-3 flex gap-2">
                     <label htmlFor="link-invite-code" className="sr-only">Invitation code</label>
                     <input

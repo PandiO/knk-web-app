@@ -3,6 +3,8 @@ import ConfigurationHelper from "../utils/config-helper";
 import { HttpMethod } from "../utils/enums";
 import { tokenService } from "../utils/tokenService";
 import { handleSessionExpired, refreshSession } from "./sessionRefresh";
+import { CloudflareSessionError, detectMissingCloudflareSession } from "./cloudflareAccess";
+import { loadOnboardingInfo } from "../utils/onboardingInfoCache";
 
 /**
  * Auth endpoints whose 401 means "wrong credentials" or "no session", not "access token expired":
@@ -164,6 +166,14 @@ export class ServiceCall {
                 }
             }
         } catch (ex) {
+            // No response at all (a TypeError from fetch): network, or Cloudflare Access redirecting an
+            // unauthenticated browser to its login (2026-10-25). The onboarding-info call itself is
+            // left out, or a missing session would make it probe for itself.
+            const isOnboardingInfo = args.controller?.toLowerCase() === 'auth' && (args.operation ?? '').toLowerCase() === 'onboarding-info';
+            if (ex instanceof TypeError && !isOnboardingInfo && await detectMissingCloudflareSession(loadOnboardingInfo)) {
+                args.responseHandler?.error(new CloudflareSessionError(ex));
+                return;
+            }
             args.responseHandler?.error(ex);
         }
 

@@ -5,6 +5,7 @@ import '@testing-library/jest-dom';
 import { JoinPage } from '../JoinPage';
 import { invitationClient } from '../../../apiClients/invitationClient';
 import { useAuth } from '../../../contexts/AuthContext';
+import { fullPageLoad } from '../../../utils/navigation';
 
 const PASSWORD = 'Kn1ghts&Kings!';
 const mockNavigate = jest.fn();
@@ -18,6 +19,10 @@ jest.mock('react-router-dom', () => ({
 }), { virtual: true });
 jest.mock('../../../contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('../../../apiClients/invitationClient', () => ({ invitationClient: { check: jest.fn() } }));
+jest.mock('../../../hooks/useOnboardingInfo', () => ({
+  useOnboardingInfo: () => ({ info: null, loading: false, mode: 'Invite', inviteSignup: true, accessGate: true }),
+}));
+jest.mock('../../../utils/navigation', () => ({ fullPageLoad: jest.fn(), reloadPage: jest.fn() }));
 
 const check = invitationClient.check as jest.Mock;
 const mockedUseAuth = useAuth as jest.Mock;
@@ -41,6 +46,8 @@ describe('JoinPage', () => {
     const email = await screen.findByLabelText('Email');
     expect(check).toHaveBeenCalledWith({ code: 'KNK-7QH4M-2XA9P' });
     expect(email).not.toHaveAttribute('readonly');
+    // The journey names the Cloudflare step (the gate is on in this test) before the player signs up.
+    expect(screen.getByTestId('onboarding-journey')).toHaveTextContent(/Cloudflare/);
     // "Log in" comes back to this code (2026-10-25).
     expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/auth/login?returnTo=%2Fjoin%3Fcode%3DKNK-7QH4M-2XA9P');
     await userEvent.type(email, 'player@example.com');
@@ -116,6 +123,26 @@ describe('JoinPage', () => {
     expect(await screen.findByText(/without it/)).toBeInTheDocument();
     expect(screen.queryByTestId('pending-claim')).not.toBeInTheDocument();
     expect(sessionStorage.getItem('knk.pendingClaim')).toBeNull();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+  it('after a sign-up with the gate on, continues to Cloudflare as a full page load (2026-10-25)', async () => {
+    mockSearch = '?code=KNK-7QH4M-2XA9P';
+    check.mockResolvedValue({ valid: true, kind: 'Shared', expiresAt: '2026-10-28T12:00:00Z' });
+    register.mockImplementation(async () => {
+      mockedUseAuth.mockReturnValue({ isLoggedIn: true, isLoading: false, register });
+      return { user: { id: 9, email: 'player@example.com' }, accessGate: true };
+    });
+    render(<JoinPage />);
+
+    await userEvent.type(await screen.findByLabelText('Email'), 'player@example.com');
+    await userEvent.type(screen.getByLabelText('Password'), PASSWORD);
+    await userEvent.type(screen.getByLabelText('Confirm password'), PASSWORD);
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(await screen.findByTestId('access-pin-step')).toHaveTextContent('player@example.com');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue to Cloudflare sign-in' }));
+    expect(fullPageLoad).toHaveBeenCalledWith('/account/link');
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

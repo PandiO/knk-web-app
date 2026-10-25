@@ -81,11 +81,15 @@ export const AccountLinkPage: React.FC = () => {
 
       <ol className="list-decimal list-inside space-y-2 text-sm text-gray-800">
         <li>
-          Join <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-xs">{appConfig.minecraft.serverAddress}</code> with Minecraft Java Edition 26.3.
+          Join <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-xs">{appConfig.minecraft.serverAddress}</code> with Minecraft (Java Edition 26.3, or Bedrock).
         </li>
         <li>You'll be stopped with a code on the screen, like <span className="font-mono">K7QH-M2XA</span> (valid 15 minutes).</li>
         <li>Enter that code here. Never give it to anyone; staff never ask for it.</li>
       </ol>
+      <p className="text-xs text-gray-500" data-testid="claim-code-lifetime">
+        Joining again within those 15 minutes shows the <strong>same</strong> code; after it expired, joining again gives a new one.
+        Works the same on Java and Bedrock.
+      </p>
       <p className="text-xs text-gray-500">
         Played here before? Type <code className="font-mono">/account link</code> in chat and enter that code instead.
       </p>

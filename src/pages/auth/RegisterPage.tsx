@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { RegisterForm } from '../../components/auth/RegisterForm';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
-import { useRegistrationMode } from '../../hooks/useRegistrationMode';
+import { useRegistrationMode } from '../../hooks/useOnboardingInfo';
 
 /** How long the "Done" step shows before the player lands on their account page. */
 const DONE_REDIRECT_MS = 3000;

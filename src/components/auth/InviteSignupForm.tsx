@@ -7,6 +7,9 @@ import { ERROR_MESSAGES, PASSWORD_MIN_LENGTH } from '../../utils/authConstants';
 import { calculatePasswordStrength, validateEmailFormat, validatePasswordPolicy } from '../../utils/passwordValidator';
 import { CLAIM_CODE_STAYS_VALID, PendingClaim, clearPendingClaim, loadPendingClaim } from '../../utils/claimCode';
 import { buildLoginRedirect } from '../../utils/returnTo';
+import { fullPageLoad } from '../../utils/navigation';
+import { AFTER_SIGNUP_PATH } from '../../utils/onboardingPaths';
+import { appConfig } from '../../config/appConfig';
 
 interface InviteSignupFormProps {
   /** A personal invite: its token and the address it was sent to (shown locked). */
@@ -14,8 +17,12 @@ interface InviteSignupFormProps {
   lockedEmail?: string | null;
   /** A shared code: the redeemer types their own email. */
   inviteCode?: string;
-  /** Called once the account exists and the player is logged in (after the PIN step, if shown). */
+  /** Called once the account exists and the player is logged in and no Cloudflare step is needed. With the
+   *  Cloudflare step the form itself does a full page load of `continuePath` (default /account/link), so
+   *  Cloudflare can show its login; `onSuccess` is not called then. */
   onSuccess: () => void;
+  /** Where the Cloudflare step's button goes, as a document request. */
+  continuePath?: string;
   /** Called as soon as the account exists, before any PIN step, so the page doesn't treat the new
    *  login as "already signed in" (KNG-216). */
   onRegistered?: () => void;
@@ -43,7 +50,7 @@ const apiMessageOf = (error: any): string | undefined =>
  * account and logs the player in; Minecraft is linked afterwards (KNG-214). When /link kept a verified
  * claim code (game-first), it goes along and the account is linked in the same step.
  */
-export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken, lockedEmail, inviteCode, onSuccess, onRegistered, onInvalidInvite, loginReturnTo }) => {
+export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken, lockedEmail, inviteCode, onSuccess, onRegistered, onInvalidInvite, loginReturnTo, continuePath = AFTER_SIGNUP_PATH }) => {
   const { register } = useAuth();
   const [email, setEmail] = useState(lockedEmail ?? '');
   const [password, setPassword] = useState('');
@@ -134,17 +141,21 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
   };
 
   if (pinStepFor) {
+    // 2026-10-25: the step must be a document request, and the player must know Cloudflare's page comes
+    // next and asks for the email first — the PIN mail doesn't come by itself.
     return (
-      <div className="space-y-5 text-center" data-testid="access-pin-step">
-        <KeyRound className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />
-        <h2 className="text-xl font-semibold text-gray-900">Your account is ready</h2>
-        <p className="text-sm text-gray-700">
-          Next, Cloudflare emails you a one-time PIN to open the site. Use the same address: <strong>{pinStepFor}</strong>.
-        </p>
-        <p className="text-xs text-gray-500">
-          The PIN mail comes from Cloudflare, not from Knights &amp; Kings. After that you stay signed in on this device for a while.
-        </p>
-        <button type="button" onClick={onSuccess} className="w-full btn-primary">Continue</button>
+      <div className="space-y-5" data-testid="access-pin-step">
+        <div className="text-center">
+          <KeyRound className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />
+          <h2 className="mt-2 text-xl font-semibold text-gray-900">Your account is ready</h2>
+        </div>
+        <ol className="space-y-2 text-sm text-gray-800">
+          <li className="flex gap-2"><span className="w-5 flex-shrink-0 text-right">1.</span><span>One more security step: this site is protected by <strong>Cloudflare</strong>.</span></li>
+          <li className="flex gap-2"><span className="w-5 flex-shrink-0 text-right">2.</span><span>On the next screen, Cloudflare asks for your email. Enter <strong>{pinStepFor}</strong> (the one you just used).</span></li>
+          <li className="flex gap-2"><span className="w-5 flex-shrink-0 text-right">3.</span><span>Cloudflare emails you a <strong>6-digit code</strong> — from Cloudflare (noreply@notify.cloudflare.com), not from Knights &amp; Kings. Check spam. Enter the code.</span></li>
+          <li className="flex gap-2"><span className="w-5 flex-shrink-0 text-right">4.</span><span>You're in, on this device for 30 days. Next: link your Minecraft account — join <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-xs">{appConfig.minecraft.serverAddress}</code> and enter the code the server shows you.</span></li>
+        </ol>
+        <button type="button" onClick={() => fullPageLoad(continuePath)} className="w-full btn-primary">Continue to Cloudflare sign-in</button>
       </div>
     );
   }

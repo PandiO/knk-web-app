@@ -9,7 +9,10 @@
  * the 503 "Statistics are disabled (...)" or the 502 "The confirmation email could not be sent."
  */
 export function apiRefusalReason(error: unknown): string | undefined {
-    const e = error as { status?: number; message?: string; response?: unknown } | null;
+    const e = error as { status?: number; message?: string; response?: unknown; code?: unknown } | null;
+    // Not a refusal by the API but by Cloudflare Access in front of it (2026-10-25): the one app-wide
+    // wording, so a page never shows "Linking failed" for it.
+    if (e?.code === 'CloudflareSession' && e.message) return e.message;
     const status = e?.status;
     if (status === undefined || status < 400) return undefined;
     if (status >= 500) return deliberateServerReason(e?.response);

@@ -8,9 +8,11 @@ import { usePageTitle } from '../../hooks/usePageTitle';
 import { useNoReferrer } from '../../hooks/useNoReferrer';
 import { CheckInvitationResponseDto } from '../../types/dtos/invitations/InvitationDtos';
 import { clearPendingInvite, loadPendingInvite, savePendingInvite } from '../../utils/pendingInvite';
+import { AFTER_SIGNUP_PATH } from '../../utils/onboardingPaths';
+import { useOnboardingInfo } from '../../hooks/useOnboardingInfo';
+import { OnboardingJourney } from '../../components/auth/OnboardingJourney';
 
-/** Where a new account goes next: the Minecraft linking step (KNG-214; /account until it exists). */
-export const AFTER_SIGNUP_PATH = '/account/link';
+export { AFTER_SIGNUP_PATH };
 
 type CheckState = { status: 'checking' } | { status: 'invalid' } | { status: 'valid'; invite: CheckInvitationResponseDto };
 
@@ -27,6 +29,7 @@ export const InvitePage: React.FC = () => {
   const params = useParams<{ token?: string }>();
   const navigate = useNavigate();
   const { isLoggedIn, isLoading } = useAuth();
+  const { accessGate } = useOnboardingInfo();
   // Read once: the URL no longer holds it after the replaceState below. Without one, the token kept
   // from an earlier visit in this tab.
   const [token] = useState(() => params.token || loadPendingInvite()?.token || '');
@@ -84,10 +87,14 @@ export const InvitePage: React.FC = () => {
 
         {state.status === 'valid' && (
           <>
-            <p className="mb-6 text-center text-sm text-gray-600">
+            <p className="mb-4 text-center text-sm text-gray-600">
               New here? Sign up with this invitation: choose a password and your account is created. The invitation is
               valid until {state.invite.expiresAt ? new Date(state.invite.expiresAt).toLocaleString() : 'it expires'}.
             </p>
+            <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">What happens next</p>
+              <OnboardingJourney accessGate={accessGate} />
+            </div>
             <InviteSignupForm
               inviteToken={token}
               lockedEmail={state.invite.email}

@@ -13,7 +13,7 @@ import {
   LinkMinecraftAccountDto,
   LinkMinecraftAccountResponseDto,
   ValidateLinkCodeResponseDto,
-  RegistrationInfoDto,
+  OnboardingInfoDto,
 } from "../types/dtos/auth/AuthDtos";
 import { UserDto, UserUpdateDto } from "../types/dtos/auth/UserDtos";
 
@@ -47,12 +47,12 @@ export class AuthClient extends ObjectManager {
   }
 
   /**
-   * Which registration mode the server runs (LinkCode, Invite or Open), without a login, so the
-   * sign-up and login pages don't send a newcomer to a form that can't succeed. Prefer the
-   * `useRegistrationMode` hook, which caches the answer.
+   * The registration mode (LinkCode, Invite or Open), whether the Cloudflare Access step applies and
+   * the public base URL, without a login, so the onboarding pages guide a newcomer down a path that
+   * works. Prefer the `useOnboardingInfo` hook, which caches the answer per page load.
    */
-  registrationInfo(): Promise<RegistrationInfoDto> {
-    return this.invokeServiceCall(null, "registration-info", Controllers.Auth, HttpMethod.Get);
+  onboardingInfo(): Promise<OnboardingInfoDto> {
+    return this.invokeServiceCall(null, "onboarding-info", Controllers.Auth, HttpMethod.Get);
   }
 
   logout(): Promise<void> {

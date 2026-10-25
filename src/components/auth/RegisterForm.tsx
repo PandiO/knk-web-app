@@ -11,7 +11,7 @@ import { appConfig } from '../../config/appConfig';
 import { LINK_CODE_LENGTH, normalizeLinkCode, normalizeLinkCodeInput } from '../../utils/linkCode';
 import { CLAIM_CODE_STAYS_VALID, couldBeClaimCode, formatClaimCode, looksLikeClaimCode } from '../../utils/claimCode';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
-import { useRegistrationMode } from '../../hooks/useRegistrationMode';
+import { useRegistrationMode } from '../../hooks/useOnboardingInfo';
 
 
 interface AccountData {

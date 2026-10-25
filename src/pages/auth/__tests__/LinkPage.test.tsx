@@ -17,6 +17,9 @@ jest.mock('react-router-dom', () => ({
   useSearchParams: () => [new URLSearchParams(mockSearch)],
 }), { virtual: true });
 jest.mock('../../../contexts/AuthContext', () => ({ useAuth: jest.fn() }));
+jest.mock('../../../hooks/useOnboardingInfo', () => ({
+  useOnboardingInfo: () => ({ info: null, loading: false, mode: 'Invite', inviteSignup: true, accessGate: true }),
+}));
 jest.mock('../../../apiClients/admissionClient', () => ({ admissionClient: { checkClaim: jest.fn() } }));
 jest.mock('../../../services/authService', () => ({ authService: { linkMinecraftAccount: jest.fn() } }));
 
@@ -90,6 +93,11 @@ describe('LinkPage (/link)', () => {
     expect(loadPendingClaim()).toEqual({ code: 'K7QHM2X0', minecraftName: 'Steve', expiresAt });
     expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/auth/login?returnTo=/link');
     expect(screen.getByText(/invite-only/i)).toBeInTheDocument();
+    // The order of what comes next, with the Cloudflare step since the gate is on (2026-10-25).
+    const journey = screen.getByTestId('link-journey');
+    expect(journey).toHaveTextContent(/1\..*sign-up.*Steve/);
+    expect(journey).toHaveTextContent(/2\..*Cloudflare.*6-digit code/);
+    expect(journey).toHaveTextContent(/3\..*Join the server again/);
 
     await userEvent.type(screen.getByLabelText('Invitation code'), 'knk-aaaaa-bbbbb');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));

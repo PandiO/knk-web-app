@@ -5,25 +5,26 @@ import { LoginForm, describeLoginError } from '../LoginForm';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ERROR_MESSAGES } from '../../../utils/authConstants';
 import { authClient } from '../../../apiClients/authClient';
-import { fetchRegistrationMode, resetRegistrationModeCache } from '../../../hooks/useRegistrationMode';
+import { fetchOnboardingInfo, resetOnboardingInfoCache } from '../../../hooks/useOnboardingInfo';
 import { savePendingClaim } from '../../../utils/claimCode';
 import { savePendingInvite } from '../../../utils/pendingInvite';
+import { CloudflareSessionError } from '../../../services/cloudflareAccess';
 
 // virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
 jest.mock('react-router-dom', () => ({
   Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode }) => <a href={to} {...rest}>{children}</a>,
 }), { virtual: true });
 jest.mock('../../../contexts/AuthContext');
-jest.mock('../../../apiClients/authClient', () => ({ authClient: { registrationInfo: jest.fn() } }));
+jest.mock('../../../apiClients/authClient', () => ({ authClient: { onboardingInfo: jest.fn() } }));
 
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
-const mockedInfo = authClient.registrationInfo as jest.Mock;
+const mockedInfo = authClient.onboardingInfo as jest.Mock;
 
 /** The mode the form finds cached, so tests that don't await it see no late state update. */
-async function withMode(mode: string) {
-  resetRegistrationModeCache();
-  mockedInfo.mockResolvedValue({ mode });
-  await fetchRegistrationMode();
+async function withMode(mode: string, accessGate = false) {
+  resetOnboardingInfoCache();
+  mockedInfo.mockResolvedValue({ registrationMode: mode, accessGate });
+  await fetchOnboardingInfo();
 }
 
 describe('LoginForm', () => {
@@ -82,8 +83,8 @@ describe('LoginForm', () => {
     });
 
     it('learns the mode after the first render too', async () => {
-      resetRegistrationModeCache();
-      mockedInfo.mockResolvedValue({ mode: 'Invite' });
+      resetOnboardingInfoCache();
+      mockedInfo.mockResolvedValue({ registrationMode: 'Invite' });
       render(<LoginForm />);
 
       expect(screen.getByRole('link', { name: /create an account/i })).toHaveAttribute('href', '/auth/register');
@@ -106,8 +107,26 @@ describe('LoginForm', () => {
       expect(screen.getByRole('link', { name: /create an account/i })).toHaveAttribute('href', '/link');
     });
 
+    it('with the Cloudflare gate on, says the first visit on a device goes through Cloudflare first', async () => {
+      await withMode('Invite', true);
+      render(<LoginForm />);
+
+      expect(screen.getByTestId('access-gate-note')).toHaveTextContent(/Cloudflare asks for your email/);
+    });
+
+    it('shows the Cloudflare wording, not "Network error", when the Access session is missing', async () => {
+      mockLogin.mockRejectedValue(new CloudflareSessionError(new TypeError('Failed to fetch')));
+      render(<LoginForm />);
+
+      await userEvent.type(screen.getByLabelText(/email or minecraft name/i), 'Steve');
+      await userEvent.type(screen.getByLabelText(/^password/i), 'hunter22');
+      await userEvent.click(screen.getByRole('button', { name: /log in/i }));
+
+      expect(await screen.findByTestId('login-error')).toHaveTextContent(/Cloudflare sign-in has expired or isn't active/);
+    });
+
     it('keeps the register page when the mode cannot be fetched', async () => {
-      resetRegistrationModeCache();
+      resetOnboardingInfoCache();
       mockedInfo.mockReset().mockRejectedValue(new TypeError('Failed to fetch'));
       render(<LoginForm />);
 
@@ -190,6 +209,7 @@ describe('describeLoginError', () => {
     expect(describeLoginError({ status: 401 })).toBe(ERROR_MESSAGES.InvalidCredentials);
     expect(describeLoginError({ status: 429, retryAfter: '120' })).toBe('Too many attempts. Try again in 2 minutes.');
     expect(describeLoginError(new TypeError('Failed to fetch'))).toBe(ERROR_MESSAGES.NetworkError);
+    expect(describeLoginError(new CloudflareSessionError())).toMatch(/Cloudflare sign-in/);
     expect(describeLoginError({ status: 500 })).toBe(ERROR_MESSAGES.ServerError);
   });
 });

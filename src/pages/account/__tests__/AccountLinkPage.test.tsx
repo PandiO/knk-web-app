@@ -36,6 +36,7 @@ describe('AccountLinkPage (/account/link)', () => {
 
     expect(screen.getByText(/Java Edition 26.3/)).toBeInTheDocument();
     expect(screen.getByText(/stopped with a code/)).toBeInTheDocument();
+    expect(screen.getByTestId('claim-code-lifetime')).toHaveTextContent(/same.*code.*new one/);
     expect(screen.getByLabelText('Code from the server')).toHaveValue('K7QHM2XA');
   });
 
