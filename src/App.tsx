@@ -51,7 +51,7 @@ import { LinkPage } from './pages/auth/LinkPage';
 import { AccountLinkPage } from './pages/account/AccountLinkPage';
 import { UnlinkedBanner } from './components/UnlinkedBanner';
 import { NotFoundPage } from './pages/NotFoundPage';
-import { CONTENT_PERMISSION_NODE } from './hooks/useStaffAccess';
+import { CONTENT_PERMISSION_NODE, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE } from './hooks/useStaffAccess';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useEntityMetadata } from './hooks/useEntityMetadata';
 
@@ -174,14 +174,17 @@ function AppContent() {
                   <DisplayConfigBuilder />
                 </StaffRoute>
               } />
+              {/* Game Settings and Siege settings need the node their API checks (#185):
+                  knk.admin.config for every Game Settings write and the hub-domain list,
+                  knk.siege.admin.manage for the siege configuration save. */}
               <Route path="/admin/game-settings" element={
-                <StaffRoute>
+                <StaffRoute node={SERVER_CONFIG_PERMISSION_NODE}>
                   <GameSettingsPage />
                 </StaffRoute>
               } />
               {/* Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables */}
               <Route path="/admin/siege-configuration" element={
-                <StaffRoute>
+                <StaffRoute node={SIEGE_ADMIN_PERMISSION_NODE}>
                   <SiegeConfigurationPage />
                 </StaffRoute>
               } />
