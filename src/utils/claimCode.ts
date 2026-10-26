@@ -22,6 +22,12 @@ export const CLAIM_CODE_SEPARATOR_NAME = CLAIM_CODE_SEPARATOR === ' ' ? 'space' 
 /** How a claim code looks, for help texts: XXXX-XXXX. */
 export const CLAIM_CODE_SHAPE = `XXXX${CLAIM_CODE_SEPARATOR}XXXX`;
 
+/** One empty character slot in the claim code field's mask (#196). */
+export const CLAIM_CODE_SLOT = '_';
+
+/** The mask the claim code field shows from the start (#196): ____-____, with the separator in place. */
+export const CLAIM_CODE_MASK = `${CLAIM_CODE_SLOT.repeat(CLAIM_CODE_GROUP_LENGTH)}${CLAIM_CODE_SEPARATOR}${CLAIM_CODE_SLOT.repeat(CLAIM_CODE_LENGTH - CLAIM_CODE_GROUP_LENGTH)}`;
+
 /** The example code in placeholders and help texts: K7QH-M2XA. */
 export const CLAIM_CODE_EXAMPLE = `K7QH${CLAIM_CODE_SEPARATOR}M2XA`;
 
