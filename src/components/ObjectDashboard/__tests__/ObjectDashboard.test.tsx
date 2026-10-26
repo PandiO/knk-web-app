@@ -318,6 +318,25 @@ describe('ObjectDashboard as the CRUD hub (#177 link 2)', () => {
         expect(mockNavigate).toHaveBeenCalledWith('/forms/Street?autoOpen=true&returnTo=%2Fdashboard%2FStreet');
     });
 
+    it('puts the title, "New {Type}" and the cogwheel on one spaced row of equal height (#195)', async () => {
+        const { container } = render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+
+        // Both columns start below the app's header, not against it.
+        expect(container.firstChild).toHaveClass('dashboard-parent', 'pt-6');
+        const header = screen.getByTestId('dashboard-header');
+        expect(header).toHaveClass('flex', 'items-center', 'justify-between', 'min-h-9');
+        const title = within(header).getByRole('heading', { level: 2, name: 'Street' });
+        expect(title).toHaveClass('leading-9', 'text-gray-900');
+        const newButton = within(header).getByRole('button', { name: 'New Street' });
+        const configure = within(header).getByRole('button', { name: 'Configure Street' });
+        expect(newButton).toHaveClass('btn-primary', 'h-9');
+        expect(configure).toHaveClass('btn-secondary', 'h-9', 'w-9');
+        // Title first, then the buttons in one group, all children of the same row.
+        expect(newButton.parentElement).toBe(configure.parentElement);
+        expect(Array.from(header.children)).toEqual([title, newButton.parentElement]);
+    });
+
     it('opens the Entity setup page of the type with the cogwheel', async () => {
         render(<ObjectDashboard objectTypes={[]} />);
         await screen.findByTestId('table');

@@ -290,7 +290,9 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     };
 
     return (
-        <div className="dashboard-parent">
+        // #195: pt-6 spaces both columns from the app's top header (the page wrapper's top padding
+        // is exactly the header's height), so the explorer, the title row and the table start lower.
+        <div className="dashboard-parent pt-6">
             <div className="dashboard-sidebar">
                 <ObjectTypeExplorer
                     items={objectTypes}
@@ -304,24 +306,28 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
             </div>
             <div className="dashboard-content">
                 <div>
-                    <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-                        <h2 className="text-3xl font-bold text-gray-900">
+                    {/* #195: title and buttons on one row, centred on each other; the row is as tall as
+                        the buttons (h-9) whether they show or not, and starts level with the explorer. */}
+                    <div className="mb-6 flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2" data-testid="dashboard-header">
+                        <h2 className="min-w-0 break-words text-3xl font-bold leading-9 text-gray-900">
                             {typeLabel || 'Items'}
                         </h2>
                         {selectedType && selectedIsKnown && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex min-w-0 max-w-full items-center gap-2">
+                                {/* On a phone a long type name is cut off rather than pushing ⚙ off-screen. */}
                                 <button
                                     type="button"
                                     onClick={handleNew}
-                                    className="btn-primary inline-flex items-center gap-2 whitespace-nowrap"
+                                    className="btn-primary h-9 min-w-0 whitespace-nowrap"
+                                    title={`New ${typeLabel}`}
                                 >
                                     <Plus className="h-4 w-4" aria-hidden="true" />
-                                    New {typeLabel}
+                                    <span className="truncate">New {typeLabel}</span>
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => navigate(entitySetupPath(selectedType))}
-                                    className="btn-secondary inline-flex items-center p-2"
+                                    className="btn-secondary h-9 w-9 flex-shrink-0 p-0"
                                     aria-label={`Configure ${typeLabel}`}
                                     title={`Configure ${typeLabel}: form and display configurations, default columns`}
                                 >
