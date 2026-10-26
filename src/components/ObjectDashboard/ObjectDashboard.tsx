@@ -15,6 +15,7 @@ import { logging } from '../../utils';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { buildReturnTo, dashboardPath, displayPath, editFormPath, entityEditPath, entitySetupPath, newFormPath } from '../../utils/returnTo';
 import { readLastDashboardType, writeLastDashboardType } from '../../utils/lastDashboardType';
+import { readDashboardFavourites, toggleFavourite, writeDashboardFavourites } from '../../utils/dashboardFavourites';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
@@ -65,6 +66,16 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     // True once the display configurations answered (or failed), so the default selection can
     // prefer a type that has one.
     const [displayConfigsSettled, setDisplayConfigsSettled] = useState(false);
+    // #194: starred types, listed first in the explorer; per browser.
+    const [favouriteNames, setFavouriteNames] = useState<string[]>(readDashboardFavourites);
+    const favourites = useMemo(() => ({
+        entityNames: new Set(favouriteNames.map(name => name.toLowerCase())) as ReadonlySet<string>,
+        onToggle: (entityName: string) => setFavouriteNames(previous => {
+            const next = toggleFavourite(previous, entityName);
+            writeDashboardFavourites(next);
+            return next;
+        }),
+    }), [favouriteNames]);
 
     useEffect(() => {
         let cancelled = false;
@@ -288,6 +299,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                     selectedId={selectedType}
                     storageKey="dashboard"
                     marked={withoutDisplayConfiguration ? { entityNames: withoutDisplayConfiguration, hint: viewHint } : undefined}
+                    favourites={favourites}
                 />
             </div>
             <div className="dashboard-content">

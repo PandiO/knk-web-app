@@ -184,6 +184,49 @@ describe('ObjectDashboard entity navigator', () => {
     });
 });
 
+describe('ObjectDashboard favourite types (PandiO/knk-workspace#194)', () => {
+    // Category and Town have no display configuration here: drop their marker's hint text.
+    const typeNames = (container: HTMLElement) =>
+        itemLabels(container).map(text => text?.replace('No display configuration – set one up via ⚙', ''));
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        window.localStorage.clear();
+        mockMetadata = { baseMetadata: loadedMetadata, loading: false };
+        mockParams = { entityName: 'District' };
+        mockLocation = { pathname: '/dashboard/District', search: '' };
+        getAll.mockResolvedValue([config('Street', true, false), config('District', true, false)]);
+    });
+
+    it('stars a type to the top of the explorer and remembers it in this browser', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
+
+        fireEvent.click(within(sidebar).getByRole('button', { name: 'Add Town to favourites' }));
+        fireEvent.click(within(sidebar).getByRole('button', { name: 'Add Category to favourites' }));
+
+        expect(typeNames(within(sidebar).getByRole('region', { name: 'Favourites' }))).toEqual(['Category', 'Town']);
+        expect(typeNames(sidebar)).toEqual(['Category', 'Town', 'District', 'Street']);
+        expect(JSON.parse(window.localStorage.getItem('knk.dashboard.favouriteEntityTypes') ?? '[]')).toEqual(['Town', 'Category']);
+        expect(mockNavigate).not.toHaveBeenCalled();
+
+        fireEvent.click(within(sidebar).getByRole('button', { name: 'Remove Town from favourites' }));
+        expect(typeNames(sidebar)).toEqual(['Category', 'District', 'Street', 'Town']);
+        expect(JSON.parse(window.localStorage.getItem('knk.dashboard.favouriteEntityTypes') ?? '[]')).toEqual(['Category']);
+    });
+
+    it('lists the stored favourites first on the next visit', async () => {
+        window.localStorage.setItem('knk.dashboard.favouriteEntityTypes', '["Street","town"]');
+
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+
+        expect(typeNames(screen.getByRole('complementary', { name: 'Sidebar' })))
+            .toEqual(['Street', 'Town', 'Category', 'District']);
+    });
+});
+
 describe('ObjectDashboard type in the URL (#177 link 1, #58)', () => {
     beforeEach(() => {
         jest.clearAllMocks();
