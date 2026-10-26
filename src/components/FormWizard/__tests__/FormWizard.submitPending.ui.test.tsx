@@ -102,7 +102,7 @@ describe('FormWizard submit pending state (#177 link 1)', () => {
         const onSubmittingChange = jest.fn();
 
         render(
-            <FormWizard entityName="town" userId="1" onComplete={onComplete} onCompleted={onCompleted} onSubmittingChange={onSubmittingChange} />
+            <FormWizard entityName="town" onComplete={onComplete} onCompleted={onCompleted} onSubmittingChange={onSubmittingChange} />
         );
         fireEvent.click(await screen.findByRole('button', { name: /^submit$/i }));
 
@@ -131,7 +131,7 @@ describe('FormWizard submit pending state (#177 link 1)', () => {
         const onComplete = jest.fn().mockResolvedValue(false);
         const onCompleted = jest.fn();
 
-        render(<FormWizard entityName="town" userId="1" onComplete={onComplete} onCompleted={onCompleted} />);
+        render(<FormWizard entityName="town" onComplete={onComplete} onCompleted={onCompleted} />);
         fireEvent.click(await screen.findByRole('button', { name: /^submit$/i }));
 
         await waitFor(() => expect(onComplete).toHaveBeenCalled());
@@ -145,7 +145,7 @@ describe('FormWizard submit pending state (#177 link 1)', () => {
         const onComplete = jest.fn().mockRejectedValue(new Error('refused'));
         const onCompleted = jest.fn();
 
-        render(<FormWizard entityName="town" userId="1" onComplete={onComplete} onCompleted={onCompleted} />);
+        render(<FormWizard entityName="town" onComplete={onComplete} onCompleted={onCompleted} />);
         fireEvent.click(await screen.findByRole('button', { name: /^submit$/i }));
 
         await waitFor(() => expect(onComplete).toHaveBeenCalled());
@@ -159,7 +159,7 @@ describe('FormWizard submit pending state (#177 link 1)', () => {
         const onComplete = jest.fn();
         const onCompleted = jest.fn();
 
-        render(<FormWizard entityName="town" userId="1" onComplete={onComplete} onCompleted={onCompleted} />);
+        render(<FormWizard entityName="town" onComplete={onComplete} onCompleted={onCompleted} />);
         fireEvent.click(await screen.findByRole('button', { name: /^submit$/i }));
 
         await waitFor(() => expect(onCompleted).toHaveBeenCalled());

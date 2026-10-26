@@ -14,12 +14,16 @@ export class FormSubmissionClient extends ObjectManager {
         return FormSubmissionClient.instance;
     }
 
-    getByEntityTypeName(entityTypeName: string, userId: string | undefined, isSummary: boolean | undefined): Promise<FormSubmissionProgressDto[] | FormSubmissionProgressSummaryDto[]> {
-        return this.invokeServiceCall({entityTypeName, userId, isSummary}, FormSubmissionProgressOperation.GetByEntityTypeName, Controllers.FormSubmissionProgress, HttpMethod.Get);
+    /**
+     * The logged-in user's own submissions of a type ("Saved Progress"). The API takes the user
+     * from the token (#186), so no user id is sent.
+     */
+    getByEntityTypeName(entityTypeName: string, isSummary: boolean | undefined): Promise<FormSubmissionProgressDto[] | FormSubmissionProgressSummaryDto[]> {
+        return this.invokeServiceCall({ entityTypeName, isSummary, mine: true }, FormSubmissionProgressOperation.GetByEntityTypeName, Controllers.FormSubmissionProgress, HttpMethod.Get);
     }
 
     /**
-     * Finds submissions (drafts included) for an entity type whose saved field data has a
+     * Finds every staff member's submissions (drafts included) for an entity type whose saved field data has a
      * property matching the given value - e.g. every GateDoor submission whose GateStructureId
      * is 14. Always requests summaries: this is for lightweight "here are the drafts for this
      * parent" lists, not full step data. See FormSubmissionProgressRepository.GetByEntityTypeNameAsync
@@ -35,8 +39,9 @@ export class FormSubmissionClient extends ObjectManager {
         );
     }
 
-    getByUser(userId: string): Promise<FormSubmissionProgressDto[]> {
-        return this.invokeServiceCall({ userId }, FormSubmissionProgressOperation.GetByUser, Controllers.FormSubmissionProgress, HttpMethod.Get);
+    /** The logged-in user's own submissions (the API takes the user from the token, #186). */
+    getMine(): Promise<FormSubmissionProgressDto[]> {
+        return this.invokeServiceCall(null, FormSubmissionProgressOperation.GetByUser, Controllers.FormSubmissionProgress, HttpMethod.Get);
     }
 
     getById(id: string): Promise<FormSubmissionProgressDto> {

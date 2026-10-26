@@ -142,7 +142,7 @@ export interface FormConfigurationDto {
 export interface FormSubmissionProgressDto {
     id?: string;
     formConfigurationId: string;
-    userId?: string;
+    userId?: string; // the owner; set by the API from the logged-in user (#186), not sent
     entityTypeName?: string;
     entityId?: string;
     currentStepIndex: number;

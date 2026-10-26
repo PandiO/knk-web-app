@@ -143,7 +143,7 @@ describe('FormWizard validation result log (KNG-269)', () => {
         resumedDraft();
         (fieldValidationRuleClient.validateFields as jest.Mock).mockResolvedValue(batchAnswer(cachedFailure()));
 
-        render(<FormWizard entityName="District" userId="1" existingProgressId="55" />);
+        render(<FormWizard entityName="District" existingProgressId="55" />);
         await screen.findByDisplayValue('Old Quarter');
 
         clickNext();
@@ -164,7 +164,7 @@ describe('FormWizard validation result log (KNG-269)', () => {
         resumedDraft();
         (fieldValidationRuleClient.validateFields as jest.Mock).mockResolvedValue(batchAnswer(cachedFailure()));
 
-        render(<FormWizard entityName="District" userId="1" existingProgressId="55" />);
+        render(<FormWizard entityName="District" existingProgressId="55" />);
         await screen.findByDisplayValue('Old Quarter');
         clickNext();
         const recheck = await screen.findByRole('button', { name: /^re-check$/i });
@@ -187,7 +187,7 @@ describe('FormWizard validation result log (KNG-269)', () => {
             metadata: { validationType: 'ConditionalRequired', executedAt: new Date().toISOString(), fromCache: false }
         }));
 
-        render(<FormWizard entityName="District" userId="1" existingProgressId="55" />);
+        render(<FormWizard entityName="District" existingProgressId="55" />);
         await screen.findByDisplayValue('Old Quarter');
         clickNext();
 
@@ -199,7 +199,7 @@ describe('FormWizard validation result log (KNG-269)', () => {
         resumedDraft();
         (fieldValidationRuleClient.validateFields as jest.Mock).mockResolvedValue(batchAnswer({ isValid: true, isBlocking: false, message: 'ok' }));
 
-        render(<FormWizard entityName="District" userId="1" existingProgressId="55" />);
+        render(<FormWizard entityName="District" existingProgressId="55" />);
         await screen.findByDisplayValue('Old Quarter');
         clickNext();
 
@@ -213,7 +213,7 @@ describe('FormWizard validation result log (KNG-269)', () => {
             metadata: { validationType: 'ConditionalRequired', executedAt: twoHoursAgo(), fromCache: true }
         }));
 
-        render(<FormWizard entityName="District" userId="1" existingProgressId="55" />);
+        render(<FormWizard entityName="District" existingProgressId="55" />);
         await screen.findByDisplayValue('Old Quarter');
         clickNext();
         await onDetailsStep();
@@ -230,7 +230,7 @@ describe('FormWizard validation result log (KNG-269)', () => {
         (getFetchByIdFunctionForEntity as jest.Mock).mockReturnValue(async () => ({ id: 17, Name: 'Old Quarter' }));
         (fieldValidationRuleClient.validateFields as jest.Mock).mockResolvedValue(batchAnswer({ isValid: true, isBlocking: false, message: 'ok' }));
 
-        render(<FormWizard entityName="District" entityId="17" userId="1" />);
+        render(<FormWizard entityName="District" entityId="17" />);
         await screen.findByDisplayValue('Old Quarter');
         clickNext();
 
@@ -245,7 +245,7 @@ describe('FormWizard validation result log (KNG-269)', () => {
         resumedDraft();
         (fieldValidationRuleClient.validateFields as jest.Mock).mockRejectedValue(new Error('offline'));
 
-        render(<FormWizard entityName="District" userId="1" existingProgressId="55" />);
+        render(<FormWizard entityName="District" existingProgressId="55" />);
         await screen.findByDisplayValue('Old Quarter');
         clickNext();
 

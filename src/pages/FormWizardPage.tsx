@@ -174,8 +174,6 @@ export const FormWizardPage: React.FC<Props> = ({
         action?.();
     };
 
-    const userId = '1'; // TODO: Get from auth context
-
     // Load merged metadata for UI context and selection display
     const {
         allMergedMetadata,
@@ -339,7 +337,6 @@ export const FormWizardPage: React.FC<Props> = ({
                     const cfgIdNum = defaultConfig.id ? parseInt(String(defaultConfig.id), 10) : undefined;
                     const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
                     const session = await workflowClient.createSession({
-                        userId: parseInt(userId, 10) || 0,
                         formConfigurationId: cfgIdNum,
                         entityTypeName: selectedTypeName,
                         entityId: entityIdNum
@@ -352,7 +349,7 @@ export const FormWizardPage: React.FC<Props> = ({
             }
         };
         void tryOpen();
-    }, [autoOpenForm, defaultConfig, loadingConfigs, wizardConfig, entityId, selectedTypeName, userId]);
+    }, [autoOpenForm, defaultConfig, loadingConfigs, wizardConfig, entityId, selectedTypeName]);
 
     useEffect(() => {
         if (!selectedTypeName) {
@@ -387,7 +384,6 @@ export const FormWizardPage: React.FC<Props> = ({
                     const cfgIdNum = defaultCfg.id ? parseInt(String(defaultCfg.id), 10) : undefined;
                     const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
                     const session = await workflowClient.createSession({
-                        userId: parseInt(userId, 10) || 0,
                         formConfigurationId: cfgIdNum,
                         entityTypeName: selectedTypeName,
                         entityId: entityIdNum
@@ -423,7 +419,7 @@ export const FormWizardPage: React.FC<Props> = ({
             setDefaultConfig(sortedConfigs.find(c => c.isDefault) || null);
 
             // Fetch saved progress
-            const progress = await formSubmissionClient.getByEntityTypeName(entityTypeName, userId, true) as FormSubmissionProgressSummaryDto[];
+            const progress = await formSubmissionClient.getByEntityTypeName(entityTypeName, true) as FormSubmissionProgressSummaryDto[];
             const entityProgress = progress.filter(p => 
                 p.entityTypeName?.toLowerCase() === entityTypeName.toLowerCase()
             );
@@ -469,7 +465,6 @@ export const FormWizardPage: React.FC<Props> = ({
             const cfgIdNum = config.id ? parseInt(String(config.id), 10) : undefined;
             const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
             const session = await workflowClient.createSession({
-                userId: parseInt(userId, 10) || 0,
                 formConfigurationId: cfgIdNum,
                 entityTypeName: selectedTypeName,
                 entityId: entityIdNum
@@ -1222,7 +1217,6 @@ export const FormWizardPage: React.FC<Props> = ({
                                 entityName={selectedTypeName}
                                 entityId={entityId}
                                 formConfigurationId={wizardConfig.id}
-                                userId={userId}
                                 onComplete={(data, progress) => handleComplete(data, progress)}
                                 onCompleted={handleCompleted}
                                 onSubmittingChange={setSubmitting}

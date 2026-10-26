@@ -167,7 +167,7 @@ describe('Edit instance seeds the child form from what the parent holds (KNG-134
     });
 
     it('opens a captured Location (no id) as "Edit Location" with its values, and keeps the edit', async () => {
-        render(<FormWizard entityName="town" userId="1" initialFieldValues={{ Location: CAPTURED }} onComplete={() => {}} />);
+        render(<FormWizard entityName="town" initialFieldValues={{ Location: CAPTURED }} onComplete={() => {}} />);
 
         fireEvent.click((await screen.findAllByRole('button', { name: /edit instance/i }))[0]);
 
@@ -191,7 +191,7 @@ describe('Edit instance seeds the child form from what the parent holds (KNG-134
     });
 
     it('shows the first edit of a saved Location when it is edited a second time, and keeps its id', async () => {
-        render(<FormWizard entityName="town" entityId="19" userId="1" onComplete={() => {}} />);
+        render(<FormWizard entityName="town" entityId="19" onComplete={() => {}} />);
 
         fireEvent.click((await screen.findAllByRole('button', { name: /edit instance/i }))[0]);
         fireEvent.change(await screen.findByDisplayValue('Kardenna spawn'), { target: { value: 'Kardenna gate' } });
@@ -229,7 +229,6 @@ describe('A world task inherited by a child Location form (KNG-134, spec §2.3)'
         render(
             <FormWizard
                 entityName="location"
-                userId="1"
                 fieldName="Location"
                 worldTaskHint="LocationSelection"
                 workflowSessionId={700}

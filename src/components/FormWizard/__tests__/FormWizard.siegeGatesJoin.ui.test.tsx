@@ -134,7 +134,7 @@ describe('Siege authoring: scenario Gates M2M with three join fields (edit mode)
 
     it('hydrates saved rows, edits one from its saved values with a scenario-scoped team picker, and submits every join field', async () => {
         const onComplete = jest.fn();
-        render(<FormWizard entityName="siegescenario" entityId="1" userId="1" onComplete={onComplete} />);
+        render(<FormWizard entityName="siegescenario" entityId="1" onComplete={onComplete} />);
 
         // Saved row -> relationship card with the gate's name and its join values.
         await waitFor(() => expect(screen.getByText('South Gate')).toBeInTheDocument());
@@ -181,7 +181,7 @@ describe('Siege authoring: scenario Gates M2M with three join fields (edit mode)
 
     it('blocks the owner-team picker while the scenario is unsaved (no id to scope teams to)', async () => {
         (getFetchByIdFunctionForEntity as jest.Mock).mockImplementation(() => async () => ({ id: undefined, gates: [] }));
-        render(<FormWizard entityName="siegescenario" userId="1" onComplete={jest.fn()} />);
+        render(<FormWizard entityName="siegescenario" onComplete={jest.fn()} />);
 
         await waitFor(() => expect(screen.getByRole('button', { name: /create new join entry/i })).toBeInTheDocument());
         fireEvent.click(screen.getByRole('button', { name: /create new join entry/i }));

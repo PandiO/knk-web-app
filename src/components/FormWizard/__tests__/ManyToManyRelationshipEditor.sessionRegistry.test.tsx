@@ -77,7 +77,6 @@ describe('ManyToManyRelationshipEditor: created related entity joins the form se
                     value={[]}
                     onChange={jest.fn()}
                     entityName="SiegeScenario"
-                    userId="user-1"
                 />
             </FormSessionScope>
         );

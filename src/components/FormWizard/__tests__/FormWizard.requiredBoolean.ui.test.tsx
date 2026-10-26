@@ -149,7 +149,7 @@ describe('FormWizard required Boolean left untouched (KNG-53)', () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig());
         const onComplete = jest.fn();
 
-        render(<FormWizard entityName="PermissionGroup" userId="1" onComplete={onComplete} />);
+        render(<FormWizard entityName="PermissionGroup" onComplete={onComplete} />);
         await screen.findByRole('checkbox');
         expect(screen.getByRole('checkbox')).not.toBeChecked();
 
@@ -166,7 +166,7 @@ describe('FormWizard required Boolean left untouched (KNG-53)', () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig());
         const onComplete = jest.fn();
 
-        render(<FormWizard entityName="PermissionGroup" userId="1" onComplete={onComplete} />);
+        render(<FormWizard entityName="PermissionGroup" onComplete={onComplete} />);
         fireEvent.click(await screen.findByRole('checkbox'));
 
         clickNext();
@@ -191,7 +191,7 @@ describe('FormWizard required Boolean left untouched (KNG-53)', () => {
             childProgresses: []
         });
 
-        render(<FormWizard entityName="PermissionGroup" userId="1" existingProgressId="55" />);
+        render(<FormWizard entityName="PermissionGroup" existingProgressId="55" />);
         await screen.findByRole('checkbox');
 
         clickNext();
@@ -204,7 +204,7 @@ describe('FormWizard required Boolean left untouched (KNG-53)', () => {
         (getFetchByIdFunctionForEntity as jest.Mock).mockReturnValue(async () => ({ id: 3, Kind: 'free', IsPremiumTier: null }));
         const onComplete = jest.fn();
 
-        render(<FormWizard entityName="PermissionGroup" entityId="3" userId="1" onComplete={onComplete} />);
+        render(<FormWizard entityName="PermissionGroup" entityId="3" onComplete={onComplete} />);
         await screen.findByRole('checkbox');
 
         clickNext();
@@ -220,7 +220,7 @@ describe('FormWizard required Boolean left untouched (KNG-53)', () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig(premiumField({ defaultValue: 'true' })));
         (getFetchByIdFunctionForEntity as jest.Mock).mockReturnValue(async () => ({ id: 3, Kind: 'free', isPremiumTier: false }));
 
-        render(<FormWizard entityName="PermissionGroup" entityId="3" userId="1" />);
+        render(<FormWizard entityName="PermissionGroup" entityId="3" />);
         expect(await screen.findByRole('checkbox')).not.toBeChecked();
 
         clickNext();
@@ -234,7 +234,6 @@ describe('FormWizard required Boolean left untouched (KNG-53)', () => {
         render(
             <FormWizard
                 entityName="PermissionGroup"
-                userId="1"
                 parentProgressId="12"
                 initialFieldValues={{ Kind: 'free', IsPremiumTier: null }}
             />
@@ -252,7 +251,6 @@ describe('FormWizard required Boolean left untouched (KNG-53)', () => {
         render(
             <FormWizard
                 entityName="PermissionGroup"
-                userId="1"
                 parentProgressId="12"
                 initialFieldValues={{ Kind: 'free', IsPremiumTier: false }}
             />
@@ -270,7 +268,6 @@ describe('FormWizard required Boolean left untouched (KNG-53)', () => {
         render(
             <FormWizard
                 entityName="PermissionGroup"
-                userId="1"
                 parentProgressId="12"
                 initialFieldValues={{ Kind: 'free', IsPremiumTier: true }}
             />
@@ -281,7 +278,7 @@ describe('FormWizard required Boolean left untouched (KNG-53)', () => {
     it('field that becomes visible conditionally: Next passes and false is saved', async () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig(conditionalPremium()));
 
-        render(<FormWizard entityName="PermissionGroup" userId="1" />);
+        render(<FormWizard entityName="PermissionGroup" />);
         const kind = await screen.findByRole('textbox');
         expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
 
@@ -296,7 +293,7 @@ describe('FormWizard required Boolean left untouched (KNG-53)', () => {
     it('hide/show does not turn an unchecked Boolean back into a missing value', async () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig(conditionalPremium()));
 
-        render(<FormWizard entityName="PermissionGroup" userId="1" />);
+        render(<FormWizard entityName="PermissionGroup" />);
         const kind = await screen.findByRole('textbox');
 
         fireEvent.change(kind, { target: { value: 'paid' } });
@@ -314,7 +311,7 @@ describe('FormWizard required Boolean left untouched (KNG-53)', () => {
     it('returning to the previous step keeps the explicit false', async () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig());
 
-        render(<FormWizard entityName="PermissionGroup" userId="1" />);
+        render(<FormWizard entityName="PermissionGroup" />);
         await screen.findByRole('checkbox');
 
         clickNext();

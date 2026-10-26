@@ -68,7 +68,6 @@ interface FormWizardProps {
     initialFieldValues?: Record<string, unknown>;
     // KNG-134: edit mode only - values laid over the database load (the parent's in-session edits).
     overlayFieldValues?: Record<string, unknown>;
-    userId: string;
     // Saves the entity. Awaited inside the submit's pending state (#177 link 1); resolve `false` or
     // throw when nothing was saved, and the progress stays as it was instead of being marked Completed.
     onComplete?: (data: Record<string, unknown>, progress?: FormSubmissionProgressDto) => void | boolean | Promise<void | boolean>;
@@ -98,7 +97,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     formConfigurationId, // added
     initialFieldValues,
     overlayFieldValues,
-    userId,
     onComplete,
     onCompleted,
     onSubmittingChange,
@@ -1943,7 +1941,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 const childProgress: FormSubmissionProgressDto = {
                     id: undefined,
                     formConfigurationId: config!.id!,
-                    userId,
                     entityTypeName: childFormModal.entityTypeName,
                     currentStepIndex: 0,
                     currentStepDataJson: JSON.stringify(childData),
@@ -2345,7 +2342,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         const progressData: FormSubmissionProgressDto = {
                 id: progressId,
                 formConfigurationId: config!.id!,
-                userId,
                 entityTypeName: entityName,
                 entityId: entityId, // CRITICAL: preserve entityId for edit mode
                 currentStepIndex,
@@ -2713,7 +2709,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         entityName={entityName}
                         parentEntityTypeName={config.entityTypeName || entityName}
                         entityId={entityId}
-                        userId={userId}
                         parentProgressId={progressId}
                         joinFormConfigurationId={currentStep.subConfigurationId}
                         onOpenJoinEntry={handleOpenJoinEntry}
@@ -2934,7 +2929,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 entityId={childFormModal.entityId}
                 existingProgressId={childFormModal.existingProgressId}
                 parentProgressId={progressId}
-                userId={userId}
                 fieldName={childFormModal.fieldName}
                 currentStepIndex={currentStepIndex}
                 workflowSessionId={childFormModal.worldTaskHint ? workflowSessionId : undefined}
@@ -2954,7 +2948,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 formConfigurationId={joinEntryModal.joinConfigurationId}
                 initialFieldValues={joinEntryModal.initialFieldValues}
                 parentProgressId={joinEntryModal.parentProgressId}
-                userId={userId}
                 existingProgressId={joinEntryModal.existingProgressId}
                 parentContext={joinEntryModal.parentContext}
                 onComplete={handleJoinEntryComplete}

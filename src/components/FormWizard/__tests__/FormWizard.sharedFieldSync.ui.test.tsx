@@ -110,7 +110,7 @@ describe('FormWizard fields bound to the same property (KNG-120)', () => {
     it('fills the later copy, writes edits back to the earlier one and submits the value', async () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig());
         const onComplete = jest.fn();
-        render(<FormWizard entityName="District" userId="1" onComplete={onComplete} />);
+        render(<FormWizard entityName="District" onComplete={onComplete} />);
 
         await input('Location');
         await type('Name', 'Old Town');
@@ -155,7 +155,7 @@ describe('FormWizard fields bound to the same property (KNG-120)', () => {
             childProgresses: []
         });
 
-        render(<FormWizard entityName="District" userId="1" existingProgressId="55" />);
+        render(<FormWizard entityName="District" existingProgressId="55" />);
 
         expect(await input('Spawn location')).toHaveValue('7');
     });

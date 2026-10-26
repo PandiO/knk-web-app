@@ -114,7 +114,6 @@ describe('ManyToManyRelationshipEditor relationship drafts', () => {
                 onChange={onChange}
                 entityName="ItemBlueprint"
                 entityId="9"
-                userId="1"
                 joinFormConfigurationId="6"
                 onOpenJoinEntry={onOpenJoinEntry}
             />
@@ -151,7 +150,6 @@ describe('ManyToManyRelationshipEditor relationship drafts', () => {
                 onChange={jest.fn()}
                 entityName="ItemBlueprint"
                 entityId="9"
-                userId="1"
             />
         );
 

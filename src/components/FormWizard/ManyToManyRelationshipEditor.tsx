@@ -32,7 +32,6 @@ interface Props {
     entityId?: string; // Parent entity's own id, once saved - used to look up its join-entry drafts
     joinFormConfigurationId?: string;
     onOpenJoinEntry?: (relationshipIndex: number) => void;
-    userId: string;
     parentProgressId?: string;
     // Validation support
     validationRules?: Record<number, FieldValidationRuleDto[]>;
@@ -54,7 +53,6 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     entityId,
     joinFormConfigurationId,
     onOpenJoinEntry,
-    userId,
     parentProgressId,
     validationResults = {},
     onValidateField
@@ -836,7 +834,6 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                 open={showCreateRelatedModal}
                 entityTypeName={relatedEntityType}
                 parentProgressId={parentProgressId}
-                userId={userId}
                 fieldName={`__m2m_related_${step.relatedEntityPropertyName || 'relationships'}`}
                 currentStepIndex={0}
                 onComplete={handleCreateRelatedEntity}

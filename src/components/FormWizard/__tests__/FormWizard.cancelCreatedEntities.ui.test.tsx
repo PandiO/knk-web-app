@@ -173,7 +173,7 @@ describe('Cancel a root form after its child forms saved entities (KNG-162)', ()
         render(
             <FormSessionRoot>
                 <FormCancelAction onLeave={onLeave} deps={deps} />
-                <FormWizard entityName="gatestructure" userId="1" onComplete={jest.fn()} existingProgressId={existingProgressId} />
+                <FormWizard entityName="gatestructure" onComplete={jest.fn()} existingProgressId={existingProgressId} />
             </FormSessionRoot>
         );
 

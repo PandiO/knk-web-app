@@ -9,7 +9,6 @@ interface JoinEntityFormModalProps {
     formConfigurationId: string;
     initialFieldValues?: Record<string, unknown>;
     parentProgressId?: string;
-    userId: string;
     existingProgressId?: string;
     // The parent form's current values + id (-1 while unsaved), for pickerFilters {parent.X} tokens.
     parentContext?: Record<string, unknown>;
@@ -23,7 +22,6 @@ export const JoinEntityFormModal: React.FC<JoinEntityFormModalProps> = ({
     formConfigurationId,
     initialFieldValues,
     parentProgressId,
-    userId,
     existingProgressId,
     parentContext,
     onComplete,
@@ -78,7 +76,6 @@ export const JoinEntityFormModal: React.FC<JoinEntityFormModalProps> = ({
                                 entityName={entityTypeName}
                                 formConfigurationId={formConfigurationId}
                                 initialFieldValues={initialFieldValues}
-                                userId={userId}
                                 existingProgressId={existingProgressId}
                                 parentProgressId={parentProgressId}
                                 parentContext={parentContext}

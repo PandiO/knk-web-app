@@ -126,7 +126,7 @@ describe('FormWizard step completion condition (KNG-186)', () => {
     it('a failing completion condition stops Next and shows its message', async () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig([mustAgree()]));
 
-        render(<FormWizard entityName="PermissionGroup" userId="1" />);
+        render(<FormWizard entityName="PermissionGroup" />);
         expect(await screen.findByRole('checkbox')).not.toBeChecked();
 
         clickNext();
@@ -140,7 +140,7 @@ describe('FormWizard step completion condition (KNG-186)', () => {
     it('once the condition holds, Next moves on', async () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig([mustAgree()]));
 
-        render(<FormWizard entityName="PermissionGroup" userId="1" />);
+        render(<FormWizard entityName="PermissionGroup" />);
         fireEvent.click(await screen.findByRole('checkbox'));
 
         clickNext();
@@ -152,7 +152,7 @@ describe('FormWizard step completion condition (KNG-186)', () => {
     it('a condition the admin switched off (isActive: false) does not stop Next', async () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig([mustAgree({ isActive: false })]));
 
-        render(<FormWizard entityName="PermissionGroup" userId="1" />);
+        render(<FormWizard entityName="PermissionGroup" />);
         expect(await screen.findByRole('checkbox')).not.toBeChecked();
 
         clickNext();
@@ -165,7 +165,7 @@ describe('FormWizard step completion condition (KNG-186)', () => {
         const { isActive, ...withoutFlag } = mustAgree();
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig([withoutFlag as StepConditionDto]));
 
-        render(<FormWizard entityName="PermissionGroup" userId="1" />);
+        render(<FormWizard entityName="PermissionGroup" />);
         expect(await screen.findByRole('checkbox')).not.toBeChecked();
 
         clickNext();
@@ -177,7 +177,7 @@ describe('FormWizard step completion condition (KNG-186)', () => {
     it('an Entry condition is not checked on Next', async () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig([mustAgree({ conditionType: 'Entry' })]));
 
-        render(<FormWizard entityName="PermissionGroup" userId="1" />);
+        render(<FormWizard entityName="PermissionGroup" />);
         expect(await screen.findByRole('checkbox')).not.toBeChecked();
 
         clickNext();

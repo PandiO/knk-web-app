@@ -1,7 +1,7 @@
 // Workflow and WorldTask DTOs matching backend contracts
 
 export interface WorkflowSessionCreateDto {
-  userId: number;
+  // No userId: the API makes the logged-in user the owner (#186).
   formConfigurationId?: number;
   entityTypeName?: string;
   entityId?: number;

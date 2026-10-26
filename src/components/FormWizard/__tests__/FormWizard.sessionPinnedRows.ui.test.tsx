@@ -156,7 +156,7 @@ describe('GateStructure -> Street -> District: the new District is pinned in the
 
     it('pins the District made two levels down in the GateStructure District picker, selectable and submitted', async () => {
         const onComplete = jest.fn();
-        render(<FormWizard entityName="gatestructure" userId="1" onComplete={onComplete} />);
+        render(<FormWizard entityName="gatestructure" onComplete={onComplete} />);
 
         await screen.findByText('Gate name');
         fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'North Gate' } });
