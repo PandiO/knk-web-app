@@ -9,15 +9,17 @@ import { authService } from '../../services/authService';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { useOnboardingInfo } from '../../hooks/useOnboardingInfo';
 import {
+  CLAIM_CODE_EXAMPLE,
+  CLAIM_CODE_SEPARATOR_NAME,
   CLAIM_CODE_LENGTH,
   CLAIM_CODE_STAYS_VALID,
   PendingClaim,
   clearPendingClaim,
-  formatClaimCode,
   loadPendingClaim,
   normalizeClaimCode,
   savePendingClaim,
 } from '../../utils/claimCode';
+import { ClaimCodeInput } from '../../components/auth/ClaimCodeInput';
 
 type Step = 'code' | 'checking' | 'verified' | 'linking' | 'linked';
 
@@ -42,14 +44,15 @@ export const LinkPage: React.FC = () => {
   const [codeFromUrl] = useState(() => searchParams.get('code') ?? '');
   const [claim, setClaim] = useState<PendingClaim | null>(() => loadPendingClaim());
   const [step, setStep] = useState<Step>(() => (loadPendingClaim() ? 'verified' : 'code'));
-  const [code, setCode] = useState(() => formatClaimCode(codeFromUrl));
+  // The code's 8 characters; the field shows the separator itself (#192).
+  const [code, setCode] = useState(() => normalizeClaimCode(codeFromUrl));
   const [error, setError] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState('');
 
   const checkCode = async (value: string) => {
     const normalized = normalizeClaimCode(value);
     if (normalized.length !== CLAIM_CODE_LENGTH) {
-      setError(`Enter the ${CLAIM_CODE_LENGTH}-character code from the server, like K7QH-M2XA.`);
+      setError(`Enter the ${CLAIM_CODE_LENGTH}-character code from the server, like ${CLAIM_CODE_EXAMPLE}.`);
       return;
     }
     setError(null);
@@ -140,17 +143,17 @@ export const LinkPage: React.FC = () => {
             </p>
             <div>
               <label htmlFor="claim-code" className="block text-sm font-medium text-gray-700 mb-1">Code from the server</label>
-              <input
+              <ClaimCodeInput
                 id="claim-code"
-                type="text"
                 autoComplete="one-time-code"
-                autoCapitalize="characters"
-                spellCheck={false}
                 value={code}
-                onChange={e => setCode(formatClaimCode(e.target.value))}
-                placeholder="K7QH-M2XA"
+                onChange={setCode}
+                aria-describedby="claim-code-format"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-primary"
               />
+              <p id="claim-code-format" className="mt-1 text-xs text-gray-500">
+                The {CLAIM_CODE_LENGTH} letters and digits; the field adds the {CLAIM_CODE_SEPARATOR_NAME} itself.
+              </p>
             </div>
             <button type="submit" disabled={step === 'checking'} className="w-full btn-primary disabled:opacity-50">
               {step === 'checking' ? 'Checking…' : 'Continue'}
