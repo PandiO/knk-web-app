@@ -42,6 +42,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { dashboardPath, entitySetupPath, readReturnTo } from '../utils/returnTo';
 import { toast } from '../utils/toast';
 import { Breadcrumbs } from '../components/Breadcrumbs';
+import { useLeaveGuard } from '../hooks/useLeaveGuard';
 import { formTrail } from '../utils/breadcrumbs';
 import { typeLabelFor } from '../utils/entityLabel';
 import { useEntityLabel } from '../hooks/useEntityLabel';
@@ -84,6 +85,8 @@ export const FormWizardPage: React.FC<Props> = ({
     const returnTo = readReturnTo(searchParams);
     // The submit is pending (the wizard saves the entity): Cancel waits too.
     const [submitting, setSubmitting] = useState(false);
+    // #109: the open form has unsaved changes; leaving it (links, Back, breadcrumb, reload) asks first.
+    const [formDirty, setFormDirty] = useState(false);
     // What a successful submit does once the wizard marked the draft Completed (onCompleted).
     const afterSubmitRef = useRef<(() => void) | null>(null);
 
@@ -103,6 +106,7 @@ export const FormWizardPage: React.FC<Props> = ({
     
     // State to track if FormWizard should be shown
     const [showWizard, setShowWizard] = useState(false);
+    const leaveGuard = useLeaveGuard(showWizard && formDirty);
     const [wizardConfig, setWizardConfig] = useState<FormConfigurationDto | null>(null);
     const [wizardProgressId, setWizardProgressId] = useState<string | undefined>(undefined);
     const [workflowSessionId, setWorkflowSessionId] = useState<number | undefined>(undefined);
@@ -583,6 +587,8 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // KNG-162: the explicit cancel of the open form (FormCancelAction). The draft, if any, stays.
     const handleLeaveForm = () => {
+        // Cancel already asked when something was changed.
+        leaveGuard.allowLeave();
         setShowWizard(false);
         setWizardConfig(null);
         setWizardProgressId(undefined);
@@ -601,9 +607,9 @@ export const FormWizardPage: React.FC<Props> = ({
         }
     };
 
-    // A breadcrumb leaves the form like Cancel without the question (#177 link 2). Back to this
-    // type's Entity setup page from a form opened there keeps the URL, so reload the lists here.
-    const handleBreadcrumbNavigate = (to: string) => {
+    // A breadcrumb leaves the form (#177 link 2); with unsaved changes it asks first (#109, L3-2). Back
+    // to this type's Entity setup page from a form opened there keeps the URL, so reload the lists here.
+    const handleBreadcrumbNavigate = (to: string) => leaveGuard.confirmLeave(() => {
         setShowWizard(false);
         setWizardConfig(null);
         setWizardProgressId(undefined);
@@ -612,7 +618,7 @@ export const FormWizardPage: React.FC<Props> = ({
             && !entityId && !shouldAutoOpen;
         if (samePage && selectedTypeName) loadConfigurationsAndProgress(selectedTypeName);
         navigate(to);
-    };
+    });
 
     // KNG-138: download a configuration as a portable JSON file
     const handleExportConfiguration = async (config: FormConfigurationDto) => {
@@ -1021,6 +1027,7 @@ export const FormWizardPage: React.FC<Props> = ({
                     ? `/display/${parentEntityTypeName}/${parentEntityId}`
                     : returnTo ?? dashboardPath(selectedEntityMetadata?.entityName ?? progress.entityTypeName);
                 afterSubmitRef.current = () => {
+                    leaveGuard.allowLeave();
                     setShowWizard(false);
                     setWizardConfig(null);
                     setWizardProgressId(undefined);
@@ -1080,6 +1087,7 @@ export const FormWizardPage: React.FC<Props> = ({
 
     return (
         <>
+            {leaveGuard.element}
             <div className="dashboard-parent">
                 {/* #177 link 2: an open form shows a breadcrumb instead of the explorer (picking
                     another type there only lost the form). The config lists keep the explorer. */}
@@ -1210,9 +1218,6 @@ export const FormWizardPage: React.FC<Props> = ({
                     {showWizard && wizardConfig ? (
                         // KNG-162: one form session for the wizard and its Cancel, so Cancel sees what child forms saved.
                         <FormSessionRoot>
-                            <div className="mb-3 flex justify-end">
-                                <FormCancelAction onLeave={handleLeaveForm} disabled={submitting} />
-                            </div>
                             <FormWizard
                                 entityName={selectedTypeName}
                                 entityId={entityId}
@@ -1220,6 +1225,8 @@ export const FormWizardPage: React.FC<Props> = ({
                                 onComplete={(data, progress) => handleComplete(data, progress)}
                                 onCompleted={handleCompleted}
                                 onSubmittingChange={setSubmitting}
+                                onDirtyChange={setFormDirty}
+                                footerStart={<FormCancelAction onLeave={handleLeaveForm} disabled={submitting} dirty={formDirty} />}
                                 existingProgressId={wizardProgressId}
                                 workflowSessionId={workflowSessionId}
                                 onStepAdvanced={({ from, stepKey }) => {

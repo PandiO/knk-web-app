@@ -259,20 +259,33 @@ describe('Cancel a root form after its child forms saved entities (KNG-162)', ()
         expect(calls).not.toContain('delete District:501');
     });
 
-    it('with nothing created, Cancel only asks to leave; Close stays in the form', async () => {
+    it('with nothing created, Cancel only asks to leave; Stay stays in the form', async () => {
         const onLeave = jest.fn();
         renderWizard(onLeave);
         await screen.findByText('Gate name');
 
         fireEvent.click(screen.getByRole('button', { name: /cancel form/i }));
         const dialog = await screen.findByRole('dialog', { name: 'Leave this form?' });
-        fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Stay' }));
         expect(onLeave).not.toHaveBeenCalled();
         expect(screen.getByText('Gate name')).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: /cancel form/i }));
         fireEvent.click(within(await screen.findByRole('dialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Leave form' }));
         await waitFor(() => expect(onLeave).toHaveBeenCalledTimes(1));
+    });
+
+    it('with nothing created and nothing changed, Cancel leaves without asking (#109)', async () => {
+        const onLeave = jest.fn();
+        render(
+            <FormSessionRoot>
+                <FormCancelAction onLeave={onLeave} deps={deps} dirty={false} />
+            </FormSessionRoot>
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: /cancel form/i }));
+        expect(onLeave).toHaveBeenCalledTimes(1);
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
     it('Save Draft records both entities on the root progress', async () => {
