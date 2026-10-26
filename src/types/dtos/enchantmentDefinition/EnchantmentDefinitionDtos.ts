@@ -12,6 +12,13 @@ export interface EnchantmentDefinitionDto {
     baseEnchantmentRef?: MinecraftEnchantmentRefDto;
     defaultForBlueprints?: ItemBlueprintNavDto[];
     abilityDefinition?: AbilityDefinitionDto;
+    // PandiO/knk-workspace#151: combat values of a custom enchantment; null/absent = the plugin's built-in value.
+    procChancePercent?: number | null;
+    procChancePerLevelPercent?: number | null;
+    cooldownEnabled?: boolean | null;
+    cooldownSeconds?: number | null;
+    effectDurationSeconds?: number | null;
+    levelMultiplier?: number | null;
 }
 
 export interface EnchantmentDefinitionCreateDto {
@@ -23,6 +30,13 @@ export interface EnchantmentDefinitionCreateDto {
     minecraftEnchantmentRefId?: number;
     enchantmentNamespaceKey?: string; // Links (or creates as Unverified) the ref with this key when no ref id is sent
     abilityDefinition?: AbilityDefinitionUpsertDto;
+    // PandiO/knk-workspace#151: combat values of a custom enchantment; null/absent = the plugin's built-in value.
+    procChancePercent?: number | null;
+    procChancePerLevelPercent?: number | null;
+    cooldownEnabled?: boolean | null;
+    cooldownSeconds?: number | null;
+    effectDurationSeconds?: number | null;
+    levelMultiplier?: number | null;
 }
 
 export interface EnchantmentDefinitionUpdateDto {
@@ -34,6 +48,13 @@ export interface EnchantmentDefinitionUpdateDto {
     minecraftEnchantmentRefId?: number;
     enchantmentNamespaceKey?: string;
     abilityDefinition?: AbilityDefinitionUpsertDto;
+    // Only the combat values present in the request are written; an explicit null resets one to the built-in value.
+    procChancePercent?: number | null;
+    procChancePerLevelPercent?: number | null;
+    cooldownEnabled?: boolean | null;
+    cooldownSeconds?: number | null;
+    effectDurationSeconds?: number | null;
+    levelMultiplier?: number | null;
 }
 
 export interface EnchantmentDefinitionListDto {
