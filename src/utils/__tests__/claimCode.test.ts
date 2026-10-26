@@ -1,4 +1,8 @@
 import {
+  CLAIM_CODE_EXAMPLE,
+  CLAIM_CODE_SEPARATOR,
+  CLAIM_CODE_SHAPE,
+  claimCodeChars,
   clearPendingClaim,
   couldBeClaimCode,
   formatClaimCode,
@@ -27,6 +31,25 @@ describe('claim codes (KNG-214)', () => {
     expect(looksLikeClaimCode('ABC-DOLIL')).toBe(false);
     expect(looksLikeClaimCode('KNK-7QH4M-2XA9P')).toBe(false);
     expect(looksLikeClaimCode('')).toBe(false);
+  });
+
+  // #192: one separator for every web text and field; a dash until the testers decide.
+  it('keeps the separator in one constant', () => {
+    expect(CLAIM_CODE_SEPARATOR).toBe('-');
+    expect(CLAIM_CODE_SHAPE).toBe('XXXX-XXXX');
+    expect(CLAIM_CODE_EXAMPLE).toBe('K7QH-M2XA');
+    expect(formatClaimCode('K7QHM2XA')).toBe(`K7QH${CLAIM_CODE_SEPARATOR}M2XA`);
+  });
+
+  it('also takes a claim code typed with a space between the groups', () => {
+    expect(looksLikeClaimCode('k7qh m2xa')).toBe(true);
+    expect(looksLikeClaimCode('K7QH  M2XA')).toBe(false);
+  });
+
+  it('reads the code characters with or without folding the look-alikes', () => {
+    expect(claimCodeChars(' abcd-olil ', true)).toBe('ABCD0111');
+    expect(claimCodeChars(' abcd-olil ', false)).toBe('ABCDOLIL');
+    expect(claimCodeChars('abcd efgh 99', false)).toBe('ABCDEFGH');
   });
 
   it('knows which 8 characters could be a claim code without its dash', () => {
