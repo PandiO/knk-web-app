@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, GripVertical, Loader2, Trash2 } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -39,6 +39,8 @@ import { DisplayConfigurationDto } from '../types/dtos/displayConfig/DisplayMode
 import { useEntityMetadata } from '../hooks/useEntityMetadata';
 import { getCreateFunctionForEntity, getFetchByIdFunctionForEntity, getUpdateFunctionForEntity } from '../utils/entityApiMapping';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { dashboardPath, readReturnTo } from '../utils/returnTo';
+import { toast } from '../utils/toast';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { 
@@ -73,6 +75,13 @@ export const FormWizardPage: React.FC<Props> = ({
     const parentEntityId = searchParams.get('parentEntityId');
     const relationshipFieldName = searchParams.get('relationshipFieldName');
     
+    // #177 link 1 (#58): where Submit and Cancel go back to (the dashboard type the form was opened from).
+    const returnTo = readReturnTo(searchParams);
+    // The submit is pending (the wizard saves the entity): Cancel waits too.
+    const [submitting, setSubmitting] = useState(false);
+    // What a successful submit does once the wizard marked the draft Completed (onCompleted).
+    const afterSubmitRef = useRef<(() => void) | null>(null);
+
     // changed: check both prop and query parameter for auto-open
     const shouldAutoOpen = autoOpenDefaultForm || searchParams.get('autoOpen') === 'true';
 
@@ -575,6 +584,11 @@ export const FormWizardPage: React.FC<Props> = ({
             navigate(`/display/${parentEntityTypeName}/${parentEntityId}`);
             return;
         }
+        // #58: back where the form was opened (the dashboard); opened on this page, stay here.
+        if (returnTo) {
+            navigate(returnTo);
+            return;
+        }
         if (selectedTypeName) {
             loadConfigurationsAndProgress(selectedTypeName);
         }
@@ -905,8 +919,10 @@ export const FormWizardPage: React.FC<Props> = ({
         }
     };
 
-    // Handler: Complete wizard
-    const handleComplete = async (data: any, progress?: FormSubmissionProgressDto) => {
+    // Handler: Complete wizard. Saves the entity; true when it was saved, so the wizard marks the draft
+    // Completed and then calls handleCompleted (#177 link 1). False keeps the form open with the reason.
+    const handleComplete = async (data: any, progress?: FormSubmissionProgressDto): Promise<boolean> => {
+        afterSubmitRef.current = null;
         try {
             if (progress && progress.entityTypeName) {
                 let createFn: (entity: any) => Promise<any>;
@@ -924,7 +940,7 @@ export const FormWizardPage: React.FC<Props> = ({
                         status: 'error',
                         onContinue: undefined
                     });
-                    return;
+                    return false;
                 }
 
                 const entityIdToUse = entityId || progress.entityId;
@@ -943,11 +959,11 @@ export const FormWizardPage: React.FC<Props> = ({
                             status: 'error',
                             onContinue: undefined
                         });
-                        return;
+                        return false;
                     }
                     if (resolution?.needsWorld) {
                         const chosenWorld = await askForWorld(toLabel(progress.entityTypeName).toLowerCase() || 'domain');
-                        if (!chosenWorld) return;
+                        if (!chosenWorld) return false;
                         entityData.worldName = chosenWorld;
                     }
                 }
@@ -973,39 +989,28 @@ export const FormWizardPage: React.FC<Props> = ({
                         console.log(`Updated parent ${parentEntityTypeName}(${parentEntityId}).${relationshipFieldName} = ${createdEntityId}`);
                     } catch (parentErr) {
                         console.error('Failed to update parent entity relationship:', parentErr);
-                        logging.errorHandler.next('ErrorMessage.Entity.ParentUpdateFailed');
-                        showFeedback({
-                            title: 'Parent update failed',
-                            message: 'The entity was created, but the parent relationship could not be updated.',
-                            status: 'error',
-                            onContinue: undefined
-                        });
+                        // A toast, not a modal: the page leaves for the parent right after this.
+                        toast.error('The entity was created, but the parent relationship could not be updated.');
                     }
                 }
 
-                setShowWizard(false);
-                setWizardConfig(null);
-                setWizardProgressId(undefined);
-
-                // added: if parent context exists, redirect back to parent display page
-                if (parentEntityTypeName && parentEntityId) {
-                    showFeedback({
-                        title: 'Form completed',
-                        message: 'Your form has been submitted successfully.',
-                        status: 'success',
-                        onContinue: () => navigate(`/display/${parentEntityTypeName}/${parentEntityId}`),
-                        autoCloseMs: 3000,
-                    });
-                } else {
-                    showFeedback({
-                        title: 'Form completed',
-                        message: 'Your form has been submitted successfully.',
-                        status: 'success',
-                        onContinue: () => navigate('/dashboard', { state: { entityTypeName: progress.entityTypeName } }),
-                        autoCloseMs: 3000,
-                    });
-                }
+                // #177 decision 2: back at once (no 3 s modal) with a success toast. The parent display
+                // page first, then returnTo, else the dashboard on this type.
+                const typeLabel = selectedEntityMetadata?.displayName || toLabel(progress.entityTypeName);
+                const savedLabel = `${typeLabel} ${entityIdToUse ? 'updated' : 'created'}.`;
+                const target = parentEntityTypeName && parentEntityId
+                    ? `/display/${parentEntityTypeName}/${parentEntityId}`
+                    : returnTo ?? dashboardPath(selectedEntityMetadata?.entityName ?? progress.entityTypeName);
+                afterSubmitRef.current = () => {
+                    setShowWizard(false);
+                    setWizardConfig(null);
+                    setWizardProgressId(undefined);
+                    toast.success(savedLabel);
+                    navigate(target);
+                };
+                return true;
             }
+            return false;
         } catch (err) {
             logging.errorHandler.next('ErrorMessage.Entity.SaveFailed');
             console.error('Failed to create/update entity:', err);
@@ -1019,7 +1024,14 @@ export const FormWizardPage: React.FC<Props> = ({
                 status: 'error',
                 onContinue: undefined,
             });
+            return false;
         }
+    };
+
+    const handleCompleted = () => {
+        const afterSubmit = afterSubmitRef.current;
+        afterSubmitRef.current = null;
+        afterSubmit?.();
     };
 
     // changed: simplified handleSelectEntity since selectedObjectType is now synced automatically
@@ -1168,7 +1180,7 @@ export const FormWizardPage: React.FC<Props> = ({
                         // KNG-162: one form session for the wizard and its Cancel, so Cancel sees what child forms saved.
                         <FormSessionRoot>
                             <div className="mb-3 flex justify-end">
-                                <FormCancelAction onLeave={handleLeaveForm} />
+                                <FormCancelAction onLeave={handleLeaveForm} disabled={submitting} />
                             </div>
                             <FormWizard
                                 entityName={selectedTypeName}
@@ -1176,6 +1188,8 @@ export const FormWizardPage: React.FC<Props> = ({
                                 formConfigurationId={wizardConfig.id}
                                 userId={userId}
                                 onComplete={(data, progress) => handleComplete(data, progress)}
+                                onCompleted={handleCompleted}
+                                onSubmittingChange={setSubmitting}
                                 existingProgressId={wizardProgressId}
                                 workflowSessionId={workflowSessionId}
                                 onStepAdvanced={({ from, stepKey }) => {

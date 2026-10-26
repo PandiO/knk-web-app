@@ -20,10 +20,12 @@ import { createdEntityDeleteDeps } from '../../utils/forms/createdEntityDeleteDe
 interface Props {
     /** Leaves the form (the page closes the wizard). */
     onLeave: () => void;
+    /** While the form is being submitted (#177 link 1). */
+    disabled?: boolean;
     deps?: DeleteCreatedEntitiesDeps;
 }
 
-export const FormCancelAction: React.FC<Props> = ({ onLeave, deps = createdEntityDeleteDeps }) => {
+export const FormCancelAction: React.FC<Props> = ({ onLeave, disabled = false, deps = createdEntityDeleteDeps }) => {
     const formSession = useFormSession();
     const [records, setRecords] = useState<CreatedEntityRecord[] | null>(null);
 
@@ -39,7 +41,8 @@ export const FormCancelAction: React.FC<Props> = ({ onLeave, deps = createdEntit
             <button
                 type="button"
                 onClick={open}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                disabled={disabled}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <XCircle className="h-4 w-4 mr-1" />
                 Cancel form
