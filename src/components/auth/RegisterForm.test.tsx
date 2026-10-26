@@ -10,6 +10,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ERROR_MESSAGES } from '../../utils/authConstants';
 import { normalizeLinkCode, normalizeLinkCodeInput } from '../../utils/linkCode';
 import { fetchOnboardingInfo, resetOnboardingInfoCache } from '../../hooks/useOnboardingInfo';
+import { admissionClient } from '../../apiClients/admissionClient';
+import { loadPendingClaim } from '../../utils/claimCode';
 
 const mockNavigate = jest.fn();
 
@@ -22,10 +24,12 @@ jest.mock('../../apiClients/authClient', () => ({
   authClient: { validateLinkCode: jest.fn(), onboardingInfo: jest.fn() },
 }));
 jest.mock('../../contexts/AuthContext', () => ({ useAuth: jest.fn() }));
+jest.mock('../../apiClients/admissionClient', () => ({ admissionClient: { checkClaim: jest.fn() } }));
 
 const mockedValidate = authClient.validateLinkCode as jest.Mock;
 const mockedInfo = authClient.onboardingInfo as jest.Mock;
 const mockedUseAuth = useAuth as jest.Mock;
+const mockedCheckClaim = admissionClient.checkClaim as jest.Mock;
 const PASSWORD = 'Kn1ghts&Kings!';
 
 /** The mode the form finds cached, so tests that don't await it see no late state update. */
@@ -253,17 +257,62 @@ describe('RegisterForm with invitations on (Mode=Invite, 2026-10-25)', () => {
     await userEvent.type(screen.getByTestId('invite-entry'), 'k7qh-m2xa{enter}');
 
     expect(mockNavigate).toHaveBeenCalledWith('/link?code=K7QH-M2XA');
+    expect(mockedCheckClaim).not.toHaveBeenCalled();
   });
 
-  it('opens the link-code form, filled in, for 8 plain characters', async () => {
+  it('sends the code typed with a space between the groups to /link as well (#192)', async () => {
+    await openInviteStep();
+
+    await userEvent.type(screen.getByTestId('invite-entry'), 'k7qh m2xa{enter}');
+
+    expect(mockNavigate).toHaveBeenCalledWith('/link?code=K7QH-M2XA');
+  });
+
+  // #192: without its separator a claim code looks like an /account link code; the API is asked first.
+  it('goes on to /link, verified, with a claim code typed without its separator', async () => {
+    const expiresAt = new Date(Date.now() + 60_000).toISOString();
+    mockedCheckClaim.mockResolvedValue({ valid: true, minecraftName: 'Steve', expiresAt });
+    await openInviteStep();
+
+    await userEvent.type(screen.getByTestId('invite-entry'), 'k7qhm2xo');
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+
+    // Folded like the API does (O→0).
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/link'));
+    expect(mockedCheckClaim).toHaveBeenCalledWith('K7QHM2X0');
+    expect(loadPendingClaim()).toEqual({ code: 'K7QHM2X0', minecraftName: 'Steve', expiresAt });
+    sessionStorage.clear();
+  });
+
+  it('opens the link-code form, filled in, for 8 plain characters that are no live claim code', async () => {
+    mockedCheckClaim.mockResolvedValue({ valid: false });
     await openInviteStep();
 
     await userEvent.type(screen.getByTestId('invite-entry'), 'abcd1234');
     await userEvent.click(screen.getByRole('button', { name: /continue/i }));
 
+    expect(await screen.findByTestId('link-code')).toHaveValue('ABCD1234');
+    expect(mockedCheckClaim).toHaveBeenCalledWith('ABCD1234');
     expect(mockNavigate).not.toHaveBeenCalled();
-    expect(screen.getByTestId('link-code')).toHaveValue('ABCD1234');
     expect(screen.getByTestId('grandfathered-note')).toBeInTheDocument();
+  });
+
+  it('opens the link-code form without asking when the check fails or the code has a U', async () => {
+    mockedCheckClaim.mockRejectedValue(new TypeError('Failed to fetch'));
+    await openInviteStep();
+
+    await userEvent.type(screen.getByTestId('invite-entry'), 'abcd1234');
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+    expect(await screen.findByTestId('link-code')).toHaveValue('ABCD1234');
+
+    await userEvent.click(screen.getByRole('button', { name: /sign up with your invitation instead/i }));
+    mockedCheckClaim.mockClear();
+    await userEvent.clear(screen.getByTestId('invite-entry'));
+    await userEvent.type(screen.getByTestId('invite-entry'), 'abcu1234');
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+    expect(await screen.findByTestId('link-code')).toHaveValue('ABCU1234');
+    expect(mockedCheckClaim).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('asks for a code before continuing', async () => {

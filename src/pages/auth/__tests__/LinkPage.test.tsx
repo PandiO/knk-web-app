@@ -105,6 +105,32 @@ describe('LinkPage (/link)', () => {
     expect(link).not.toHaveBeenCalled();
   });
 
+  // #192: the field shows the separator itself; players type or paste the 8 characters either way.
+  it.each(['k7qhm2xa', 'k7qh-m2xa'])('shows %s typed as XXXX-XXXX and checks its 8 characters', async typed => {
+    checkClaim.mockResolvedValue({ valid: false });
+    render(<LinkPage />);
+
+    const input = screen.getByLabelText('Code from the server');
+    await userEvent.type(input, typed);
+    expect(input).toHaveValue('K7QH-M2XA');
+    expect(input).toHaveAccessibleDescription(/adds the dash itself/);
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(checkClaim).toHaveBeenCalledWith('K7QHM2XA');
+  });
+
+  it('takes a pasted code with a space between the groups', async () => {
+    checkClaim.mockResolvedValue({ valid: false });
+    render(<LinkPage />);
+
+    await userEvent.click(screen.getByLabelText('Code from the server'));
+    await userEvent.paste('k7qh m2xa');
+    expect(screen.getByLabelText('Code from the server')).toHaveValue('K7QH-M2XA');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(checkClaim).toHaveBeenCalledWith('K7QHM2XA');
+  });
+
   it('picks up a kept code without asking again', () => {
     savePendingClaim({ code: 'K7QHM2XA', minecraftName: 'Alex', expiresAt: inAMinute() });
     render(<LinkPage />);

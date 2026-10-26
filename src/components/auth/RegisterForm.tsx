@@ -9,7 +9,17 @@ import { validateEmailFormat, validatePasswordPolicy, calculatePasswordStrength 
 import { useAuth } from '../../contexts/AuthContext';
 import { appConfig } from '../../config/appConfig';
 import { LINK_CODE_LENGTH, normalizeLinkCode, normalizeLinkCodeInput } from '../../utils/linkCode';
-import { CLAIM_CODE_STAYS_VALID, couldBeClaimCode, formatClaimCode, looksLikeClaimCode } from '../../utils/claimCode';
+import {
+  CLAIM_CODE_EXAMPLE,
+  CLAIM_CODE_SHAPE,
+  CLAIM_CODE_STAYS_VALID,
+  couldBeClaimCode,
+  formatClaimCode,
+  looksLikeClaimCode,
+  normalizeClaimCode,
+  savePendingClaim,
+} from '../../utils/claimCode';
+import { admissionClient } from '../../apiClients/admissionClient';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { useRegistrationMode } from '../../hooks/useOnboardingInfo';
 
@@ -41,7 +51,7 @@ interface RegisterFormProps {
 
 const STEPS = ['Link code', 'Email & password', 'Done'];
 
-const INVITE_ENTRY_HELP = 'Enter an invitation code like KNK-XXXXX-XXXXX, or the code from the server like K7QH-M2XA.';
+const INVITE_ENTRY_HELP = `Enter an invitation code like KNK-XXXXX-XXXXX, or the code from the server like ${CLAIM_CODE_EXAMPLE}.`;
 
 /** /link with the claim code in the URL (the page checks it on arrival). */
 const claimPath = (code: string) => `/link?code=${encodeURIComponent(formatClaimCode(code))}`;
@@ -59,7 +69,8 @@ const apiMessageOf = (error: any): string | undefined =>
  * grandfathered players, so the form opens on an invitation step instead: an invitation code goes
  * to /join, the claim code from the server's disconnect screen to /link, and the link-code step
  * sits behind "Already playing and got a code from /account link?". A claim code typed into the
- * link-code field (XXXX-XXXX) is recognised and sent to /link too (alpha finding, 2026-10-25).
+ * link-code field (XXXX-XXXX) is recognised and sent to /link too (alpha finding, 2026-10-25), and one
+ * typed into the invitation field without its separator is checked as a claim code first (#192).
  */
 export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onRegistrationSuccess }) => {
   const { register } = useAuth();
@@ -101,7 +112,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
   }, []);
 
   /** The invitation step: decide from the shape of what was typed where it is handled. */
-  const continueWithEntry = () => {
+  const continueWithEntry = async () => {
     const raw = inviteEntry.trim();
     if (!raw) {
       setInviteEntryError(INVITE_ENTRY_HELP);
@@ -113,8 +124,27 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
     }
     const asLinkCode = normalizeLinkCode(raw);
     if (!raw.includes('-') && asLinkCode.length === LINK_CODE_LENGTH && asLinkCode === raw.toUpperCase()) {
-      // 8 plain characters: an /account link code. Open that path with it filled in.
       setInviteEntryError(null);
+      // 8 plain characters: the code from the disconnect screen typed without its separator looks
+      // the same as an /account link code (#192). A claim code never has a U; ask the API whether it
+      // is a live one and go on to /link with it, verified.
+      if (!asLinkCode.includes('U')) {
+        const claimCode = normalizeClaimCode(raw);
+        setIsBusy(true);
+        try {
+          const result = await admissionClient.checkClaim(claimCode);
+          if (result?.valid && result.minecraftName && result.expiresAt) {
+            savePendingClaim({ code: claimCode, minecraftName: result.minecraftName, expiresAt: result.expiresAt });
+            navigate('/link');
+            return;
+          }
+        } catch {
+          // Couldn't ask: treat it as the link code it looks like; its refusal still hints at /link.
+        } finally {
+          setIsBusy(false);
+        }
+      }
+      // Otherwise an /account link code. Open that path with it filled in.
       setLinkCodeInput(asLinkCode);
       setLinkCodePathOpen(true);
       return;
@@ -238,7 +268,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
         e.preventDefault();
         if (currentStep === 0) {
           if (showLinkCodePath) handleCheckCode();
-          else continueWithEntry();
+          else void continueWithEntry();
         } else if (currentStep === 1) {
           handleRegister();
         }
@@ -275,7 +305,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
               <p className="mt-1">
                 Got an invitation <strong>link</strong> in your mail? Open it: it creates your account. Got an invitation{' '}
                 <strong>code</strong> (KNK-XXXXX-XXXXX), or the code the server showed you when you tried to join
-                (like K7QH-M2XA)? Enter it below.
+                (like {CLAIM_CODE_EXAMPLE})? Enter it below.
               </p>
             </div>
             <div>
@@ -294,7 +324,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
                   setInviteEntry(e.target.value);
                   setInviteEntryError(null);
                 }}
-                placeholder="KNK-XXXXX-XXXXX or K7QH-M2XA"
+                placeholder={`KNK-XXXXX-XXXXX or ${CLAIM_CODE_EXAMPLE}`}
                 className={`w-full px-4 py-2 border rounded-lg font-mono tracking-wider focus:outline-none focus:ring-2 ${
                   inviteEntryError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
                 }`}
@@ -305,7 +335,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
                 <p id="invite-entry-error" className="mt-1 text-sm text-red-600" role="alert">{inviteEntryError}</p>
               )}
             </div>
-            <button type="submit" className="w-full btn-primary">Continue</button>
+            <button type="submit" disabled={isBusy} className="w-full btn-primary disabled:opacity-50">
+              {isBusy ? 'Checking…' : 'Continue'}
+            </button>
             <button
               type="button"
               onClick={() => setLinkCodePathOpen(true)}
@@ -369,7 +401,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
               )}
               {errors.linkCode && !claimCodeTyped && couldBeClaimCode(linkCode) && (
                 <p className="mt-2 text-sm text-gray-700" data-testid="claim-code-hint">
-                  Is this the code the server showed you when you tried to join (XXXX-XXXX)? Then{' '}
+                  Is this the code the server showed you when you tried to join ({CLAIM_CODE_SHAPE})? Then{' '}
                   <Link to={claimPath(linkCode)} className="font-medium underline">use it to link your Minecraft account</Link>.{' '}
                   {CLAIM_CODE_STAYS_VALID}
                 </p>

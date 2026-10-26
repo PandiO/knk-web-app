@@ -37,7 +37,8 @@ describe('AccountLinkPage (/account/link)', () => {
     expect(screen.getByText(/Java Edition 26.3/)).toBeInTheDocument();
     expect(screen.getByText(/stopped with a code/)).toBeInTheDocument();
     expect(screen.getByTestId('claim-code-lifetime')).toHaveTextContent(/same.*code.*new one/);
-    expect(screen.getByLabelText('Code from the server')).toHaveValue('K7QHM2XA');
+    // Shown in two groups like the disconnect screen (#192).
+    expect(screen.getByLabelText('Code from the server')).toHaveValue('K7QH-M2XA');
   });
 
   it('links with the code, stores the new session after a fold, and goes to the account page', async () => {
@@ -61,22 +62,22 @@ describe('AccountLinkPage (/account/link)', () => {
     render(<AccountLinkPage />);
 
     await userEvent.type(screen.getByLabelText('Code from the server'), 'abc-dolil');
+    expect(screen.getByLabelText('Code from the server')).toHaveValue('ABCD-OLIL');
     await userEvent.click(screen.getByRole('button', { name: 'Link account' }));
 
     await waitFor(() => expect(linkCall).toHaveBeenCalledWith({ linkCode: 'ABCDOLIL' }));
   });
 
-  // 2026-10-25: a claim code typed as on the disconnect screen is recognised, and a refusal says it stays valid.
-  it('recognises a claim code typed as XXXX-XXXX and folds its look-alikes like the API', async () => {
+  // #192: the field shows the separator itself, with or without one typed; the API folds look-alikes.
+  it.each(['k7qhm2xo', 'k7qh-m2xo', 'K7QH m2xo'])('shows %s as XXXX-XXXX and sends its 8 characters', async typed => {
     linkCall.mockResolvedValue({ user: { id: 5 } });
     render(<AccountLinkPage />);
 
-    await userEvent.type(screen.getByLabelText('Code from the server'), 'k7qh-m2xo');
+    await userEvent.type(screen.getByLabelText('Code from the server'), typed);
 
     expect(screen.getByLabelText('Code from the server')).toHaveValue('K7QH-M2XO');
-    expect(screen.getByTestId('claim-recognised')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Link account' }));
-    await waitFor(() => expect(linkCall).toHaveBeenCalledWith({ linkCode: 'K7QHM2X0' }));
+    await waitFor(() => expect(linkCall).toHaveBeenCalledWith({ linkCode: 'K7QHM2XO' }));
   });
 
   it('says a refused claim code stays valid for 15 minutes', async () => {
@@ -105,7 +106,8 @@ describe('AccountLinkPage (/account/link)', () => {
     linkCall.mockRejectedValue({ status: 400, response: { error: 'OperationFailed', message: 'Invalid or expired link code' } });
     render(<AccountLinkPage />);
 
-    await userEvent.type(screen.getByLabelText('Code from the server'), 'ZZZZZZZZ');
+    // O, L and I: a link code, never a claim code, so no "stays valid for 15 minutes".
+    await userEvent.type(screen.getByLabelText('Code from the server'), 'ZZZZOLIZ');
     await userEvent.click(screen.getByRole('button', { name: 'Link account' }));
 
     const alert = await screen.findByRole('alert');
