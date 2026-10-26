@@ -418,7 +418,8 @@ const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
     // Not getEnumValues: its legacy fallback would turn a default value or placeholder into the only option.
     const enumValues = getConfiguredEnumValues(field) ?? [];
     const multiline = isMultilineStringField(field.settingsJson, field.fieldName, textValue);
-    const inputClass = `block w-full rounded-md shadow-sm sm:text-sm ${
+    // `border`: the #38 base rule gives only border-gray-300 fields a width, so the red error border needs it.
+    const inputClass = `block w-full rounded-md border px-3 py-2 shadow-sm sm:text-sm ${
         error
             ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
             : 'border-gray-300 focus:border-primary focus:ring-primary'
