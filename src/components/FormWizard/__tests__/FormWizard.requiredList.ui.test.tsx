@@ -107,7 +107,9 @@ describe('FormWizard required / min / max List (KNG-164)', () => {
 
         clickNext();
 
-        expect(await screen.findByText('Districts is required: select at least 1 District')).toBeInTheDocument();
+        // On the field, and as a link in the error summary (#109).
+        expect(await screen.findByText('Districts is required: select at least 1 District', { selector: 'p' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Districts is required: select at least 1 District' })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /^submit$/i })).not.toBeInTheDocument();
         expect(formSubmissionClient.create).not.toHaveBeenCalled();
     });
@@ -123,7 +125,9 @@ describe('FormWizard required / min / max List (KNG-164)', () => {
 
         clickNext();
 
-        expect(await screen.findByText('Districts is required: select at least 1 District')).toBeInTheDocument();
+        // On the field, and as a link in the error summary (#109).
+        expect(await screen.findByText('Districts is required: select at least 1 District', { selector: 'p' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Districts is required: select at least 1 District' })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /^submit$/i })).not.toBeInTheDocument();
     });
 
@@ -151,7 +155,7 @@ describe('FormWizard required / min / max List (KNG-164)', () => {
 
         clickNext();
 
-        expect(await screen.findByText('Districts needs at least 2 Districts (1 selected)')).toBeInTheDocument();
+        expect(await screen.findByText('Districts needs at least 2 Districts (1 selected)', { selector: 'p' })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /^submit$/i })).not.toBeInTheDocument();
     });
 

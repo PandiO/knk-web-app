@@ -13,6 +13,7 @@ import { isHeadlessTaskType } from '../Workflow/WorldBoundFieldRenderer';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { DisplayFieldDto } from '../../types/dtos/displayConfig/DisplayModels';
 import { useRelationshipDrafts, RelationshipDraft } from '../../hooks/useRelationshipDrafts';
+import { isMultilineStringField } from '../../utils/forms/stringFieldMultiline';
 import { RelationshipDraftCard } from './RelationshipDraftCard';
 import { toBooleanFieldValue } from '../../utils/forms/booleanFieldValue';
 import { ResolvedPickerFilters } from '../../utils/forms/pickerFilters';
@@ -416,6 +417,12 @@ const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
     const textValue = typeof value === 'string' ? value : '';
     // Not getEnumValues: its legacy fallback would turn a default value or placeholder into the only option.
     const enumValues = getConfiguredEnumValues(field) ?? [];
+    const multiline = isMultilineStringField(field.settingsJson, field.fieldName, textValue);
+    const inputClass = `block w-full rounded-md shadow-sm sm:text-sm ${
+        error
+            ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+            : 'border-gray-300 focus:border-primary focus:ring-primary'
+    } ${field.isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`;
 
     return (
         <div>
@@ -442,19 +449,30 @@ const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
                     <option value="">Select {field.label}</option>
                     {enumValues.map(option => <option key={option} value={option}>{option}</option>)}
                 </select>
-            ) : (
+            ) : multiline ? (
                 <textarea
+                    id={field.fieldName}
                     value={textValue}
                     onChange={e => onChange(e.target.value)}
                     onBlur={onBlur}
                     placeholder={field.placeholder}
                     disabled={field.isReadOnly}
+                    aria-invalid={error ? true : undefined}
                     rows={3}
-                    className={`block w-full rounded-md shadow-sm sm:text-sm ${
-                        error
-                            ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                            : 'border-gray-300 focus:border-primary focus:ring-primary'
-                    } ${field.isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    className={inputClass}
+                />
+            ) : (
+                // #109: a single-line String is an input tied to its label (it was a 3-row textarea without an id).
+                <input
+                    type="text"
+                    id={field.fieldName}
+                    value={textValue}
+                    onChange={e => onChange(e.target.value)}
+                    onBlur={onBlur}
+                    placeholder={field.placeholder}
+                    disabled={field.isReadOnly}
+                    aria-invalid={error ? true : undefined}
+                    className={inputClass}
                 />
             )}
             {minecraftTextColorEnabled && (

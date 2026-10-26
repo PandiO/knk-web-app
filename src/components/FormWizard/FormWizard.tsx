@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Save, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, AlertCircle, Check } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, FormFieldDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { RelationshipDraft } from '../../hooks/useRelationshipDrafts';
 import { formConfigClient } from '../../apiClients/formConfigClient';
@@ -57,6 +57,8 @@ import { seededFormFieldValue } from '../../utils/forms/formFieldDefaultValue';
 import { isSeedableInstance, overlayChildEditValues } from '../../utils/forms/childEditSeed';
 import { spreadTaskValueOntoFields } from '../../utils/forms/worldTaskFieldValue';
 import { validateListFieldCount } from '../../utils/forms/listFieldValidation';
+import { checkFieldValidations } from '../../utils/forms/fieldRuleValidation';
+import { FormErrorSummary, FormErrorSummaryItem, wizardFieldContainerId } from './FormErrorSummary';
 import { WizardStepProgress, WizardStepTitle } from './WizardStepHeader';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { withManyToManyCarrierFields } from '../../utils/forms/manyToManyCarrierField';
@@ -75,6 +77,10 @@ interface FormWizardProps {
     onCompleted?: () => void;
     // The submit's pending state, for controls outside the wizard (the page's Cancel).
     onSubmittingChange?: (submitting: boolean) => void;
+    // #109: true once something was changed since the form was opened or last saved (draft, Next).
+    onDirtyChange?: (dirty: boolean) => void;
+    // #109: shown first in the sticky footer (the page's Cancel).
+    footerStart?: React.ReactNode;
     existingProgressId?: string;
     parentProgressId?: string; // added: for nested child forms
     fieldName?: string; // added: field name this child form is for
@@ -100,6 +106,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     onComplete,
     onCompleted,
     onSubmittingChange,
+    onDirtyChange,
+    footerStart,
     existingProgressId,
     parentProgressId, // added
     fieldName,
@@ -129,6 +137,10 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     const [submitting, setSubmitting] = useState(false);
     const advancingRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
+    // #109: unsaved changes (asked about before leaving), and the error summary of a refused Next/Save.
+    const [dirty, setDirty] = useState(false);
+    const [errorSummaryKey, setErrorSummaryKey] = useState(0);
+    const [showErrorSummary, setShowErrorSummary] = useState(false);
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
     // CRITICAL: Track entityId in state so it persists when loading from progress
     const [entityId, setEntityId] = useState<string | undefined>(initialEntityId);
@@ -150,6 +162,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     const allStepsDataRef = useRef(allStepsData);
     useEffect(() => { currentStepDataRef.current = currentStepData; }, [currentStepData]);
     useEffect(() => { allStepsDataRef.current = allStepsData; }, [allStepsData]);
+
+    useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
     // ItemScan conflict confirmation (developer-requested, 2026-09-23 live-testing feedback):
     // when a scan would overwrite a field that's already filled in, pause and ask which value to
@@ -960,6 +974,13 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     const isLastVisibleStep =
         visibility.visibleStepIndices.length > 0 &&
         visibility.visibleStepIndices[visibility.visibleStepIndices.length - 1] === currentStepIndex;
+    // #109 (CRUD-5): editing an existing entity can be saved from any step.
+    const showSaveNow = !!entityId && !isLastVisibleStep;
+    const errorSummaryItems: FormErrorSummaryItem[] = showErrorSummary
+        ? visibleOrderedFields
+            .filter(field => !!errors[field.fieldName])
+            .map(field => ({ fieldName: field.fieldName, label: field.label, message: errors[field.fieldName] }))
+        : [];
 
     // A change elsewhere can hide the step the user is standing on; fall back to the nearest one.
     useEffect(() => {
@@ -1133,6 +1154,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
 
     const handleFieldChange = (fieldName: string, value: unknown) => {
         if (!currentStep) return;
+        setDirty(true);
 
         const mergedCurrent = { ...currentStepData, [fieldName]: value };
         const normalizedCurrent = deriveGateGeometryStepData(
@@ -1215,6 +1237,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     // are display-conditional or projection targets in this form.
     const applyMultipleFieldChanges = (patch: Record<string, unknown>) => {
         if (!currentStep || Object.keys(patch).length === 0) return;
+        setDirty(true);
 
         Object.keys(patch).forEach(fieldName => {
             fieldProvenanceRef.current[fieldName.toLowerCase()] = 'manual';
@@ -1975,6 +1998,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     };
 
     const updateManyToManyStepData = (stepIndex: number, fieldName: string, relationships: Array<Record<string, unknown>>) => {
+        setDirty(true);
         const updatedAll: AllStepsData = {
             ...allStepsData,
             [stepIndex]: {
@@ -2263,8 +2287,9 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         handleCloseJoinEntryModal();
     };
 
-    const validateField = (field: FormFieldDto): string | null => {
-        const value = currentStepData[field.fieldName];
+    // stepData: the values of the field's own step (the current step unless Save checks the others, #109).
+    const validateField = (field: FormFieldDto, stepData: StepData = currentStepData): string | null => {
+        const value = stepData[field.fieldName];
 
         // KNG-164: List fields (empty list, minSelection/maxSelection) are checked in listFieldValidation.
         if (field.fieldType === FieldType.List) {
@@ -2275,20 +2300,29 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             return `${field.label} is required`;
         }
 
-        const geometryError = gateGeometryFieldError(entityName, field.fieldName, currentStepData);
+        const geometryError = gateGeometryFieldError(entityName, field.fieldName, stepData);
         if (geometryError) return geometryError;
 
-        for (const validation of field.validations) {
-            if (validation.isActive === false) continue;
+        // #109 (CRUD-8): the field's own validations (MinLength, MaxLength, Range, Regex, Email).
+        return checkFieldValidations(field, value);
+    };
 
-            // Parse validation parameters if needed (commented: validation logic placeholder)
-            // const params = validation.parametersJson ? JSON.parse(validation.parametersJson) : {};
-            
-            // Add validation logic based on ValidationType
-            // For brevity, showing Required only
-        }
+    // #109 (CRUD-8): a field is checked when it loses the focus, and its message shown (or cleared).
+    const handleFieldBlur = (field: FormFieldDto) => {
+        const message = validateField(field);
+        setErrors(prev => {
+            if (message) return prev[field.fieldName] === message ? prev : { ...prev, [field.fieldName]: message };
+            if (!(field.fieldName in prev)) return prev;
+            const next = { ...prev };
+            delete next[field.fieldName];
+            return next;
+        });
+    };
 
-        return null;
+    // A refused Next/Save: show the summary and move the focus to it.
+    const refuseWithSummary = () => {
+        setShowErrorSummary(true);
+        setErrorSummaryKey(key => key + 1);
     };
 
     const validateStep = (): boolean => {
@@ -2333,6 +2367,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         // changed: clear page-level error when validating fields
         if (isValid) {
             setError(null);
+            setShowErrorSummary(false);
         }
         return isValid;
     };
@@ -2380,6 +2415,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 savedProgress = await formSubmissionClient.create(progressData);
                 setProgressId(savedProgress.id);
             }
+            // Everything typed so far is in the saved progress now.
+            setDirty(false);
             // Only surface modal feedback for explicit draft saves to avoid interrupting step navigation
             if (status === FormSubmissionStatus.Paused) {
                 setSaveFeedback({
@@ -2425,14 +2462,61 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         if (advancingRef.current) return;
         advancingRef.current = true;
         try {
-            await advance();
+            await advance(false);
         } finally {
             advancingRef.current = false;
         }
     };
 
-    const advance = async () => {
-        if (!validateStep()) return;
+    // #109 (CRUD-5): edit mode saves the entity from any step, once every visible step is valid.
+    const handleSaveNow = async () => {
+        if (advancingRef.current) return;
+        advancingRef.current = true;
+        try {
+            await advance(true);
+        } finally {
+            advancingRef.current = false;
+        }
+    };
+
+    /**
+     * #109: the first visible step (other than the current one) with a field that would refuse the
+     * save, with its errors - checked before Save in edit mode submits from the middle of the form.
+     */
+    const findInvalidOtherStep = (
+        stepsData: AllStepsData,
+        formVisibility: FormVisibility
+    ): { stepIndex: number; stepData: StepData; errors: { [fieldName: string]: string } } | null => {
+        for (const stepIndex of formVisibility.visibleStepIndices) {
+            if (stepIndex === currentStepIndex) continue;
+            const step = config!.steps[stepIndex];
+            if (step.isManyToManyRelationship) continue;
+            const visibleNames = formVisibility.visibleFieldNames[stepIndex] ?? new Set<string>();
+            const stepData = normalizeStepData(step, stepsData[stepIndex] || {}, visibleNames);
+            const stepErrors: { [fieldName: string]: string } = {};
+            getOrderedFields(step).forEach(field => {
+                if (!visibleNames.has(field.fieldName)) return;
+                if (field.dependencyConditionJson
+                    && !ConditionEvaluator.evaluateConditions(field.dependencyConditionJson, stepData, stepsData)) return;
+                const message = validateField(field, stepData);
+                const stored = field.id ? validationResults[Number(field.id)] : undefined;
+                if (message) {
+                    stepErrors[field.fieldName] = message;
+                } else if (stored && !stored.isValid && stored.isBlocking) {
+                    stepErrors[field.fieldName] =
+                        interpolatePlaceholders(stored.message, stored.placeholders) || `${field.label} failed validation`;
+                }
+            });
+            if (Object.keys(stepErrors).length > 0) return { stepIndex, stepData, errors: stepErrors };
+        }
+        return null;
+    };
+
+    const advance = async (submitNow: boolean) => {
+        if (!validateStep()) {
+            refuseWithSummary();
+            return;
+        }
 
         // Check step completion conditions
         if (currentStep?.conditions) {
@@ -2446,6 +2530,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         { ...allStepsData, [currentStepIndex]: currentStepData }
                     );
                     if (!met) {
+                        // #109: said on the form too, not only in a toast.
+                        setError(condition.errorMessage || 'Step completion conditions not met');
                         logging.errorHandler.next(condition.errorMessage || 'Step completion conditions not met');
                         return;
                     }
@@ -2465,9 +2551,22 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         const updatedAllData = reconciled.allStepsData;
 
         const validationResultsForStep = await runValidationsForStep(currentStep!, updatedAllData, currentStepIndex);
-        const hasBlockingValidation = validationResultsForStep.some(r => !r.result.isValid && r.result.isBlocking);
-        if (hasBlockingValidation) {
+        const blockingResults = validationResultsForStep.filter(r => !r.result.isValid && r.result.isBlocking);
+        if (blockingResults.length > 0) {
             setError('Please resolve validation errors before continuing.');
+            // #109: the rule's message on its field and in the summary.
+            setErrors(prev => {
+                const next = { ...prev };
+                blockingResults.forEach(({ fieldId, result }) => {
+                    const field = currentStep!.fields.find(f => Number(f.id) === fieldId);
+                    if (field) {
+                        next[field.fieldName] =
+                            interpolatePlaceholders(result.message, result.placeholders) || `${field.label} failed validation`;
+                    }
+                });
+                return next;
+            });
+            refuseWithSummary();
             return;
         }
 
@@ -2476,7 +2575,20 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
 
         const nextIndex = nextVisibleStepIndex(reconciled.visibility, currentStepIndex);
 
-        if (nextIndex !== null) {
+        if (submitNow && nextIndex !== null) {
+            const invalid = findInvalidOtherStep(updatedAllData, reconciled.visibility);
+            if (invalid) {
+                // Show the step that holds the problem, with its messages.
+                setCurrentStepIndex(invalid.stepIndex);
+                setCurrentStepData(invalid.stepData);
+                setErrors(invalid.errors);
+                setError(`Fix "${config!.steps[invalid.stepIndex].stepName}" before saving.`);
+                refuseWithSummary();
+                return;
+            }
+        }
+
+        if (nextIndex !== null && !submitNow) {
             const saved = await saveProgress(FormSubmissionStatus.InProgress);
             if (!saved) return;
 
@@ -2494,6 +2606,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     reconciled.visibility.visibleFieldNames[nextIndex]
                 ));
                 setErrors({});
+                setShowErrorSummary(false);
                 // Validation results are kept (keyed by field id, so a step can't show another's): going
                 // back to a step shows what its rules said, incl. "checked … ago" + Re-check (KNG-269).
                 return nextIndex;
@@ -2597,6 +2710,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             visibility.visibleFieldNames[previousIndex]
         ));
         setErrors({});
+        setShowErrorSummary(false);
         // Validation results are kept across steps (see handleNext).
         setCurrentStepIndex(previousIndex);
     };
@@ -2628,9 +2742,10 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     }
 
     return (
-        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-            {/* Header Section: Progress Bar, Title, and Navigation */}
-            <div className="px-6 md:px-8 pt-6 md:pt-8 pb-4 md:pb-6 bg-gradient-to-b from-gray-50 to-white border-b border-gray-100">
+        // No overflow-hidden here: it would stop the footer from sticking to the bottom of the window (#109).
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg">
+            {/* Header Section: Progress Bar and Title (the buttons are in the footer, #109) */}
+            <div className="rounded-t-lg px-6 md:px-8 pt-6 md:pt-8 pb-4 md:pb-6 bg-gradient-to-b from-gray-50 to-white border-b border-gray-100">
                 {/* added: error banner */}
                 {error && (
                     <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4 flex items-start">
@@ -2655,51 +2770,11 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     description={currentStep.description}
                     editingEntityName={entityId ? entityName : null}
                 />
-
-                {/* Navigation Buttons Toolbar */}
-                <div className="flex flex-col md:flex-row gap-3 md:gap-2 justify-between items-center">
-                    <button
-                        onClick={handlePrevious}
-                        disabled={submitting || previousVisibleStepIndex(visibility, currentStepIndex) === null}
-                        className="w-full md:w-auto btn-secondary disabled:opacity-50 flex items-center justify-center"
-                    >
-                        <ChevronLeft className="h-5 w-5 mr-2" />
-                        Previous
-                    </button>
-
-                    <button
-                        onClick={handleSaveDraft}
-                        disabled={submitting}
-                        className="w-full md:w-auto btn-tertiary flex items-center justify-center disabled:opacity-50"
-                    >
-                        <Save className="h-5 w-5 mr-2" />
-                        Save Draft
-                    </button>
-
-                    <div className="w-full md:w-auto flex flex-col md:flex-row items-center gap-2">
-                        {submitting && (
-                            <span role="status" className="text-sm text-gray-600">
-                                Saving {entityMetadata?.displayName || config.entityTypeName || entityName}…
-                            </span>
-                        )}
-                        <button
-                            onClick={handleNext}
-                            className="w-full md:w-auto btn-primary flex items-center justify-center disabled:opacity-50"
-                            disabled={saving || submitting}
-                        >
-                            {saving || submitting ? (
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                            ) : (
-                                <ChevronRight className="h-5 w-5 mr-2" />
-                            )}
-                            {saving || submitting ? 'Submitting...' : isLastVisibleStep ? 'Submit' : 'Next'}
-                        </button>
-                    </div>
-                </div>
             </div>
 
             {/* Form Fields */}
             <div className="px-6 md:px-8 py-6 md:py-8 space-y-6">
+                <FormErrorSummary items={errorSummaryItems} focusKey={errorSummaryKey} />
                 {currentStep.isManyToManyRelationship ? (
                     /* Many-to-Many Relationship Step */
                     <ManyToManyRelationshipEditor
@@ -2802,13 +2877,17 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         };
 
                         return (
-                            <div key={`${field.id ?? field.fieldName}-composed`} className={fieldContainerClass}>
+                            <div
+                                key={`${field.id ?? field.fieldName}-composed`}
+                                id={wizardFieldContainerId(field.fieldName)}
+                                className={fieldContainerClass}
+                            >
                                 <FieldRenderer
                                     field={renderedField}
                                     value={currentStepData[field.fieldName]}
                                     onChange={value => handleFieldChange(field.fieldName, value)}
                                     error={fieldError}
-                                    onBlur={() => validateField(field)}
+                                    onBlur={() => handleFieldBlur(field)}
                                     onCreateNew={() => handleOpenChildForm(
                                         field,
                                         undefined,
@@ -2878,7 +2957,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                                                 };
                                             });
                                         }}
-                                        onTaskCompleted={(task: any, extractedValue: any) => {
+                                        onTaskCompleted={(task: any) => {
                                             if (task?.taskType === 'ItemScan' && task?.outputJson) {
                                                 applyItemScanResult(task.outputJson).catch(error => {
                                                     console.error('ItemScan: failed to apply scan result to form fields:', error);
@@ -2910,6 +2989,68 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         );
                     })
                 )}
+            </div>
+
+            {/* #109 (CRUD-6): the actions stay at the bottom of the window while the form scrolls. */}
+            <div
+                data-testid="wizard-footer"
+                className="sticky bottom-0 z-20 rounded-b-lg border-t border-gray-200 bg-white/95 px-6 md:px-8 py-3 shadow-[0_-4px_8px_-6px_rgba(0,0,0,0.15)]"
+            >
+                <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-between">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                        {footerStart}
+                        <button
+                            type="button"
+                            onClick={handlePrevious}
+                            disabled={submitting || previousVisibleStepIndex(visibility, currentStepIndex) === null}
+                            className="w-full md:w-auto btn-secondary disabled:opacity-50 flex items-center justify-center"
+                        >
+                            <ChevronLeft className="h-5 w-5 mr-2" />
+                            Previous
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                        {submitting && (
+                            <span role="status" className="text-sm text-gray-600">
+                                Saving {entityMetadata?.displayName || config.entityTypeName || entityName}…
+                            </span>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleSaveDraft}
+                            disabled={submitting}
+                            className="w-full md:w-auto btn-tertiary flex items-center justify-center disabled:opacity-50"
+                        >
+                            <Save className="h-5 w-5 mr-2" />
+                            Save Draft
+                        </button>
+                        {showSaveNow && (
+                            <button
+                                type="button"
+                                onClick={handleSaveNow}
+                                disabled={saving || submitting}
+                                className="w-full md:w-auto btn-secondary flex items-center justify-center disabled:opacity-50"
+                            >
+                                <Check className="h-5 w-5 mr-2" />
+                                Save changes
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleNext}
+                            className="w-full md:w-auto btn-primary flex items-center justify-center disabled:opacity-50"
+                            disabled={saving || submitting}
+                        >
+                            {saving || submitting ? (
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                            ) : (
+                                <ChevronRight className="h-5 w-5 mr-2" />
+                            )}
+                            {saving || submitting ? 'Submitting...' : isLastVisibleStep ? 'Submit' : 'Next'}
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* Feedback and Child Form Modals */}
