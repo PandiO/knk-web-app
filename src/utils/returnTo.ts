@@ -81,3 +81,28 @@ export function editFormPath(entityTypeName: string, entityId: string | number, 
 export function newFormPath(entityTypeName: string, returnTo?: string | null): string {
   return withReturnTo(`/forms/${encodeURIComponent(entityTypeName)}?autoOpen=true`, returnTo);
 }
+
+/** The detail page of one entity (`/display/:entityName/:id`), coming back to `returnTo` (#81). */
+export function displayPath(entityTypeName: string, entityId: string | number, returnTo?: string | null): string {
+  return withReturnTo(
+    `/display/${encodeURIComponent(entityTypeName)}/${encodeURIComponent(String(entityId))}`,
+    returnTo
+  );
+}
+
+/** The Entity setup page of one type (`/forms/:entityName`): its form and display configurations. */
+export function entitySetupPath(entityTypeName?: string | null): string {
+  return entityTypeName ? `/forms/${encodeURIComponent(entityTypeName)}` : '/forms';
+}
+
+/**
+ * Where "Edit" on an entity goes. Users are edited on the staff player profile (#177 decision
+ * 2026-10-26); the generic User form stays for create until #72/#148 are fixed. Everything else
+ * opens its edit form, coming back to `returnTo`.
+ */
+export function entityEditPath(entityTypeName: string, entityId: string | number, returnTo?: string | null): string {
+  if (entityTypeName.toLowerCase() === 'user') {
+    return `/admin/users/${encodeURIComponent(String(entityId))}`;
+  }
+  return editFormPath(entityTypeName, entityId, returnTo);
+}

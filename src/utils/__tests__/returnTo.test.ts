@@ -2,7 +2,10 @@ import {
   buildLoginRedirect,
   buildReturnTo,
   dashboardPath,
+  displayPath,
   editFormPath,
+  entityEditPath,
+  entitySetupPath,
   newFormPath,
   readReturnTo,
   returnToFromState,
@@ -90,5 +93,23 @@ describe('form links with returnTo (#177 link 1)', () => {
   it('builds dashboard paths', () => {
     expect(dashboardPath('Town')).toBe('/dashboard/Town');
     expect(dashboardPath()).toBe('/dashboard');
+  });
+});
+
+describe('detail, setup and edit paths (#177 link 2)', () => {
+  it('builds the detail page path with a returnTo', () => {
+    expect(displayPath('Town', 4, '/dashboard/Town')).toBe('/display/Town/4?returnTo=%2Fdashboard%2FTown');
+    expect(displayPath('Town', 4)).toBe('/display/Town/4');
+  });
+
+  it('builds the Entity setup path', () => {
+    expect(entitySetupPath('Town')).toBe('/forms/Town');
+    expect(entitySetupPath()).toBe('/forms');
+  });
+
+  it('sends User edits to the player profile and everything else to the edit form', () => {
+    expect(entityEditPath('User', 12, '/dashboard/User')).toBe('/admin/users/12');
+    expect(entityEditPath('user', 12)).toBe('/admin/users/12');
+    expect(entityEditPath('Town', 4, '/dashboard/Town')).toBe('/forms/Town/edit/4?returnTo=%2Fdashboard%2FTown');
   });
 });

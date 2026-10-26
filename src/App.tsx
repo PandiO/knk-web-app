@@ -150,7 +150,7 @@ function AppContent() {
                   <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
                 </StaffRoute>
               } />
-              {/* The builders are opened from the Forms page; their old list pages redirect there. */}
+              {/* The builders are opened from the Entity setup page (/forms); their old list pages redirect there. */}
               <Route path="/admin/form-configurations" element={<Navigate to="/forms" replace />} />
               <Route path="/admin/form-configurations/new" element={
                 <StaffRoute node={CONTENT_PERMISSION_NODE}>

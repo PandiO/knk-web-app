@@ -39,8 +39,12 @@ import { DisplayConfigurationDto } from '../types/dtos/displayConfig/DisplayMode
 import { useEntityMetadata } from '../hooks/useEntityMetadata';
 import { getCreateFunctionForEntity, getFetchByIdFunctionForEntity, getUpdateFunctionForEntity } from '../utils/entityApiMapping';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { dashboardPath, readReturnTo } from '../utils/returnTo';
+import { dashboardPath, entitySetupPath, readReturnTo } from '../utils/returnTo';
 import { toast } from '../utils/toast';
+import { Breadcrumbs } from '../components/Breadcrumbs';
+import { formTrail } from '../utils/breadcrumbs';
+import { typeLabelFor } from '../utils/entityLabel';
+import { useEntityLabel } from '../hooks/useEntityLabel';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { 
@@ -60,7 +64,8 @@ export const FormWizardPage: React.FC<Props> = ({
     entityMetadataFromApp,
     autoOpenDefaultForm = false 
 }: Props) => {
-    usePageTitle('Forms');
+    // #177 decision 4: the nav calls this page "Entity setup" (route /forms unchanged).
+    usePageTitle('Entity setup');
     const navigate = useNavigate();
     const { entityName, entityId: urlEntityId } = useParams<{ entityName: string; entityId?: string }>();
     // added: read query parameter for auto-open and parent context for child entity creation
@@ -187,6 +192,16 @@ export const FormWizardPage: React.FC<Props> = ({
             ? entityMetadataFromApp
             : baseMetadata;
     }, [entityMetadataFromApp, baseMetadata]);
+
+    // #177 link 2: the breadcrumb of an open form ("Dashboard › Town › Edit Cinix").
+    const editedEntityLabel = useEntityLabel(entityId ? selectedTypeName : null, entityId);
+    const breadcrumbTrail = useMemo(() => formTrail({
+        returnTo,
+        entityTypeName: selectedTypeName,
+        entityId,
+        entityLabel: editedEntityLabel,
+        labelFor: typeLabelFor(resolvedBaseMetadata),
+    }), [returnTo, selectedTypeName, entityId, editedEntityLabel, resolvedBaseMetadata]);
 
     const selectedEntityMetadata = useMemo(() => {
         if (!selectedTypeName) {
@@ -592,6 +607,19 @@ export const FormWizardPage: React.FC<Props> = ({
         if (selectedTypeName) {
             loadConfigurationsAndProgress(selectedTypeName);
         }
+    };
+
+    // A breadcrumb leaves the form like Cancel without the question (#177 link 2). Back to this
+    // type's Entity setup page from a form opened there keeps the URL, so reload the lists here.
+    const handleBreadcrumbNavigate = (to: string) => {
+        setShowWizard(false);
+        setWizardConfig(null);
+        setWizardProgressId(undefined);
+        setWorkflowSessionId(undefined);
+        const samePage = to.split(/[?#]/)[0].toLowerCase() === entitySetupPath(selectedTypeName).toLowerCase()
+            && !entityId && !shouldAutoOpen;
+        if (samePage && selectedTypeName) loadConfigurationsAndProgress(selectedTypeName);
+        navigate(to);
     };
 
     // KNG-138: download a configuration as a portable JSON file
@@ -1053,21 +1081,31 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Notification logic
     const showNoConfigs = selectedTypeName && formConfigs.length === 0 && !showWizard;
-    const showNoDefault = selectedTypeName && formConfigs.length > 0 && !defaultConfig && !showWizard && !shouldAutoOpen;
+    // #177 decision 3: "New" on a type without a default form configuration lands here and says so
+    // once the configurations loaded (before, the notice was hidden whenever autoOpen was set).
+    const showNoDefault = selectedTypeName && formConfigs.length > 0 && !defaultConfig && !showWizard && (!shouldAutoOpen || !loadingConfigs);
+    const newNeedsDefault = shouldAutoOpen && !entityId && !loadingConfigs && (showNoConfigs || showNoDefault);
     const showTooManyDefaults = selectedTypeName && formConfigs.filter(cfg => cfg.isDefault).length > 1 && !showWizard;
 
     return (
         <>
             <div className="dashboard-parent">
-                <div className='dashboard-sidebar'>
-                    <ObjectTypeExplorer
-                        entityMetadata={resolvedBaseMetadata}
-                        onSelect={handleSelectEntity}
-                        selectedId={selectedTypeName}
-                        storageKey="forms"
-                    />
-                </div>
+                {/* #177 link 2: an open form shows a breadcrumb instead of the explorer (picking
+                    another type there only lost the form). The config lists keep the explorer. */}
+                {!showWizard && (
+                    <div className='dashboard-sidebar'>
+                        <ObjectTypeExplorer
+                            entityMetadata={resolvedBaseMetadata}
+                            onSelect={handleSelectEntity}
+                            selectedId={selectedTypeName}
+                            storageKey="forms"
+                        />
+                    </div>
+                )}
                 <div className='dashboard-content'>
+                    {showWizard && wizardConfig && selectedTypeName && (
+                        <Breadcrumbs trail={breadcrumbTrail} onNavigate={handleBreadcrumbNavigate} className="mb-4" />
+                    )}
                     <div className="mb-4">
                         <EntityMetadataNavigator metadata={selectedEntityMetadata} />
                     </div>
@@ -1165,7 +1203,9 @@ export const FormWizardPage: React.FC<Props> = ({
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 <span className="text-sm text-yellow-800">
-                                    {showNoConfigs
+                                    {newNeedsDefault
+                                        ? `To create a new ${selectedEntityMetadata?.displayName || selectedObjectType?.label || selectedTypeName}, this type needs a default form configuration: ${showNoConfigs ? 'create one below and set it as default.' : 'set one below as default.'}`
+                                        : showNoConfigs
                                         ? `No form configurations found for "${selectedEntityMetadata?.displayName || selectedObjectType?.label || selectedTypeName}". Please create a configuration first.`
                                         : showNoDefault
                                         ? `No default configuration set for "${selectedEntityMetadata?.displayName || selectedObjectType?.label || selectedTypeName}". Please set one as default to enable form wizard.`
