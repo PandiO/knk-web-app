@@ -32,12 +32,20 @@ jest.mock('../../../hooks/useEntityMetadata', () => ({
     useEntityMetadata: () => mockMetadata,
 }));
 
-// The table renders one row whose Edit action is the dashboard's own rowActions[1].
+// The table renders one row with the dashboard's own row actions (View, Edit, Delete), a "row"
+// button for the row click (absent when the dashboard gives none) and the empty state.
 jest.mock('../../PagedEntityTable/PagedEntityTable', () => ({
-    PagedEntityTable: ({ entityTypeName, rowActions }: { entityTypeName: string; rowActions?: Array<(row: unknown) => React.ReactNode> }) => (
+    PagedEntityTable: ({ entityTypeName, rowActions, onRowClick, emptyState }: {
+        entityTypeName: string;
+        rowActions?: Array<(row: unknown) => React.ReactNode>;
+        onRowClick?: (row: unknown) => void;
+        emptyState?: React.ReactNode;
+    }) => (
         <div>
             <div data-testid="table">{entityTypeName}</div>
-            {rowActions?.[1]?.({ id: 7, name: 'Row seven' })}
+            {onRowClick && <button type="button" onClick={() => onRowClick({ id: 7, name: 'Row seven' })}>row</button>}
+            {rowActions?.map((action, index) => <span key={index}>{action({ id: 7, name: 'Row seven' })}</span>)}
+            <div data-testid="empty-state">{emptyState}</div>
         </div>
     ),
 }));
@@ -78,7 +86,6 @@ describe('ObjectDashboard entity navigator', () => {
         rerender(<ObjectDashboard objectTypes={builtIn as never} />);
 
         expect(await screen.findByTestId('table')).toHaveTextContent('District');
-        expect(screen.getByRole('button', { name: /Without display configuration/ })).toHaveAttribute('aria-expanded', 'false');
     });
 
     it('still uses the built-in list when there is no metadata at all', async () => {
@@ -91,7 +98,7 @@ describe('ObjectDashboard entity navigator', () => {
         expect(await screen.findByTestId('table')).toHaveTextContent('location');
     });
 
-    it('opens on the first type of the Entities group, A-Z, once the grouping is known', async () => {
+    it('opens on the first type with a display configuration, A-Z, once that is known', async () => {
         // KNG-61 live test: the API's first type (often without a display configuration) was
         // selected, which re-opened the collapsed group on every visit.
         let answer: (configs: DisplayConfigurationDto[]) => void = () => undefined;
@@ -103,8 +110,6 @@ describe('ObjectDashboard entity navigator', () => {
         answer([config('Street', true, false), config('District', true, false)]);
 
         expect(await screen.findByTestId('table')).toHaveTextContent('District');
-        const without = screen.getByRole('button', { name: /Without display configuration/ });
-        expect(without).toHaveAttribute('aria-expanded', 'false');
     });
 
     it('falls back to the first type when the display configurations fail to load', async () => {
@@ -138,7 +143,7 @@ describe('ObjectDashboard entity navigator', () => {
         expect(Array.from(names)).toEqual(['town']);
     });
 
-    it('loads display configurations once and groups entities by published default', async () => {
+    it('loads display configurations once and shows one flat list, marking types without a published default (#177 link 2)', async () => {
         getAll.mockResolvedValue([
             config('town', true, false),
             config('Street', true, true),
@@ -147,11 +152,14 @@ describe('ObjectDashboard entity navigator', () => {
 
         render(<ObjectDashboard objectTypes={[]} />);
 
-        const entities = await screen.findByRole('region', { name: 'Entities' });
-        expect(itemLabels(entities)).toEqual(['Town']);
-        // Town is selected by default (first metadata entry), so the collapsed group stays closed.
-        const toggle = screen.getByRole('button', { name: 'Without display configuration (3)' });
-        expect(toggle).toHaveAttribute('aria-expanded', 'false');
+        await screen.findByTestId('table');
+        const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
+        expect(screen.queryByRole('region')).not.toBeInTheDocument();
+        await waitFor(() => expect(within(sidebar).getAllByTestId('explorer-marker')).toHaveLength(3));
+        const markedRows = within(sidebar).getAllByTestId('explorer-marker').map(marker => marker.closest('li')?.textContent);
+        expect(markedRows.map(text => text?.replace('No display configuration – set one up via ⚙', '').trim()).sort())
+            .toEqual(['Category', 'District', 'Street']);
+        expect(within(sidebar).getAllByTestId('explorer-marker')[0]).toHaveAttribute('title', 'No display configuration – set one up via ⚙');
 
         expect(getAll).toHaveBeenCalledTimes(1);
         expect(getAll).toHaveBeenCalledWith(false);
@@ -221,7 +229,7 @@ describe('ObjectDashboard type in the URL (#177 link 1, #58)', () => {
 
         render(<ObjectDashboard objectTypes={[]} />);
         await screen.findByTestId('table');
-        fireEvent.click(within(screen.getByRole('region', { name: 'Entities' })).getByText('Street'));
+        fireEvent.click(within(screen.getByRole('complementary', { name: 'Sidebar' })).getByText('Street'));
 
         expect(mockNavigate).toHaveBeenCalledWith('/dashboard/Street', { replace: false });
         expect(screen.getByTestId('table')).toHaveTextContent('Street');
@@ -235,5 +243,84 @@ describe('ObjectDashboard type in the URL (#177 link 1, #58)', () => {
         fireEvent.click(await screen.findByTitle('Edit'));
 
         expect(mockNavigate).toHaveBeenCalledWith('/forms/Street/edit/7?returnTo=%2Fdashboard%2FStreet');
+    });
+});
+
+describe('ObjectDashboard as the CRUD hub (#177 link 2)', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        window.localStorage.clear();
+        mockMetadata = { baseMetadata: loadedMetadata, loading: false };
+        mockParams = { entityName: 'Street' };
+        mockLocation = { pathname: '/dashboard/Street', search: '' };
+        getAll.mockResolvedValue([config('Street', true, false), config('District', true, false)]);
+    });
+
+    it('opens the default form for "New {Type}" with a returnTo to this type', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'New Street' })[0]);
+
+        expect(mockNavigate).toHaveBeenCalledWith('/forms/Street?autoOpen=true&returnTo=%2Fdashboard%2FStreet');
+    });
+
+    it('offers "New {Type}" in the empty state too', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+
+        const emptyState = screen.getByTestId('empty-state');
+        expect(emptyState).toHaveTextContent('No Street yet.');
+        fireEvent.click(within(emptyState).getByRole('button', { name: 'New Street' }));
+        expect(mockNavigate).toHaveBeenCalledWith('/forms/Street?autoOpen=true&returnTo=%2Fdashboard%2FStreet');
+    });
+
+    it('opens the Entity setup page of the type with the cogwheel', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+
+        const configure = screen.getByRole('button', { name: 'Configure Street' });
+        expect(configure).toHaveAttribute('title', expect.stringContaining('Configure Street'));
+        fireEvent.click(configure);
+
+        expect(mockNavigate).toHaveBeenCalledWith('/forms/Street');
+    });
+
+    it('opens the detail page with a returnTo from View and the row click', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        await waitFor(() => expect(getAll).toHaveBeenCalled());
+
+        fireEvent.click(screen.getByRole('button', { name: 'View' }));
+        expect(mockNavigate).toHaveBeenLastCalledWith('/display/Street/7?returnTo=%2Fdashboard%2FStreet');
+
+        fireEvent.click(screen.getByRole('button', { name: 'row' }));
+        expect(mockNavigate).toHaveBeenCalledTimes(2);
+    });
+
+    it('disables View and the row click for a type without a display configuration', async () => {
+        mockParams = { entityName: 'Town' };
+        mockLocation = { pathname: '/dashboard/Town', search: '' };
+
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+
+        const view = await screen.findByRole('button', { name: /^View – No display configuration/ });
+        expect(view).toBeDisabled();
+        expect(view).toHaveAttribute('title', 'No display configuration – set one up via ⚙');
+        expect(screen.queryByRole('button', { name: 'row' })).not.toBeInTheDocument();
+        // New and Edit still work.
+        expect(screen.getAllByRole('button', { name: 'New Town' })[0]).toBeEnabled();
+    });
+
+    it('sends Edit on a User row to the player profile', async () => {
+        mockMetadata = { baseMetadata: [...loadedMetadata, { entityName: 'User', displayName: 'User', fields: [] }], loading: false };
+        mockParams = { entityName: 'User' };
+        mockLocation = { pathname: '/dashboard/User', search: '' };
+
+        render(<ObjectDashboard objectTypes={[]} />);
+        fireEvent.click(await screen.findByTitle('Edit'));
+
+        expect(mockNavigate).toHaveBeenCalledWith('/admin/users/7');
     });
 });

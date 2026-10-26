@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowDownAZ, ArrowUpZA, ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react';
+import { ArrowDownAZ, ArrowUpZA, ChevronDown, ChevronRight, EyeOff, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -34,6 +34,11 @@ type Props = {
   groups?: ObjectTypeExplorerGroup[];
   /** Remembers sort direction, group expansion and the collapsed sidebar in localStorage under this page key. */
   storageKey?: string;
+  /**
+   * #177 link 2: entities (lower-cased names) that get a small muted marker with `hint` as its
+   * tooltip and screen-reader text, e.g. types without a display configuration. They stay selectable.
+   */
+  marked?: { entityNames: ReadonlySet<string>; hint: string };
 };
 
 type ExplorerItem = { id: string; label: string };
@@ -126,6 +131,7 @@ const ObjectTypeExplorer = ({
   searchable = true,
   groups,
   storageKey,
+  marked,
 }: Props) => {
   const [query, setQuery] = useState('');
   const docked = useDocked();
@@ -261,6 +267,7 @@ const ObjectTypeExplorer = ({
     <ul id={listId} className="space-y-1 font-medium">
       {list.map(type => {
         const selected = normalizedSelectedId !== undefined && type.id.toLowerCase() === normalizedSelectedId;
+        const isMarked = marked?.entityNames.has(type.id.toLowerCase()) ?? false;
         return (
           <li key={type.id}>
             <button
@@ -283,6 +290,12 @@ const ObjectTypeExplorer = ({
               <span className="flex items-center truncate">
                 {type.label}
               </span>
+              {isMarked && (
+                <span className="ml-2 flex-shrink-0 text-gray-400" title={marked!.hint} data-testid="explorer-marker">
+                  <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span className="sr-only">{marked!.hint}</span>
+                </span>
+              )}
             </button>
           </li>
         );
