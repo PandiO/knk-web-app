@@ -1,4 +1,17 @@
-import { buildLoginRedirect, returnToFromState, sanitizeReturnTo } from '../returnTo';
+import {
+  buildLoginRedirect,
+  buildReturnTo,
+  dashboardPath,
+  displayPath,
+  editFormPath,
+  entityEditPath,
+  entitySetupPath,
+  newFormPath,
+  readReturnTo,
+  returnToFromState,
+  sanitizeReturnTo,
+  withReturnTo,
+} from '../returnTo';
 
 describe('sanitizeReturnTo', () => {
   it.each([
@@ -52,5 +65,51 @@ describe('buildLoginRedirect', () => {
   it('drops an unsafe or home path', () => {
     expect(buildLoginRedirect('//evil.example', 'expired')).toBe('/auth/login?reason=expired');
     expect(buildLoginRedirect('/')).toBe('/auth/login');
+  });
+});
+
+describe('form links with returnTo (#177 link 1)', () => {
+  it('builds the returnTo of a page from its path and query', () => {
+    expect(buildReturnTo({ pathname: '/dashboard/Town', search: '' })).toBe('/dashboard/Town');
+    expect(buildReturnTo({ pathname: '/forms/town', search: '?autoOpen=true' })).toBe('/forms/town?autoOpen=true');
+    expect(buildReturnTo({ pathname: '/auth/login' })).toBeNull();
+  });
+
+  it('reads only a safe returnTo', () => {
+    expect(readReturnTo(new URLSearchParams('returnTo=%2Fdashboard%2FTown'))).toBe('/dashboard/Town');
+    expect(readReturnTo(new URLSearchParams('returnTo=https%3A%2F%2Fevil.example'))).toBeNull();
+    expect(readReturnTo(new URLSearchParams('returnTo=%2F%2Fevil.example'))).toBeNull();
+    expect(readReturnTo(new URLSearchParams())).toBeNull();
+  });
+
+  it('adds returnTo to the edit and new form links, and leaves it out when unsafe', () => {
+    expect(editFormPath('Town', 4, '/dashboard/Town')).toBe('/forms/Town/edit/4?returnTo=%2Fdashboard%2FTown');
+    expect(newFormPath('Town', '/dashboard/Town')).toBe('/forms/Town?autoOpen=true&returnTo=%2Fdashboard%2FTown');
+    expect(editFormPath('Town', 4, '//evil.example')).toBe('/forms/Town/edit/4');
+    expect(newFormPath('Town')).toBe('/forms/Town?autoOpen=true');
+    expect(withReturnTo('/forms/Town?returnTo=%2Fold', '/new')).toBe('/forms/Town?returnTo=%2Fnew');
+  });
+
+  it('builds dashboard paths', () => {
+    expect(dashboardPath('Town')).toBe('/dashboard/Town');
+    expect(dashboardPath()).toBe('/dashboard');
+  });
+});
+
+describe('detail, setup and edit paths (#177 link 2)', () => {
+  it('builds the detail page path with a returnTo', () => {
+    expect(displayPath('Town', 4, '/dashboard/Town')).toBe('/display/Town/4?returnTo=%2Fdashboard%2FTown');
+    expect(displayPath('Town', 4)).toBe('/display/Town/4');
+  });
+
+  it('builds the Entity setup path', () => {
+    expect(entitySetupPath('Town')).toBe('/forms/Town');
+    expect(entitySetupPath()).toBe('/forms');
+  });
+
+  it('sends User edits to the player profile and everything else to the edit form', () => {
+    expect(entityEditPath('User', 12, '/dashboard/User')).toBe('/admin/users/12');
+    expect(entityEditPath('user', 12)).toBe('/admin/users/12');
+    expect(entityEditPath('Town', 4, '/dashboard/Town')).toBe('/forms/Town/edit/4?returnTo=%2Fdashboard%2FTown');
   });
 });

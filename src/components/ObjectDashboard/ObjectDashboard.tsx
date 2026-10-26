@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Eye, Pencil, Trash2 } from 'lucide-react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Eye, Pencil, Plus, Settings, Trash2 } from 'lucide-react';
 import ObjectTypeExplorer from '../ObjectTypeExplorer';
-import type { ObjectTypeExplorerGroup } from '../ObjectTypeExplorer';
 import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 // @ts-ignore: side-effect import for CSS without type declarations
 import './ObjectDashboard.css';
@@ -14,6 +13,8 @@ import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
 import { logging } from '../../utils';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { buildReturnTo, dashboardPath, displayPath, editFormPath, entityEditPath, entitySetupPath, newFormPath } from '../../utils/returnTo';
+import { readLastDashboardType, writeLastDashboardType } from '../../utils/lastDashboardType';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
@@ -43,16 +44,26 @@ export const getDefaultEntityName = (
     return [...primary].sort((a, b) => label(a).localeCompare(label(b), undefined, { sensitivity: 'base' }))[0].entityName;
 };
 
+/** The entry of `names` equal to `wanted` ignoring case (the route may be lower-cased), else null. */
+const findName = (names: string[], wanted: string | null | undefined): string | null => {
+    if (!wanted) return null;
+    return names.find(name => name.toLowerCase() === wanted.toLowerCase()) ?? null;
+};
+
 const ObjectDashboard = ({ objectTypes }: Props) => {
     usePageTitle('Dashboard');
     const navigate = useNavigate();
-    const [selectedType, setSelectedType] = useState<string>('');
+    const location = useLocation();
+    // #177 link 1 (#58): the type is in the URL (/dashboard/:entityName), so Back, a refresh and a
+    // form's returnTo all land on it. Bare /dashboard opens the last viewed type, else the default.
+    const { entityName: routeEntityName } = useParams<{ entityName?: string }>();
+    const [selectedType, setSelectedType] = useState<string>(routeEntityName ?? '');
     const { baseMetadata, loading: metadataLoading } = useEntityMetadata();
     const hasMetadata = baseMetadata.length > 0;
-    // null while loading or after a failure: the explorer then shows one flat list.
+    // null while loading or after a failure: no type is marked and View stays enabled.
     const [displayConfiguredEntities, setDisplayConfiguredEntities] = useState<Set<string> | null>(null);
     // True once the display configurations answered (or failed), so the default selection can
-    // prefer a type from the "Entities" group.
+    // prefer a type that has one.
     const [displayConfigsSettled, setDisplayConfigsSettled] = useState(false);
 
     useEffect(() => {
@@ -75,24 +86,27 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         };
     }, []);
 
-    const explorerGroups = useMemo<ObjectTypeExplorerGroup[] | undefined>(() => {
-        if (!displayConfiguredEntities) return undefined;
-        return [
-            {
-                id: 'with-display-configuration',
-                title: 'Entities',
-                entityNames: displayConfiguredEntities,
-                defaultExpanded: true,
-                collapsible: false,
-            },
-            {
-                id: 'without-display-configuration',
-                title: 'Without display configuration',
-                defaultExpanded: false,
-                collapsible: true,
-            },
-        ];
-    }, [displayConfiguredEntities]);
+    // #177 link 2: one flat list; types without a published default display configuration are
+    // marked, and their View (the detail page needs that configuration) is disabled.
+    const withoutDisplayConfiguration = useMemo<Set<string> | null>(() => {
+        if (!displayConfiguredEntities) return null;
+        return new Set(
+            baseMetadata
+                .map(metadata => metadata.entityName.toLowerCase())
+                .filter(name => !displayConfiguredEntities.has(name))
+        );
+    }, [baseMetadata, displayConfiguredEntities]);
+
+    useEffect(() => {
+        setSelectedType(routeEntityName ?? '');
+    }, [routeEntityName]);
+
+    const selectType = (type: string, replace = false) => {
+        setSelectedType(type);
+        if (type && type !== routeEntityName) {
+            navigate(dashboardPath(type), { replace });
+        }
+    };
 
     useEffect(() => {
         // While the entity metadata loads, baseMetadata is empty: don't fall back to the built-in
@@ -104,22 +118,36 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                 metadata => metadata.entityName.toLowerCase() === selectedType.toLowerCase()
             );
 
-            if (!selectedExists && baseMetadata[0]?.entityName) {
-                // KNG-61 live test: defaulting to the API's first type (often one without a display
-                // configuration) re-opened the collapsed group on every visit. Wait for the grouping
-                // and start on the first type of the "Entities" group instead.
-                if (!displayConfigsSettled) return;
-                setSelectedType(getDefaultEntityName(baseMetadata, displayConfiguredEntities));
+            if (selectedExists) {
+                writeLastDashboardType(selectedType);
+                return;
             }
+            if (!baseMetadata[0]?.entityName) return;
+            const lastViewed = findName(baseMetadata.map(metadata => metadata.entityName), readLastDashboardType());
+            if (lastViewed) {
+                selectType(lastViewed, true);
+                return;
+            }
+            // KNG-61 live test: defaulting to the API's first type (often one without a display
+            // configuration) re-opened the collapsed group on every visit. Wait for the grouping
+            // and start on the first type of the "Entities" group instead.
+            if (!displayConfigsSettled) return;
+            selectType(getDefaultEntityName(baseMetadata, displayConfiguredEntities), true);
             return;
         }
 
         const selectedExists = objectTypes.some(
             objectType => objectType.id.toLowerCase() === selectedType.toLowerCase()
         );
-        if (!selectedExists && objectTypes[0]?.id) {
-            setSelectedType(objectTypes[0].id);
+        if (selectedExists) {
+            writeLastDashboardType(selectedType);
+            return;
         }
+        if (!objectTypes[0]?.id) return;
+        const lastViewed = findName(objectTypes.map(objectType => objectType.id), readLastDashboardType());
+        selectType(lastViewed ?? objectTypes[0].id, true);
+        // selectType only sets state and navigates; listing it would re-run this on every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [metadataLoading, hasMetadata, baseMetadata, objectTypes, selectedType, displayConfigsSettled, displayConfiguredEntities]);
 
     // const fetchObjects = ({ type }: { type: string }) => {
@@ -153,16 +181,37 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     //     }
     // };
   
+    const canView = (entityTypeName: string) =>
+        !withoutDisplayConfiguration?.has(entityTypeName.toLowerCase());
+
     const handleView = (entityTypeName: string, item: any) => {
-        // Navigate to DisplayWizard for read-only view
-        navigate(`/display/${entityTypeName}/${item.id}`);
+        if (!canView(entityTypeName)) return;
+        // The detail page (#81) comes back here with its Back button and breadcrumb.
+        navigate(displayPath(entityTypeName, item.id, returnTo()));
     };
 
-    // changed: navigate to FormWizardPage with entity type and ID for editing
+    // A type from the URL is shown only once it's known; an unknown one is replaced by the fallback.
+    const selectedIsKnown = hasMetadata
+        ? findName(baseMetadata.map(metadata => metadata.entityName), selectedType) !== null
+        : findName(objectTypes.map(objectType => objectType.id), selectedType) !== null;
+
+    // Where a form opened from here comes back to (#58): this type, with whatever the URL holds.
+    const returnTo = () => buildReturnTo(location) ?? dashboardPath(selectedType);
+
     const handleEdit = (entityTypeName: string, item: any) => {
-        // Navigate to forms page with entity type and ID
-        navigate(`/forms/${entityTypeName}/edit/${item.id}`);
+        // Users are edited on the player profile (#177 decision 2026-10-26).
+        navigate(entityEditPath(entityTypeName, item.id, returnTo()));
     };
+
+    // "New" opens the default form (#177 decision 3: without one the Entity setup page says so).
+    const handleNew = () => {
+        navigate(newFormPath(selectedType, returnTo()));
+    };
+
+    const typeLabel = baseMetadata.find(metadata => metadata.entityName.toLowerCase() === selectedType.toLowerCase())?.displayName
+        || objectTypes.find(objectType => objectType.id.toLowerCase() === selectedType.toLowerCase())?.label
+        || selectedType;
+    const viewHint = 'No display configuration – set one up via ⚙';
 
     // Feedback modal state
     const [modalOpen, setModalOpen] = useState(false);
@@ -213,7 +262,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                     setModalSecondaryLabel('Reassign Parent');
                     setModalOnSecondary(() => () => {
                         setModalOpen(false);
-                        navigate(`/forms/category/edit/${item.id}`);
+                        navigate(editFormPath('category', item.id, returnTo()));
                     });
                 } else {
                     setModalContinueLabel('Close');
@@ -235,17 +284,40 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                 <ObjectTypeExplorer
                     items={objectTypes}
                     entityMetadata={baseMetadata}
-                    onSelect={(type) => setSelectedType(type)}
+                    onSelect={(type) => selectType(type)}
                     selectedId={selectedType}
-                    groups={explorerGroups}
                     storageKey="dashboard"
+                    marked={withoutDisplayConfiguration ? { entityNames: withoutDisplayConfiguration, hint: viewHint } : undefined}
                 />
             </div>
             <div className="dashboard-content">
                 <div>
-                    <h2 className="text-3xl font-bold text-gray-900 mb-8">
-                        {baseMetadata.find(metadata => metadata.entityName.toLowerCase() === selectedType.toLowerCase())?.displayName || objectTypes.find(objectType => objectType.id.toLowerCase() === selectedType.toLowerCase())?.label || 'Items'}
-                    </h2>
+                    <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+                        <h2 className="text-3xl font-bold text-gray-900">
+                            {typeLabel || 'Items'}
+                        </h2>
+                        {selectedType && selectedIsKnown && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleNew}
+                                    className="btn-primary inline-flex items-center gap-2 whitespace-nowrap"
+                                >
+                                    <Plus className="h-4 w-4" aria-hidden="true" />
+                                    New {typeLabel}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(entitySetupPath(selectedType))}
+                                    className="btn-secondary inline-flex items-center p-2"
+                                    aria-label={`Configure ${typeLabel}`}
+                                    title={`Configure ${typeLabel}: form and display configurations, default columns`}
+                                >
+                                    <Settings className="h-5 w-5" aria-hidden="true" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     {metadataLoading && (
                         <div className="mb-4 text-sm text-gray-500">Loading entity metadata...</div>
                     )}
@@ -261,13 +333,26 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                         secondaryLabel={modalSecondaryLabel}
                         onClose={() => setModalOpen(false)}
                     />
-                    {selectedType && (
+                    {selectedType && selectedIsKnown && (
                         <PagedEntityTable
                             entityTypeName={selectedType}
                             columns={getColumnDefinitions(selectedType)}
                             initialQuery={{ page: 1, pageSize: 10 }}
-                            onRowClick={(row) => handleView(selectedType, row)}
+                            onRowClick={canView(selectedType) ? (row) => handleView(selectedType, row) : undefined}
                             refreshKey={refreshKey}
+                            emptyState={(
+                                <div className="flex flex-col items-center gap-3">
+                                    <span>No {typeLabel} yet.</span>
+                                    <button
+                                        type="button"
+                                        onClick={handleNew}
+                                        className="btn-primary inline-flex items-center gap-2"
+                                    >
+                                        <Plus className="h-4 w-4" aria-hidden="true" />
+                                        New {typeLabel}
+                                    </button>
+                                </div>
+                            )}
                             rowActions={[
                                 (row) => (
                                     <button
@@ -275,8 +360,10 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                             e.stopPropagation();
                                             handleView(selectedType, row);
                                         }}
-                                        className="p-2 text-gray-400 hover:text-gray-600"
-                                        title="View"
+                                        disabled={!canView(selectedType)}
+                                        className="p-2 text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-gray-400"
+                                        title={canView(selectedType) ? 'View' : viewHint}
+                                        aria-label={canView(selectedType) ? 'View' : `View – ${viewHint}`}
                                     >
                                         <Eye className="h-4 w-4" />
                                     </button>

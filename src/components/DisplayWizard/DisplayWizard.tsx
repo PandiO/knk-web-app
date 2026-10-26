@@ -14,7 +14,8 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
   entityTypeName,
   entityId,
   configurationId,
-  onActionClick
+  onActionClick,
+  renderHeader
 }) => {
   const navigate = useNavigate();
   const { config, loading: configLoading, error: configError } = useDisplayConfig(
@@ -179,12 +180,21 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
 
   return (
     <div className="display-wizard">
-      <div className="mb-6 pb-4 border-b border-gray-200">
-        <h2 className="text-3xl font-bold text-gray-900">{config.name}</h2>
-        {config.description && (
-          <p className="text-gray-600 mt-2">{config.description}</p>
-        )}
-      </div>
+      {renderHeader ? (
+        <div className="mb-6 pb-4 border-b border-gray-200">
+          {renderHeader(entityData)}
+          {config.description && (
+            <p className="text-gray-600 mt-2">{config.description}</p>
+          )}
+        </div>
+      ) : (
+        <div className="mb-6 pb-4 border-b border-gray-200">
+          <h2 className="text-3xl font-bold text-gray-900">{config.name}</h2>
+          {config.description && (
+            <p className="text-gray-600 mt-2">{config.description}</p>
+          )}
+        </div>
+      )}
 
       <FeedbackModal
         open={modalOpen}

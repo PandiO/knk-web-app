@@ -1,5 +1,6 @@
 /**
- * Where to go after logging in. Only same-origin paths are accepted, so a crafted link
+ * Where to go back to: after logging in, and (#177 link 1, #58) after a form opened from another
+ * page is submitted or cancelled. Only same-origin paths are accepted, so a crafted link
  * (`/auth/login?returnTo=https://evil.example`) can't send a player to another site.
  */
 const BASE = 'http://knk.invalid';
@@ -41,4 +42,67 @@ export function buildLoginRedirect(path: string | null | undefined, reason?: str
   if (reason) params.set('reason', reason);
   const query = params.toString();
   return query ? `/auth/login?${query}` : '/auth/login';
+}
+
+/** The `returnTo` query parameter of a page, if it's safe. */
+export function readReturnTo(searchParams: URLSearchParams): string | null {
+  return sanitizeReturnTo(searchParams.get('returnTo'));
+}
+
+/** The `returnTo` for the page at `location` (path and query), if it's safe. */
+export function buildReturnTo(location: { pathname: string; search?: string }): string | null {
+  return sanitizeReturnTo(`${location.pathname}${location.search ?? ''}`);
+}
+
+/** `path` with `returnTo` added to its query when `returnTo` is safe. */
+export function withReturnTo(path: string, returnTo: string | null | undefined): string {
+  const safe = sanitizeReturnTo(returnTo);
+  if (!safe) return path;
+  const [base, query = ''] = path.split('?');
+  const params = new URLSearchParams(query);
+  params.set('returnTo', safe);
+  return `${base}?${params.toString()}`;
+}
+
+/** The dashboard on one entity type (`/dashboard/:entityName`), or the bare dashboard. */
+export function dashboardPath(entityTypeName?: string | null): string {
+  return entityTypeName ? `/dashboard/${encodeURIComponent(entityTypeName)}` : '/dashboard';
+}
+
+/** The edit form of one entity, coming back to `returnTo`. */
+export function editFormPath(entityTypeName: string, entityId: string | number, returnTo?: string | null): string {
+  return withReturnTo(
+    `/forms/${encodeURIComponent(entityTypeName)}/edit/${encodeURIComponent(String(entityId))}`,
+    returnTo
+  );
+}
+
+/** The default form for a new entity (`autoOpen`), coming back to `returnTo`. */
+export function newFormPath(entityTypeName: string, returnTo?: string | null): string {
+  return withReturnTo(`/forms/${encodeURIComponent(entityTypeName)}?autoOpen=true`, returnTo);
+}
+
+/** The detail page of one entity (`/display/:entityName/:id`), coming back to `returnTo` (#81). */
+export function displayPath(entityTypeName: string, entityId: string | number, returnTo?: string | null): string {
+  return withReturnTo(
+    `/display/${encodeURIComponent(entityTypeName)}/${encodeURIComponent(String(entityId))}`,
+    returnTo
+  );
+}
+
+/** The Entity setup page of one type (`/forms/:entityName`): its form and display configurations. */
+export function entitySetupPath(entityTypeName?: string | null): string {
+  return entityTypeName ? `/forms/${encodeURIComponent(entityTypeName)}` : '/forms';
+}
+
+/**
+ * Where "Edit" on an entity goes. Users are edited on the staff player profile (#177 decision
+ * 2026-10-26); the generic User form stays for create until #72/#148 are fixed. Everything else
+ * opens its edit form, coming back to `returnTo`.
+ */
+export function entityEditPath(entityTypeName: string, entityId: string | number, returnTo?: string | null): string {
+  if (entityTypeName.toLowerCase() === 'user') {
+    return `/admin/users/${encodeURIComponent(String(entityId))}`;
+  }
+  return editFormPath(entityTypeName, entityId, returnTo);
 }

@@ -213,6 +213,16 @@ describe('PagedEntityTable', () => {
         expect(await screen.findByText('No results found')).toBeInTheDocument();
     });
 
+    it('shows the empty state of an empty list, and "No results found" for an empty search (#177 link 2)', async () => {
+        search.mockResolvedValue(page([]));
+        render(<PagedEntityTable<Row> entityTypeName="District" columns={columns} emptyState={<span>No District yet.</span>} />);
+        expect(await screen.findByText('No District yet.')).toBeInTheDocument();
+
+        fireEvent.change(screen.getByPlaceholderText('Search...'), { target: { value: 'harb' } });
+        expect(await screen.findByText('No results found')).toBeInTheDocument();
+        expect(screen.queryByText('No District yet.')).not.toBeInTheDocument();
+    });
+
     // KNG-200 phase 5: materials and blocks are database-only, so their tables are plain tables.
     describe('Minecraft material and block tables (KNG-200 phase 5)', () => {
         const torch = { id: 7, name: 'Torch', namespaceKey: 'minecraft:torch', category: 'ITEM', isPersisted: true };

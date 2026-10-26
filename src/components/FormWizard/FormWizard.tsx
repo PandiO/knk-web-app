@@ -69,7 +69,13 @@ interface FormWizardProps {
     // KNG-134: edit mode only - values laid over the database load (the parent's in-session edits).
     overlayFieldValues?: Record<string, unknown>;
     userId: string;
-    onComplete?: (data: Record<string, unknown>, progress?: FormSubmissionProgressDto) => void;
+    // Saves the entity. Awaited inside the submit's pending state (#177 link 1); resolve `false` or
+    // throw when nothing was saved, and the progress stays as it was instead of being marked Completed.
+    onComplete?: (data: Record<string, unknown>, progress?: FormSubmissionProgressDto) => void | boolean | Promise<void | boolean>;
+    // After a successful onComplete, once the progress is marked Completed (or that failed).
+    onCompleted?: () => void;
+    // The submit's pending state, for controls outside the wizard (the page's Cancel).
+    onSubmittingChange?: (submitting: boolean) => void;
     existingProgressId?: string;
     parentProgressId?: string; // added: for nested child forms
     fieldName?: string; // added: field name this child form is for
@@ -94,6 +100,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     overlayFieldValues,
     userId,
     onComplete,
+    onCompleted,
+    onSubmittingChange,
     existingProgressId,
     parentProgressId, // added
     fieldName,
@@ -119,6 +127,10 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     const [progressId, setProgressId] = useState<string | undefined>(existingProgressId);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    // #177 link 1: Submit is pending from the last step's save until the entity is saved, and a
+    // second click (or Next while a step is still being checked) does nothing.
+    const [submitting, setSubmitting] = useState(false);
+    const advancingRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
     // CRITICAL: Track entityId in state so it persists when loading from progress
@@ -2461,7 +2473,12 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         return progressData;
     };
 
-    const saveProgress = async (status: FormSubmissionStatus = FormSubmissionStatus.Paused): Promise<FormSubmissionProgressDto | null> => {
+    // knownId: the id a save earlier in the same handler returned (progressId in this closure is
+    // still the old value, so a new form would otherwise be created twice).
+    const saveProgress = async (
+        status: FormSubmissionStatus = FormSubmissionStatus.Paused,
+        knownId?: string
+    ): Promise<FormSubmissionProgressDto | null> => {
         try {
             setSaving(true);
             // changed: clear error before attempting save
@@ -2472,9 +2489,10 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 throw new Error('No progress data to save');
             }
             progressData.status = status;
+            if (knownId) progressData.id = knownId;
 
             let savedProgress: FormSubmissionProgressDto;
-            if (progressId) {
+            if (progressData.id) {
                 savedProgress = await formSubmissionClient.update(progressData);
             } else {
                 savedProgress = await formSubmissionClient.create(progressData);
@@ -2516,7 +2534,22 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         }
     };
 
+    const setSubmitPending = (pending: boolean) => {
+        setSubmitting(pending);
+        onSubmittingChange?.(pending);
+    };
+
     const handleNext = async () => {
+        if (advancingRef.current) return;
+        advancingRef.current = true;
+        try {
+            await advance();
+        } finally {
+            advancingRef.current = false;
+        }
+    };
+
+    const advance = async () => {
         if (!validateStep()) return;
 
         // Check step completion conditions
@@ -2620,29 +2653,47 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 return;
             }
 
-            // KNG-133: normalize first, so a submission refused above (e.g. an entity that was
-            // never saved) leaves the progress as it was instead of marking it Completed.
-            const saved = await saveProgress(FormSubmissionStatus.Completed);
-            if (!saved) return;
-
-            // CRITICAL: Include entity ID in payload for edit mode
-            // This ensures the parent component calls UPDATE instead of CREATE
-            if (entityId) {
-                normalizedPayload.id = entityId;
-            }
-
-            console.log('Raw form data (flattened):', flattenedDto);
-            console.log('Normalized payload for API (with IDs extracted):', normalizedPayload);
-            console.log('Edit mode:', !!entityId, 'Entity ID:', entityId);
-
-            // notify workflow for final step as well
+            setSubmitPending(true);
             try {
-                const stepKey = computeStepKey(currentStep!, currentStepIndex);
-                onStepAdvanced?.({ from: currentStepIndex, to: currentStepIndex, stepKey });
-                setCompletedSteps(prevSet => new Set<number>([...Array.from(prevSet), currentStepIndex]));
-            } catch {}
+                // KNG-133: normalize first, so a submission refused above (e.g. an entity that was
+                // never saved) leaves the progress as it was. #177: the latest values are saved as
+                // InProgress, and the progress becomes Completed only once the entity is saved, so a
+                // refused save never leaves a Completed draft behind (the cleanup would delete it).
+                const saved = await saveProgress(FormSubmissionStatus.InProgress);
+                if (!saved) return;
 
-            onComplete?.(normalizedPayload, getProgressData()!);
+                // CRITICAL: Include entity ID in payload for edit mode
+                // This ensures the parent component calls UPDATE instead of CREATE
+                if (entityId) {
+                    normalizedPayload.id = entityId;
+                }
+
+                console.log('Raw form data (flattened):', flattenedDto);
+                console.log('Normalized payload for API (with IDs extracted):', normalizedPayload);
+                console.log('Edit mode:', !!entityId, 'Entity ID:', entityId);
+
+                // notify workflow for final step as well
+                try {
+                    const stepKey = computeStepKey(currentStep!, currentStepIndex);
+                    onStepAdvanced?.({ from: currentStepIndex, to: currentStepIndex, stepKey });
+                    setCompletedSteps(prevSet => new Set<number>([...Array.from(prevSet), currentStepIndex]));
+                } catch {}
+
+                let result: void | boolean;
+                try {
+                    result = await onComplete?.(normalizedPayload, { ...getProgressData()!, id: saved.id });
+                } catch (completeError) {
+                    // The caller shows why; the progress stays InProgress.
+                    console.error('Form submit was not saved:', completeError);
+                    return;
+                }
+                if (result === false) return;
+
+                await saveProgress(FormSubmissionStatus.Completed, saved.id);
+                onCompleted?.();
+            } finally {
+                setSubmitPending(false);
+            }
         }
     };
 
@@ -2734,7 +2785,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 <div className="flex flex-col md:flex-row gap-3 md:gap-2 justify-between items-center">
                     <button
                         onClick={handlePrevious}
-                        disabled={previousVisibleStepIndex(visibility, currentStepIndex) === null}
+                        disabled={submitting || previousVisibleStepIndex(visibility, currentStepIndex) === null}
                         className="w-full md:w-auto btn-secondary disabled:opacity-50 flex items-center justify-center"
                     >
                         <ChevronLeft className="h-5 w-5 mr-2" />
@@ -2743,24 +2794,32 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
 
                     <button
                         onClick={handleSaveDraft}
-                        className="w-full md:w-auto btn-tertiary flex items-center justify-center"
+                        disabled={submitting}
+                        className="w-full md:w-auto btn-tertiary flex items-center justify-center disabled:opacity-50"
                     >
                         <Save className="h-5 w-5 mr-2" />
                         Save Draft
                     </button>
 
-                    <button
-                        onClick={handleNext}
-                        className="w-full md:w-auto btn-primary flex items-center justify-center disabled:opacity-50"
-                        disabled={saving}
-                    >
-                        {saving ? (
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                        ) : (
-                            <ChevronRight className="h-5 w-5 mr-2" />
+                    <div className="w-full md:w-auto flex flex-col md:flex-row items-center gap-2">
+                        {submitting && (
+                            <span role="status" className="text-sm text-gray-600">
+                                Saving {entityMetadata?.displayName || config.entityTypeName || entityName}…
+                            </span>
                         )}
-                        {saving ? 'Submitting...' : isLastVisibleStep ? 'Submit' : 'Next'}
-                    </button>
+                        <button
+                            onClick={handleNext}
+                            className="w-full md:w-auto btn-primary flex items-center justify-center disabled:opacity-50"
+                            disabled={saving || submitting}
+                        >
+                            {saving || submitting ? (
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                            ) : (
+                                <ChevronRight className="h-5 w-5 mr-2" />
+                            )}
+                            {saving || submitting ? 'Submitting...' : isLastVisibleStep ? 'Submit' : 'Next'}
+                        </button>
+                    </div>
                 </div>
             </div>
 

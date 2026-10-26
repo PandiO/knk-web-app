@@ -98,6 +98,11 @@ export interface DisplayWizardProps {
   entityId: number;
   configurationId?: number;
   onActionClick?: (action: DisplayAction) => void;
+  /**
+   * #81: the page header (entity name, Edit/Delete/Back), given the loaded entity. Replaces the
+   * default heading, which shows the display configuration's name.
+   */
+  renderHeader?: (entity: Record<string, unknown>) => import('react').ReactNode;
 }
 
 export interface DisplayAction {

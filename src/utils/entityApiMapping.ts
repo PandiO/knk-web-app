@@ -419,3 +419,13 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }
 }
+
+/** True when the app can create this entity type (a create client is registered above). */
+export function hasCreateFunctionForEntity(entityTypeName: string): boolean {
+    try {
+        getCreateFunctionForEntity(entityTypeName);
+        return true;
+    } catch {
+        return false;
+    }
+}

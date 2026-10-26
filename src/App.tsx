@@ -126,6 +126,12 @@ function AppContent() {
                   <ObjectDashboard objectTypes={objectTypes} />
                 </StaffRoute>
               } />
+              {/* #177 link 1 (#58): the selected type in the URL; bare /dashboard reopens the last one. */}
+              <Route path="/dashboard/:entityName" element={
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
+                  <ObjectDashboard objectTypes={objectTypes} />
+                </StaffRoute>
+              } />
               {/* changed: Use Case 3 - Browse forms (no auto-open) */}
               <Route path="/forms" element={
                 <StaffRoute node={CONTENT_PERMISSION_NODE}>
@@ -144,7 +150,7 @@ function AppContent() {
                   <FormWizardPage entityTypeName='' objectTypes={objectTypes} entityMetadataFromApp={entityMetadataWithDefaults} autoOpenDefaultForm={false} />
                 </StaffRoute>
               } />
-              {/* The builders are opened from the Forms page; their old list pages redirect there. */}
+              {/* The builders are opened from the Entity setup page (/forms); their old list pages redirect there. */}
               <Route path="/admin/form-configurations" element={<Navigate to="/forms" replace />} />
               <Route path="/admin/form-configurations/new" element={
                 <StaffRoute node={CONTENT_PERMISSION_NODE}>

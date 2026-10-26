@@ -178,7 +178,17 @@ export interface PagedEntityTableProps<T> {
      * also holds is shown once, pinned, with the page's data.
      */
     pinnedRows?: Array<PinnedRow<T>>;
+
+    /**
+     * #177 link 2: shown in place of "No results found" when the list is empty and nothing is
+     * searched for, e.g. a "New {Type}" button on the dashboard.
+     */
+    emptyState?: React.ReactNode;
 }
+
+/** True when a filter narrows the list (a value other than empty/null/undefined). */
+const hasActiveFilters = (filters: PagedQueryDto['filters']): boolean =>
+    !!filters && Object.values(filters).some(value => value !== undefined && value !== null && value !== '');
 
 export function PagedEntityTable<T extends Record<string, any>>({
     entityTypeName,
@@ -193,7 +203,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
     showSearchBar = true,
     showSelectionBanner = true,
     refreshKey,
-    pinnedRows
+    pinnedRows,
+    emptyState
 }: PagedEntityTableProps<T>) {
     const { baseMetadata, allMergedMetadata } = useEntityMetadata();
 
@@ -691,7 +702,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                             {section.pinned.length === 0 && section.pageItems.length === 0 ? (
                                 <tr>
                                     <td colSpan={columnCount} className="px-6 py-12 text-center text-gray-500">
-                                        No results found
+                                        {emptyState && !query.searchTerm && !hasActiveFilters(query.filters) ? emptyState : 'No results found'}
                                     </td>
                                 </tr>
                             ) : (

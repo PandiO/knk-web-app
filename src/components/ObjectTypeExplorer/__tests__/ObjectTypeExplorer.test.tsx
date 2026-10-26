@@ -52,6 +52,28 @@ describe('ObjectTypeExplorer', () => {
     jest.restoreAllMocks();
   });
 
+  describe('marked entities (#177 link 2)', () => {
+    it('marks the given entities with a muted hint and keeps them selectable', async () => {
+      const onSelect = jest.fn();
+      render(
+        <ObjectTypeExplorer
+          entityMetadata={metadata}
+          onSelect={onSelect}
+          marked={{ entityNames: new Set(['district', 'gatestructure']), hint: 'No display configuration' }}
+        />
+      );
+
+      const markers = screen.getAllByTestId('explorer-marker');
+      expect(markers).toHaveLength(2);
+      expect(markers[0]).toHaveAttribute('title', 'No display configuration');
+      expect(markers.map(marker => marker.closest('li')?.textContent?.replace('No display configuration', '')))
+        .toEqual(['District', 'Gate']);
+
+      await userEvent.click(screen.getByRole('button', { name: /^District/ }));
+      expect(onSelect).toHaveBeenCalledWith('District');
+    });
+  });
+
   describe('flat mode (no groups)', () => {
     it('renders one alphabetically sorted list without group headers', () => {
       render(<ObjectTypeExplorer entityMetadata={metadata} />);

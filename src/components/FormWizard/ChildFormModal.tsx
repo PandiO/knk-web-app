@@ -181,6 +181,8 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
             onClose();
         } catch (err) {
             setSaveError(failureReason(err) ?? `Failed to save ${entityTypeName}. Please try again.`);
+            // #177 link 1: tells the wizard the child wasn't saved, so its progress isn't marked Completed.
+            return false;
         } finally {
             setCompleting(false);
         }
