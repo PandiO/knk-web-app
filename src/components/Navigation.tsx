@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes } from 'lucide-react';
+import { Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { CONTENT_PERMISSION_NODE, usePermission, useStaffAccess } from '../hooks/useStaffAccess';
 import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
@@ -11,6 +11,7 @@ import { ROAD_ADMIN_NODE } from '../types/dtos/road/RoadDtos';
 import { EMAIL_ADMIN_NODE } from '../types/dtos/email/EmailOutboxDtos';
 import { INVITATION_NODES } from '../types/dtos/invitations/InvitationDtos';
 import { NavLayout, pickNavLayout } from './navLayout';
+import { CreateNewMenu } from './CreateNewMenu';
 
 // added: explicit types for object types prop
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -28,10 +29,12 @@ const NAV_LINKS: NavLink[] = [
   { to: '/leaderboards', label: 'Leaderboards', Icon: Trophy },
   // The content tools (dashboard, forms, displays, builders) need knk.admin.content, like their
   // routes (alpha hardening WP9.1). The form and display builders have no link of their own:
-  // they're opened from the Forms page.
+  // they're opened from the Entity setup page.
   // Not exact: /dashboard/:entityName (#177 link 1) is the same page.
   { to: '/dashboard', label: 'Dashboard', Icon: Table2, node: CONTENT_PERMISSION_NODE },
-  { to: '/forms', label: 'Forms', Icon: FileText, node: CONTENT_PERMISSION_NODE },
+  // #177 decision 4: the Forms page is "Entity setup" (form and display configurations, default
+  // columns, saved progress); the route stays /forms. The dashboard's ⚙ opens it on one type.
+  { to: '/forms', label: 'Entity setup', Icon: FileText, node: CONTENT_PERMISSION_NODE },
   { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings, staffOnly: true },
   // Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables
   { to: '/admin/siege-configuration', label: 'Siege Settings', Icon: Swords, staffOnly: true },
@@ -62,12 +65,9 @@ const TITLE_CLASS = 'whitespace-nowrap text-xl font-semibold text-slate-900';
 
 // changed: accept props object instead of raw array parameter
 export function Navigation({ objectTypes }: Props) {
-  const [isOpen, setIsOpen] = useState(false);
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
   const navMenuRef = useRef<HTMLDivElement>(null);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
   const accountItemRefs = useRef<Array<HTMLElement | null>>([]);
@@ -128,9 +128,6 @@ export function Navigation({ objectTypes }: Props) {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
       if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
         setIsAccountMenuOpen(false);
       }
@@ -142,29 +139,6 @@ export function Navigation({ objectTypes }: Props) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex(prev => (prev + 1) % objectTypes.length);
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex(prev => (prev - 1 + objectTypes.length) % objectTypes.length);
-        break;
-      case 'Enter':
-        if (selectedIndex >= 0) {
-          navigate(objectTypes[selectedIndex].createRoute);
-          navigate(objectTypes[selectedIndex].createRoute);
-          setIsOpen(false);
-        }
-        break;
-      case 'Escape':
-        setIsOpen(false);
-        break;
-    }
-  };
 
   // Close the small-screen menu and the account menu after navigating.
   useEffect(() => {
@@ -409,58 +383,9 @@ export function Navigation({ objectTypes }: Props) {
               )}
             </div>
 
-            {/* Creating objects goes through the forms: content staff only, like the Forms link. */}
-            {canManageContent && (
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="btn-primary inline-flex items-center whitespace-nowrap"
-                title="Create a new object"
-              >
-                <Plus className="h-5 w-5 sm:mr-2" />
-                <span className="hidden sm:inline">Create New</span>
-              </button>
-
-              {isOpen && (
-                <div
-                  className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
-                  role="menu"
-                  onKeyDown={handleKeyDown}
-                  tabIndex={-1}
-                >
-                  <div className="py-1">
-                    {objectTypes.map((type, index) => (
-                      <button
-                        key={type.id}
-                        onClick={() => {
-                          // changed: Navigate to forms with autoOpenDefaultForm=true for Use Case 4
-                          navigate(`/forms/${type.id}?autoOpen=true`);
-                          // changed: Navigate to forms with autoOpenDefaultForm=true for Use Case 4
-                          navigate(`/forms/${type.id}?autoOpen=true`);
-                          setIsOpen(false);
-                        }}
-                        className={`
-                          w-full text-left px-4 py-2 text-sm flex items-center justify-between
-                          ${selectedIndex === index
-                            ? 'bg-gray-100 text-gray-900'
-                            : 'text-gray-700 hover:bg-gray-50'
-                          }
-                        `}
-                        role="menuitem"
-                        onMouseEnter={() => setSelectedIndex(index)}
-                      >
-                        <span className="flex items-center">
-                          <span className="mr-3 text-gray-400">{type.icon}</span>
-                          {type.label}
-                        </span>
-                        <ChevronRight className="h-4 w-4 text-gray-400" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            )}
+            {/* Creating objects goes through the forms: content staff only, like the Entity setup link.
+                The list comes from the entity metadata (#177 link 2). */}
+            {canManageContent && <CreateNewMenu objectTypes={objectTypes} />}
           </div>
         </div>
       </div>
