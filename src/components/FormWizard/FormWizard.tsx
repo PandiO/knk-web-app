@@ -111,7 +111,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     parentContext
     // Note: currentStepIndex prop removed as unused
 }) => {
-    const debug = (...args: unknown[]) => console.log('[FORM_WIZARD_DEBUG]', ...args);
     const formSession = useFormSession(); // KNG-136
     const createdEntitiesProvenance = useCreatedEntitiesProvenance(formSession, parentProgressId); // KNG-162
     const [config, setConfig] = useState<FormConfigurationDto | null>(null);
@@ -331,11 +330,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         stepsData: AllStepsData,
         values?: Record<string, unknown>
     ): AllStepsData => {
-        debug('applyInitialFieldValuesToSteps:start', {
-            hasValues: !!values,
-            valueKeys: values ? Object.keys(values) : [],
-            stepCount: cfg.steps.length
-        });
         if (!values || Object.keys(values).length === 0) {
             return normalizeAllStepsData(cfg, stepsData);
         }
@@ -365,14 +359,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             });
 
             seeded[stepIndex] = next;
-            debug('applyInitialFieldValuesToSteps:step-seeded', {
-                stepIndex,
-                stepName: step.stepName,
-                seededValues: next
-            });
         });
 
-        debug('applyInitialFieldValuesToSteps:complete', seeded);
         return seeded;
     };
 
@@ -532,16 +520,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         dependencyValue = contextData[dependencyFieldName];
                     }
                 }
-                
-                console.log(`[VALIDATION_TRACE] Validating field ${fieldId} (${field.fieldName})`, {
-                    fieldValue,
-                    dependencyValue,
-                    stepsData,
-                    normalizedSteps,
-                    formContextData: contextData,
-                    validationRulesForField: validationRules[fieldId]
-                });
-                
+
                 const result = await fieldValidationRuleClient.validateField({
                     fieldId,
                     fieldValue,
@@ -550,7 +529,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     ...validationSubject(),
                     force
                 });
-                console.log(`[VALIDATION_TRACE] Field ${fieldId} validation result:`, result);
                 
                 // CRITICAL: Always store the validation result, not just on error
                 setValidationResults(prev => ({ ...prev, [fieldId]: result }));
@@ -731,12 +709,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     };
 
     const loadConfiguration = React.useCallback(async () => {
-        debug('loadConfiguration:start', {
-            entityName,
-            existingProgressId,
-            initialEntityId,
-            formConfigurationId
-        });
         try {
             setLoading(true);
             // CRITICAL: Use initialEntityId prop directly, not the state variable
@@ -754,12 +726,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 }
 
                 const fetchedCfg = withManyToManyCarrierFields(await formConfigClient.getById(progress.formConfigurationId));
-                debug('loadConfiguration:from-progress', {
-                    progressId: progress.id,
-                    progressEntityId: progress.entityId,
-                    formConfigurationId: progress.formConfigurationId,
-                    currentStepIndex: progress.currentStepIndex
-                });
                 setConfig(fetchedCfg);
                 void loadValidationRulesForConfig(fetchedCfg.id);
                 await loadJoinEntityMetadata(fetchedCfg);
@@ -794,11 +760,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     )
                 );
                 setAllStepsData(derivedAll);
-                debug('loadConfiguration:restored-state', {
-                    currentStepIndex: progress.currentStepIndex,
-                    parsedCurrent,
-                    mergedAll
-                });
 
                 // Load entity metadata for normalization
                 if (progress.entityTypeName) {
@@ -827,11 +788,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 }
                 fetchedConfig = withManyToManyCarrierFields(fetchedConfig);
                 setConfig(fetchedConfig);
-                debug('loadConfiguration:fetched-config', {
-                    configurationId: fetchedConfig.id,
-                    configurationName: fetchedConfig.configurationName,
-                    stepCount: fetchedConfig.steps.length
-                });
                 void loadValidationRulesForConfig(fetchedConfig.id);
                 const loadedJoinMetadata = await loadJoinEntityMetadata(fetchedConfig);
 
@@ -839,10 +795,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 if (currentEntityId) {
                     setEntityId(currentEntityId); // Update state for use in other places
                     await loadExistingEntityData(entityName, currentEntityId, fetchedConfig, loadedJoinMetadata);
-                    debug('loadConfiguration:edit-mode-entity-load', {
-                        entityName,
-                        currentEntityId
-                    });
                 } else {
                     // Initialize all fields for all steps and seed initial values immediately.
                     // This prevents race conditions where later config loads can wipe prefilled child-modal values.
@@ -860,11 +812,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         initialValuesAppliedRef.current = true;
                     }
 
-                    debug('loadConfiguration:new-mode-initialized', {
-                        step0: initialData,
-                        seededStep0: seededStepsData[0],
-                        initialFieldValueKeys: initialFieldValues ? Object.keys(initialFieldValues) : []
-                    });
                 }
 
                 // Load entity metadata for normalization
@@ -874,10 +821,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         } catch (error) {
             console.error('Failed to load form configuration:', error);
             logging.errorHandler.next('ErrorMessage.UIConfigurations.LoadFailed');
-            debug('loadConfiguration:error', error);
         } finally {
             setLoading(false);
-            debug('loadConfiguration:complete');
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [entityName, existingProgressId, initialEntityId, formConfigurationId]);
@@ -891,11 +836,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         if (loading || !config || !initialFieldValues || initialValuesAppliedRef.current) {
             return;
         }
-
-        debug('initialFieldValues:apply', {
-            currentStepIndex,
-            initialFieldValues
-        });
 
         const seeded = applyInitialFieldValuesToSteps(config, allStepsData, initialFieldValues);
         setAllStepsData(seeded);
@@ -1196,13 +1136,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     const handleFieldChange = (fieldName: string, value: unknown) => {
         if (!currentStep) return;
 
-        debug('handleFieldChange', {
-            currentStepIndex,
-            stepName: currentStep.stepName,
-            fieldName,
-            value
-        });
-
         const mergedCurrent = { ...currentStepData, [fieldName]: value };
         const normalizedCurrent = deriveGateGeometryStepData(
             entityName,
@@ -1235,11 +1168,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         );
         setAllStepsData(reconciled.allStepsData);
         setHiddenStash(reconciled.hiddenStash);
-        debug('handleFieldChange:updated-state', {
-            mergedCurrent: projectionResult.currentData,
-            updatedAllDataForStep: projectionResult.allData[currentStepIndex],
-            projectedTargets: projectionResult.projectedTargets
-        });
 
         if (errors[fieldName] || projectionResult.projectedTargets.some(target => !!errors[target])) {
             setErrors(prev => {
@@ -1965,12 +1893,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             // but we want to store the full object in the form state for display purposes
             let createdEntity = childData;
 
-            console.log(`Child form completed for field: ${fieldName}`, {
-                entityType: childFormModal.entityTypeName,
-                childData: createdEntity,
-                extractedId: createdEntity?.id
-            });
-
             // Owned-child-collection fields (e.g. GateStructure -> GateDoors) are ignored by the
             // parent's own save on the backend - the child entity has independent CRUD, so nothing
             // else ever persists it. Every other completion path here only ever updated this
@@ -2075,17 +1997,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     };
 
     const handleOpenJoinEntry = async (relationshipIndex: number) => {
-        debug('handleOpenJoinEntry:start', {
-            relationshipIndex,
-            currentStepIndex,
-            currentStepName: currentStep?.stepName,
-            currentStepIsManyToMany: currentStep?.isManyToManyRelationship,
-            joinEntityType: currentStep?.joinEntityType,
-            joinConfigurationId: currentStep?.subConfigurationId,
-            progressId,
-            entityId,
-            entityName
-        });
         if (!config || !currentStep?.isManyToManyRelationship) return;
         if (!currentStep.joinEntityType || !currentStep.subConfigurationId) return;
         if (relationshipIndex < 0) return;
@@ -2113,11 +2024,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             updateManyToManyStepData(currentStepIndex, fieldName, updatedRelationships);
             selectedRelationship = updatedRelationships[relationshipIndex];
 
-            debug('handleOpenJoinEntry:inserted-missing-relationship', {
-                relationshipIndex,
-                relationshipCountBefore: relationships.length,
-                relationshipCountAfter: updatedRelationships.length
-            });
         }
 
         const joinMetadata = joinEntityMetadataMap[currentStep.joinEntityType];
@@ -2224,11 +2130,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     }
                 });
         }
-        debug('handleOpenJoinEntry:initial-join-values', {
-            joinMetadataLoaded: !!joinMetadata,
-            selectedRelationship,
-            initialJoinFieldValues
-        });
         const existingProgressId = selectedRelationship?.__childProgressId as string | undefined;
 
         setJoinEntryModal({
@@ -2242,10 +2143,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             existingProgressId,
             parentContext: contextForChild({ ...parentSnapshot, id: entityId ?? -1 })
         });
-        debug('handleOpenJoinEntry:modal-opened', {
-            existingProgressId,
-            parentProgressId: parentId
-        });
     };
 
     const handleCloseJoinEntryModal = () => {
@@ -2253,11 +2150,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     };
 
     const handleJoinEntryComplete = async (joinData: Record<string, unknown>, progress?: FormSubmissionProgressDto) => {
-        debug('handleJoinEntryComplete:start', {
-            joinData,
-            progress,
-            joinEntryModal
-        });
         if (!config || joinEntryModal.stepIndex === null || joinEntryModal.relationshipIndex === null) {
             handleCloseJoinEntryModal();
             return;
@@ -2351,10 +2243,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
 
         updatedRelationships[joinEntryModal.relationshipIndex] = mergedRelationship;
         updateManyToManyStepData(joinEntryModal.stepIndex, fieldName, updatedRelationships);
-        debug('handleJoinEntryComplete:merged-relationship', {
-            mergedRelationship,
-            updatedRelationships
-        });
 
         if (progress?.id && joinEntryModal.parentProgressId && relatedEntityId !== undefined) {
             try {
@@ -2372,12 +2260,10 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 });
             } catch (error) {
                 console.error('Failed to update join entry progress:', error);
-                debug('handleJoinEntryComplete:progress-update-error', error);
             }
         }
 
         handleCloseJoinEntryModal();
-        debug('handleJoinEntryComplete:complete');
     };
 
     const validateField = (field: FormFieldDto): string | null => {
@@ -2668,10 +2554,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     normalizedPayload.id = entityId;
                 }
 
-                console.log('Raw form data (flattened):', flattenedDto);
-                console.log('Normalized payload for API (with IDs extracted):', normalizedPayload);
-                console.log('Edit mode:', !!entityId, 'Entity ID:', entityId);
-
                 // notify workflow for final step as well
                 try {
                     const stepKey = computeStepKey(currentStep!, currentStepIndex);
@@ -2724,12 +2606,9 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     };
 
     // changed: add explicit save draft handler
+    // saveProgress shows the "Progress saved" feedback itself.
     const handleSaveDraft = async () => {
-        const saved = await saveProgress(FormSubmissionStatus.Paused);
-        if (saved) {
-            // Optional: show success message
-            console.log('Draft saved successfully');
-        }
+        await saveProgress(FormSubmissionStatus.Paused);
     };
 
     // changed: update form title to indicate edit mode
@@ -2854,31 +2733,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
 
                         if (!shouldShow) return null;
 
-                        const isDebugField = Number(field.id) === 4;
-                        if (isDebugField) {
-                            console.groupCollapsed('[FW_DEBUG][Field#4] Render cycle');
-                            console.log('step', {
-                                currentStepIndex,
-                                stepName: currentStep?.stepName,
-                                stepId: currentStep?.id,
-                                workflowSessionId,
-                                worldTaskHint,
-                                inheritedFieldName: fieldName
-                            });
-                            console.log('field', {
-                                id: field.id,
-                                fieldName: field.fieldName,
-                                fieldType: field.fieldType,
-                                objectType: field.objectType,
-                                settingsJson: field.settingsJson
-                            });
-                            console.log('value state', {
-                                currentStepValue: currentStepData[field.fieldName],
-                                allStepsCurrentStepValue: allStepsData[currentStepIndex]?.[field.fieldName],
-                                hasValueInCurrentStepData: Object.prototype.hasOwnProperty.call(currentStepData, field.fieldName)
-                            });
-                        }
-
                         // Check if this field has world task enabled
                         const { enabled: fieldWorldTaskEnabled, taskType: fieldTaskType } = parseWorldTaskSettings(field.settingsJson);
 
@@ -2907,25 +2761,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         const inheritsOntoFirstField = !fieldWorldTaskEnabled && canInheritWorldTask && !matchesInheritedFieldName && isFirstOrderedField;
                         const taskType = fieldTaskType || (canInheritWorldTask ? worldTaskHint : undefined);
                         const stepKey = computeStepKey(currentStep!, currentStepIndex);
-
-                        if (isDebugField) {
-                            console.log('world task decision', {
-                                fieldWorldTaskEnabled,
-                                fieldTaskType,
-                                hasAnyFieldLevelWorldTask,
-                                canInheritWorldTask,
-                                matchesInheritedFieldName,
-                                isFirstOrderedField,
-                                worldTaskEnabled,
-                                resolvedTaskType: taskType,
-                                willUseWorldBoundRenderer: worldTaskEnabled && workflowSessionId != null && !!taskType,
-                                blockedBy: {
-                                    worldTaskDisabled: !worldTaskEnabled,
-                                    missingWorkflowSessionId: workflowSessionId == null,
-                                    missingTaskType: !taskType
-                                }
-                            });
-                        }
 
                         const fieldId = field.id ? Number(field.id) : null;
                         const geometryDerivedField = isDerivedGateGeometryField(entityName, field.fieldName, currentStepData)
@@ -2970,26 +2805,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                             triggerFieldValidation(field, fieldValue, stepsDataForValidation, false, true);
                             revalidateDependents(fieldId, stepsDataForValidation);
                         };
-
-                        if (isDebugField) {
-                            console.log('[FW_DEBUG][Field#4] Rendering FieldRenderer + optional WorldTask panel', {
-                                worldTaskEnabled,
-                                workflowSessionId,
-                                taskType,
-                                canRenderWorldTaskPanel,
-                                currentValue: currentStepData[field.fieldName]
-                            });
-                            if (canRenderWorldTaskPanel) {
-                                console.log('[FW_DEBUG][Field#4] Rendering WorldBoundFieldRenderer panel', {
-                                    fieldId,
-                                    fieldName: field.fieldName,
-                                    taskType,
-                                    fieldPlaceholders,
-                                    fieldValidationRuleCount: fieldValidationRules.length
-                                });
-                            }
-                            console.groupEnd();
-                        }
 
                         return (
                             <div key={`${field.id ?? field.fieldName}-composed`} className={fieldContainerClass}>
@@ -3069,9 +2884,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                                             });
                                         }}
                                         onTaskCompleted={(task: any, extractedValue: any) => {
-                                            console.log('WorldTask completed:', task, 'Extracted value:', extractedValue);
-                                            console.log('Clearing validation result for fieldId:', fieldId);
-                                            console.log('Current validation results before clearing:', validationResults);
                                             if (task?.taskType === 'ItemScan' && task?.outputJson) {
                                                 applyItemScanResult(task.outputJson).catch(error => {
                                                     console.error('ItemScan: failed to apply scan result to form fields:', error);
@@ -3086,7 +2898,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                                                 setValidationResults(prev => {
                                                     const updated = { ...prev };
                                                     delete updated[fieldId];
-                                                    console.log('Updated validation results after clearing:', updated);
                                                     return updated;
                                                 });
                                                 setErrors(prev => {
