@@ -324,7 +324,6 @@ export const FormWizardPage: React.FC<Props> = ({
     // added: Auto-open default form when configurations are loaded (Use Case 4)
     useEffect(() => {
         const tryOpen = async () => {
-            console.log('Auto-open effect triggered:', { autoOpenForm, defaultConfig: defaultConfig?.id, wizardConfig: wizardConfig?.id, showWizard, loadingConfigs });
             // Only auto-open if:
             // 1. Auto-open flag is set
             // 2. Default config exists
@@ -463,7 +462,6 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Handler: Open wizard with specific configuration
     const handleOpenConfiguration = async (config: FormConfigurationDto, progressId?: string) => {
-        console.log('Opening wizard with configuration:', config, 'and progressId:', progressId);
         setAutoOpenForm(false); // Clear auto-open flag to prevent default config from overriding
         setWizardConfig(config);
         setWizardProgressId(progressId);
@@ -525,7 +523,6 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Handler: Edit configuration
     const handleEditConfiguration = (config: FormConfigurationDto) => {
-        console.log('Navigating to edit configuration:', config);
         navigate(`/admin/form-configurations/edit/${config.id}`);
     };
 
@@ -1014,7 +1011,6 @@ export const FormWizardPage: React.FC<Props> = ({
                         const parent = await fetchParent(parentEntityId);
                         parent[relationshipFieldName] = createdEntityId;
                         await updateParent(parent);
-                        console.log(`Updated parent ${parentEntityTypeName}(${parentEntityId}).${relationshipFieldName} = ${createdEntityId}`);
                     } catch (parentErr) {
                         console.error('Failed to update parent entity relationship:', parentErr);
                         // A toast, not a modal: the page leaves for the parent right after this.
