@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ObjectDashboard, { getDefaultEntityName, getEntityNamesWithPublishedDefaultDisplay } from '../ObjectDashboard';
 import { displayConfigClient } from '../../../apiClients/displayConfigClient';
@@ -7,8 +7,13 @@ import { DisplayConfigurationDto } from '../../../types/dtos/displayConfig/Displ
 import { logging } from '../../../utils';
 
 // virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
+const mockNavigate = jest.fn();
+let mockParams: { entityName?: string } = {};
+let mockLocation = { pathname: '/dashboard', search: '' };
 jest.mock('react-router-dom', () => ({
-    useNavigate: () => jest.fn(),
+    useNavigate: () => mockNavigate,
+    useParams: () => mockParams,
+    useLocation: () => mockLocation,
 }), { virtual: true });
 
 jest.mock('../../../apiClients/displayConfigClient', () => ({
@@ -27,8 +32,14 @@ jest.mock('../../../hooks/useEntityMetadata', () => ({
     useEntityMetadata: () => mockMetadata,
 }));
 
+// The table renders one row whose Edit action is the dashboard's own rowActions[1].
 jest.mock('../../PagedEntityTable/PagedEntityTable', () => ({
-    PagedEntityTable: ({ entityTypeName }: { entityTypeName: string }) => <div data-testid="table">{entityTypeName}</div>,
+    PagedEntityTable: ({ entityTypeName, rowActions }: { entityTypeName: string; rowActions?: Array<(row: unknown) => React.ReactNode> }) => (
+        <div>
+            <div data-testid="table">{entityTypeName}</div>
+            {rowActions?.[1]?.({ id: 7, name: 'Row seven' })}
+        </div>
+    ),
 }));
 
 const getAll = displayConfigClient.getAll as jest.Mock;
@@ -49,6 +60,8 @@ describe('ObjectDashboard entity navigator', () => {
         jest.clearAllMocks();
         window.localStorage.clear();
         mockMetadata = { baseMetadata: loadedMetadata, loading: false };
+        mockParams = {};
+        mockLocation = { pathname: '/dashboard', search: '' };
     });
 
     it('does not settle on the built-in list while the metadata is still loading', async () => {
@@ -160,5 +173,67 @@ describe('ObjectDashboard entity navigator', () => {
 
         next.mockRestore();
         consoleError.mockRestore();
+    });
+});
+
+describe('ObjectDashboard type in the URL (#177 link 1, #58)', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        window.localStorage.clear();
+        mockMetadata = { baseMetadata: loadedMetadata, loading: false };
+        mockParams = {};
+        mockLocation = { pathname: '/dashboard', search: '' };
+        getAll.mockResolvedValue([config('Street', true, false), config('District', true, false)]);
+    });
+
+    it('opens the type named in the URL, whatever its case, and remembers it', async () => {
+        mockParams = { entityName: 'street' };
+        mockLocation = { pathname: '/dashboard/street', search: '' };
+
+        render(<ObjectDashboard objectTypes={[]} />);
+
+        expect(await screen.findByTestId('table')).toHaveTextContent('street');
+        expect(mockNavigate).not.toHaveBeenCalled();
+        expect(window.localStorage.getItem('knk.dashboard.lastEntityType')).toBe('street');
+    });
+
+    it('reopens the last viewed type on the bare dashboard and puts it in the URL', async () => {
+        window.localStorage.setItem('knk.dashboard.lastEntityType', 'Category');
+
+        render(<ObjectDashboard objectTypes={[]} />);
+
+        expect(await screen.findByTestId('table')).toHaveTextContent('Category');
+        expect(mockNavigate).toHaveBeenCalledWith('/dashboard/Category', { replace: true });
+    });
+
+    it('falls back to the default type for an unknown type or a forgotten last type', async () => {
+        mockParams = { entityName: 'NoSuchType' };
+        window.localStorage.setItem('knk.dashboard.lastEntityType', 'Gone');
+
+        render(<ObjectDashboard objectTypes={[]} />);
+
+        expect(await screen.findByTestId('table')).toHaveTextContent('District');
+        expect(mockNavigate).toHaveBeenCalledWith('/dashboard/District', { replace: true });
+    });
+
+    it('puts a type picked in the explorer in the URL', async () => {
+        mockParams = { entityName: 'District' };
+
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        fireEvent.click(within(screen.getByRole('region', { name: 'Entities' })).getByText('Street'));
+
+        expect(mockNavigate).toHaveBeenCalledWith('/dashboard/Street', { replace: false });
+        expect(screen.getByTestId('table')).toHaveTextContent('Street');
+    });
+
+    it('opens Edit with a returnTo to this dashboard type', async () => {
+        mockParams = { entityName: 'Street' };
+        mockLocation = { pathname: '/dashboard/Street', search: '' };
+
+        render(<ObjectDashboard objectTypes={[]} />);
+        fireEvent.click(await screen.findByTitle('Edit'));
+
+        expect(mockNavigate).toHaveBeenCalledWith('/forms/Street/edit/7?returnTo=%2Fdashboard%2FStreet');
     });
 });

@@ -29,7 +29,8 @@ const NAV_LINKS: NavLink[] = [
   // The content tools (dashboard, forms, displays, builders) need knk.admin.content, like their
   // routes (alpha hardening WP9.1). The form and display builders have no link of their own:
   // they're opened from the Forms page.
-  { to: '/dashboard', label: 'Dashboard', Icon: Table2, exact: true, node: CONTENT_PERMISSION_NODE },
+  // Not exact: /dashboard/:entityName (#177 link 1) is the same page.
+  { to: '/dashboard', label: 'Dashboard', Icon: Table2, node: CONTENT_PERMISSION_NODE },
   { to: '/forms', label: 'Forms', Icon: FileText, node: CONTENT_PERMISSION_NODE },
   { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings, staffOnly: true },
   // Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables

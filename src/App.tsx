@@ -126,6 +126,12 @@ function AppContent() {
                   <ObjectDashboard objectTypes={objectTypes} />
                 </StaffRoute>
               } />
+              {/* #177 link 1 (#58): the selected type in the URL; bare /dashboard reopens the last one. */}
+              <Route path="/dashboard/:entityName" element={
+                <StaffRoute node={CONTENT_PERMISSION_NODE}>
+                  <ObjectDashboard objectTypes={objectTypes} />
+                </StaffRoute>
+              } />
               {/* changed: Use Case 3 - Browse forms (no auto-open) */}
               <Route path="/forms" element={
                 <StaffRoute node={CONTENT_PERMISSION_NODE}>

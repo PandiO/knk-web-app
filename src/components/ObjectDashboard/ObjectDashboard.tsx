@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Eye, Pencil, Trash2 } from 'lucide-react';
 import ObjectTypeExplorer from '../ObjectTypeExplorer';
 import type { ObjectTypeExplorerGroup } from '../ObjectTypeExplorer';
@@ -14,6 +14,8 @@ import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
 import { logging } from '../../utils';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { buildReturnTo, dashboardPath, editFormPath } from '../../utils/returnTo';
+import { readLastDashboardType, writeLastDashboardType } from '../../utils/lastDashboardType';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
@@ -43,10 +45,20 @@ export const getDefaultEntityName = (
     return [...primary].sort((a, b) => label(a).localeCompare(label(b), undefined, { sensitivity: 'base' }))[0].entityName;
 };
 
+/** The entry of `names` equal to `wanted` ignoring case (the route may be lower-cased), else null. */
+const findName = (names: string[], wanted: string | null | undefined): string | null => {
+    if (!wanted) return null;
+    return names.find(name => name.toLowerCase() === wanted.toLowerCase()) ?? null;
+};
+
 const ObjectDashboard = ({ objectTypes }: Props) => {
     usePageTitle('Dashboard');
     const navigate = useNavigate();
-    const [selectedType, setSelectedType] = useState<string>('');
+    const location = useLocation();
+    // #177 link 1 (#58): the type is in the URL (/dashboard/:entityName), so Back, a refresh and a
+    // form's returnTo all land on it. Bare /dashboard opens the last viewed type, else the default.
+    const { entityName: routeEntityName } = useParams<{ entityName?: string }>();
+    const [selectedType, setSelectedType] = useState<string>(routeEntityName ?? '');
     const { baseMetadata, loading: metadataLoading } = useEntityMetadata();
     const hasMetadata = baseMetadata.length > 0;
     // null while loading or after a failure: the explorer then shows one flat list.
@@ -95,6 +107,17 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     }, [displayConfiguredEntities]);
 
     useEffect(() => {
+        setSelectedType(routeEntityName ?? '');
+    }, [routeEntityName]);
+
+    const selectType = (type: string, replace = false) => {
+        setSelectedType(type);
+        if (type && type !== routeEntityName) {
+            navigate(dashboardPath(type), { replace });
+        }
+    };
+
+    useEffect(() => {
         // While the entity metadata loads, baseMetadata is empty: don't fall back to the built-in
         // objectTypes list then - its first entry ("location") would stick as the selection once
         // the metadata arrives (KNG-61 re-test).
@@ -104,22 +127,36 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                 metadata => metadata.entityName.toLowerCase() === selectedType.toLowerCase()
             );
 
-            if (!selectedExists && baseMetadata[0]?.entityName) {
-                // KNG-61 live test: defaulting to the API's first type (often one without a display
-                // configuration) re-opened the collapsed group on every visit. Wait for the grouping
-                // and start on the first type of the "Entities" group instead.
-                if (!displayConfigsSettled) return;
-                setSelectedType(getDefaultEntityName(baseMetadata, displayConfiguredEntities));
+            if (selectedExists) {
+                writeLastDashboardType(selectedType);
+                return;
             }
+            if (!baseMetadata[0]?.entityName) return;
+            const lastViewed = findName(baseMetadata.map(metadata => metadata.entityName), readLastDashboardType());
+            if (lastViewed) {
+                selectType(lastViewed, true);
+                return;
+            }
+            // KNG-61 live test: defaulting to the API's first type (often one without a display
+            // configuration) re-opened the collapsed group on every visit. Wait for the grouping
+            // and start on the first type of the "Entities" group instead.
+            if (!displayConfigsSettled) return;
+            selectType(getDefaultEntityName(baseMetadata, displayConfiguredEntities), true);
             return;
         }
 
         const selectedExists = objectTypes.some(
             objectType => objectType.id.toLowerCase() === selectedType.toLowerCase()
         );
-        if (!selectedExists && objectTypes[0]?.id) {
-            setSelectedType(objectTypes[0].id);
+        if (selectedExists) {
+            writeLastDashboardType(selectedType);
+            return;
         }
+        if (!objectTypes[0]?.id) return;
+        const lastViewed = findName(objectTypes.map(objectType => objectType.id), readLastDashboardType());
+        selectType(lastViewed ?? objectTypes[0].id, true);
+        // selectType only sets state and navigates; listing it would re-run this on every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [metadataLoading, hasMetadata, baseMetadata, objectTypes, selectedType, displayConfigsSettled, displayConfiguredEntities]);
 
     // const fetchObjects = ({ type }: { type: string }) => {
@@ -158,10 +195,16 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         navigate(`/display/${entityTypeName}/${item.id}`);
     };
 
-    // changed: navigate to FormWizardPage with entity type and ID for editing
+    // A type from the URL is shown only once it's known; an unknown one is replaced by the fallback.
+    const selectedIsKnown = hasMetadata
+        ? findName(baseMetadata.map(metadata => metadata.entityName), selectedType) !== null
+        : findName(objectTypes.map(objectType => objectType.id), selectedType) !== null;
+
+    // Where a form opened from here comes back to (#58): this type, with whatever the URL holds.
+    const returnTo = () => buildReturnTo(location) ?? dashboardPath(selectedType);
+
     const handleEdit = (entityTypeName: string, item: any) => {
-        // Navigate to forms page with entity type and ID
-        navigate(`/forms/${entityTypeName}/edit/${item.id}`);
+        navigate(editFormPath(entityTypeName, item.id, returnTo()));
     };
 
     // Feedback modal state
@@ -213,7 +256,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                     setModalSecondaryLabel('Reassign Parent');
                     setModalOnSecondary(() => () => {
                         setModalOpen(false);
-                        navigate(`/forms/category/edit/${item.id}`);
+                        navigate(editFormPath('category', item.id, returnTo()));
                     });
                 } else {
                     setModalContinueLabel('Close');
@@ -235,7 +278,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                 <ObjectTypeExplorer
                     items={objectTypes}
                     entityMetadata={baseMetadata}
-                    onSelect={(type) => setSelectedType(type)}
+                    onSelect={(type) => selectType(type)}
                     selectedId={selectedType}
                     groups={explorerGroups}
                     storageKey="dashboard"
@@ -261,7 +304,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                         secondaryLabel={modalSecondaryLabel}
                         onClose={() => setModalOpen(false)}
                     />
-                    {selectedType && (
+                    {selectedType && selectedIsKnown && (
                         <PagedEntityTable
                             entityTypeName={selectedType}
                             columns={getColumnDefinitions(selectedType)}
