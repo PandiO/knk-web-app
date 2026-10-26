@@ -29,6 +29,14 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold text-slate-900;
   }
+
+  /* #38: form fields written as `rounded-md border-gray-300 ...` (the @tailwindcss/forms idiom; the
+     plugin isn't installed) set a border colour but no width, and preflight's width is 0, so they
+     showed no border at all (Game Settings, the builders, lootbox filters). :where() keeps this at
+     zero specificity: any border-0/border-2/border-b on the field still wins. */
+  :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):where([class*="border-gray-300"], [class*="border-slate-300"]) {
+    border-width: 1px;
+  }
 }
 
 @layer components {
@@ -36,10 +44,17 @@
     @apply bg-white border border-slate-200 rounded-lg shadow-sm;
   }
 
+  /* inline-flex: an icon sits next to its label, not above it (#38); the gap spaces them. */
   .btn {
-    @apply px-4 py-2 rounded-md font-medium text-sm shadow-sm
+    @apply inline-flex items-center justify-center gap-2
+           px-4 py-2 rounded-md font-medium text-sm shadow-sm
            focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors
            disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none;
+  }
+
+  /* Icons in buttons often carry their own mr-2 from before; with the gap that would double. */
+  .btn > svg {
+    @apply mx-0 flex-shrink-0;
   }
 
   .btn-primary {
@@ -57,8 +72,14 @@
            hover:bg-slate-50 focus:ring-slate-500;
   }
 
+  /* The quiet third action next to primary/secondary, e.g. Save Draft in the form wizard (#38). */
+  .btn-tertiary {
+    @apply btn bg-transparent text-primary shadow-none
+           hover:bg-primary/10 hover:text-primary-dark focus:ring-primary/50;
+  }
+
   .input {
-    @apply block w-full rounded-md border-slate-300 shadow-sm
+    @apply block w-full rounded-md border border-slate-300 shadow-sm
            focus:border-slate-500 focus:ring-slate-500 sm:text-sm;
   }
 }
