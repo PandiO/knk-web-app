@@ -17,6 +17,20 @@ export const STAFF_PERMISSION_NODE = 'knk.admin.user.manage';
 export const CONTENT_PERMISSION_NODE = 'knk.admin.content';
 
 /**
+ * The permission for the Game Settings page - knk-web-api StaffPermissions.ServerConfig, which the
+ * API checks on every Game Settings write and on the hub-domain list the page loads (#185). Also
+ * matched by knk.admin.* and *.
+ */
+export const SERVER_CONFIG_PERMISSION_NODE = 'knk.admin.config';
+
+/**
+ * The permission for the Siege settings page - knk-web-api StaffPermissions.SiegeManage, which the
+ * API checks on the siege configuration save (#185). Also matched by knk.siege.admin.*, knk.siege.*
+ * and *, not by knk.admin.*.
+ */
+export const SIEGE_ADMIN_PERMISSION_NODE = 'knk.siege.admin.manage';
+
+/**
  * The outcome of a permission check:
  * - `allowed` / `denied`: the API answered (a 403 counts as denied);
  * - `unauthenticated`: 401 - not logged in, or the session expired and couldn't be refreshed;

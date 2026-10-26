@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Plus, ChevronRight, Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { CONTENT_PERMISSION_NODE, usePermission, useStaffAccess } from '../hooks/useStaffAccess';
+import { CONTENT_PERMISSION_NODE, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE, usePermission, useStaffAccess } from '../hooks/useStaffAccess';
 import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
 import { DISCOVERY_ADMIN_NODE } from '../types/dtos/discovery/DiscoveryDtos';
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from '../types/dtos/telemetry/TelemetryDtos';
@@ -31,9 +31,10 @@ const NAV_LINKS: NavLink[] = [
   // they're opened from the Forms page.
   { to: '/dashboard', label: 'Dashboard', Icon: Table2, exact: true, node: CONTENT_PERMISSION_NODE },
   { to: '/forms', label: 'Forms', Icon: FileText, node: CONTENT_PERMISSION_NODE },
-  { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings, staffOnly: true },
-  // Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables
-  { to: '/admin/siege-configuration', label: 'Siege Settings', Icon: Swords, staffOnly: true },
+  { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings, node: SERVER_CONFIG_PERMISSION_NODE },
+  // Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables. Both
+  // settings pages need the node their API checks (#185), not the moderator node.
+  { to: '/admin/siege-configuration', label: 'Siege Settings', Icon: Swords, node: SIEGE_ADMIN_PERMISSION_NODE },
   // KNG-206: the mail log and test mail, next to the other config pages (knk.admin.config).
   { to: '/admin/email', label: 'Mail', Icon: Mail, node: EMAIL_ADMIN_NODE },
   { to: '/admin/lootboxes', label: 'Lootboxes', Icon: Gift, node: LOOTBOX_ADMIN_NODE },
@@ -85,6 +86,8 @@ export function Navigation({ objectTypes }: Props) {
     [OWNER_ANALYTICS_VIEW_NODE]: usePermission(OWNER_ANALYTICS_VIEW_NODE).allowed,
     [ROAD_ADMIN_NODE]: usePermission(ROAD_ADMIN_NODE).allowed,
     [EMAIL_ADMIN_NODE]: usePermission(EMAIL_ADMIN_NODE).allowed,
+    [SERVER_CONFIG_PERMISSION_NODE]: usePermission(SERVER_CONFIG_PERMISSION_NODE).allowed,
+    [SIEGE_ADMIN_PERMISSION_NODE]: usePermission(SIEGE_ADMIN_PERMISSION_NODE).allowed,
   };
   const navLinks = NAV_LINKS.filter(link => (!link.staffOnly || isStaff) && (!link.node || nodeAccess[link.node]));
 
