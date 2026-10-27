@@ -17,7 +17,7 @@ const DEFAULTS = {
     headshotMultiplier: 1.5, allowedCommands: ['/siege', '/msg'], spawnPickerDelayTicks: 20,
     enchantDropChancePerMille: 30, allowedEnchantmentKeys: ['minecraft:sharpness'], enchantLevelMin: 1, enchantLevelMax: 2,
     maxBooksAlive: 10, nonMemberGateView: 'PreLockdownView', giveNavigationItem: false,
-    playerSkipMatchmakingSeconds: 60, adminSkipMatchmakingSeconds: 31, updatedAt: '2026-09-25T17:00:00Z'
+    playerSkipMatchmakingSeconds: 60, adminSkipMatchmakingSeconds: 31, postMatchSeconds: 30, updatedAt: '2026-09-25T17:00:00Z'
 };
 
 describe('SiegeConfigurationPage', () => {
@@ -73,6 +73,17 @@ describe('SiegeConfigurationPage', () => {
             playerSkipMatchmakingSeconds: 90,
             adminSkipMatchmakingSeconds: 45
         }));
+    });
+
+    it('edits the post-match time at the hub (#198) and sends only that', async () => {
+        render(<SiegeConfigurationPage />);
+        const postMatch = await screen.findByLabelText(/Time at the hub after the match \(seconds\)/);
+        expect(postMatch).toHaveValue('30');
+
+        fireEvent.change(postMatch, { target: { value: '45' } });
+        fireEvent.click(screen.getByRole('button', { name: /save \(1\)/i }));
+
+        await waitFor(() => expect(siegeConfigurationClient.update).toHaveBeenCalledWith({ postMatchSeconds: 45 }));
     });
 
     it('switches the global navigation compass on with a checkbox and sends only that', async () => {

@@ -144,6 +144,8 @@ export enum Controllers {
     Statistics = 'statistics',
     Leaderboards = 'leaderboards',
     Players = 'players',
+    // Public siege results log (alpha run 1, #174): api/siege-matches/public/...
+    SiegeMatches = 'siege-matches',
     // Diagnostic telemetry and GDPR deletion (KNG-34 link 6), owner only
     Telemetry = 'telemetry',
     Privacy = 'privacy',

@@ -57,6 +57,13 @@ const SECTIONS: Array<{ title: string; description: string; fields: FieldSpec[] 
         ],
     },
     {
+        title: 'After the match',
+        description: 'When a match ends, its players are taken back to the scenario hub, where they see the result. After this time they return to where they were, with their own inventory; /siege leave returns them earlier. Rewards are granted at the end of the match either way.',
+        fields: [
+            { key: 'postMatchSeconds', label: 'Time at the hub after the match (seconds)', kind: 'int', help: '0–600 (default 30). 0 sends players back at once.' },
+        ],
+    },
+    {
         title: 'Combat and chat',
         description: 'Kill announcements, headshots, respawn and the command filter.',
         fields: [

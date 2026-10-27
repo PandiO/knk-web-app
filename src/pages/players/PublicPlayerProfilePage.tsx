@@ -4,6 +4,7 @@ import { Loader2, UserCircle2 } from 'lucide-react';
 import { playerClient } from '../../apiClients/playerClient';
 import { StatisticsOverview } from '../../components/statistics/StatisticsOverview';
 import { TitleHistoryList } from '../../components/statistics/TitleHistoryList';
+import { PlayerSiegeMatchList } from '../../components/siege/PlayerSiegeMatchList';
 import {
   formatDuration,
   formatStatisticsDate,
@@ -86,6 +87,12 @@ export const PublicPlayerProfilePage: React.FC = () => {
       <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 space-y-2">
         <h2 className="text-lg font-semibold text-gray-900">Title history</h2>
         <TitleHistoryList userId={profile.userId} ownerLabel={profile.username} />
+      </div>
+
+      {/* Alpha run 1 (#174): the player's siege matches, each with its match page. */}
+      <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 space-y-2">
+        <h2 className="text-lg font-semibold text-gray-900">Siege matches</h2>
+        <PlayerSiegeMatchList userId={profile.userId} />
       </div>
     </div>
   );

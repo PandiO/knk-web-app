@@ -4,6 +4,7 @@ import '@testing-library/jest-dom';
 import { PublicPlayerProfilePage } from '../PublicPlayerProfilePage';
 import { playerClient } from '../../../apiClients/playerClient';
 import { statisticsClient } from '../../../apiClients/statisticsClient';
+import { siegeMatchClient } from '../../../apiClients/siegeMatchClient';
 import { PlayerStatisticsDto } from '../../../types/dtos/statistics/StatisticsDtos';
 
 let mockUsername = 'bob';
@@ -13,6 +14,7 @@ jest.mock('react-router-dom', () => ({
   useParams: () => ({ username: mockUsername }),
 }), { virtual: true });
 jest.mock('../../../apiClients/playerClient', () => ({ playerClient: { getByName: jest.fn() } }));
+jest.mock('../../../apiClients/siegeMatchClient', () => ({ siegeMatchClient: { getPlayerMatches: jest.fn() } }));
 jest.mock('../../../apiClients/statisticsClient', () => ({
   statisticsClient: { getCatalog: jest.fn(), getUserStatistics: jest.fn(), getTitleHistory: jest.fn() },
 }));
@@ -21,6 +23,7 @@ const mockedProfile = playerClient.getByName as jest.Mock;
 const mockedCatalog = statisticsClient.getCatalog as jest.Mock;
 const mockedStatistics = statisticsClient.getUserStatistics as jest.Mock;
 const mockedHistory = statisticsClient.getTitleHistory as jest.Mock;
+const mockedMatches = siegeMatchClient.getPlayerMatches as jest.Mock;
 
 const anonymousView: PlayerStatisticsDto = {
   userId: 2,
@@ -53,6 +56,33 @@ describe('PublicPlayerProfilePage', () => {
     });
     mockedStatistics.mockResolvedValue(anonymousView);
     mockedHistory.mockRejectedValue(Object.assign(new Error('hidden'), { status: 401 }));
+    mockedMatches.mockResolvedValue([]);
+  });
+
+  it('lists the player\'s siege matches with a link to each match page (#174)', async () => {
+    mockedMatches.mockResolvedValue([{
+      id: 41, siegeLobbyName: 'Siege - Cinix', siegeScenarioName: 'Siege of Cinix', status: 'Completed',
+      startedAt: '2026-10-25T19:00:00Z', endedAt: '2026-10-25T19:10:00Z', endReason: 'InstantVictory', participantCount: 6,
+      team: { id: 202, name: 'Raiders', chatColor: 'RED', role: 'Attacker', allianceGroup: 2, outcome: 'Win' },
+      participant: { userId: 2, username: 'Bob', siegeTeamId: 202, outcome: 'Win', presentAtEnd: true, kills: null, deaths: null,
+        activeSeconds: 600, matchSeconds: 600, expAwarded: 12 },
+    }]);
+
+    render(<PublicPlayerProfilePage />);
+
+    const table = await screen.findByRole('table', { name: 'Siege matches' });
+    expect(mockedMatches).toHaveBeenCalledWith(2, 20);
+    expect(table).toHaveTextContent('Siege of Cinix');
+    expect(table).toHaveTextContent('Raiders');
+    expect(table).toHaveTextContent('Win');
+    expect(screen.getAllByText('Hidden')).toHaveLength(2);
+    expect(screen.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/siege/matches/41');
+  });
+
+  it('says when the player has no siege matches', async () => {
+    render(<PublicPlayerProfilePage />);
+
+    expect(await screen.findByText('No siege matches yet.')).toBeInTheDocument();
   });
 
   it('shows the always-public profile and what the API returns for a signed-out visitor', async () => {
