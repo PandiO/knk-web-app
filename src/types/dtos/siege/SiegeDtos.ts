@@ -93,6 +93,14 @@ export interface SiegeScenarioDto {
     expRewardHolding: number;
     coinRewardCapture: number;
     expRewardCapture: number;
+    /** Alpha run 1 (PandiO/knk-workspace#165): coins/XP per full `gateDamageRewardStep` HP of gate damage. */
+    gateDamageRewardStep?: number;
+    coinRewardGateDamage?: number;
+    expRewardGateDamage?: number;
+    /** #166: paid when the member was active (not AFK) at least `participationMinActivePercent` % of their match time. */
+    coinRewardParticipation?: number;
+    expRewardParticipation?: number;
+    participationMinActivePercent?: number;
     lockdownScenarioArea: boolean;
     allowRecapture: boolean;
     enchantDropsEnabled: boolean;
