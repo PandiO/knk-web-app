@@ -1,6 +1,7 @@
 import { MinecraftMaterialRefDto } from '../minecraftMaterialRef/MinecraftMaterialRefDto';
 import { LocationDto } from '../locations/LocationModels';
 import { GateDoorDto, GateDoorOpenState, HealthDisplayMode, GateInfoDisplayMode } from './GateDoorDto';
+import { GatePassThroughMethod } from '../userManagement/UserProfileSummaryDtos';
 
 // Re-exported so existing imports of these shared enum-ish types from GateStructureDto keep
 // working now that their canonical home is GateDoorDto (item 5 moved the fields they describe).
@@ -62,6 +63,12 @@ export interface GateStructureDto {
   openedStateOverride?: GateDoorOpenState | null;
   allowPassThroughOverride?: boolean | null;
   passThroughDurationSecondsOverride?: number | null;
+  // PandiO/knk-workspace#167
+  allowAnimatedPassThroughOverride?: boolean | null;
+  allowSnapPassThroughOverride?: boolean | null;
+  allowWalkPathPassThroughOverride?: boolean | null;
+  allowTeleportPassThroughOverride?: boolean | null;
+  defaultPassThroughMethodOverride?: GatePassThroughMethod | null;
   showHealthDisplayOverride?: boolean | null;
   healthDisplayModeOverride?: HealthDisplayMode | null;
   healthDisplayYOffsetOverride?: number | null;

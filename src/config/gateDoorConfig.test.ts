@@ -80,4 +80,11 @@ describe('GateDoorConfig', () => {
     expect(doorConfig.fields.leftDoorSeedBlock.type).toBe('object');
     expect(doorConfig.fields.rightDoorSeedBlock.type).toBe('object');
   });
+  it('defines the pass-through styles and the default style (PandiO/knk-workspace#167)', () => {
+    ['allowAnimatedPassThrough', 'allowSnapPassThrough', 'allowWalkPathPassThrough', 'allowTeleportPassThrough']
+      .forEach(name => expect(doorConfig.fields[name].type).toBe('bool'));
+    const defaultStyle = doorConfig.fields.defaultPassThroughMethod;
+    expect(defaultStyle.type).toBe('select');
+    expect(defaultStyle.options?.map(option => option.value)).toEqual(['Default', 'Snap', 'InstantOpen', 'Teleport']);
+  });
 });

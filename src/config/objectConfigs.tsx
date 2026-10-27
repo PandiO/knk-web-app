@@ -941,6 +941,43 @@ const GateDoorConfig: ObjectConfig = {
         if (value && value < 1) return 'Pass-through duration must be at least 1 second';
       }
     },
+    // PandiO/knk-workspace#167: the styles the door offers and the one used when a player's own choice isn't offered.
+    allowAnimatedPassThrough: {
+      name: 'allowAnimatedPassThrough',
+      label: 'Pass-Through: Animated',
+      type: 'bool',
+      required: false
+    },
+    allowSnapPassThrough: {
+      name: 'allowSnapPassThrough',
+      label: 'Pass-Through: Snap',
+      type: 'bool',
+      required: false
+    },
+    allowWalkPathPassThrough: {
+      name: 'allowWalkPathPassThrough',
+      label: 'Pass-Through: Walk-path',
+      type: 'bool',
+      required: false
+    },
+    allowTeleportPassThrough: {
+      name: 'allowTeleportPassThrough',
+      label: 'Pass-Through: Teleport',
+      type: 'bool',
+      required: false
+    },
+    defaultPassThroughMethod: {
+      name: 'defaultPassThroughMethod',
+      label: 'Default Pass-Through Style',
+      type: 'select',
+      required: false,
+      options: [
+        { label: 'Animated', value: 'Default' },
+        { label: 'Snap', value: 'Snap' },
+        { label: 'Walk-path', value: 'InstantOpen' },
+        { label: 'Teleport', value: 'Teleport' },
+      ]
+    },
   }
 };
 
