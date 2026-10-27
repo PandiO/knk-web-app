@@ -62,6 +62,7 @@ import { FormErrorSummary, FormErrorSummaryItem, wizardFieldContainerId } from '
 import { WizardStepProgress, WizardStepTitle } from './WizardStepHeader';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { withManyToManyCarrierFields } from '../../utils/forms/manyToManyCarrierField';
+import { formValuesSnapshot } from '../../utils/forms/formValuesSnapshot';
 
 interface FormWizardProps {
     entityName: string;
@@ -77,7 +78,8 @@ interface FormWizardProps {
     onCompleted?: () => void;
     // The submit's pending state, for controls outside the wizard (the page's Cancel).
     onSubmittingChange?: (submitting: boolean) => void;
-    // #109: true once something was changed since the form was opened or last saved (draft, Next).
+    // #109: true while the values differ from the ones the form was opened with (or last saved with by
+    // Save Draft or a successful Submit / Save changes); the progress save behind Next keeps it.
     onDirtyChange?: (dirty: boolean) => void;
     // #109: shown first in the sticky footer (the page's Cancel).
     footerStart?: React.ReactNode;
@@ -137,8 +139,12 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     const [submitting, setSubmitting] = useState(false);
     const advancingRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
-    // #109: unsaved changes (asked about before leaving), and the error summary of a refused Next/Save.
-    const [dirty, setDirty] = useState(false);
+    // #109: unsaved changes (asked about before leaving) are the form's values compared with this
+    // snapshot (formValuesSnapshot): the values it was opened with, taken just before the first
+    // change so nothing the load itself does counts, and re-taken only by Save Draft and a successful
+    // Submit / Save changes. The progress save behind Next does not re-take it (link 5 fix round).
+    const [dirtyBaseline, setDirtyBaseline] = useState<string | null>(null);
+    const valuesSnapshotRef = useRef<string>('');
     const [errorSummaryKey, setErrorSummaryKey] = useState(0);
     const [showErrorSummary, setShowErrorSummary] = useState(false);
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
@@ -162,8 +168,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     const allStepsDataRef = useRef(allStepsData);
     useEffect(() => { currentStepDataRef.current = currentStepData; }, [currentStepData]);
     useEffect(() => { allStepsDataRef.current = allStepsData; }, [allStepsData]);
-
-    useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
     // ItemScan conflict confirmation (developer-requested, 2026-09-23 live-testing feedback):
     // when a scan would overwrite a field that's already filled in, pause and ask which value to
@@ -723,6 +727,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     const loadConfiguration = React.useCallback(async () => {
         try {
             setLoading(true);
+            setDirtyBaseline(null);
             // CRITICAL: Use initialEntityId prop directly, not the state variable
             // The state update hasn't propagated yet when this effect runs
             const currentEntityId = initialEntityId;
@@ -969,6 +974,16 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         return reconcileVisibility(config, effectiveAllStepsData, hiddenStash).visibility;
     }, [config, effectiveAllStepsData, hiddenStash]);
 
+    // #109: every step's values, compared by value ('' / null / [] alike), so typing and clearing a
+    // field again is no change, and values entered on earlier steps keep counting after Next.
+    const valuesSnapshot = useMemo(
+        () => formValuesSnapshot(config?.entityTypeName || entityName, effectiveAllStepsData, hiddenStash),
+        [config?.entityTypeName, entityName, effectiveAllStepsData, hiddenStash]
+    );
+    useEffect(() => { valuesSnapshotRef.current = valuesSnapshot; }, [valuesSnapshot]);
+    const dirty = dirtyBaseline !== null && valuesSnapshot !== dirtyBaseline;
+    useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+
     const visibleFieldNamesForCurrentStep = visibility.visibleFieldNames[currentStepIndex] ?? new Set<string>();
     const visibleOrderedFields = orderedFields.filter(f => visibleFieldNamesForCurrentStep.has(f.fieldName));
     const isLastVisibleStep =
@@ -1152,9 +1167,14 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         };
     };
 
+    // #109: called before the user changes a value; the first call keeps the values as they were.
+    const captureDirtyBaseline = () => {
+        setDirtyBaseline(prev => prev ?? valuesSnapshotRef.current);
+    };
+
     const handleFieldChange = (fieldName: string, value: unknown) => {
         if (!currentStep) return;
-        setDirty(true);
+        captureDirtyBaseline();
 
         const mergedCurrent = { ...currentStepData, [fieldName]: value };
         const normalizedCurrent = deriveGateGeometryStepData(
@@ -1237,7 +1257,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     // are display-conditional or projection targets in this form.
     const applyMultipleFieldChanges = (patch: Record<string, unknown>) => {
         if (!currentStep || Object.keys(patch).length === 0) return;
-        setDirty(true);
+        captureDirtyBaseline();
 
         Object.keys(patch).forEach(fieldName => {
             fieldProvenanceRef.current[fieldName.toLowerCase()] = 'manual';
@@ -1769,6 +1789,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             contentsPatch = entries;
         }
 
+        captureDirtyBaseline();
         Object.entries(patchesByStep).forEach(([stepIndexKey, patch]) => {
             const stepIndex = Number(stepIndexKey);
             if (stepIndex === currentStepIndex) {
@@ -1998,7 +2019,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     };
 
     const updateManyToManyStepData = (stepIndex: number, fieldName: string, relationships: Array<Record<string, unknown>>) => {
-        setDirty(true);
+        captureDirtyBaseline();
         const updatedAll: AllStepsData = {
             ...allStepsData,
             [stepIndex]: {
@@ -2405,6 +2426,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             if (!progressData) {
                 throw new Error('No progress data to save');
             }
+            const savedValues = valuesSnapshotRef.current;
             progressData.status = status;
             if (knownId) progressData.id = knownId;
 
@@ -2415,10 +2437,11 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 savedProgress = await formSubmissionClient.create(progressData);
                 setProgressId(savedProgress.id);
             }
-            // Everything typed so far is in the saved progress now.
-            setDirty(false);
             // Only surface modal feedback for explicit draft saves to avoid interrupting step navigation
             if (status === FormSubmissionStatus.Paused) {
+                // #109: an explicit Save Draft holds everything typed so far. The automatic save
+                // behind Next (InProgress) does not: leaving after it still asks (link 5 fix round).
+                setDirtyBaseline(savedValues);
                 setSaveFeedback({
                     open: true,
                     title: 'Progress saved',
@@ -2679,6 +2702,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     return;
                 }
                 if (result === false) return;
+                // #109: saved, so nothing is unsaved any more.
+                setDirtyBaseline(valuesSnapshotRef.current);
 
                 await saveProgress(FormSubmissionStatus.Completed, saved.id);
                 onCompleted?.();
@@ -2994,6 +3019,13 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             {/* #109 (CRUD-6): the actions stay at the bottom of the window while the form scrolls. */}
             <div
                 data-testid="wizard-footer"
+                // #109 fix round: pressing a footer button must not take the focus from the field first.
+                // That blur shows the field's message ("Name is required"), which pushes a footer
+                // that sits right under a short form down between mousedown and mouseup, so the
+                // click was lost (found in the browser check: Cancel after typing and clearing Name).
+                onMouseDown={event => {
+                    if ((event.target as HTMLElement).closest('button')) event.preventDefault();
+                }}
                 className="sticky bottom-0 z-20 rounded-b-lg border-t border-gray-200 bg-white/95 px-6 md:px-8 py-3 shadow-[0_-4px_8px_-6px_rgba(0,0,0,0.15)]"
             >
                 <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-between">
