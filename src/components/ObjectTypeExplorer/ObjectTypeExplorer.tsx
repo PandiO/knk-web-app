@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowDownAZ, ArrowUpZA, ChevronDown, ChevronRight, EyeOff, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react';
+import { ArrowDownAZ, ArrowUpZA, ChevronDown, ChevronRight, EyeOff, PanelLeftClose, PanelLeftOpen, Search, Star, X } from 'lucide-react';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -39,6 +39,12 @@ type Props = {
    * tooltip and screen-reader text, e.g. types without a display configuration. They stay selectable.
    */
   marked?: { entityNames: ReadonlySet<string>; hint: string };
+  /**
+   * PandiO/knk-workspace#194: a star on every type toggles it as a favourite. Favourites (lower-cased
+   * names in `entityNames`) are listed first, sorted among themselves; the rest follows as before.
+   * The caller keeps them (the dashboard: per browser). Omit for no stars.
+   */
+  favourites?: { entityNames: ReadonlySet<string>; onToggle: (entityName: string) => void };
 };
 
 type ExplorerItem = { id: string; label: string };
@@ -132,6 +138,7 @@ const ObjectTypeExplorer = ({
   groups,
   storageKey,
   marked,
+  favourites,
 }: Props) => {
   const [query, setQuery] = useState('');
   const docked = useDocked();
@@ -185,14 +192,26 @@ const ObjectTypeExplorer = ({
     return sortDirection === 'desc' ? sorted.reverse() : sorted;
   }, [sourceItems, normalizedQuery, searchActive, sortDirection]);
 
+  // #194: favourites first (in the same order), the rest below; without favourites one list.
+  const favouriteItems = useMemo(
+    () => (favourites ? visibleItems.filter(item => favourites.entityNames.has(item.id.toLowerCase())) : []),
+    [favourites, visibleItems]
+  );
+  const otherItems = useMemo(
+    () => (favouriteItems.length > 0
+      ? visibleItems.filter(item => !favourites!.entityNames.has(item.id.toLowerCase()))
+      : visibleItems),
+    [favourites, favouriteItems, visibleItems]
+  );
+
   const activeGroups = groups && groups.length > 0 ? groups : undefined;
 
   const groupedItems = useMemo(() => {
     if (!activeGroups) return [];
     const buckets: ExplorerItem[][] = activeGroups.map(() => []);
-    visibleItems.forEach(item => buckets[findGroupIndex(item.id, activeGroups)].push(item));
+    otherItems.forEach(item => buckets[findGroupIndex(item.id, activeGroups)].push(item));
     return activeGroups.map((group, index) => ({ group, items: buckets[index] }));
-  }, [activeGroups, visibleItems]);
+  }, [activeGroups, otherItems]);
 
   const isBaseExpanded = useCallback(
     (group: ObjectTypeExplorerGroup) => !group.collapsible || (expandedState[group.id] ?? group.defaultExpanded),
@@ -268,8 +287,9 @@ const ObjectTypeExplorer = ({
       {list.map(type => {
         const selected = normalizedSelectedId !== undefined && type.id.toLowerCase() === normalizedSelectedId;
         const isMarked = marked?.entityNames.has(type.id.toLowerCase()) ?? false;
+        const isFavourite = favourites?.entityNames.has(type.id.toLowerCase()) ?? false;
         return (
-          <li key={type.id}>
+          <li key={type.id} className={favourites ? 'flex items-center gap-1' : undefined}>
             <button
               type="button"
               onClick={() => {
@@ -280,7 +300,7 @@ const ObjectTypeExplorer = ({
               aria-current={selected ? 'true' : undefined}
               title={type.label !== type.id ? type.id : undefined}
               className={`
-                w-full text-left px-4 py-2 text-sm flex items-center justify-between rounded-md
+                ${favourites ? 'min-w-0 flex-1' : 'w-full'} text-left px-4 py-2 text-sm flex items-center justify-between rounded-md
                 ${selected
                   ? 'bg-gray-100 text-gray-900'
                   : 'text-gray-700 hover:bg-gray-50'
@@ -297,6 +317,21 @@ const ObjectTypeExplorer = ({
                 </span>
               )}
             </button>
+            {favourites && (
+              <button
+                type="button"
+                onClick={() => favourites.onToggle(type.id)}
+                aria-pressed={isFavourite}
+                aria-label={isFavourite ? `Remove ${type.label} from favourites` : `Add ${type.label} to favourites`}
+                title={isFavourite ? 'Remove from favourites' : 'Add to favourites'}
+                className={`flex-shrink-0 rounded-md p-1.5 hover:bg-gray-100 ${isFavourite
+                  ? 'text-amber-500 hover:text-amber-600'
+                  : 'text-gray-300 hover:text-gray-500'
+                }`}
+              >
+                <Star className={`h-4 w-4 ${isFavourite ? 'fill-current' : ''}`} aria-hidden="true" />
+              </button>
+            )}
           </li>
         );
       })}
@@ -446,10 +481,23 @@ const ObjectTypeExplorer = ({
               <p className="px-2 py-4 text-sm text-gray-500" role="status">
                 No entity types match
               </p>
-            ) : activeGroups ? (
-              <div className="space-y-3">{renderGroups()}</div>
             ) : (
-              renderItems(visibleItems)
+              <>
+                {favouriteItems.length > 0 && (
+                  <section aria-label="Favourites" className="mb-3 space-y-1 border-b border-gray-100 pb-3">
+                    <h3 className="flex items-center gap-1 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <Star className="h-3.5 w-3.5 fill-current text-amber-500" aria-hidden="true" />
+                      Favourites
+                    </h3>
+                    {renderItems(favouriteItems)}
+                  </section>
+                )}
+                {activeGroups ? (
+                  <div className="space-y-3">{renderGroups()}</div>
+                ) : (
+                  renderItems(otherItems)
+                )}
+              </>
             )}
           </div>
         </div>
@@ -462,7 +510,8 @@ const ObjectTypeExplorer = ({
   return (
     <aside
       aria-label="Sidebar"
-      className={`relative flex h-full flex-col ${docked && panelVisible ? 'w-64' : 'w-10'}`}
+      // min-h-0: held to its column's height, so only the list inside scrolls (#194).
+      className={`relative flex h-full min-h-0 flex-col ${docked && panelVisible ? 'w-64' : 'w-10'}`}
     >
       {!panelVisible && (
         <div className="flex h-full flex-col items-center rounded-md bg-white py-2 shadow-sm ring-1 ring-black ring-opacity-5">

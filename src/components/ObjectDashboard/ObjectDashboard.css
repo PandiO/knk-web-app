@@ -21,7 +21,9 @@
   top: 0;
   align-self: flex-start;
   height: 100%;
-  overflow: auto; /* if sidebar content is taller than available height */
+  /* #194: the explorer's own list is the one place that scrolls; the column itself never does
+     (it used to scroll too, so a long list showed two scrollbars). */
+  overflow: hidden;
 }
 
 /* Content scrolls independently and takes the rest of the row */

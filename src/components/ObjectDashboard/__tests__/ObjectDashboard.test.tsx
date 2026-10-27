@@ -184,6 +184,49 @@ describe('ObjectDashboard entity navigator', () => {
     });
 });
 
+describe('ObjectDashboard favourite types (PandiO/knk-workspace#194)', () => {
+    // Category and Town have no display configuration here: drop their marker's hint text.
+    const typeNames = (container: HTMLElement) =>
+        itemLabels(container).map(text => text?.replace('No display configuration – set one up via ⚙', ''));
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        window.localStorage.clear();
+        mockMetadata = { baseMetadata: loadedMetadata, loading: false };
+        mockParams = { entityName: 'District' };
+        mockLocation = { pathname: '/dashboard/District', search: '' };
+        getAll.mockResolvedValue([config('Street', true, false), config('District', true, false)]);
+    });
+
+    it('stars a type to the top of the explorer and remembers it in this browser', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
+
+        fireEvent.click(within(sidebar).getByRole('button', { name: 'Add Town to favourites' }));
+        fireEvent.click(within(sidebar).getByRole('button', { name: 'Add Category to favourites' }));
+
+        expect(typeNames(within(sidebar).getByRole('region', { name: 'Favourites' }))).toEqual(['Category', 'Town']);
+        expect(typeNames(sidebar)).toEqual(['Category', 'Town', 'District', 'Street']);
+        expect(JSON.parse(window.localStorage.getItem('knk.dashboard.favouriteEntityTypes') ?? '[]')).toEqual(['Town', 'Category']);
+        expect(mockNavigate).not.toHaveBeenCalled();
+
+        fireEvent.click(within(sidebar).getByRole('button', { name: 'Remove Town from favourites' }));
+        expect(typeNames(sidebar)).toEqual(['Category', 'District', 'Street', 'Town']);
+        expect(JSON.parse(window.localStorage.getItem('knk.dashboard.favouriteEntityTypes') ?? '[]')).toEqual(['Category']);
+    });
+
+    it('lists the stored favourites first on the next visit', async () => {
+        window.localStorage.setItem('knk.dashboard.favouriteEntityTypes', '["Street","town"]');
+
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+
+        expect(typeNames(screen.getByRole('complementary', { name: 'Sidebar' })))
+            .toEqual(['Street', 'Town', 'Category', 'District']);
+    });
+});
+
 describe('ObjectDashboard type in the URL (#177 link 1, #58)', () => {
     beforeEach(() => {
         jest.clearAllMocks();
@@ -273,6 +316,25 @@ describe('ObjectDashboard as the CRUD hub (#177 link 2)', () => {
         expect(emptyState).toHaveTextContent('No Street yet.');
         fireEvent.click(within(emptyState).getByRole('button', { name: 'New Street' }));
         expect(mockNavigate).toHaveBeenCalledWith('/forms/Street?autoOpen=true&returnTo=%2Fdashboard%2FStreet');
+    });
+
+    it('puts the title, "New {Type}" and the cogwheel on one spaced row of equal height (#195)', async () => {
+        const { container } = render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+
+        // Both columns start below the app's header, not against it.
+        expect(container.firstChild).toHaveClass('dashboard-parent', 'pt-6');
+        const header = screen.getByTestId('dashboard-header');
+        expect(header).toHaveClass('flex', 'items-center', 'justify-between', 'min-h-9');
+        const title = within(header).getByRole('heading', { level: 2, name: 'Street' });
+        expect(title).toHaveClass('leading-9', 'text-gray-900');
+        const newButton = within(header).getByRole('button', { name: 'New Street' });
+        const configure = within(header).getByRole('button', { name: 'Configure Street' });
+        expect(newButton).toHaveClass('btn-primary', 'h-9');
+        expect(configure).toHaveClass('btn-secondary', 'h-9', 'w-9');
+        // Title first, then the buttons in one group, all children of the same row.
+        expect(newButton.parentElement).toBe(configure.parentElement);
+        expect(Array.from(header.children)).toEqual([title, newButton.parentElement]);
     });
 
     it('opens the Entity setup page of the type with the cogwheel', async () => {

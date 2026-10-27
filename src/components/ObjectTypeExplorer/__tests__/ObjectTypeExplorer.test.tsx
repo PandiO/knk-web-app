@@ -74,6 +74,65 @@ describe('ObjectTypeExplorer', () => {
     });
   });
 
+  describe('favourites (PandiO/knk-workspace#194)', () => {
+    const favourites = (names: string[], onToggle = jest.fn()) => ({ entityNames: new Set(names), onToggle });
+
+    it('lists favourites first, A–Z, and the rest A–Z below', () => {
+      render(<ObjectTypeExplorer entityMetadata={metadata} favourites={favourites(['town', 'district'])} />);
+
+      const section = screen.getByRole('region', { name: 'Favourites' });
+      expect(itemLabels(section)).toEqual(['District', 'Town']);
+      expect(itemLabels()).toEqual(['District', 'Town', 'category', 'Gate', 'Street']);
+    });
+
+    it('toggles a favourite with the star next to each type, without selecting it', async () => {
+      const onToggle = jest.fn();
+      const onSelect = jest.fn();
+      render(
+        <ObjectTypeExplorer entityMetadata={metadata} onSelect={onSelect} favourites={favourites(['town'], onToggle)} />
+      );
+
+      const unstarred = screen.getByRole('button', { name: 'Add Gate to favourites' });
+      expect(unstarred).toHaveAttribute('aria-pressed', 'false');
+      await userEvent.click(unstarred);
+      expect(onToggle).toHaveBeenCalledWith('GateStructure');
+
+      const starred = screen.getByRole('button', { name: 'Remove Town from favourites' });
+      expect(starred).toHaveAttribute('aria-pressed', 'true');
+      await userEvent.click(starred);
+      expect(onToggle).toHaveBeenLastCalledWith('Town');
+      expect(onSelect).not.toHaveBeenCalled();
+    });
+
+    it('keeps favourites on top through search and the Z–A sort', async () => {
+      render(<ObjectTypeExplorer entityMetadata={metadata} favourites={favourites(['street', 'district'])} />);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Sort Z to A' }));
+      expect(itemLabels()).toEqual(['Street', 'District', 'Town', 'Gate', 'category']);
+
+      await userEvent.type(screen.getByRole('searchbox'), 't');
+      expect(itemLabels(screen.getByRole('region', { name: 'Favourites' }))).toEqual(['Street', 'District']);
+      expect(itemLabels()).toEqual(['Street', 'District', 'Town', 'Gate', 'category']);
+      await userEvent.clear(screen.getByRole('searchbox'));
+      await userEvent.type(screen.getByRole('searchbox'), 'gate');
+      expect(screen.queryByRole('region', { name: 'Favourites' })).not.toBeInTheDocument();
+      expect(itemLabels()).toEqual(['Gate']);
+    });
+
+    it('shows no stars and no favourites section without the prop', () => {
+      render(<ObjectTypeExplorer entityMetadata={metadata} />);
+
+      expect(screen.queryByRole('button', { name: /favourites/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Favourites' })).not.toBeInTheDocument();
+    });
+
+    it('keeps the explorer to its column so only the list scrolls', () => {
+      render(<ObjectTypeExplorer entityMetadata={metadata} />);
+
+      expect(screen.getByRole('complementary', { name: 'Sidebar' })).toHaveClass('h-full', 'min-h-0');
+    });
+  });
+
   describe('flat mode (no groups)', () => {
     it('renders one alphabetically sorted list without group headers', () => {
       render(<ObjectTypeExplorer entityMetadata={metadata} />);
