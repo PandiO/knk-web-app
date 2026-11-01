@@ -11,9 +11,23 @@ import { GradeClient } from '../../../apiClients/gradeClient';
 import { LootboxClaimLogDto, LootboxOddsDto, LootboxTypeDto } from '../../../types/dtos/lootbox/LootboxDtos';
 
 // virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
-jest.mock('react-router-dom', () => ({
-    Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode }) => <a href={to} {...rest}>{children}</a>,
-}), { virtual: true });
+// useSearchParams keeps the query in component state, starting from mockInitialSearch (#39: ?tab=).
+let mockInitialSearch = '';
+const mockSetSearchParams = jest.fn();
+jest.mock('react-router-dom', () => {
+    const { useState } = jest.requireActual('react');
+    return {
+        Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode }) => <a href={to} {...rest}>{children}</a>,
+        useSearchParams: () => {
+            const [params, setParams] = useState(() => new URLSearchParams(mockInitialSearch));
+            const set = (update: URLSearchParams | ((previous: URLSearchParams) => URLSearchParams), options?: unknown) => {
+                mockSetSearchParams(update, options);
+                setParams((previous: URLSearchParams) => (typeof update === 'function' ? update(previous) : new URLSearchParams(update)));
+            };
+            return [params, set];
+        },
+    };
+}, { virtual: true });
 jest.mock('../../../apiClients/lootboxTypeClient', () => ({
     lootboxTypeClient: { getAll: jest.fn(), getById: jest.fn(), update: jest.fn(), getOdds: jest.fn(), getAllOdds: jest.fn() },
 }));
@@ -95,6 +109,7 @@ const claim = (id: number, overrides: Partial<LootboxClaimLogDto> = {}): Lootbox
 
 beforeEach(() => {
     jest.clearAllMocks();
+    mockInitialSearch = '';
     typeClient.getAll.mockResolvedValue([weapons]);
     typeClient.getOdds.mockImplementation(async (_id: number, stars?: number) => weaponsOdds(stars ?? 5));
     typeClient.getAllOdds.mockImplementation(async (stars: number[] = []) => stars.map(s => weaponsOdds(s)));
@@ -269,5 +284,31 @@ describe('LootboxesPage', () => {
             dropAnnouncementTemplate: '&6{player} &efound {item} &ein a {box}!', spawnAnnouncementTemplate: '&eA {box} &eappeared in &6{area}&e!',
         }));
         expect(await screen.findByText('Lootbox settings saved.')).toBeInTheDocument();
+    });
+
+    it('opens the tab named in the URL and keeps the picked tab there (PandiO/knk-workspace#39)', async () => {
+        mockInitialSearch = '?tab=settings&other=1';
+        render(<LootboxesPage />);
+        expect(await screen.findByLabelText('Boxes per player per UTC day')).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true');
+
+        fireEvent.click(screen.getByRole('tab', { name: 'Drop log' }));
+        expect(screen.getByRole('tab', { name: 'Drop log' })).toHaveAttribute('aria-selected', 'true');
+        const [update, options] = mockSetSearchParams.mock.calls[0];
+        expect(options).toEqual({ replace: true });
+        expect(update(new URLSearchParams('tab=settings&other=1')).toString()).toBe('tab=log&other=1');
+
+        // The page's default tab is left out of the URL.
+        fireEvent.click(screen.getByRole('tab', { name: 'Types' }));
+        const [toDefault] = mockSetSearchParams.mock.calls[1];
+        expect(toDefault(new URLSearchParams('tab=log&other=1')).toString()).toBe('other=1');
+        expect(await screen.findByText('Weapons Lootbox')).toBeInTheDocument();
+    });
+
+    it('falls back to the default tab for an unknown tab in the URL', async () => {
+        mockInitialSearch = '?tab=nonsense';
+        render(<LootboxesPage />);
+        expect(await screen.findByText('Weapons Lootbox')).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Types' })).toHaveAttribute('aria-selected', 'true');
     });
 });
