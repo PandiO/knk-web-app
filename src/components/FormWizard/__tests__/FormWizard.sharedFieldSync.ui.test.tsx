@@ -92,11 +92,8 @@ const buildConfig = (): FormConfigurationDto => ({
 
 const clickNext = () => fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
 const clickPrevious = () => fireEvent.click(screen.getByRole('button', { name: /previous/i }));
-// The String renderer's textarea has no id, so its label isn't wired to it; find it beside the label.
-const input = async (label: string): Promise<HTMLTextAreaElement> => {
-    const labelElement = await screen.findByText(label, { selector: 'label' });
-    return labelElement.parentElement!.querySelector('textarea')!;
-};
+// #109: a single-line String is an input tied to its label.
+const input = async (label: string): Promise<HTMLInputElement> => screen.findByLabelText(label) as Promise<HTMLInputElement>;
 const type = async (label: string, value: string) => fireEvent.change(await input(label), { target: { value } });
 
 describe('FormWizard fields bound to the same property (KNG-120)', () => {
@@ -110,7 +107,7 @@ describe('FormWizard fields bound to the same property (KNG-120)', () => {
     it('fills the later copy, writes edits back to the earlier one and submits the value', async () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig());
         const onComplete = jest.fn();
-        render(<FormWizard entityName="District" userId="1" onComplete={onComplete} />);
+        render(<FormWizard entityName="District" onComplete={onComplete} />);
 
         await input('Location');
         await type('Name', 'Old Town');
@@ -155,7 +152,7 @@ describe('FormWizard fields bound to the same property (KNG-120)', () => {
             childProgresses: []
         });
 
-        render(<FormWizard entityName="District" userId="1" existingProgressId="55" />);
+        render(<FormWizard entityName="District" existingProgressId="55" />);
 
         expect(await input('Spawn location')).toHaveValue('7');
     });

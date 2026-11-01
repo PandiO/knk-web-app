@@ -42,6 +42,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { dashboardPath, entitySetupPath, readReturnTo } from '../utils/returnTo';
 import { toast } from '../utils/toast';
 import { Breadcrumbs } from '../components/Breadcrumbs';
+import { useLeaveGuard } from '../hooks/useLeaveGuard';
 import { formTrail } from '../utils/breadcrumbs';
 import { typeLabelFor } from '../utils/entityLabel';
 import { useEntityLabel } from '../hooks/useEntityLabel';
@@ -84,6 +85,8 @@ export const FormWizardPage: React.FC<Props> = ({
     const returnTo = readReturnTo(searchParams);
     // The submit is pending (the wizard saves the entity): Cancel waits too.
     const [submitting, setSubmitting] = useState(false);
+    // #109: the open form has unsaved changes; leaving it (links, Back, breadcrumb, reload) asks first.
+    const [formDirty, setFormDirty] = useState(false);
     // What a successful submit does once the wizard marked the draft Completed (onCompleted).
     const afterSubmitRef = useRef<(() => void) | null>(null);
 
@@ -103,6 +106,7 @@ export const FormWizardPage: React.FC<Props> = ({
     
     // State to track if FormWizard should be shown
     const [showWizard, setShowWizard] = useState(false);
+    const leaveGuard = useLeaveGuard(showWizard && formDirty);
     const [wizardConfig, setWizardConfig] = useState<FormConfigurationDto | null>(null);
     const [wizardProgressId, setWizardProgressId] = useState<string | undefined>(undefined);
     const [workflowSessionId, setWorkflowSessionId] = useState<number | undefined>(undefined);
@@ -173,8 +177,6 @@ export const FormWizardPage: React.FC<Props> = ({
         closeFeedbackModal();
         action?.();
     };
-
-    const userId = '1'; // TODO: Get from auth context
 
     // Load merged metadata for UI context and selection display
     const {
@@ -324,7 +326,6 @@ export const FormWizardPage: React.FC<Props> = ({
     // added: Auto-open default form when configurations are loaded (Use Case 4)
     useEffect(() => {
         const tryOpen = async () => {
-            console.log('Auto-open effect triggered:', { autoOpenForm, defaultConfig: defaultConfig?.id, wizardConfig: wizardConfig?.id, showWizard, loadingConfigs });
             // Only auto-open if:
             // 1. Auto-open flag is set
             // 2. Default config exists
@@ -340,7 +341,6 @@ export const FormWizardPage: React.FC<Props> = ({
                     const cfgIdNum = defaultConfig.id ? parseInt(String(defaultConfig.id), 10) : undefined;
                     const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
                     const session = await workflowClient.createSession({
-                        userId: parseInt(userId, 10) || 0,
                         formConfigurationId: cfgIdNum,
                         entityTypeName: selectedTypeName,
                         entityId: entityIdNum
@@ -353,7 +353,7 @@ export const FormWizardPage: React.FC<Props> = ({
             }
         };
         void tryOpen();
-    }, [autoOpenForm, defaultConfig, loadingConfigs, wizardConfig, entityId, selectedTypeName, userId]);
+    }, [autoOpenForm, defaultConfig, loadingConfigs, wizardConfig, entityId, selectedTypeName]);
 
     useEffect(() => {
         if (!selectedTypeName) {
@@ -388,7 +388,6 @@ export const FormWizardPage: React.FC<Props> = ({
                     const cfgIdNum = defaultCfg.id ? parseInt(String(defaultCfg.id), 10) : undefined;
                     const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
                     const session = await workflowClient.createSession({
-                        userId: parseInt(userId, 10) || 0,
                         formConfigurationId: cfgIdNum,
                         entityTypeName: selectedTypeName,
                         entityId: entityIdNum
@@ -424,7 +423,7 @@ export const FormWizardPage: React.FC<Props> = ({
             setDefaultConfig(sortedConfigs.find(c => c.isDefault) || null);
 
             // Fetch saved progress
-            const progress = await formSubmissionClient.getByEntityTypeName(entityTypeName, userId, true) as FormSubmissionProgressSummaryDto[];
+            const progress = await formSubmissionClient.getByEntityTypeName(entityTypeName, true) as FormSubmissionProgressSummaryDto[];
             const entityProgress = progress.filter(p => 
                 p.entityTypeName?.toLowerCase() === entityTypeName.toLowerCase()
             );
@@ -463,7 +462,6 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Handler: Open wizard with specific configuration
     const handleOpenConfiguration = async (config: FormConfigurationDto, progressId?: string) => {
-        console.log('Opening wizard with configuration:', config, 'and progressId:', progressId);
         setAutoOpenForm(false); // Clear auto-open flag to prevent default config from overriding
         setWizardConfig(config);
         setWizardProgressId(progressId);
@@ -471,7 +469,6 @@ export const FormWizardPage: React.FC<Props> = ({
             const cfgIdNum = config.id ? parseInt(String(config.id), 10) : undefined;
             const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
             const session = await workflowClient.createSession({
-                userId: parseInt(userId, 10) || 0,
                 formConfigurationId: cfgIdNum,
                 entityTypeName: selectedTypeName,
                 entityId: entityIdNum
@@ -525,7 +522,6 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // Handler: Edit configuration
     const handleEditConfiguration = (config: FormConfigurationDto) => {
-        console.log('Navigating to edit configuration:', config);
         navigate(`/admin/form-configurations/edit/${config.id}`);
     };
 
@@ -591,6 +587,8 @@ export const FormWizardPage: React.FC<Props> = ({
 
     // KNG-162: the explicit cancel of the open form (FormCancelAction). The draft, if any, stays.
     const handleLeaveForm = () => {
+        // Cancel already asked when something was changed.
+        leaveGuard.allowLeave();
         setShowWizard(false);
         setWizardConfig(null);
         setWizardProgressId(undefined);
@@ -609,9 +607,9 @@ export const FormWizardPage: React.FC<Props> = ({
         }
     };
 
-    // A breadcrumb leaves the form like Cancel without the question (#177 link 2). Back to this
-    // type's Entity setup page from a form opened there keeps the URL, so reload the lists here.
-    const handleBreadcrumbNavigate = (to: string) => {
+    // A breadcrumb leaves the form (#177 link 2); with unsaved changes it asks first (#109, L3-2). Back
+    // to this type's Entity setup page from a form opened there keeps the URL, so reload the lists here.
+    const handleBreadcrumbNavigate = (to: string) => leaveGuard.confirmLeave(() => {
         setShowWizard(false);
         setWizardConfig(null);
         setWizardProgressId(undefined);
@@ -620,7 +618,7 @@ export const FormWizardPage: React.FC<Props> = ({
             && !entityId && !shouldAutoOpen;
         if (samePage && selectedTypeName) loadConfigurationsAndProgress(selectedTypeName);
         navigate(to);
-    };
+    });
 
     // KNG-138: download a configuration as a portable JSON file
     const handleExportConfiguration = async (config: FormConfigurationDto) => {
@@ -1014,7 +1012,6 @@ export const FormWizardPage: React.FC<Props> = ({
                         const parent = await fetchParent(parentEntityId);
                         parent[relationshipFieldName] = createdEntityId;
                         await updateParent(parent);
-                        console.log(`Updated parent ${parentEntityTypeName}(${parentEntityId}).${relationshipFieldName} = ${createdEntityId}`);
                     } catch (parentErr) {
                         console.error('Failed to update parent entity relationship:', parentErr);
                         // A toast, not a modal: the page leaves for the parent right after this.
@@ -1030,6 +1027,7 @@ export const FormWizardPage: React.FC<Props> = ({
                     ? `/display/${parentEntityTypeName}/${parentEntityId}`
                     : returnTo ?? dashboardPath(selectedEntityMetadata?.entityName ?? progress.entityTypeName);
                 afterSubmitRef.current = () => {
+                    leaveGuard.allowLeave();
                     setShowWizard(false);
                     setWizardConfig(null);
                     setWizardProgressId(undefined);
@@ -1089,6 +1087,7 @@ export const FormWizardPage: React.FC<Props> = ({
 
     return (
         <>
+            {leaveGuard.element}
             <div className="dashboard-parent">
                 {/* #177 link 2: an open form shows a breadcrumb instead of the explorer (picking
                     another type there only lost the form). The config lists keep the explorer. */}
@@ -1219,17 +1218,15 @@ export const FormWizardPage: React.FC<Props> = ({
                     {showWizard && wizardConfig ? (
                         // KNG-162: one form session for the wizard and its Cancel, so Cancel sees what child forms saved.
                         <FormSessionRoot>
-                            <div className="mb-3 flex justify-end">
-                                <FormCancelAction onLeave={handleLeaveForm} disabled={submitting} />
-                            </div>
                             <FormWizard
                                 entityName={selectedTypeName}
                                 entityId={entityId}
                                 formConfigurationId={wizardConfig.id}
-                                userId={userId}
                                 onComplete={(data, progress) => handleComplete(data, progress)}
                                 onCompleted={handleCompleted}
                                 onSubmittingChange={setSubmitting}
+                                onDirtyChange={setFormDirty}
+                                footerStart={<FormCancelAction onLeave={handleLeaveForm} disabled={submitting} dirty={formDirty} />}
                                 existingProgressId={wizardProgressId}
                                 workflowSessionId={workflowSessionId}
                                 onStepAdvanced={({ from, stepKey }) => {

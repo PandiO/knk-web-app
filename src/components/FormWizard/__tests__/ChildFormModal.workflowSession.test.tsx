@@ -97,7 +97,6 @@ describe('ChildFormModal creates its own workflow session for world-task fields'
             <ChildFormModal
                 open={true}
                 entityTypeName="GateDoor"
-                userId="1"
                 fieldName="GateDoors"
                 currentStepIndex={0}
                 onComplete={jest.fn()}
@@ -110,6 +109,8 @@ describe('ChildFormModal creates its own workflow session for world-task fields'
                 expect.objectContaining({ entityTypeName: 'GateDoor', formConfigurationId: 12 })
             );
         });
+        // #186: the API makes the logged-in user the owner; the client sends no user id.
+        expect((workflowClient.createSession as jest.Mock).mock.calls[0][0]).not.toHaveProperty('userId');
 
         await waitFor(() => {
             expect(screen.getAllByRole('button', { name: /send to minecraft/i }).length).toBeGreaterThan(0);
@@ -121,7 +122,6 @@ describe('ChildFormModal creates its own workflow session for world-task fields'
             <ChildFormModal
                 open={true}
                 entityTypeName="GateDoor"
-                userId="1"
                 fieldName="GateDoors"
                 currentStepIndex={0}
                 workflowSessionId={999}

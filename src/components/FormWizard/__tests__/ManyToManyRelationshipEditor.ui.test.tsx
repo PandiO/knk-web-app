@@ -90,7 +90,6 @@ describe('ManyToManyRelationshipEditor UI', () => {
                 value={[existing]}
                 onChange={onChange}
                 entityName="ItemBlueprint"
-                userId="1"
                 parentProgressId="progress-1"
                 onOpenJoinEntry={onOpenJoinEntry}
                 validationRules={{}}

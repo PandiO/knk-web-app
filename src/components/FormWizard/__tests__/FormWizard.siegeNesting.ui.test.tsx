@@ -184,7 +184,7 @@ describe('Siege authoring: Scenario -> Team -> Spawnpoint owned nesting', () => 
     });
 
     it('opens a team, then a new spawnpoint inside it, each with its own workflow session, and persists the spawnpoint under the team', async () => {
-        render(<FormWizard entityName="siegescenario" entityId="1" userId="1" onComplete={() => {}} />);
+        render(<FormWizard entityName="siegescenario" entityId="1" onComplete={() => {}} />);
 
         // Edit-loaded FK without a navigation object shows its display name (townId + townName).
         await waitFor(() => expect(screen.getAllByText('Cinix').length).toBeGreaterThan(0));

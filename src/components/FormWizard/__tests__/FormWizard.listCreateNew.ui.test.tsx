@@ -147,7 +147,6 @@ describe('FormWizard List+Object "Create New" child form integration', () => {
             <FormWizard
                 entityName="GateStructure"
                 entityId="14"
-                userId="1"
                 onComplete={() => {}}
             />
         );

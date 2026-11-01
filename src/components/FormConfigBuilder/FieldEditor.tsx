@@ -25,6 +25,7 @@ import { DisplayConditionBuilder } from './DisplayConditionBuilder';
 import { SourceFieldOption } from '../../utils/forms/displayConditionSources';
 import { DisplayConditionTargetType } from '../../utils/enums';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { resolveMultilineSetting } from '../../utils/forms/stringFieldMultiline';
 
 interface Props {
     field: FormFieldDto;
@@ -1078,6 +1079,24 @@ export const FieldEditor: React.FC<Props> = ({
                             </div>
                             <p className="mt-1 text-xs text-gray-500">
                                 Adds/removes <span className="font-mono">minecraft-text-color.enabled</span> in settings.
+                            </p>
+                        </div>
+                    )}
+
+                    {field.fieldType === FieldType.String && (
+                        <div className="mt-1 p-3 rounded-md border border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <label htmlFor="field-editor-multiline" className="text-sm font-medium text-gray-700">Multi-line text</label>
+                                <input
+                                    id="field-editor-multiline"
+                                    type="checkbox"
+                                    checked={resolveMultilineSetting(field.settingsJson, field.fieldName)}
+                                    onChange={e => mergeSettings({ multiline: e.target.checked })}
+                                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                />
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">
+                                A text area instead of a one-line input. Without a choice, fields named …Description or …Lore get one. Sets <span className="font-mono">multiline</span> in settings.
                             </p>
                         </div>
                     )}

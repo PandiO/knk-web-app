@@ -102,12 +102,14 @@ describe('FormWizard required / min / max List (KNG-164)', () => {
     it('blocks Next on a required List with no items and names the field', async () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(streetConfig());
 
-        render(<FormWizard entityName="Street" userId="1" />);
+        render(<FormWizard entityName="Street" />);
         fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'High Street' } });
 
         clickNext();
 
-        expect(await screen.findByText('Districts is required: select at least 1 District')).toBeInTheDocument();
+        // On the field, and as a link in the error summary (#109).
+        expect(await screen.findByText('Districts is required: select at least 1 District', { selector: 'p' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Districts is required: select at least 1 District' })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /^submit$/i })).not.toBeInTheDocument();
         expect(formSubmissionClient.create).not.toHaveBeenCalled();
     });
@@ -118,12 +120,14 @@ describe('FormWizard required / min / max List (KNG-164)', () => {
             id: 4, name: 'High Street', districtIds: [], districts: []
         }));
 
-        render(<FormWizard entityName="Street" entityId="4" userId="1" />);
+        render(<FormWizard entityName="Street" entityId="4" />);
         await screen.findByDisplayValue('High Street');
 
         clickNext();
 
-        expect(await screen.findByText('Districts is required: select at least 1 District')).toBeInTheDocument();
+        // On the field, and as a link in the error summary (#109).
+        expect(await screen.findByText('Districts is required: select at least 1 District', { selector: 'p' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Districts is required: select at least 1 District' })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /^submit$/i })).not.toBeInTheDocument();
     });
 
@@ -133,7 +137,7 @@ describe('FormWizard required / min / max List (KNG-164)', () => {
             id: 4, name: 'High Street', districtIds: [], districts: [{ id: 2, name: 'Old Quarter' }]
         }));
 
-        render(<FormWizard entityName="Street" entityId="4" userId="1" />);
+        render(<FormWizard entityName="Street" entityId="4" />);
         expect(await screen.findByText('Old Quarter')).toBeInTheDocument();
 
         clickNext();
@@ -146,12 +150,12 @@ describe('FormWizard required / min / max List (KNG-164)', () => {
             id: 4, name: 'High Street', districtIds: [2], districts: [{ id: 2, name: 'Old Quarter' }]
         }));
 
-        render(<FormWizard entityName="Street" entityId="4" userId="1" />);
+        render(<FormWizard entityName="Street" entityId="4" />);
         await screen.findByText('Old Quarter');
 
         clickNext();
 
-        expect(await screen.findByText('Districts needs at least 2 Districts (1 selected)')).toBeInTheDocument();
+        expect(await screen.findByText('Districts needs at least 2 Districts (1 selected)', { selector: 'p' })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /^submit$/i })).not.toBeInTheDocument();
     });
 
@@ -163,7 +167,7 @@ describe('FormWizard required / min / max List (KNG-164)', () => {
             settingsJson: JSON.stringify({ ownedChildCollection: true })
         })));
 
-        render(<FormWizard entityName="Street" userId="1" />);
+        render(<FormWizard entityName="Street" />);
         fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'High Street' } });
 
         clickNext();

@@ -221,7 +221,7 @@ function isWorldTaskScanSummaryField(field: FormFieldDto): boolean {
 }
 
 /**
- * Removes a leading or trailing whitespace run that contains a line break. The String field is a textarea
+ * Removes a leading or trailing whitespace run that contains a line break. A multi-line String field is a textarea
  * (FieldRenderers), so Enter in a Name field used to send "Residential District\n", which the action bar in game
  * rendered as a missing glyph. Plain spaces at the ends are kept: a chat prefix such as "[Admin] " means them, and
  * the API trims domain names itself (DomainNameRules).

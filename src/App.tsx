@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Routes, Route, Navigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { StaffRoute } from './components/StaffRoute';
@@ -82,7 +82,7 @@ function AppContent() {
   }, [baseMetadata, configurations]);
 
   return (
-    <Router>
+    <>
       <div className="min-h-screen bg-gray-100">
         {isLoggedIn && <Navigation objectTypes={objectTypes} />}
         <div className="pt-16 p-8">
@@ -315,14 +315,17 @@ function AppContent() {
         <ToastRegion />
         <CloudflareSessionBanner />
       </div>
-    </Router>
+    </>
   );
 }
 
+// A data router (one catch-all route around the <Routes> of AppContent) instead of <BrowserRouter>:
+// the form wizard's unsaved-changes guard needs useBlocker, which only works inside one (#109).
 function App() {
+  const [router] = React.useState(() => createBrowserRouter([{ path: '*', element: <AppContent /> }]));
   return (
     <AuthProvider>
-      <AppContent />
+      <RouterProvider router={router} />
     </AuthProvider>
   );
 }

@@ -155,7 +155,7 @@ describe('Town form: editing its Location in the child form (KNG-130)', () => {
     });
 
     it('keeps the Location id a number, so the boundary check and the Town save can read it', async () => {
-        render(<FormWizard entityName="town" entityId="19" userId="1" onComplete={() => {}} />);
+        render(<FormWizard entityName="town" entityId="19" onComplete={() => {}} />);
 
         const editButtons = await screen.findAllByRole('button', { name: /edit instance/i });
         fireEvent.click(editButtons[0]);

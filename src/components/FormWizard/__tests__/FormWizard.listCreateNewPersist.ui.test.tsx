@@ -148,7 +148,7 @@ describe('Street form: a District made with Create New on the Districts List fie
 
     it('saves the new District when its form completes and submits the Street with its id', async () => {
         const onComplete = jest.fn();
-        render(<FormWizard entityName="street" userId="1" onComplete={onComplete} />);
+        render(<FormWizard entityName="street" onComplete={onComplete} />);
 
         await screen.findByText('Street name');
         fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Market Lane' } });
@@ -182,7 +182,6 @@ describe('Street form: a District made with Create New on the Districts List fie
         render(
             <FormWizard
                 entityName="street"
-                userId="1"
                 onComplete={onComplete}
                 initialFieldValues={{ Name: 'Market Lane', Districts: [{ name: 'Old Quarter' }] }}
             />

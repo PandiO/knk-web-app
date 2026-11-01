@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Save, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, AlertCircle, Check } from 'lucide-react';
 import { FormConfigurationDto, FormStepDto, FormFieldDto, StepData, AllStepsData, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { RelationshipDraft } from '../../hooks/useRelationshipDrafts';
 import { formConfigClient } from '../../apiClients/formConfigClient';
@@ -57,9 +57,12 @@ import { seededFormFieldValue } from '../../utils/forms/formFieldDefaultValue';
 import { isSeedableInstance, overlayChildEditValues } from '../../utils/forms/childEditSeed';
 import { spreadTaskValueOntoFields } from '../../utils/forms/worldTaskFieldValue';
 import { validateListFieldCount } from '../../utils/forms/listFieldValidation';
+import { checkFieldValidations } from '../../utils/forms/fieldRuleValidation';
+import { FormErrorSummary, FormErrorSummaryItem, wizardFieldContainerId } from './FormErrorSummary';
 import { WizardStepProgress, WizardStepTitle } from './WizardStepHeader';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { withManyToManyCarrierFields } from '../../utils/forms/manyToManyCarrierField';
+import { formValuesSnapshot } from '../../utils/forms/formValuesSnapshot';
 
 interface FormWizardProps {
     entityName: string;
@@ -68,7 +71,6 @@ interface FormWizardProps {
     initialFieldValues?: Record<string, unknown>;
     // KNG-134: edit mode only - values laid over the database load (the parent's in-session edits).
     overlayFieldValues?: Record<string, unknown>;
-    userId: string;
     // Saves the entity. Awaited inside the submit's pending state (#177 link 1); resolve `false` or
     // throw when nothing was saved, and the progress stays as it was instead of being marked Completed.
     onComplete?: (data: Record<string, unknown>, progress?: FormSubmissionProgressDto) => void | boolean | Promise<void | boolean>;
@@ -76,6 +78,11 @@ interface FormWizardProps {
     onCompleted?: () => void;
     // The submit's pending state, for controls outside the wizard (the page's Cancel).
     onSubmittingChange?: (submitting: boolean) => void;
+    // #109: true while the values differ from the ones the form was opened with (or last saved with by
+    // Save Draft or a successful Submit / Save changes); the progress save behind Next keeps it.
+    onDirtyChange?: (dirty: boolean) => void;
+    // #109: shown first in the sticky footer (the page's Cancel).
+    footerStart?: React.ReactNode;
     existingProgressId?: string;
     parentProgressId?: string; // added: for nested child forms
     fieldName?: string; // added: field name this child form is for
@@ -98,10 +105,11 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     formConfigurationId, // added
     initialFieldValues,
     overlayFieldValues,
-    userId,
     onComplete,
     onCompleted,
     onSubmittingChange,
+    onDirtyChange,
+    footerStart,
     existingProgressId,
     parentProgressId, // added
     fieldName,
@@ -111,7 +119,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     parentContext
     // Note: currentStepIndex prop removed as unused
 }) => {
-    const debug = (...args: unknown[]) => console.log('[FORM_WIZARD_DEBUG]', ...args);
     const formSession = useFormSession(); // KNG-136
     const createdEntitiesProvenance = useCreatedEntitiesProvenance(formSession, parentProgressId); // KNG-162
     const [config, setConfig] = useState<FormConfigurationDto | null>(null);
@@ -132,6 +139,14 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     const [submitting, setSubmitting] = useState(false);
     const advancingRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
+    // #109: unsaved changes (asked about before leaving) are the form's values compared with this
+    // snapshot (formValuesSnapshot): the values it was opened with, taken just before the first
+    // change so nothing the load itself does counts, and re-taken only by Save Draft and a successful
+    // Submit / Save changes. The progress save behind Next does not re-take it (link 5 fix round).
+    const [dirtyBaseline, setDirtyBaseline] = useState<string | null>(null);
+    const valuesSnapshotRef = useRef<string>('');
+    const [errorSummaryKey, setErrorSummaryKey] = useState(0);
+    const [showErrorSummary, setShowErrorSummary] = useState(false);
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
     // CRITICAL: Track entityId in state so it persists when loading from progress
     const [entityId, setEntityId] = useState<string | undefined>(initialEntityId);
@@ -331,11 +346,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         stepsData: AllStepsData,
         values?: Record<string, unknown>
     ): AllStepsData => {
-        debug('applyInitialFieldValuesToSteps:start', {
-            hasValues: !!values,
-            valueKeys: values ? Object.keys(values) : [],
-            stepCount: cfg.steps.length
-        });
         if (!values || Object.keys(values).length === 0) {
             return normalizeAllStepsData(cfg, stepsData);
         }
@@ -365,14 +375,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             });
 
             seeded[stepIndex] = next;
-            debug('applyInitialFieldValuesToSteps:step-seeded', {
-                stepIndex,
-                stepName: step.stepName,
-                seededValues: next
-            });
         });
 
-        debug('applyInitialFieldValuesToSteps:complete', seeded);
         return seeded;
     };
 
@@ -532,16 +536,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         dependencyValue = contextData[dependencyFieldName];
                     }
                 }
-                
-                console.log(`[VALIDATION_TRACE] Validating field ${fieldId} (${field.fieldName})`, {
-                    fieldValue,
-                    dependencyValue,
-                    stepsData,
-                    normalizedSteps,
-                    formContextData: contextData,
-                    validationRulesForField: validationRules[fieldId]
-                });
-                
+
                 const result = await fieldValidationRuleClient.validateField({
                     fieldId,
                     fieldValue,
@@ -550,7 +545,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     ...validationSubject(),
                     force
                 });
-                console.log(`[VALIDATION_TRACE] Field ${fieldId} validation result:`, result);
                 
                 // CRITICAL: Always store the validation result, not just on error
                 setValidationResults(prev => ({ ...prev, [fieldId]: result }));
@@ -731,14 +725,9 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     };
 
     const loadConfiguration = React.useCallback(async () => {
-        debug('loadConfiguration:start', {
-            entityName,
-            existingProgressId,
-            initialEntityId,
-            formConfigurationId
-        });
         try {
             setLoading(true);
+            setDirtyBaseline(null);
             // CRITICAL: Use initialEntityId prop directly, not the state variable
             // The state update hasn't propagated yet when this effect runs
             const currentEntityId = initialEntityId;
@@ -754,12 +743,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 }
 
                 const fetchedCfg = withManyToManyCarrierFields(await formConfigClient.getById(progress.formConfigurationId));
-                debug('loadConfiguration:from-progress', {
-                    progressId: progress.id,
-                    progressEntityId: progress.entityId,
-                    formConfigurationId: progress.formConfigurationId,
-                    currentStepIndex: progress.currentStepIndex
-                });
                 setConfig(fetchedCfg);
                 void loadValidationRulesForConfig(fetchedCfg.id);
                 await loadJoinEntityMetadata(fetchedCfg);
@@ -794,11 +777,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     )
                 );
                 setAllStepsData(derivedAll);
-                debug('loadConfiguration:restored-state', {
-                    currentStepIndex: progress.currentStepIndex,
-                    parsedCurrent,
-                    mergedAll
-                });
 
                 // Load entity metadata for normalization
                 if (progress.entityTypeName) {
@@ -827,11 +805,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 }
                 fetchedConfig = withManyToManyCarrierFields(fetchedConfig);
                 setConfig(fetchedConfig);
-                debug('loadConfiguration:fetched-config', {
-                    configurationId: fetchedConfig.id,
-                    configurationName: fetchedConfig.configurationName,
-                    stepCount: fetchedConfig.steps.length
-                });
                 void loadValidationRulesForConfig(fetchedConfig.id);
                 const loadedJoinMetadata = await loadJoinEntityMetadata(fetchedConfig);
 
@@ -839,10 +812,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 if (currentEntityId) {
                     setEntityId(currentEntityId); // Update state for use in other places
                     await loadExistingEntityData(entityName, currentEntityId, fetchedConfig, loadedJoinMetadata);
-                    debug('loadConfiguration:edit-mode-entity-load', {
-                        entityName,
-                        currentEntityId
-                    });
                 } else {
                     // Initialize all fields for all steps and seed initial values immediately.
                     // This prevents race conditions where later config loads can wipe prefilled child-modal values.
@@ -860,11 +829,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         initialValuesAppliedRef.current = true;
                     }
 
-                    debug('loadConfiguration:new-mode-initialized', {
-                        step0: initialData,
-                        seededStep0: seededStepsData[0],
-                        initialFieldValueKeys: initialFieldValues ? Object.keys(initialFieldValues) : []
-                    });
                 }
 
                 // Load entity metadata for normalization
@@ -874,10 +838,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         } catch (error) {
             console.error('Failed to load form configuration:', error);
             logging.errorHandler.next('ErrorMessage.UIConfigurations.LoadFailed');
-            debug('loadConfiguration:error', error);
         } finally {
             setLoading(false);
-            debug('loadConfiguration:complete');
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [entityName, existingProgressId, initialEntityId, formConfigurationId]);
@@ -891,11 +853,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         if (loading || !config || !initialFieldValues || initialValuesAppliedRef.current) {
             return;
         }
-
-        debug('initialFieldValues:apply', {
-            currentStepIndex,
-            initialFieldValues
-        });
 
         const seeded = applyInitialFieldValuesToSteps(config, allStepsData, initialFieldValues);
         setAllStepsData(seeded);
@@ -1017,11 +974,28 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         return reconcileVisibility(config, effectiveAllStepsData, hiddenStash).visibility;
     }, [config, effectiveAllStepsData, hiddenStash]);
 
+    // #109: every step's values, compared by value ('' / null / [] alike), so typing and clearing a
+    // field again is no change, and values entered on earlier steps keep counting after Next.
+    const valuesSnapshot = useMemo(
+        () => formValuesSnapshot(config?.entityTypeName || entityName, effectiveAllStepsData, hiddenStash),
+        [config?.entityTypeName, entityName, effectiveAllStepsData, hiddenStash]
+    );
+    useEffect(() => { valuesSnapshotRef.current = valuesSnapshot; }, [valuesSnapshot]);
+    const dirty = dirtyBaseline !== null && valuesSnapshot !== dirtyBaseline;
+    useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+
     const visibleFieldNamesForCurrentStep = visibility.visibleFieldNames[currentStepIndex] ?? new Set<string>();
     const visibleOrderedFields = orderedFields.filter(f => visibleFieldNamesForCurrentStep.has(f.fieldName));
     const isLastVisibleStep =
         visibility.visibleStepIndices.length > 0 &&
         visibility.visibleStepIndices[visibility.visibleStepIndices.length - 1] === currentStepIndex;
+    // #109 (CRUD-5): editing an existing entity can be saved from any step.
+    const showSaveNow = !!entityId && !isLastVisibleStep;
+    const errorSummaryItems: FormErrorSummaryItem[] = showErrorSummary
+        ? visibleOrderedFields
+            .filter(field => !!errors[field.fieldName])
+            .map(field => ({ fieldName: field.fieldName, label: field.label, message: errors[field.fieldName] }))
+        : [];
 
     // A change elsewhere can hide the step the user is standing on; fall back to the nearest one.
     useEffect(() => {
@@ -1193,15 +1167,14 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         };
     };
 
+    // #109: called before the user changes a value; the first call keeps the values as they were.
+    const captureDirtyBaseline = () => {
+        setDirtyBaseline(prev => prev ?? valuesSnapshotRef.current);
+    };
+
     const handleFieldChange = (fieldName: string, value: unknown) => {
         if (!currentStep) return;
-
-        debug('handleFieldChange', {
-            currentStepIndex,
-            stepName: currentStep.stepName,
-            fieldName,
-            value
-        });
+        captureDirtyBaseline();
 
         const mergedCurrent = { ...currentStepData, [fieldName]: value };
         const normalizedCurrent = deriveGateGeometryStepData(
@@ -1235,11 +1208,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         );
         setAllStepsData(reconciled.allStepsData);
         setHiddenStash(reconciled.hiddenStash);
-        debug('handleFieldChange:updated-state', {
-            mergedCurrent: projectionResult.currentData,
-            updatedAllDataForStep: projectionResult.allData[currentStepIndex],
-            projectedTargets: projectionResult.projectedTargets
-        });
 
         if (errors[fieldName] || projectionResult.projectedTargets.some(target => !!errors[target])) {
             setErrors(prev => {
@@ -1289,6 +1257,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     // are display-conditional or projection targets in this form.
     const applyMultipleFieldChanges = (patch: Record<string, unknown>) => {
         if (!currentStep || Object.keys(patch).length === 0) return;
+        captureDirtyBaseline();
 
         Object.keys(patch).forEach(fieldName => {
             fieldProvenanceRef.current[fieldName.toLowerCase()] = 'manual';
@@ -1820,6 +1789,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             contentsPatch = entries;
         }
 
+        captureDirtyBaseline();
         Object.entries(patchesByStep).forEach(([stepIndexKey, patch]) => {
             const stepIndex = Number(stepIndexKey);
             if (stepIndex === currentStepIndex) {
@@ -1965,12 +1935,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             // but we want to store the full object in the form state for display purposes
             let createdEntity = childData;
 
-            console.log(`Child form completed for field: ${fieldName}`, {
-                entityType: childFormModal.entityTypeName,
-                childData: createdEntity,
-                extractedId: createdEntity?.id
-            });
-
             // Owned-child-collection fields (e.g. GateStructure -> GateDoors) are ignored by the
             // parent's own save on the backend - the child entity has independent CRUD, so nothing
             // else ever persists it. Every other completion path here only ever updated this
@@ -2021,7 +1985,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 const childProgress: FormSubmissionProgressDto = {
                     id: undefined,
                     formConfigurationId: config!.id!,
-                    userId,
                     entityTypeName: childFormModal.entityTypeName,
                     currentStepIndex: 0,
                     currentStepDataJson: JSON.stringify(childData),
@@ -2056,6 +2019,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     };
 
     const updateManyToManyStepData = (stepIndex: number, fieldName: string, relationships: Array<Record<string, unknown>>) => {
+        captureDirtyBaseline();
         const updatedAll: AllStepsData = {
             ...allStepsData,
             [stepIndex]: {
@@ -2075,17 +2039,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     };
 
     const handleOpenJoinEntry = async (relationshipIndex: number) => {
-        debug('handleOpenJoinEntry:start', {
-            relationshipIndex,
-            currentStepIndex,
-            currentStepName: currentStep?.stepName,
-            currentStepIsManyToMany: currentStep?.isManyToManyRelationship,
-            joinEntityType: currentStep?.joinEntityType,
-            joinConfigurationId: currentStep?.subConfigurationId,
-            progressId,
-            entityId,
-            entityName
-        });
         if (!config || !currentStep?.isManyToManyRelationship) return;
         if (!currentStep.joinEntityType || !currentStep.subConfigurationId) return;
         if (relationshipIndex < 0) return;
@@ -2113,11 +2066,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             updateManyToManyStepData(currentStepIndex, fieldName, updatedRelationships);
             selectedRelationship = updatedRelationships[relationshipIndex];
 
-            debug('handleOpenJoinEntry:inserted-missing-relationship', {
-                relationshipIndex,
-                relationshipCountBefore: relationships.length,
-                relationshipCountAfter: updatedRelationships.length
-            });
         }
 
         const joinMetadata = joinEntityMetadataMap[currentStep.joinEntityType];
@@ -2224,11 +2172,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     }
                 });
         }
-        debug('handleOpenJoinEntry:initial-join-values', {
-            joinMetadataLoaded: !!joinMetadata,
-            selectedRelationship,
-            initialJoinFieldValues
-        });
         const existingProgressId = selectedRelationship?.__childProgressId as string | undefined;
 
         setJoinEntryModal({
@@ -2242,10 +2185,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             existingProgressId,
             parentContext: contextForChild({ ...parentSnapshot, id: entityId ?? -1 })
         });
-        debug('handleOpenJoinEntry:modal-opened', {
-            existingProgressId,
-            parentProgressId: parentId
-        });
     };
 
     const handleCloseJoinEntryModal = () => {
@@ -2253,11 +2192,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     };
 
     const handleJoinEntryComplete = async (joinData: Record<string, unknown>, progress?: FormSubmissionProgressDto) => {
-        debug('handleJoinEntryComplete:start', {
-            joinData,
-            progress,
-            joinEntryModal
-        });
         if (!config || joinEntryModal.stepIndex === null || joinEntryModal.relationshipIndex === null) {
             handleCloseJoinEntryModal();
             return;
@@ -2351,10 +2285,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
 
         updatedRelationships[joinEntryModal.relationshipIndex] = mergedRelationship;
         updateManyToManyStepData(joinEntryModal.stepIndex, fieldName, updatedRelationships);
-        debug('handleJoinEntryComplete:merged-relationship', {
-            mergedRelationship,
-            updatedRelationships
-        });
 
         if (progress?.id && joinEntryModal.parentProgressId && relatedEntityId !== undefined) {
             try {
@@ -2372,16 +2302,15 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 });
             } catch (error) {
                 console.error('Failed to update join entry progress:', error);
-                debug('handleJoinEntryComplete:progress-update-error', error);
             }
         }
 
         handleCloseJoinEntryModal();
-        debug('handleJoinEntryComplete:complete');
     };
 
-    const validateField = (field: FormFieldDto): string | null => {
-        const value = currentStepData[field.fieldName];
+    // stepData: the values of the field's own step (the current step unless Save checks the others, #109).
+    const validateField = (field: FormFieldDto, stepData: StepData = currentStepData): string | null => {
+        const value = stepData[field.fieldName];
 
         // KNG-164: List fields (empty list, minSelection/maxSelection) are checked in listFieldValidation.
         if (field.fieldType === FieldType.List) {
@@ -2392,20 +2321,29 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             return `${field.label} is required`;
         }
 
-        const geometryError = gateGeometryFieldError(entityName, field.fieldName, currentStepData);
+        const geometryError = gateGeometryFieldError(entityName, field.fieldName, stepData);
         if (geometryError) return geometryError;
 
-        for (const validation of field.validations) {
-            if (validation.isActive === false) continue;
+        // #109 (CRUD-8): the field's own validations (MinLength, MaxLength, Range, Regex, Email).
+        return checkFieldValidations(field, value);
+    };
 
-            // Parse validation parameters if needed (commented: validation logic placeholder)
-            // const params = validation.parametersJson ? JSON.parse(validation.parametersJson) : {};
-            
-            // Add validation logic based on ValidationType
-            // For brevity, showing Required only
-        }
+    // #109 (CRUD-8): a field is checked when it loses the focus, and its message shown (or cleared).
+    const handleFieldBlur = (field: FormFieldDto) => {
+        const message = validateField(field);
+        setErrors(prev => {
+            if (message) return prev[field.fieldName] === message ? prev : { ...prev, [field.fieldName]: message };
+            if (!(field.fieldName in prev)) return prev;
+            const next = { ...prev };
+            delete next[field.fieldName];
+            return next;
+        });
+    };
 
-        return null;
+    // A refused Next/Save: show the summary and move the focus to it.
+    const refuseWithSummary = () => {
+        setShowErrorSummary(true);
+        setErrorSummaryKey(key => key + 1);
     };
 
     const validateStep = (): boolean => {
@@ -2450,6 +2388,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         // changed: clear page-level error when validating fields
         if (isValid) {
             setError(null);
+            setShowErrorSummary(false);
         }
         return isValid;
     };
@@ -2459,7 +2398,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         const progressData: FormSubmissionProgressDto = {
                 id: progressId,
                 formConfigurationId: config!.id!,
-                userId,
                 entityTypeName: entityName,
                 entityId: entityId, // CRITICAL: preserve entityId for edit mode
                 currentStepIndex,
@@ -2488,6 +2426,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             if (!progressData) {
                 throw new Error('No progress data to save');
             }
+            const savedValues = valuesSnapshotRef.current;
             progressData.status = status;
             if (knownId) progressData.id = knownId;
 
@@ -2500,6 +2439,9 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             }
             // Only surface modal feedback for explicit draft saves to avoid interrupting step navigation
             if (status === FormSubmissionStatus.Paused) {
+                // #109: an explicit Save Draft holds everything typed so far. The automatic save
+                // behind Next (InProgress) does not: leaving after it still asks (link 5 fix round).
+                setDirtyBaseline(savedValues);
                 setSaveFeedback({
                     open: true,
                     title: 'Progress saved',
@@ -2543,14 +2485,61 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         if (advancingRef.current) return;
         advancingRef.current = true;
         try {
-            await advance();
+            await advance(false);
         } finally {
             advancingRef.current = false;
         }
     };
 
-    const advance = async () => {
-        if (!validateStep()) return;
+    // #109 (CRUD-5): edit mode saves the entity from any step, once every visible step is valid.
+    const handleSaveNow = async () => {
+        if (advancingRef.current) return;
+        advancingRef.current = true;
+        try {
+            await advance(true);
+        } finally {
+            advancingRef.current = false;
+        }
+    };
+
+    /**
+     * #109: the first visible step (other than the current one) with a field that would refuse the
+     * save, with its errors - checked before Save in edit mode submits from the middle of the form.
+     */
+    const findInvalidOtherStep = (
+        stepsData: AllStepsData,
+        formVisibility: FormVisibility
+    ): { stepIndex: number; stepData: StepData; errors: { [fieldName: string]: string } } | null => {
+        for (const stepIndex of formVisibility.visibleStepIndices) {
+            if (stepIndex === currentStepIndex) continue;
+            const step = config!.steps[stepIndex];
+            if (step.isManyToManyRelationship) continue;
+            const visibleNames = formVisibility.visibleFieldNames[stepIndex] ?? new Set<string>();
+            const stepData = normalizeStepData(step, stepsData[stepIndex] || {}, visibleNames);
+            const stepErrors: { [fieldName: string]: string } = {};
+            getOrderedFields(step).forEach(field => {
+                if (!visibleNames.has(field.fieldName)) return;
+                if (field.dependencyConditionJson
+                    && !ConditionEvaluator.evaluateConditions(field.dependencyConditionJson, stepData, stepsData)) return;
+                const message = validateField(field, stepData);
+                const stored = field.id ? validationResults[Number(field.id)] : undefined;
+                if (message) {
+                    stepErrors[field.fieldName] = message;
+                } else if (stored && !stored.isValid && stored.isBlocking) {
+                    stepErrors[field.fieldName] =
+                        interpolatePlaceholders(stored.message, stored.placeholders) || `${field.label} failed validation`;
+                }
+            });
+            if (Object.keys(stepErrors).length > 0) return { stepIndex, stepData, errors: stepErrors };
+        }
+        return null;
+    };
+
+    const advance = async (submitNow: boolean) => {
+        if (!validateStep()) {
+            refuseWithSummary();
+            return;
+        }
 
         // Check step completion conditions
         if (currentStep?.conditions) {
@@ -2564,6 +2553,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         { ...allStepsData, [currentStepIndex]: currentStepData }
                     );
                     if (!met) {
+                        // #109: said on the form too, not only in a toast.
+                        setError(condition.errorMessage || 'Step completion conditions not met');
                         logging.errorHandler.next(condition.errorMessage || 'Step completion conditions not met');
                         return;
                     }
@@ -2583,9 +2574,22 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         const updatedAllData = reconciled.allStepsData;
 
         const validationResultsForStep = await runValidationsForStep(currentStep!, updatedAllData, currentStepIndex);
-        const hasBlockingValidation = validationResultsForStep.some(r => !r.result.isValid && r.result.isBlocking);
-        if (hasBlockingValidation) {
+        const blockingResults = validationResultsForStep.filter(r => !r.result.isValid && r.result.isBlocking);
+        if (blockingResults.length > 0) {
             setError('Please resolve validation errors before continuing.');
+            // #109: the rule's message on its field and in the summary.
+            setErrors(prev => {
+                const next = { ...prev };
+                blockingResults.forEach(({ fieldId, result }) => {
+                    const field = currentStep!.fields.find(f => Number(f.id) === fieldId);
+                    if (field) {
+                        next[field.fieldName] =
+                            interpolatePlaceholders(result.message, result.placeholders) || `${field.label} failed validation`;
+                    }
+                });
+                return next;
+            });
+            refuseWithSummary();
             return;
         }
 
@@ -2594,7 +2598,20 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
 
         const nextIndex = nextVisibleStepIndex(reconciled.visibility, currentStepIndex);
 
-        if (nextIndex !== null) {
+        if (submitNow && nextIndex !== null) {
+            const invalid = findInvalidOtherStep(updatedAllData, reconciled.visibility);
+            if (invalid) {
+                // Show the step that holds the problem, with its messages.
+                setCurrentStepIndex(invalid.stepIndex);
+                setCurrentStepData(invalid.stepData);
+                setErrors(invalid.errors);
+                setError(`Fix "${config!.steps[invalid.stepIndex].stepName}" before saving.`);
+                refuseWithSummary();
+                return;
+            }
+        }
+
+        if (nextIndex !== null && !submitNow) {
             const saved = await saveProgress(FormSubmissionStatus.InProgress);
             if (!saved) return;
 
@@ -2612,6 +2629,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     reconciled.visibility.visibleFieldNames[nextIndex]
                 ));
                 setErrors({});
+                setShowErrorSummary(false);
                 // Validation results are kept (keyed by field id, so a step can't show another's): going
                 // back to a step shows what its rules said, incl. "checked … ago" + Re-check (KNG-269).
                 return nextIndex;
@@ -2668,10 +2686,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     normalizedPayload.id = entityId;
                 }
 
-                console.log('Raw form data (flattened):', flattenedDto);
-                console.log('Normalized payload for API (with IDs extracted):', normalizedPayload);
-                console.log('Edit mode:', !!entityId, 'Entity ID:', entityId);
-
                 // notify workflow for final step as well
                 try {
                     const stepKey = computeStepKey(currentStep!, currentStepIndex);
@@ -2688,6 +2702,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     return;
                 }
                 if (result === false) return;
+                // #109: saved, so nothing is unsaved any more.
+                setDirtyBaseline(valuesSnapshotRef.current);
 
                 await saveProgress(FormSubmissionStatus.Completed, saved.id);
                 onCompleted?.();
@@ -2719,17 +2735,15 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             visibility.visibleFieldNames[previousIndex]
         ));
         setErrors({});
+        setShowErrorSummary(false);
         // Validation results are kept across steps (see handleNext).
         setCurrentStepIndex(previousIndex);
     };
 
     // changed: add explicit save draft handler
+    // saveProgress shows the "Progress saved" feedback itself.
     const handleSaveDraft = async () => {
-        const saved = await saveProgress(FormSubmissionStatus.Paused);
-        if (saved) {
-            // Optional: show success message
-            console.log('Draft saved successfully');
-        }
+        await saveProgress(FormSubmissionStatus.Paused);
     };
 
     // changed: update form title to indicate edit mode
@@ -2753,9 +2767,10 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     }
 
     return (
-        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-            {/* Header Section: Progress Bar, Title, and Navigation */}
-            <div className="px-6 md:px-8 pt-6 md:pt-8 pb-4 md:pb-6 bg-gradient-to-b from-gray-50 to-white border-b border-gray-100">
+        // No overflow-hidden here: it would stop the footer from sticking to the bottom of the window (#109).
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg">
+            {/* Header Section: Progress Bar and Title (the buttons are in the footer, #109) */}
+            <div className="rounded-t-lg px-6 md:px-8 pt-6 md:pt-8 pb-4 md:pb-6 bg-gradient-to-b from-gray-50 to-white border-b border-gray-100">
                 {/* added: error banner */}
                 {error && (
                     <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4 flex items-start">
@@ -2780,51 +2795,11 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     description={currentStep.description}
                     editingEntityName={entityId ? entityName : null}
                 />
-
-                {/* Navigation Buttons Toolbar */}
-                <div className="flex flex-col md:flex-row gap-3 md:gap-2 justify-between items-center">
-                    <button
-                        onClick={handlePrevious}
-                        disabled={submitting || previousVisibleStepIndex(visibility, currentStepIndex) === null}
-                        className="w-full md:w-auto btn-secondary disabled:opacity-50 flex items-center justify-center"
-                    >
-                        <ChevronLeft className="h-5 w-5 mr-2" />
-                        Previous
-                    </button>
-
-                    <button
-                        onClick={handleSaveDraft}
-                        disabled={submitting}
-                        className="w-full md:w-auto btn-tertiary flex items-center justify-center disabled:opacity-50"
-                    >
-                        <Save className="h-5 w-5 mr-2" />
-                        Save Draft
-                    </button>
-
-                    <div className="w-full md:w-auto flex flex-col md:flex-row items-center gap-2">
-                        {submitting && (
-                            <span role="status" className="text-sm text-gray-600">
-                                Saving {entityMetadata?.displayName || config.entityTypeName || entityName}…
-                            </span>
-                        )}
-                        <button
-                            onClick={handleNext}
-                            className="w-full md:w-auto btn-primary flex items-center justify-center disabled:opacity-50"
-                            disabled={saving || submitting}
-                        >
-                            {saving || submitting ? (
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                            ) : (
-                                <ChevronRight className="h-5 w-5 mr-2" />
-                            )}
-                            {saving || submitting ? 'Submitting...' : isLastVisibleStep ? 'Submit' : 'Next'}
-                        </button>
-                    </div>
-                </div>
             </div>
 
             {/* Form Fields */}
             <div className="px-6 md:px-8 py-6 md:py-8 space-y-6">
+                <FormErrorSummary items={errorSummaryItems} focusKey={errorSummaryKey} />
                 {currentStep.isManyToManyRelationship ? (
                     /* Many-to-Many Relationship Step */
                     <ManyToManyRelationshipEditor
@@ -2834,7 +2809,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         entityName={entityName}
                         parentEntityTypeName={config.entityTypeName || entityName}
                         entityId={entityId}
-                        userId={userId}
                         parentProgressId={progressId}
                         joinFormConfigurationId={currentStep.subConfigurationId}
                         onOpenJoinEntry={handleOpenJoinEntry}
@@ -2853,31 +2827,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                             );
 
                         if (!shouldShow) return null;
-
-                        const isDebugField = Number(field.id) === 4;
-                        if (isDebugField) {
-                            console.groupCollapsed('[FW_DEBUG][Field#4] Render cycle');
-                            console.log('step', {
-                                currentStepIndex,
-                                stepName: currentStep?.stepName,
-                                stepId: currentStep?.id,
-                                workflowSessionId,
-                                worldTaskHint,
-                                inheritedFieldName: fieldName
-                            });
-                            console.log('field', {
-                                id: field.id,
-                                fieldName: field.fieldName,
-                                fieldType: field.fieldType,
-                                objectType: field.objectType,
-                                settingsJson: field.settingsJson
-                            });
-                            console.log('value state', {
-                                currentStepValue: currentStepData[field.fieldName],
-                                allStepsCurrentStepValue: allStepsData[currentStepIndex]?.[field.fieldName],
-                                hasValueInCurrentStepData: Object.prototype.hasOwnProperty.call(currentStepData, field.fieldName)
-                            });
-                        }
 
                         // Check if this field has world task enabled
                         const { enabled: fieldWorldTaskEnabled, taskType: fieldTaskType } = parseWorldTaskSettings(field.settingsJson);
@@ -2907,25 +2856,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         const inheritsOntoFirstField = !fieldWorldTaskEnabled && canInheritWorldTask && !matchesInheritedFieldName && isFirstOrderedField;
                         const taskType = fieldTaskType || (canInheritWorldTask ? worldTaskHint : undefined);
                         const stepKey = computeStepKey(currentStep!, currentStepIndex);
-
-                        if (isDebugField) {
-                            console.log('world task decision', {
-                                fieldWorldTaskEnabled,
-                                fieldTaskType,
-                                hasAnyFieldLevelWorldTask,
-                                canInheritWorldTask,
-                                matchesInheritedFieldName,
-                                isFirstOrderedField,
-                                worldTaskEnabled,
-                                resolvedTaskType: taskType,
-                                willUseWorldBoundRenderer: worldTaskEnabled && workflowSessionId != null && !!taskType,
-                                blockedBy: {
-                                    worldTaskDisabled: !worldTaskEnabled,
-                                    missingWorkflowSessionId: workflowSessionId == null,
-                                    missingTaskType: !taskType
-                                }
-                            });
-                        }
 
                         const fieldId = field.id ? Number(field.id) : null;
                         const geometryDerivedField = isDerivedGateGeometryField(entityName, field.fieldName, currentStepData)
@@ -2971,34 +2901,18 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                             revalidateDependents(fieldId, stepsDataForValidation);
                         };
 
-                        if (isDebugField) {
-                            console.log('[FW_DEBUG][Field#4] Rendering FieldRenderer + optional WorldTask panel', {
-                                worldTaskEnabled,
-                                workflowSessionId,
-                                taskType,
-                                canRenderWorldTaskPanel,
-                                currentValue: currentStepData[field.fieldName]
-                            });
-                            if (canRenderWorldTaskPanel) {
-                                console.log('[FW_DEBUG][Field#4] Rendering WorldBoundFieldRenderer panel', {
-                                    fieldId,
-                                    fieldName: field.fieldName,
-                                    taskType,
-                                    fieldPlaceholders,
-                                    fieldValidationRuleCount: fieldValidationRules.length
-                                });
-                            }
-                            console.groupEnd();
-                        }
-
                         return (
-                            <div key={`${field.id ?? field.fieldName}-composed`} className={fieldContainerClass}>
+                            <div
+                                key={`${field.id ?? field.fieldName}-composed`}
+                                id={wizardFieldContainerId(field.fieldName)}
+                                className={fieldContainerClass}
+                            >
                                 <FieldRenderer
                                     field={renderedField}
                                     value={currentStepData[field.fieldName]}
                                     onChange={value => handleFieldChange(field.fieldName, value)}
                                     error={fieldError}
-                                    onBlur={() => validateField(field)}
+                                    onBlur={() => handleFieldBlur(field)}
                                     onCreateNew={() => handleOpenChildForm(
                                         field,
                                         undefined,
@@ -3068,10 +2982,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                                                 };
                                             });
                                         }}
-                                        onTaskCompleted={(task: any, extractedValue: any) => {
-                                            console.log('WorldTask completed:', task, 'Extracted value:', extractedValue);
-                                            console.log('Clearing validation result for fieldId:', fieldId);
-                                            console.log('Current validation results before clearing:', validationResults);
+                                        onTaskCompleted={(task: any) => {
                                             if (task?.taskType === 'ItemScan' && task?.outputJson) {
                                                 applyItemScanResult(task.outputJson).catch(error => {
                                                     console.error('ItemScan: failed to apply scan result to form fields:', error);
@@ -3086,7 +2997,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                                                 setValidationResults(prev => {
                                                     const updated = { ...prev };
                                                     delete updated[fieldId];
-                                                    console.log('Updated validation results after clearing:', updated);
                                                     return updated;
                                                 });
                                                 setErrors(prev => {
@@ -3106,6 +3016,75 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 )}
             </div>
 
+            {/* #109 (CRUD-6): the actions stay at the bottom of the window while the form scrolls. */}
+            <div
+                data-testid="wizard-footer"
+                // #109 fix round: pressing a footer button must not take the focus from the field first.
+                // That blur shows the field's message ("Name is required"), which pushes a footer
+                // that sits right under a short form down between mousedown and mouseup, so the
+                // click was lost (found in the browser check: Cancel after typing and clearing Name).
+                onMouseDown={event => {
+                    if ((event.target as HTMLElement).closest('button')) event.preventDefault();
+                }}
+                className="sticky bottom-0 z-20 rounded-b-lg border-t border-gray-200 bg-white/95 px-6 md:px-8 py-3 shadow-[0_-4px_8px_-6px_rgba(0,0,0,0.15)]"
+            >
+                <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-between">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                        {footerStart}
+                        <button
+                            type="button"
+                            onClick={handlePrevious}
+                            disabled={submitting || previousVisibleStepIndex(visibility, currentStepIndex) === null}
+                            className="w-full md:w-auto btn-secondary disabled:opacity-50 flex items-center justify-center"
+                        >
+                            <ChevronLeft className="h-5 w-5 mr-2" />
+                            Previous
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                        {submitting && (
+                            <span role="status" className="text-sm text-gray-600">
+                                Saving {entityMetadata?.displayName || config.entityTypeName || entityName}…
+                            </span>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleSaveDraft}
+                            disabled={submitting}
+                            className="w-full md:w-auto btn-tertiary flex items-center justify-center disabled:opacity-50"
+                        >
+                            <Save className="h-5 w-5 mr-2" />
+                            Save Draft
+                        </button>
+                        {showSaveNow && (
+                            <button
+                                type="button"
+                                onClick={handleSaveNow}
+                                disabled={saving || submitting}
+                                className="w-full md:w-auto btn-secondary flex items-center justify-center disabled:opacity-50"
+                            >
+                                <Check className="h-5 w-5 mr-2" />
+                                Save changes
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleNext}
+                            className="w-full md:w-auto btn-primary flex items-center justify-center disabled:opacity-50"
+                            disabled={saving || submitting}
+                        >
+                            {saving || submitting ? (
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                            ) : (
+                                <ChevronRight className="h-5 w-5 mr-2" />
+                            )}
+                            {saving || submitting ? 'Submitting...' : isLastVisibleStep ? 'Submit' : 'Next'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             {/* Feedback and Child Form Modals */}
             <FeedbackModal
                 open={saveFeedback.open}
@@ -3123,7 +3102,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 entityId={childFormModal.entityId}
                 existingProgressId={childFormModal.existingProgressId}
                 parentProgressId={progressId}
-                userId={userId}
                 fieldName={childFormModal.fieldName}
                 currentStepIndex={currentStepIndex}
                 workflowSessionId={childFormModal.worldTaskHint ? workflowSessionId : undefined}
@@ -3143,7 +3121,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 formConfigurationId={joinEntryModal.joinConfigurationId}
                 initialFieldValues={joinEntryModal.initialFieldValues}
                 parentProgressId={joinEntryModal.parentProgressId}
-                userId={userId}
                 existingProgressId={joinEntryModal.existingProgressId}
                 parentContext={joinEntryModal.parentContext}
                 onComplete={handleJoinEntryComplete}

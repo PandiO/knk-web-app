@@ -77,7 +77,6 @@ describe('ManyToManyRelationshipEditor', () => {
                 value={[]}
                 onChange={jest.fn()}
                 entityName="ItemBlueprint"
-                userId="user-1"
             />
         );
 
@@ -131,7 +130,6 @@ describe('ManyToManyRelationshipEditor', () => {
                 value={[{ relatedEntityId: 7, relatedEntity: { name: 'Enchantment A' } }]}
                 onChange={jest.fn()}
                 entityName="ItemBlueprint"
-                userId="user-1"
                 joinFormConfigurationId="config-1"
                 onOpenJoinEntry={handleOpenJoinEntry}
             />

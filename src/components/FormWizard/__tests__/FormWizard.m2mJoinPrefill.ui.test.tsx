@@ -158,7 +158,6 @@ describe('FormWizard M2M join-entry prefill UI', () => {
         render(
             <FormWizard
                 entityName="ItemBlueprint"
-                userId="1"
                 onComplete={() => {}}
             />
         );

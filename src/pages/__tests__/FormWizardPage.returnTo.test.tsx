@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FormWizardPage } from '../FormWizardPage';
 import { formConfigClient } from '../../apiClients/formConfigClient';
@@ -52,8 +52,8 @@ jest.mock('../../utils/entityApiMapping', () => ({
 jest.mock('../../utils/toast', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
 jest.mock('../../components/ObjectTypeExplorer', () => () => null);
 jest.mock('../../components/FormWizard/FormCancelAction', () => ({
-    FormCancelAction: ({ onLeave, disabled }: { onLeave: () => void; disabled?: boolean }) => (
-        <button type="button" onClick={onLeave} disabled={disabled}>Cancel form</button>
+    FormCancelAction: ({ onLeave, disabled, dirty }: { onLeave: () => void; disabled?: boolean; dirty?: boolean }) => (
+        <button type="button" onClick={onLeave} disabled={disabled} data-dirty={String(dirty)}>Cancel form</button>
     )
 }));
 
@@ -62,7 +62,7 @@ let wizardProps: Record<string, any> = {};
 jest.mock('../../components/FormWizard/FormWizard', () => ({
     FormWizard: (props: Record<string, any>) => {
         wizardProps = props;
-        return <div>wizard</div>;
+        return <div>wizard{props.footerStart}</div>;
     }
 }));
 
@@ -138,7 +138,29 @@ describe('FormWizardPage returnTo (#177 link 1)', () => {
         expect(screen.getByRole('button', { name: 'Cancel form' })).toBeDisabled();
         act(() => wizardProps.onSubmittingChange(false));
 
+        // Nothing changed: Cancel leaves without asking (#109).
         fireEvent.click(screen.getByRole('button', { name: 'Cancel form' }));
         await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/dashboard/Category'));
+    });
+
+    it('gives Cancel the dirty flag, and a breadcrumb asks before it leaves a changed form (#109)', async () => {
+        await openForm();
+        const cancel = () => screen.getByRole('button', { name: 'Cancel form' });
+        expect(cancel()).toHaveAttribute('data-dirty', 'false');
+
+        act(() => wizardProps.onDirtyChange(true));
+        expect(cancel()).toHaveAttribute('data-dirty', 'true');
+
+        const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
+        fireEvent.click(within(breadcrumb).getAllByRole('link')[0]);
+        const dialog = await screen.findByRole('dialog', { name: 'Leave this form?' });
+        expect(mockNavigate).not.toHaveBeenCalled();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Stay' }));
+        expect(screen.getByText('wizard')).toBeInTheDocument();
+
+        fireEvent.click(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getAllByRole('link')[0]);
+        fireEvent.click(within(await screen.findByRole('dialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Leave form' }));
+        // The first crumb: the dashboard.
+        await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/dashboard'));
     });
 });

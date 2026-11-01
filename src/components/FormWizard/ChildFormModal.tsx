@@ -17,7 +17,6 @@ interface ChildFormModalProps {
     // drafts feature's "Continue" action.
     existingProgressId?: string;
     parentProgressId?: string;
-    userId: string;
     fieldName: string;
     currentStepIndex: number;
     workflowSessionId?: number;
@@ -48,7 +47,6 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
     entityId,
     existingProgressId,
     parentProgressId,
-    userId,
     fieldName,
     currentStepIndex,
     workflowSessionId,
@@ -143,7 +141,6 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                 const cfgIdNum = defaultConfig.id ? parseInt(String(defaultConfig.id), 10) : undefined;
                 const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
                 const session = await workflowClient.createSession({
-                    userId: parseInt(userId, 10) || 0,
                     formConfigurationId: cfgIdNum,
                     entityTypeName,
                     entityId: entityIdNum
@@ -159,7 +156,7 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
         return () => {
             cancelled = true;
         };
-    }, [open, workflowSessionId, defaultConfig, entityTypeName, entityId, userId]);
+    }, [open, workflowSessionId, defaultConfig, entityTypeName, entityId]);
 
     const effectiveWorkflowSessionId = workflowSessionId ?? ownWorkflowSessionId;
 
@@ -263,7 +260,6 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                                 entityName={entityTypeName}
                                 entityId={entityId}
                                 existingProgressId={existingProgressId}
-                                userId={userId}
                                 onComplete={handleChildComplete}
                                 parentProgressId={parentProgressId}
                                 fieldName={fieldName}
