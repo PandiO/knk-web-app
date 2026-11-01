@@ -111,6 +111,10 @@ export const FormWizardPage: React.FC<Props> = ({
     const [wizardProgressId, setWizardProgressId] = useState<string | undefined>(undefined);
     const [workflowSessionId, setWorkflowSessionId] = useState<number | undefined>(undefined);
     const [autoOpenForm, setAutoOpenForm] = useState(false); // removed: old auto-open flag logic
+    // #177 follow-up: the type whose configurations and saved progress finished loading, so a
+    // configuration or draft named in the URL (?configId= / ?resume=) is opened only then.
+    const [configsLoadedFor, setConfigsLoadedFor] = useState<string | null>(null);
+    const handledUrlOpenRef = useRef<string | null>(null);
     const [columnDraft, setColumnDraft] = useState<string[]>([]);
     const [savingColumns, setSavingColumns] = useState(false);
     const [showDefaultColumns, setShowDefaultColumns] = useState(() => {
@@ -355,6 +359,33 @@ export const FormWizardPage: React.FC<Props> = ({
         void tryOpen();
     }, [autoOpenForm, defaultConfig, loadingConfigs, wizardConfig, entityId, selectedTypeName]);
 
+    // #177 follow-up: the dashboard's "New with: {config}" (?configId=) and "Drafts (n)" (?resume=)
+    // open that configuration or draft here, once per request, after the lists loaded. An unknown
+    // configuration leaves the Entity setup page open with an error toast.
+    const urlConfigId = searchParams.get('configId');
+    const urlResumeId = searchParams.get('resume');
+    useEffect(() => {
+        if (entityId || showWizard || wizardConfig || !selectedTypeName) return;
+        if (configsLoadedFor?.toLowerCase() !== selectedTypeName.toLowerCase()) return;
+        const request = urlResumeId ? `resume:${urlResumeId}` : urlConfigId ? `config:${urlConfigId}` : null;
+        if (!request) return;
+        const key = `${selectedTypeName.toLowerCase()}|${request}`;
+        if (handledUrlOpenRef.current === key) return;
+        handledUrlOpenRef.current = key;
+        if (urlResumeId) {
+            void handleResumeProgress({ id: urlResumeId } as FormSubmissionProgressSummaryDto);
+            return;
+        }
+        const config = formConfigs.find(candidate => String(candidate.id) === urlConfigId);
+        if (config) {
+            void handleOpenConfiguration(config);
+        } else {
+            toast.error('That form configuration was not found. Pick one from the list below.');
+        }
+        // The handlers only read state and open the wizard; listing them would re-run this every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [configsLoadedFor, selectedTypeName, urlConfigId, urlResumeId, entityId, showWizard, wizardConfig, formConfigs]);
+
     useEffect(() => {
         if (!selectedTypeName) {
             setDisplayConfigs([]);
@@ -433,6 +464,7 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.FormConfiguration.LoadFailed');
         } finally {
             setLoadingConfigs(false);
+            setConfigsLoadedFor(entityTypeName);
         }
     };
 
