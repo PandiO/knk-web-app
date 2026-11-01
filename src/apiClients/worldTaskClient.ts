@@ -8,7 +8,8 @@ import {
   WorldTaskReadDto,
   ClaimTaskDto,
   CompleteTaskDto,
-  FailTaskDto
+  FailTaskDto,
+  CancelTaskDto
 } from "../types/dtos/workflow/WorkflowDtos";
 
 export class WorldTaskClient extends ObjectManager {
@@ -65,6 +66,21 @@ export class WorldTaskClient extends ObjectManager {
 
   fail(id: number, payload: FailTaskDto): Promise<WorldTaskReadDto> {
     return this.invokeServiceCall(payload, `${id}/fail`, Controllers.WorldTasks, HttpMethod.Post);
+  }
+
+  /** PandiO/knk-workspace#180: ends an open task (Capture again, Try again, leaving the form, "Cancel task"). */
+  cancel(id: number, payload: CancelTaskDto = {}): Promise<WorldTaskReadDto> {
+    return this.invokeServiceCall(payload, `${id}/cancel`, Controllers.WorldTasks, HttpMethod.Post);
+  }
+
+  /** #180 (DESIGN §8.7): the completed result is in the draft now. */
+  markApplied(id: number): Promise<WorldTaskReadDto> {
+    return this.invokeServiceCall({}, `${id}/applied`, Controllers.WorldTasks, HttpMethod.Post);
+  }
+
+  /** #180: the open tasks of a workflow session. */
+  getOpenBySession(sessionId: number): Promise<WorldTaskReadDto[]> {
+    return this.invokeServiceCall(null, `session/${sessionId}/open`, Controllers.WorldTasks, HttpMethod.Get);
   }
 
   delete(id: number): Promise<void> {

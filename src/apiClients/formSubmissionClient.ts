@@ -1,5 +1,6 @@
 import { Controllers, FormSubmissionProgressOperation, HttpMethod } from "../utils/enums";
 import { EntityReferencesDto, FormSubmissionProgressDto, FormSubmissionProgressSummaryDto } from "../types/dtos/forms/FormModels";
+import { WorldTaskReadDto } from "../types/dtos/workflow/WorkflowDtos";
 import { ObjectManager } from "./objectManager";
 import { logging } from "../utils";
 
@@ -46,6 +47,14 @@ export class FormSubmissionClient extends ObjectManager {
 
     getById(id: string): Promise<FormSubmissionProgressDto> {
         return this.invokeServiceCall(null, `${FormSubmissionProgressOperation.GetById}${id}`, Controllers.FormSubmissionProgress, HttpMethod.Get);
+    }
+
+    /**
+     * PandiO/knk-workspace#180 (DESIGN §8.7): the latest world task per field of a draft, whatever its status, so the
+     * field panels reattach after a reload or a resume.
+     */
+    getWorldTasks(id: string | number): Promise<WorldTaskReadDto[]> {
+        return this.invokeServiceCall(null, `${id}/world-tasks`, Controllers.FormSubmissionProgress, HttpMethod.Get);
     }
 
     create(data: FormSubmissionProgressDto): Promise<FormSubmissionProgressDto> {
