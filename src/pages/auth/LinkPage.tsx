@@ -20,6 +20,8 @@ import {
   savePendingClaim,
 } from '../../utils/claimCode';
 import { ClaimCodeInput } from '../../components/auth/ClaimCodeInput';
+import { InviteCodeInput } from '../../components/auth/InviteCodeInput';
+import { formatInviteCode } from '../../utils/inviteCode';
 
 type Step = 'code' | 'checking' | 'verified' | 'linking' | 'linked';
 
@@ -109,8 +111,8 @@ export const LinkPage: React.FC = () => {
 
   const joinWithInvite = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteCode.trim()) return;
-    navigate(`/join?code=${encodeURIComponent(inviteCode.trim().toUpperCase())}`);
+    if (!inviteCode) return;
+    navigate(`/join?code=${encodeURIComponent(formatInviteCode(inviteCode))}`);
   };
 
   const alreadyLinked = isLoggedIn && !!user && (user.minecraftLinked ?? !!user.uuid);
@@ -203,15 +205,12 @@ export const LinkPage: React.FC = () => {
                   </ol>
                   <form noValidate onSubmit={joinWithInvite} className="mt-3 flex gap-2">
                     <label htmlFor="link-invite-code" className="sr-only">Invitation code</label>
-                    <input
+                    <InviteCodeInput
                       id="link-invite-code"
-                      type="text"
-                      autoCapitalize="characters"
-                      spellCheck={false}
                       value={inviteCode}
-                      onChange={e => setInviteCode(e.target.value.toUpperCase())}
-                      placeholder="KNK-XXXXX-XXXXX"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-primary"
+                      onChange={setInviteCode}
+                      containerClassName="flex-1"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                     <button type="submit" className="btn-primary">Continue</button>
                   </form>

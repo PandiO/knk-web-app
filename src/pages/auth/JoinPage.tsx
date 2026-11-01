@@ -10,12 +10,16 @@ import { InvalidInvite } from './InvitePage';
 import { AFTER_SIGNUP_PATH } from '../../utils/onboardingPaths';
 import { useOnboardingInfo } from '../../hooks/useOnboardingInfo';
 import { OnboardingJourney } from '../../components/auth/OnboardingJourney';
+import { InviteCodeInput } from '../../components/auth/InviteCodeInput';
+import { INVITE_CODE_LENGTH, INVITE_CODE_PREFIX, formatInviteCode, inviteCodeChars } from '../../utils/inviteCode';
 
 type Step = 'code' | 'checking' | 'invalid' | 'signup';
 
 /**
  * /join?code=KNK-XXXXX-XXXXX (KNG-212, DESIGN.md § 5.3): sign-up with a shared invitation code. The
  * code can come from the link or be typed; the player types their own email (unverified until KNG-159).
+ * The field holds the 10 code characters (#208: `KNK-` and the dash are drawn by the field); the API
+ * and the links get the whole KNK-XXXXX-XXXXX.
  */
 export const JoinPage: React.FC = () => {
   usePageTitle('Join the closed alpha');
@@ -24,18 +28,19 @@ export const JoinPage: React.FC = () => {
   const navigate = useNavigate();
   const { isLoggedIn, isLoading } = useAuth();
   const { accessGate } = useOnboardingInfo();
-  const [code, setCode] = useState(() => searchParams.get('code') ?? '');
+  const [code, setCode] = useState(() => inviteCodeChars(searchParams.get('code') ?? ''));
+  const fullCode = formatInviteCode(code);
   const [step, setStep] = useState<Step>(() => (searchParams.get('code') ? 'checking' : 'code'));
   const signedUp = useRef(false);
 
-  const check = async (value: string) => {
-    if (!value.trim()) {
+  const check = async (chars: string) => {
+    if (!chars) {
       setStep('code');
       return;
     }
     setStep('checking');
     try {
-      const result = await invitationClient.check({ code: value.trim() });
+      const result = await invitationClient.check({ code: formatInviteCode(chars) });
       setStep(result?.valid && result.kind === 'Shared' ? 'signup' : 'invalid');
     } catch {
       setStep('invalid');
@@ -44,7 +49,7 @@ export const JoinPage: React.FC = () => {
 
   useEffect(() => {
     const fromLink = searchParams.get('code');
-    if (fromLink) check(fromLink);
+    if (fromLink) check(inviteCodeChars(fromLink));
     // Only the code the page was opened with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -75,16 +80,16 @@ export const JoinPage: React.FC = () => {
             {step === 'invalid' && <InvalidInvite />}
             <div>
               <label htmlFor="join-code" className="block text-sm font-medium text-gray-700 mb-1">Invitation code</label>
-              <input
+              <InviteCodeInput
                 id="join-code"
-                type="text"
-                autoCapitalize="characters"
-                spellCheck={false}
                 value={code}
-                onChange={e => setCode(e.target.value.toUpperCase())}
-                placeholder="KNK-XXXXX-XXXXX"
+                onChange={setCode}
+                aria-describedby="join-code-format"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-primary"
               />
+              <p id="join-code-format" className="mt-1 text-xs text-gray-500">
+                The {INVITE_CODE_LENGTH} letters and digits after {INVITE_CODE_PREFIX}; the field adds the dashes itself.
+              </p>
             </div>
             <button type="submit" disabled={step === 'checking'} className="w-full btn-primary disabled:opacity-50">
               {step === 'checking' ? 'Checking…' : 'Continue'}
@@ -95,15 +100,15 @@ export const JoinPage: React.FC = () => {
         {step === 'signup' && (
           <>
             <p className="mb-4 text-center text-sm text-gray-600">
-              Code <span className="font-mono">{code.trim()}</span> is valid. Choose the email and password for your account.
+              Code <span className="font-mono">{fullCode}</span> is valid. Choose the email and password for your account.
             </p>
             <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">What happens next</p>
               <OnboardingJourney accessGate={accessGate} />
             </div>
             <InviteSignupForm
-              inviteCode={code.trim()}
-              loginReturnTo={`/join?code=${encodeURIComponent(code.trim())}`}
+              inviteCode={fullCode}
+              loginReturnTo={`/join?code=${encodeURIComponent(fullCode)}`}
               onRegistered={() => {
                 signedUp.current = true;
               }}

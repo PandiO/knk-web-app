@@ -153,7 +153,7 @@ describe('ClaimCodeInput (#192)', () => {
   });
 
   describe('mask with the separator from the start (#196)', () => {
-    const mask = () => screen.getByTestId('claim-code-mask');
+    const mask = () => screen.getByTestId('code-mask');
     /** What the mask draws (the typed part is only a placeholder for its width). */
     const maskShows = () => {
       const typed = mask().querySelector('.invisible')?.textContent ?? '';
@@ -238,7 +238,7 @@ describe('ClaimCodeInput (#192)', () => {
       );
 
       expect(screen.getByLabelText('Code')).toHaveAttribute('placeholder', 'Your code');
-      expect(screen.queryByTestId('claim-code-mask')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('code-mask')).not.toBeInTheDocument();
     });
 
     it('computes the rest of the mask from what the field shows', () => {
@@ -269,7 +269,7 @@ describe('ClaimCodeInput (#192)', () => {
           <ClaimCodeInput id="code" value="K7" onChange={jest.fn()} style={{ paddingLeft: '16px', paddingRight: '16px' }} />
         </>,
       );
-      const maskText = screen.getByTestId('claim-code-mask').firstElementChild as HTMLElement;
+      const maskText = screen.getByTestId('code-mask').firstElementChild as HTMLElement;
       // (300 - 16 - 16 - 90) / 2 = 89
       expect(maskText.style.marginLeft).toBe('89px');
       expect(screen.getByLabelText('Code').style.textIndent).toBe('89px');
