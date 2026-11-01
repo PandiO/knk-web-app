@@ -184,7 +184,46 @@ export interface PagedEntityTableProps<T> {
      * searched for, e.g. a "New {Type}" button on the dashboard.
      */
     emptyState?: React.ReactNode;
+
+    /**
+     * PandiO/knk-workspace#39: controlled mode. When given, page, search, sort and filters come from
+     * here (merged over the defaults and `initialQuery`) and every change goes to `onQueryChange`
+     * instead of the table's own state, e.g. so the dashboard keeps them in the URL
+     * (utils/tableQueryParams.ts). Without it the table keeps its own state, as the form wizard's
+     * pickers do.
+     */
+    query?: Partial<PagedQueryDto>;
+
+    /** Controlled mode: the query the table wants next (a page, sort, search or filter change). */
+    onQueryChange?: (query: PagedQueryDto) => void;
+
+    /**
+     * PandiO/knk-workspace#39 (CRUD-4): the address a row opens, e.g. its detail page. The first cell
+     * becomes a link to it, so middle-click, Ctrl/Cmd-click and the keyboard work; a plain click
+     * (on the link or the row) still calls `onRowClick`. Ignored while rows are selectable.
+     */
+    rowHref?: (row: T) => string | undefined;
 }
+
+const DEFAULT_QUERY: PagedQueryDto = {
+    page: 1,
+    pageSize: 10,
+    searchTerm: '',
+    sortBy: undefined,
+    sortDescending: false,
+    filters: {},
+};
+
+/** A click that should open the link the browser's way (new tab/window) instead of in the app. */
+const isModifiedClick = (event: React.MouseEvent): boolean =>
+    event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+
+/** The click started on a control inside the row (a row action, the link itself). */
+const isFromInteractiveElement = (event: React.MouseEvent): boolean => {
+    const target = event.target as HTMLElement | null;
+    const interactive = target?.closest?.('a, button, input, select, textarea, label');
+    return !!interactive && interactive !== event.currentTarget && event.currentTarget.contains(interactive);
+};
 
 /** True when a filter narrows the list (a value other than empty/null/undefined). */
 const hasActiveFilters = (filters: PagedQueryDto['filters']): boolean =>
@@ -204,19 +243,40 @@ export function PagedEntityTable<T extends Record<string, any>>({
     showSelectionBanner = true,
     refreshKey,
     pinnedRows,
-    emptyState
+    emptyState,
+    query: controlledQuery,
+    onQueryChange,
+    rowHref
 }: PagedEntityTableProps<T>) {
     const { baseMetadata, allMergedMetadata } = useEntityMetadata();
 
-    const [query, setQuery] = useState<PagedQueryDto>({
-        page: 1,
-        pageSize: 10,
-        searchTerm: '',
-        sortBy: undefined,
-        sortDescending: false,
-        filters: {},
+    const [internalQuery, setInternalQuery] = useState<PagedQueryDto>({
+        ...DEFAULT_QUERY,
         ...initialQuery
     });
+
+    // #39: in controlled mode the query is the caller's. Kept as one object per distinct value, so
+    // the fetch effect only runs when something really changed (a new object per render would
+    // refetch forever).
+    const isControlled = controlledQuery !== undefined;
+    const controlledKey = isControlled ? JSON.stringify({ ...DEFAULT_QUERY, ...initialQuery, ...controlledQuery }) : '';
+    const controlledValue = useMemo<PagedQueryDto | null>(
+        () => (controlledKey ? JSON.parse(controlledKey) as PagedQueryDto : null),
+        [controlledKey]
+    );
+    const query = controlledValue ?? internalQuery;
+    const queryRef = useRef(query);
+    queryRef.current = query;
+
+    /** One way to change the query in both modes; `update` gets the latest query. */
+    const setQuery = useCallback((update: (previous: PagedQueryDto) => PagedQueryDto) => {
+        if (isControlled) {
+            const next = update(queryRef.current);
+            if (JSON.stringify(next) !== JSON.stringify(queryRef.current)) onQueryChange?.(next);
+            return;
+        }
+        setInternalQuery(update);
+    }, [isControlled, onQueryChange]);
 
     const [data, setData] = useState<PagedResultDto<T>>({
         items: [],
@@ -323,17 +383,24 @@ export function PagedEntityTable<T extends Record<string, any>>({
     // Debounced search effect
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (searchInput !== query.searchTerm) {
+            if (searchInput !== queryRef.current.searchTerm) {
                 setQuery(prev => ({ ...prev, searchTerm: searchInput, page: 1 }));
             }
         }, 400);
 
         return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchInput]);
+
+    // #39: a search term changed from outside (Back/Forward, a link) shows in the box.
+    useEffect(() => {
+        setSearchInput(query.searchTerm || '');
+    }, [query.searchTerm]);
 
     // Fetch data when query changes
     useEffect(() => {
         fetchData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query, entityTypeName, refreshKey]);
 
     // Sync internal selection with prop changes (only if actually different). Id-less items only
@@ -380,6 +447,11 @@ export function PagedEntityTable<T extends Record<string, any>>({
             }
             return { ...prev, sortBy: columnKey, sortDescending: false };
         });
+    };
+
+    const ariaSort = (columnKey: string): 'ascending' | 'descending' | 'none' => {
+        if (query.sortBy !== columnKey) return 'none';
+        return query.sortDescending ? 'descending' : 'ascending';
     };
 
     const getSortIcon = (columnKey: string) => {
@@ -469,6 +541,13 @@ export function PagedEntityTable<T extends Record<string, any>>({
         return String(value);
     };
 
+    // #39: a page past the end (a shared link, rows deleted meanwhile) moves to the last page.
+    useEffect(() => {
+        if (loading || error || data.items.length > 0 || data.totalCount <= 0) return;
+        const lastPage = Math.max(1, Math.ceil(data.totalCount / query.pageSize));
+        if (query.page > lastPage) setQuery(prev => ({ ...prev, page: lastPage }));
+    }, [loading, error, data.items.length, data.totalCount, query.page, query.pageSize, setQuery]);
+
     const handlePageChange = (newPage: number) => {
         const maxPage = data.totalCount > 0
             ? Math.ceil(data.totalCount / query.pageSize)
@@ -536,17 +615,33 @@ export function PagedEntityTable<T extends Record<string, any>>({
     // One table row. Keys are stable (id, namespaceKey, ...) instead of the array index (KNG-136).
     const renderRow = (row: T, rowKey: string, sessionBadge?: string) => {
         const selected = isRowSelected(row);
+        // #39 (CRUD-4): a row with an address is a link (first cell), only while rows aren't selectable.
+        const href = selectionConfig.mode === 'none' ? rowHref?.(row) : undefined;
+        const openInNewTab = () => {
+            if (href) window.open(href, '_blank', 'noopener');
+        };
         return (
             <tr
                 key={rowKey}
                 data-row-key={rowKey}
-                onClick={() => {
+                onClick={(event) => {
                     if (selectionConfig.mode !== 'none') {
                         handleRowSelection(row);
-                    } else {
-                        onRowClick?.(row);
+                        return;
                     }
+                    if (href && isFromInteractiveElement(event)) return;
+                    if (href && (event.metaKey || event.ctrlKey)) {
+                        openInNewTab();
+                        return;
+                    }
+                    onRowClick?.(row);
                 }}
+                onAuxClick={href ? (event) => {
+                    // Middle-click anywhere on the row opens it in a new tab, like the link does.
+                    if (event.button !== 1 || isFromInteractiveElement(event)) return;
+                    event.preventDefault();
+                    openInNewTab();
+                } : undefined}
                 className={`transition-all duration-150 ${
                     selected
                         ? 'bg-green-50 hover:bg-green-100 border-l-4 border-green-500'
@@ -564,7 +659,23 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                     <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
                                 )}
                                 {sessionBadge && <RowBadge label={sessionBadge} />}
-                                <span>{renderCellValue(row, column)}</span>
+                                {href ? (
+                                    <a
+                                        href={href}
+                                        className="text-gray-900 hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            // Ctrl/Cmd/Shift/middle click: the browser opens the address.
+                                            if (isModifiedClick(event)) return;
+                                            event.preventDefault();
+                                            onRowClick?.(row);
+                                        }}
+                                    >
+                                        {renderCellValue(row, column)}
+                                    </a>
+                                ) : (
+                                    <span>{renderCellValue(row, column)}</span>
+                                )}
                             </div>
                         ) : (
                             renderCellValue(row, column)
@@ -663,15 +774,27 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                     <th
                                         key={column.key}
                                         scope="col"
+                                        // #39: screen readers hear which column sorts the table, and how.
+                                        aria-sort={column.sortable ? ariaSort(column.key) : undefined}
                                         className={`px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider ${
                                             column.sortable ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''
                                         }`}
                                         onClick={() => column.sortable && handleSort(column.key)}
                                     >
-                                        <div className="flex items-center space-x-1">
-                                            <span>{column.label}</span>
-                                            {column.sortable && getSortIcon(column.key)}
-                                        </div>
+                                        {column.sortable ? (
+                                            // A button, so Tab reaches the sort and Enter/Space work; its click bubbles to the th.
+                                            <button
+                                                type="button"
+                                                className="flex items-center space-x-1 uppercase tracking-wider focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+                                            >
+                                                <span>{column.label}</span>
+                                                {getSortIcon(column.key)}
+                                            </button>
+                                        ) : (
+                                            <div className="flex items-center space-x-1">
+                                                <span>{column.label}</span>
+                                            </div>
+                                        )}
                                     </th>
                                 ))}
                                 {rowActions.length > 0 && (
