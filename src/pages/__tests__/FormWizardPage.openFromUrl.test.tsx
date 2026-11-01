@@ -97,8 +97,9 @@ describe('FormWizardPage opens a configuration or draft from the URL (#177 follo
         mockSearch = 'resume=d1&returnTo=%2Fdashboard%2FCategory';
         render(<FormWizardPage entityTypeName="" objectTypes={[]} />);
         expect(await screen.findByTestId('wizard')).toHaveTextContent('config 9 progress d1');
-        expect(formSubmissionClient.getById).toHaveBeenCalledTimes(1);
+        // Not a call count: with #180 the page also reads the draft for its workflow session.
         expect(formSubmissionClient.getById).toHaveBeenCalledWith('d1');
+        expect((formSubmissionClient.getById as jest.Mock).mock.calls.every(([id]) => id === 'd1')).toBe(true);
     });
 
     it('stays on the configuration lists with an error for an unknown configuration', async () => {
