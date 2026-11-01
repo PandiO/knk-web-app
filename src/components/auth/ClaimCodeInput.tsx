@@ -65,6 +65,8 @@ const MIRRORED_STYLES = [
  * plus the separator once the first group is full, so paste, autofill and the caret work as before.
  * It lines up with the typed text because it copies the input's font, letter spacing, padding and
  * border widths. A caller's own `placeholder` replaces the mask while the field is empty.
+ *
+ * #206: the code and its mask are centered in the field (the /link card is centered).
  */
 export const ClaimCodeInput = forwardRef<HTMLInputElement, ClaimCodeInputProps>(function ClaimCodeInput(
   { value, onChange, foldLookAlikes = true, onKeyDown, className, placeholder, ...rest },
@@ -100,10 +102,16 @@ export const ClaimCodeInput = forwardRef<HTMLInputElement, ClaimCodeInputProps>(
   }, []);
 
   // Put the mask exactly over the input's text box: same font and spacing, same place and size.
+  // #206: the whole `____-____` is centered in the field; the input's text starts at the same
+  // offset (text-indent), so the typed characters stay on their slots.
   const alignMask = useCallback(() => {
     const input = inputRef.current;
     const mask = maskRef.current;
-    if (!input || !mask) return;
+    if (!input) return;
+    if (!mask) {
+      input.style.textIndent = '';
+      return;
+    }
     const style = window.getComputedStyle(input);
     MIRRORED_STYLES.forEach(property => {
       mask.style[property] = style[property];
@@ -114,6 +122,13 @@ export const ClaimCodeInput = forwardRef<HTMLInputElement, ClaimCodeInputProps>(
       mask.style.top = `${input.offsetTop}px`;
       mask.style.width = `${input.offsetWidth}px`;
       mask.style.height = `${input.offsetHeight}px`;
+    }
+    const text = maskTextRef.current;
+    if (text) {
+      const box = input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      const offset = Math.max(0, Math.floor((box - text.offsetWidth) / 2));
+      text.style.marginLeft = offset ? `${offset}px` : '';
+      input.style.textIndent = offset ? `${offset}px` : '';
     }
     syncScroll();
   }, [syncScroll]);
@@ -133,7 +148,8 @@ export const ClaimCodeInput = forwardRef<HTMLInputElement, ClaimCodeInputProps>(
     };
   }, [alignMask, syncScroll]);
 
-  useLayoutEffect(syncScroll, [shown, syncScroll]);
+  // Re-center as the text changes (a proportional font) and when the mask comes or goes.
+  useLayoutEffect(alignMask, [shown, showMask, alignMask]);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const typed = event.target.value;

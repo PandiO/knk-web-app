@@ -249,6 +249,43 @@ describe('ClaimCodeInput (#192)', () => {
     });
   });
 
+  describe('centered in the field (#206)', () => {
+    // jsdom has no layout: give the field a 300px wide text box with 16px padding and the mask 90px of text.
+    const sizes = { clientWidth: 300, offsetWidth: 90 };
+    let restore: Array<() => void> = [];
+    beforeEach(() => {
+      restore = (Object.keys(sizes) as Array<keyof typeof sizes>).map(key => {
+        const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, key);
+        Object.defineProperty(HTMLElement.prototype, key, { configurable: true, get: () => sizes[key] });
+        return () => original && Object.defineProperty(HTMLElement.prototype, key, original);
+      });
+    });
+    afterEach(() => restore.forEach(undo => undo()));
+
+    it('moves the mask and the typed text by the same offset', async () => {
+      render(
+        <>
+          <label htmlFor="code">Code</label>
+          <ClaimCodeInput id="code" value="K7" onChange={jest.fn()} style={{ paddingLeft: '16px', paddingRight: '16px' }} />
+        </>,
+      );
+      const maskText = screen.getByTestId('claim-code-mask').firstElementChild as HTMLElement;
+      // (300 - 16 - 16 - 90) / 2 = 89
+      expect(maskText.style.marginLeft).toBe('89px');
+      expect(screen.getByLabelText('Code').style.textIndent).toBe('89px');
+    });
+
+    it('leaves a caller\'s placeholder where it is', () => {
+      render(
+        <>
+          <label htmlFor="code">Code</label>
+          <ClaimCodeInput id="code" value="" onChange={jest.fn()} placeholder="Your code" />
+        </>,
+      );
+      expect(screen.getByLabelText('Code').style.textIndent).toBe('');
+    });
+  });
+
   it('does not report a change when only the separator was typed', () => {
     const onChange = jest.fn();
     render(<ClaimCodeInput aria-label="Code" value="K7QH" onChange={onChange} />);
