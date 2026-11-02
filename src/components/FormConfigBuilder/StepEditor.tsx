@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Copy, GripVertical, Trash2, Pencil, AlertTriangle, Link as LinkIcon, Copy as CopyIcon } from 'lucide-react';
 import { FormStepDto, FormFieldDto, FormConfigurationDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
@@ -116,6 +116,10 @@ export const StepEditor: React.FC<Props> = ({
         loadJoinEntityMeta();
     }, [step.joinEntityType]);
 
+    // Read by the effect below after its fetch; a ref so other step edits don't refetch.
+    const latestStep = useRef(step);
+    latestStep.current = step;
+
     useEffect(() => {
         const loadJoinConfigurations = async () => {
             if (!step.isManyToManyRelationship || !step.joinEntityType) {
@@ -131,7 +135,8 @@ export const StepEditor: React.FC<Props> = ({
                 setJoinEntityConfigurations(configs || []);
 
                 if (step.subConfigurationId && !(configs || []).some(cfg => cfg.id === step.subConfigurationId)) {
-                    onUpdate({ ...step, subConfigurationId: undefined });
+                    // The latest step, not the one from when the fetch started: keeps edits made meanwhile.
+                    onUpdate({ ...latestStep.current, subConfigurationId: undefined });
                 }
             } catch (err) {
                 console.error('Failed to load join entity form configurations:', err);
@@ -143,8 +148,6 @@ export const StepEditor: React.FC<Props> = ({
         };
 
         void loadJoinConfigurations();
-    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step.isManyToManyRelationship, step.joinEntityType, step.subConfigurationId, onUpdate]);
 
     const manyToManyIssues = useMemo(() => getManyToManyStepIssues(step), [step]);
