@@ -31,10 +31,15 @@
     @apply font-semibold text-slate-900;
   }
 
-  /* The heading font (the body font in `current`; a stand-in for Enchanted Land in the brand themes).
+  /* The heading font (the body font in `current`, Enchanted Land in `brand`, Cinzel in `proposal`).
      Page titles only: in an alert or a card heading a display face reads oddly. */
   h1 {
     font-family: var(--font-display);
+    /* Enchanted Land has one weight: no faux bold on a script face. */
+    font-synthesis: none;
+  }
+  [class~="font-display"] {
+    font-synthesis: none;
   }
 
   /* The bar's own action (Create New): in `proposal` the primary is the nav's charcoal, so it gets the

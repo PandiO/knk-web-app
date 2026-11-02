@@ -18,7 +18,7 @@ export type ThemeInfo = { id: ThemeId; label: string; description: string };
 
 export const THEMES: ThemeInfo[] = [
   { id: 'current', label: 'Current', description: "Today's look, on the tokens" },
-  { id: 'brand', label: 'Brand', description: 'Styleguide 2020: red, orange, black, Lato' },
+  { id: 'brand', label: 'Brand', description: 'Styleguide 2020: red, orange, black, Lato, Enchanted Land headings' },
   { id: 'proposal', label: 'Proposal', description: 'Calm brand: charcoal, orange accents, red only for danger' },
 ];
 

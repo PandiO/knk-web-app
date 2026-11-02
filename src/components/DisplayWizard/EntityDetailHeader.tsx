@@ -22,7 +22,7 @@ export const EntityDetailHeader: React.FC<Props> = ({ title, typeLabel, trail, o
         <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
                 <p className="text-sm font-medium uppercase tracking-wide text-muted">{typeLabel}</p>
-                <h2 className="break-words text-3xl font-bold text-fg">{title}</h2>
+                <h2 className="break-words font-display text-3xl font-bold text-fg">{title}</h2>
             </div>
             <div className="flex flex-wrap items-center gap-2">
                 <button type="button" onClick={onBack} className="btn-secondary inline-flex items-center gap-2">

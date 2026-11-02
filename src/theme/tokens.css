@@ -17,7 +17,7 @@
  */
 
 /* Lato 2.015 (OFL 1.1, latofonts.com via the lato-font package; Google's Lato lacks 500/600) and Cinzel
-   (OFL 1.1) as the stand-in heading font until the Enchanted Land licence is settled (#92 Q6). A browser
+   (OFL 1.1), the free heading font of the proposal theme. A browser
    only downloads a face once text uses it, so `current` loads none of these. Licences: ./fonts/OFL-*.txt */
 @font-face { font-family: 'Lato'; font-style: normal; font-weight: 400; font-display: swap; src: url('./fonts/lato-normal.woff2') format('woff2'); }
 @font-face { font-family: 'Lato'; font-style: normal; font-weight: 500; font-display: swap; src: url('./fonts/lato-medium.woff2') format('woff2'); }
@@ -25,6 +25,21 @@
 @font-face { font-family: 'Lato'; font-style: normal; font-weight: 700; font-display: swap; src: url('./fonts/lato-bold.woff2') format('woff2'); }
 @font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 600; font-display: swap; src: url('./fonts/cinzel-latin-600-normal.woff2') format('woff2'); }
 @font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 700; font-display: swap; src: url('./fonts/cinzel-latin-700-normal.woff2') format('woff2'); }
+
+/* Enchanted Land (Dennis Ludlow / Sharkshock), the brand guide's heading font: the free demo (basic and
+   accented Latin, numbers, some kerning), free for personal use with its readme kept alongside
+   (./fonts/EnchantedLand-readme.txt). Sharkshock calls use commercial once it "results in a personal,
+   business, or corporate financial gain": then the project needs a webfont licence (sharkshock.net/license).
+   Developer decision 2026-11-02: try it in the brand theme while the project is a hobby. One weight only, so
+   `h1` turns off faux bold (index.css). The demo maps most punctuation and accents (& ' - , : ? é ...) to
+   empty glyphs, so the unicode-range lists only the characters it draws: the rest falls back to Lato
+   instead of showing a gap. The font file itself is unmodified, as its readme asks. */
+@font-face {
+  font-family: 'Enchanted Land'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('./fonts/enchanted-land-demo.woff2') format('woff2');
+  unicode-range: U+0020-0021, U+002E, U+0030-0039, U+0041-005A, U+0060-007A, U+00B4, U+00C0-00C2, U+00C4,
+    U+00C6-00C7, U+00D8, U+00DE-00E2, U+00E4, U+00E6-00E7, U+00F8;
+}
 
 /* ── current: today's look (Tailwind blue/gray/slate, Inter-or-system font) ───────────────────────── */
 :root,
@@ -83,7 +98,7 @@
 /* ── brand: the 2020 styleguide (docs/vision/brand/huisstijlhandboek.pdf) ───────────────────────────
    Red #BE1622 leads (buttons, links, focus), orange #F29100 is the call to action with black text (white on
    orange is 2.4:1), black carries the navigation and the public backdrop, charcoal #353535 is the dark
-   neutral. Neutral ramps are pure greys around charcoal. Info has no brand blue, so it goes charcoal.
+   neutral. Headings in Enchanted Land, the guide's own heading font. Neutral ramps are pure greys around charcoal. Info has no brand blue, so it goes charcoal.
    Danger stays red: brand red and error red are close, so every danger state has an icon and text. */
 :root[data-theme="brand"] {
   --gray-50: 250 250 250;  --gray-100: 242 242 242; --gray-200: 228 228 228; --gray-300: 208 208 208;
@@ -134,7 +149,7 @@
   --color-info-soft: 245 245 245;    --color-info-muted: 232 232 232;    --color-info-line: 212 212 212;
 
   --font-body: 'Lato', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Cinzel', 'Lato', Georgia, serif;
+  --font-display: 'Enchanted Land', 'Lato', Georgia, serif;
 }
 
 /* ── proposal: "calm brand" ─────────────────────────────────────────────────────────────────────────
