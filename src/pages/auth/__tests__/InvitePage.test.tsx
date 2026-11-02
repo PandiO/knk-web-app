@@ -10,6 +10,8 @@ import { fullPageLoad } from '../../../utils/navigation';
 
 const TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123456';
 const PASSWORD = 'Kn1ghts&Kings!';
+// Relative to now: the page keeps the invitation only while it hasn't expired (PandiO/knk-workspace#204).
+const EXPIRES_AT = new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString();
 const mockNavigate = jest.fn();
 let mockToken: string | undefined = TOKEN;
 let mockAccessGate = false;
@@ -43,7 +45,7 @@ describe('InvitePage', () => {
   });
 
   it('removes the token from the address bar and shows the invited address locked', async () => {
-    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: '2026-10-28T12:00:00Z' });
+    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: EXPIRES_AT });
 
     render(<InvitePage />);
 
@@ -58,7 +60,7 @@ describe('InvitePage', () => {
   });
 
   it('signs up with the token and goes on to linking', async () => {
-    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: '2026-10-28T12:00:00Z' });
+    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: EXPIRES_AT });
     register.mockResolvedValue({ id: 9, username: 'web-abc' });
     render(<InvitePage />);
 
@@ -76,12 +78,12 @@ describe('InvitePage', () => {
 
   // 2026-10-25: a tester clicked "Log in" here, then "Create an account", and lost the invitation.
   it('keeps the invitation for the tab and sends "Log in" back here', async () => {
-    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: '2026-10-28T12:00:00Z' });
+    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: EXPIRES_AT });
     render(<InvitePage />);
 
     await screen.findByLabelText('Email');
 
-    expect(loadPendingInvite()).toEqual({ token: TOKEN, email: 'tester@example.com', expiresAt: '2026-10-28T12:00:00Z' });
+    expect(loadPendingInvite()).toEqual({ token: TOKEN, email: 'tester@example.com', expiresAt: EXPIRES_AT });
     expect(screen.getByText(/New here\? Sign up with this invitation/)).toBeInTheDocument();
     const note = screen.getByTestId('signup-login-note');
     expect(note).toHaveTextContent(/Already have an account\?/);
@@ -92,7 +94,7 @@ describe('InvitePage', () => {
     savePendingInvite({ token: TOKEN, email: 'tester@example.com', expiresAt: new Date(Date.now() + 60_000).toISOString() });
     mockToken = undefined;
     window.history.replaceState(null, '', '/invite');
-    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: '2026-10-28T12:00:00Z' });
+    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: EXPIRES_AT });
     render(<InvitePage />);
 
     expect(await screen.findByLabelText('Email')).toHaveValue('tester@example.com');
@@ -109,7 +111,7 @@ describe('InvitePage', () => {
 
   it('with the Cloudflare Access sync on, explains the Cloudflare step and continues as a full page load (KNG-216, 2026-10-25)', async () => {
     mockAccessGate = true;
-    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: '2026-10-28T12:00:00Z' });
+    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: EXPIRES_AT });
     register.mockImplementation(async () => {
       // The register call logs the player in; the page must not bounce them to /account.
       mockedUseAuth.mockReturnValue({ isLoggedIn: true, isLoading: false, register });
@@ -141,7 +143,7 @@ describe('InvitePage', () => {
   });
 
   it('without the gate, the journey has no Cloudflare step', async () => {
-    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: '2026-10-28T12:00:00Z' });
+    check.mockResolvedValue({ valid: true, kind: 'Personal', email: 'tester@example.com', expiresAt: EXPIRES_AT });
     render(<InvitePage />);
 
     const journey = await screen.findByTestId('onboarding-journey');
