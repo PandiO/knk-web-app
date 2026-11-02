@@ -63,6 +63,9 @@
   --color-nav-hover: 241 245 249;    /* slate-100 */
   --color-nav-line: 226 232 240;     /* slate-200 */
   --color-nav-accent: 37 99 235;     /* active-page underline */
+  --color-nav-action: 37 99 235;       /* Create New in the bar */
+  --color-nav-action-hover: 29 78 216;
+  --color-nav-action-fg: 255 255 255;
 
   --color-danger: 208 36 36;         --color-danger-strong: 185 28 28;   --color-danger-fg: 255 255 255;
   --color-danger-soft: 254 242 242;  --color-danger-muted: 254 226 226;  --color-danger-line: 254 202 202;
@@ -117,6 +120,9 @@
   --color-nav-hover: 38 38 38;
   --color-nav-line: 64 64 64;
   --color-nav-accent: 242 145 0;     /* orange on black: 8.8:1 */
+  --color-nav-action: 190 22 34;       /* Create New in the bar */
+  --color-nav-action-hover: 150 15 25;
+  --color-nav-action-fg: 255 255 255;
 
   --color-danger: 185 28 28;         --color-danger-strong: 153 27 27;   --color-danger-fg: 255 255 255;
   --color-danger-soft: 254 242 242;  --color-danger-muted: 254 226 226;  --color-danger-line: 254 202 202;
@@ -171,6 +177,9 @@
   --color-nav-hover: 70 70 70;
   --color-nav-line: 90 90 90;
   --color-nav-accent: 242 145 0;     /* orange on charcoal: 5.2:1 */
+  --color-nav-action: 242 145 0;       /* Create New in the bar */
+  --color-nav-action-hover: 222 128 0;
+  --color-nav-action-fg: 0 0 0;
 
   --color-danger: 190 22 34;         --color-danger-strong: 150 15 25;   --color-danger-fg: 255 255 255;
   --color-danger-soft: 253 242 242;  --color-danger-muted: 252 225 226;  --color-danger-line: 248 196 199;

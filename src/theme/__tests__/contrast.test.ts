@@ -96,6 +96,9 @@ const PAIRS: Array<[string, string, number, string]> = [
   ['color-nav-muted', 'color-nav', TEXT, 'navigation links'],
   ['color-nav-muted', 'color-nav-hover', TEXT, 'navigation link hover'],
   ['color-nav-accent', 'color-nav', UI, 'active-page underline'],
+  ['color-nav-action-fg', 'color-nav-action', TEXT, 'Create New in the bar'],
+  ['color-nav-action-fg', 'color-nav-action-hover', TEXT, 'Create New hover'],
+  ['color-nav-action', 'color-nav', UI, 'Create New against the bar'],
   // The remapped neutral ramps: the steps used for text stay readable on white and the lightest step
   ...['gray', 'slate'].flatMap(ramp => ['500', '600', '700', '800', '900'].flatMap(step => [
     [`${ramp}-${step}`, 'color-surface', TEXT, `text-${ramp}-${step}`],

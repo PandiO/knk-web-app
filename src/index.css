@@ -31,9 +31,26 @@
     @apply font-semibold text-slate-900;
   }
 
-  /* The heading font (the body font in `current`; a stand-in for Enchanted Land in the brand themes). */
-  h1, h2 {
+  /* The heading font (the body font in `current`; a stand-in for Enchanted Land in the brand themes).
+     Page titles only: in an alert or a card heading a display face reads oddly. */
+  h1 {
     font-family: var(--font-display);
+  }
+
+  /* The bar's own action (Create New): in `proposal` the primary is the nav's charcoal, so it gets the
+     orange call-to-action colour there. Same as .btn-primary in the other themes. */
+  nav .btn-primary {
+    background-color: rgb(var(--color-nav-action));
+    color: rgb(var(--color-nav-action-fg));
+  }
+  nav .btn-primary:hover {
+    background-color: rgb(var(--color-nav-action-hover));
+  }
+
+  /* In `proposal` links share the charcoal of the body text, so they need the underline to read as links
+     (WCAG 1.4.1). */
+  :root[data-theme="proposal"] a[class*="text-primary"] {
+    text-decoration-line: underline;
   }
 
   /* #38: form fields written as `rounded-md border-gray-300 ...` (the @tailwindcss/forms idiom; the
