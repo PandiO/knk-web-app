@@ -529,7 +529,7 @@ export const DisplayConfigBuilder: React.FC = () => {
                     </button>
                     <button
                         onClick={() => handleDeleteSection(key)}
-                        className="p-1 text-gray-400 hover:text-red-600"
+                        className="p-1 text-muted hover:text-red-600"
                         title="Delete section"
                     >
                         <Trash2 className="h-4 w-4" />

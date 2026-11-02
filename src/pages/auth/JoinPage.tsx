@@ -61,11 +61,11 @@ export const JoinPage: React.FC = () => {
   }, [isLoading, isLoggedIn, navigate]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-gray-50">
-      <div className="w-full max-w-xl bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
+    <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-backdrop">
+      <div className="w-full max-w-xl bg-surface rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
         <div className="mb-6 text-center">
           <Ticket className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />
-          <h1 className="mt-3 text-2xl sm:text-3xl font-bold text-gray-900">You're invited to the Knights &amp; Kings closed alpha</h1>
+          <h1 className="mt-3 text-2xl sm:text-3xl font-bold text-fg">You're invited to the Knights &amp; Kings closed alpha</h1>
         </div>
 
         {(step === 'code' || step === 'invalid' || step === 'checking') && (
@@ -87,7 +87,7 @@ export const JoinPage: React.FC = () => {
                 aria-describedby="join-code-format"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-primary"
               />
-              <p id="join-code-format" className="mt-1 text-xs text-gray-500">
+              <p id="join-code-format" className="mt-1 text-xs text-muted">
                 The {INVITE_CODE_LENGTH} letters and digits after {INVITE_CODE_PREFIX}; the field adds the dashes itself.
               </p>
             </div>
@@ -102,8 +102,8 @@ export const JoinPage: React.FC = () => {
             <p className="mb-4 text-center text-sm text-gray-600">
               Code <span className="font-mono">{fullCode}</span> is valid. Choose the email and password for your account.
             </p>
-            <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">What happens next</p>
+            <div className="mb-6 rounded-lg border border-line bg-surface-alt p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">What happens next</p>
               <OnboardingJourney accessGate={accessGate} />
             </div>
             <InviteSignupForm

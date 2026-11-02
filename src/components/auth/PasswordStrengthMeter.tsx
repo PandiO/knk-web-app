@@ -51,7 +51,7 @@ export const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({
       {/* Feedback suggestions with proper accessibility */}
       {showFeedback && strength.feedback.length > 0 && (
         <ul
-          className="text-xs text-gray-600 list-disc list-inside space-y-1 mt-2 p-3 bg-gray-50 rounded"
+          className="text-xs text-gray-600 list-disc list-inside space-y-1 mt-2 p-3 bg-surface-alt rounded"
           role="complementary"
           aria-label="Password strength suggestions"
         >

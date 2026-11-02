@@ -72,11 +72,11 @@ export const InvitePage: React.FC = () => {
   }, [isLoading, isLoggedIn, navigate]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-gray-50">
-      <div className="w-full max-w-xl bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
+    <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-backdrop">
+      <div className="w-full max-w-xl bg-surface rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
         <div className="mb-6 text-center">
           <MailCheck className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />
-          <h1 className="mt-3 text-2xl sm:text-3xl font-bold text-gray-900">You're invited to the Knights &amp; Kings closed alpha</h1>
+          <h1 className="mt-3 text-2xl sm:text-3xl font-bold text-fg">You're invited to the Knights &amp; Kings closed alpha</h1>
         </div>
 
         {state.status === 'checking' && (
@@ -91,8 +91,8 @@ export const InvitePage: React.FC = () => {
               New here? Sign up with this invitation: choose a password and your account is created. The invitation is
               valid until {state.invite.expiresAt ? new Date(state.invite.expiresAt).toLocaleString() : 'it expires'}.
             </p>
-            <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">What happens next</p>
+            <div className="mb-6 rounded-lg border border-line bg-surface-alt p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">What happens next</p>
               <OnboardingJourney accessGate={accessGate} />
             </div>
             <InviteSignupForm
@@ -121,7 +121,7 @@ export const InvitePage: React.FC = () => {
 
 /** One message for every failure: wrong, used, expired or revoked look the same (DESIGN.md § 3.2). */
 export const InvalidInvite: React.FC = () => (
-  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert" data-testid="invalid-invite">
+  <div className="rounded-lg border border-warning-line bg-warning-soft p-4 text-sm text-warning-strong" role="alert" data-testid="invalid-invite">
     <p className="font-medium">This invitation is invalid or has expired.</p>
     <p className="mt-1">Ask whoever invited you for a new one. If you already created your account, <Link to="/auth/login" className="underline">log in</Link>.</p>
     <p className="mt-1">Got a code instead of a link? <Link to="/join" className="underline">Enter it here</Link>.</p>

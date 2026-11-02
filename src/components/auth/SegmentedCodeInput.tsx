@@ -246,7 +246,7 @@ export const SegmentedCodeInput = forwardRef<HTMLInputElement, SegmentedCodeInpu
             {Array.from(maskRest).map((char, index) =>
               char === format.separator
                 ? <span key={index} data-mask-separator="">{char}</span>
-                : <span key={index} className="text-gray-400">{char}</span>,
+                : <span key={index} className="text-muted">{char}</span>,
             )}
           </span>
         </span>

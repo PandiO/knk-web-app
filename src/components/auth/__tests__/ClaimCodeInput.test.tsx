@@ -169,7 +169,7 @@ describe('ClaimCodeInput (#192)', () => {
       expect(mask()).toHaveClass('pointer-events-none');
       // The separator is drawn in the text colour, the empty slots muted.
       expect(mask().querySelectorAll('[data-mask-separator]')).toHaveLength(1);
-      expect(mask().querySelectorAll('.text-gray-400')).toHaveLength(8);
+      expect(mask().querySelectorAll('.text-muted')).toHaveLength(8);
     });
 
     it('keeps the separator visible while the first four characters are typed', async () => {

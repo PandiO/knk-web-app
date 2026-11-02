@@ -42,7 +42,7 @@ export const RangeInputs: React.FC<{
       aria-label={`${label} min`}
       onChange={(e) => onChange(`${rangeKey}Min`, e.target.value)}
     />
-    <span className="text-gray-400">–</span>
+    <span className="text-muted">–</span>
     <input
       type="number"
       min={0}

@@ -1,0 +1,186 @@
+/*
+ * Design tokens and themes (PandiO/knk-workspace#95, rebrand phase 1).
+ *
+ * Every colour is an "R G B" triple so Tailwind can add opacity (`bg-primary/10`): tailwind.config.js maps
+ * each key to `rgb(var(--…) / <alpha-value>)`. A theme is the set of variables under
+ * :root[data-theme="…"]; src/theme/themes.ts sets the attribute. No attribute = `current`.
+ *
+ * Two layers:
+ *  1. Neutral ramps `--gray-*` and `--slate-*`. Tailwind's `gray` and `slate` read them, so the ~2,600
+ *     gray/slate classes follow the theme without component edits. In `current` they are Tailwind's own values.
+ *  2. Semantic tokens `--color-*` (primary, surface, fg, muted, line, field, danger, ...). Migrated
+ *     components use these. In `current` most equal the Tailwind colour they replaced; the exceptions are
+ *     the accessibility fixes listed in docs/guides/design-themes-comparison.md (knk-workspace).
+ *
+ * src/theme/__tests__/contrast.test.ts reads this file and checks every text/UI pair against WCAG AA
+ * (4.5:1 text, 3:1 large text and UI) in every theme. Add a theme or token here and the pairs there.
+ */
+
+/* Lato 2.015 (OFL 1.1, latofonts.com via the lato-font package; Google's Lato lacks 500/600) and Cinzel
+   (OFL 1.1) as the stand-in heading font until the Enchanted Land licence is settled (#92 Q6). A browser
+   only downloads a face once text uses it, so `current` loads none of these. Licences: ./fonts/OFL-*.txt */
+@font-face { font-family: 'Lato'; font-style: normal; font-weight: 400; font-display: swap; src: url('./fonts/lato-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Lato'; font-style: normal; font-weight: 500; font-display: swap; src: url('./fonts/lato-medium.woff2') format('woff2'); }
+@font-face { font-family: 'Lato'; font-style: normal; font-weight: 600; font-display: swap; src: url('./fonts/lato-semibold.woff2') format('woff2'); }
+@font-face { font-family: 'Lato'; font-style: normal; font-weight: 700; font-display: swap; src: url('./fonts/lato-bold.woff2') format('woff2'); }
+@font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 600; font-display: swap; src: url('./fonts/cinzel-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 700; font-display: swap; src: url('./fonts/cinzel-latin-700-normal.woff2') format('woff2'); }
+
+/* ── current: today's look (Tailwind blue/gray/slate, Inter-or-system font) ───────────────────────── */
+:root,
+:root[data-theme="current"] {
+  --gray-50: 249 250 251;  --gray-100: 243 244 246; --gray-200: 229 231 235; --gray-300: 209 213 219;
+  --gray-400: 156 163 175; --gray-500: 107 114 128; --gray-600: 75 85 99;    --gray-700: 55 65 81;
+  --gray-800: 31 41 55;    --gray-900: 17 24 39;    --gray-950: 3 7 18;
+  --slate-50: 248 250 252;  --slate-100: 241 245 249; --slate-200: 226 232 240; --slate-300: 203 213 225;
+  --slate-400: 148 163 184; --slate-500: 100 116 139; --slate-600: 71 85 105;   --slate-700: 51 65 85;
+  --slate-800: 30 41 59;    --slate-900: 15 23 42;    --slate-950: 2 6 23;
+
+  --color-canvas: 243 244 246;       /* page background (App: bg-gray-100) */
+  --color-surface: 255 255 255;      /* cards, panels, menus */
+  --color-surface-alt: 249 250 251;  /* table heads, quiet blocks (gray-50) */
+  --color-fg: 17 24 39;              /* body text (gray-900) */
+  --color-muted: 104 112 128;        /* secondary text; replaces text-gray-400 (2.5:1) - a hair darker than gray-500 so it passes on the gray-100 canvas */
+  --color-line: 229 231 235;         /* dividers and card borders (gray-200), decorative */
+  --color-field: 133 141 154;        /* form field borders: 3:1 on every surface (gray-300 was 1.5:1) */
+  --color-focus: 37 99 235;          /* focus rings */
+
+  --color-primary: 37 99 235;        /* blue-600 */
+  --color-primary-dark: 29 78 216;   /* blue-700: hover/pressed */
+  --color-primary-light: 59 130 246; /* blue-500: icons and accents only, not behind white text */
+  --color-primary-fg: 255 255 255;
+
+  --color-cta: 21 128 61;            /* landing "Create account": green-700 (green-600 + white was 3.3:1) */
+  --color-cta-dark: 22 101 52;
+  --color-cta-fg: 255 255 255;
+
+  --color-backdrop: 249 250 251;     /* behind the auth cards (gray-50) */
+  --color-backdrop-fg: 17 24 39;
+
+  --color-nav: 255 255 255;
+  --color-nav-fg: 15 23 42;          /* slate-900 */
+  --color-nav-muted: 71 85 105;      /* slate-600 */
+  --color-nav-hover: 241 245 249;    /* slate-100 */
+  --color-nav-line: 226 232 240;     /* slate-200 */
+  --color-nav-accent: 37 99 235;     /* active-page underline */
+
+  --color-danger: 208 36 36;         --color-danger-strong: 185 28 28;   --color-danger-fg: 255 255 255;
+  --color-danger-soft: 254 242 242;  --color-danger-muted: 254 226 226;  --color-danger-line: 254 202 202;
+  --color-success: 21 128 61;        --color-success-strong: 22 101 52;  --color-success-fg: 255 255 255;
+  --color-success-soft: 240 253 244; --color-success-muted: 220 252 231; --color-success-line: 187 247 208;
+  --color-warning: 180 83 9;         --color-warning-strong: 146 64 14;  --color-warning-fg: 255 255 255;
+  --color-warning-soft: 255 251 235; --color-warning-muted: 254 243 199; --color-warning-line: 253 230 138;
+  --color-info: 37 99 235;           --color-info-strong: 30 64 175;
+  --color-info-soft: 239 246 255;    --color-info-muted: 219 234 254;    --color-info-line: 191 219 254;
+
+  --font-body: 'Inter', sans-serif;  /* Inter was never loaded (the @import in index.css comes too late), so this renders the system sans; kept as is */
+  --font-display: var(--font-body);
+}
+
+/* ── brand: the 2020 styleguide (docs/vision/brand/huisstijlhandboek.pdf) ───────────────────────────
+   Red #BE1622 leads (buttons, links, focus), orange #F29100 is the call to action with black text (white on
+   orange is 2.4:1), black carries the navigation and the public backdrop, charcoal #353535 is the dark
+   neutral. Neutral ramps are pure greys around charcoal. Info has no brand blue, so it goes charcoal.
+   Danger stays red: brand red and error red are close, so every danger state has an icon and text. */
+:root[data-theme="brand"] {
+  --gray-50: 250 250 250;  --gray-100: 242 242 242; --gray-200: 228 228 228; --gray-300: 208 208 208;
+  --gray-400: 163 163 163; --gray-500: 112 112 112; --gray-600: 82 82 82;    --gray-700: 53 53 53;
+  --gray-800: 36 36 36;    --gray-900: 20 20 20;    --gray-950: 0 0 0;
+  --slate-50: 250 250 250;  --slate-100: 242 242 242; --slate-200: 228 228 228; --slate-300: 208 208 208;
+  --slate-400: 163 163 163; --slate-500: 112 112 112; --slate-600: 82 82 82;    --slate-700: 53 53 53;
+  --slate-800: 36 36 36;    --slate-900: 20 20 20;    --slate-950: 0 0 0;
+
+  --color-canvas: 242 242 242;
+  --color-surface: 255 255 255;
+  --color-surface-alt: 250 250 250;
+  --color-fg: 20 20 20;
+  --color-muted: 94 94 94;
+  --color-line: 228 228 228;
+  --color-field: 128 128 128;
+  --color-focus: 190 22 34;
+
+  --color-primary: 190 22 34;        /* #BE1622: 6.3:1 with white */
+  --color-primary-dark: 150 15 25;
+  --color-primary-light: 214 35 47;
+  --color-primary-fg: 255 255 255;
+
+  --color-cta: 242 145 0;            /* #F29100 with black text: 8.8:1 */
+  --color-cta-dark: 222 128 0;
+  --color-cta-fg: 0 0 0;
+
+  --color-backdrop: 0 0 0;           /* the guide's black backdrop "for more contrast" */
+  --color-backdrop-fg: 255 255 255;
+
+  --color-nav: 0 0 0;
+  --color-nav-fg: 255 255 255;
+  --color-nav-muted: 200 200 200;
+  --color-nav-hover: 38 38 38;
+  --color-nav-line: 64 64 64;
+  --color-nav-accent: 242 145 0;     /* orange on black: 8.8:1 */
+
+  --color-danger: 185 28 28;         --color-danger-strong: 153 27 27;   --color-danger-fg: 255 255 255;
+  --color-danger-soft: 254 242 242;  --color-danger-muted: 254 226 226;  --color-danger-line: 254 202 202;
+  --color-success: 20 120 56;        --color-success-strong: 22 101 52;  --color-success-fg: 255 255 255;
+  --color-success-soft: 240 253 244; --color-success-muted: 220 252 231; --color-success-line: 187 247 208;
+  --color-warning: 170 76 8;         --color-warning-strong: 146 64 14;  --color-warning-fg: 255 255 255;
+  --color-warning-soft: 255 251 235; --color-warning-muted: 254 243 199; --color-warning-line: 253 230 138;
+  --color-info: 53 53 53;            --color-info-strong: 20 20 20;
+  --color-info-soft: 245 245 245;    --color-info-muted: 232 232 232;    --color-info-line: 212 212 212;
+
+  --font-body: 'Lato', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Cinzel', 'Lato', Georgia, serif;
+}
+
+/* ── proposal: "calm brand" ─────────────────────────────────────────────────────────────────────────
+   Same brand colours, used more sparingly: charcoal leads (buttons), orange marks what is active (nav
+   underline, focus, the call to action), and brand red is kept for danger only, so red always means
+   "careful". Warm parchment neutrals instead of cool greys; a charcoal navigation and public backdrop
+   (a dark public side and a light admin, #92 Q7). */
+:root[data-theme="proposal"] {
+  --gray-50: 250 248 245;  --gray-100: 243 239 233; --gray-200: 230 224 214; --gray-300: 212 204 191;
+  --gray-400: 168 159 145; --gray-500: 110 102 91;  --gray-600: 87 80 71;    --gray-700: 61 56 50;
+  --gray-800: 45 42 38;    --gray-900: 28 26 23;    --gray-950: 12 11 10;
+  --slate-50: 250 248 245;  --slate-100: 243 239 233; --slate-200: 230 224 214; --slate-300: 212 204 191;
+  --slate-400: 168 159 145; --slate-500: 110 102 91;  --slate-600: 87 80 71;    --slate-700: 61 56 50;
+  --slate-800: 45 42 38;    --slate-900: 28 26 23;    --slate-950: 12 11 10;
+
+  --color-canvas: 245 242 236;
+  --color-surface: 255 255 255;
+  --color-surface-alt: 250 248 244;
+  --color-fg: 28 26 23;
+  --color-muted: 99 92 82;
+  --color-line: 230 224 214;
+  --color-field: 140 130 116;
+  --color-focus: 180 95 0;           /* a dark orange that still makes 3:1 on parchment */
+
+  --color-primary: 53 53 53;         /* charcoal #353535 */
+  --color-primary-dark: 20 20 20;
+  --color-primary-light: 82 82 82;
+  --color-primary-fg: 255 255 255;
+
+  --color-cta: 242 145 0;
+  --color-cta-dark: 222 128 0;
+  --color-cta-fg: 0 0 0;
+
+  --color-backdrop: 53 53 53;
+  --color-backdrop-fg: 255 255 255;
+
+  --color-nav: 53 53 53;
+  --color-nav-fg: 255 255 255;
+  --color-nav-muted: 214 214 214;
+  --color-nav-hover: 70 70 70;
+  --color-nav-line: 90 90 90;
+  --color-nav-accent: 242 145 0;     /* orange on charcoal: 5.2:1 */
+
+  --color-danger: 190 22 34;         --color-danger-strong: 150 15 25;   --color-danger-fg: 255 255 255;
+  --color-danger-soft: 253 242 242;  --color-danger-muted: 252 225 226;  --color-danger-line: 248 196 199;
+  --color-success: 20 120 56;        --color-success-strong: 22 101 52;  --color-success-fg: 255 255 255;
+  --color-success-soft: 240 253 244; --color-success-muted: 220 252 231; --color-success-line: 187 247 208;
+  --color-warning: 170 76 8;         --color-warning-strong: 146 64 14;  --color-warning-fg: 255 255 255;
+  --color-warning-soft: 255 251 235; --color-warning-muted: 254 243 199; --color-warning-line: 253 230 138;
+  --color-info: 46 86 128;           --color-info-strong: 30 58 90;
+  --color-info-soft: 240 245 250;    --color-info-muted: 220 230 242;    --color-info-line: 196 212 230;
+
+  --font-body: 'Lato', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Cinzel', 'Lato', Georgia, serif;
+}

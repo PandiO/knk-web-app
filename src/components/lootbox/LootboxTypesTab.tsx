@@ -95,8 +95,8 @@ export const LootboxTypesTab: React.FC<Props> = ({ onShowOdds }) => {
 
     const renderPool = (type: LootboxTypeDto) => {
         const pool = type.id ? pools[type.id] : undefined;
-        if (pool === undefined) return <Loader2 className="h-4 w-4 animate-spin text-gray-400" />;
-        if (pool === 'error') return <span className="text-xs text-gray-400">Unavailable</span>;
+        if (pool === undefined) return <Loader2 className="h-4 w-4 animate-spin text-muted" />;
+        if (pool === 'error') return <span className="text-xs text-muted">Unavailable</span>;
         return (
             <div className="space-y-1">
                 <div className="flex flex-wrap gap-1">
@@ -179,7 +179,7 @@ export const LootboxTypesTab: React.FC<Props> = ({ onShowOdds }) => {
                                     <td className="px-4 py-2">{type.spawnWeight}</td>
                                     <td className="px-4 py-2 whitespace-nowrap">
                                         {starLabel(type.minBoxStars)}-{starLabel(type.maxBoxStars)}
-                                        <span className="block text-xs text-gray-400">items up to {type.itemStarSpread} below</span>
+                                        <span className="block text-xs text-muted">items up to {type.itemStarSpread} below</span>
                                     </td>
                                     <td className="px-4 py-2">{type.maxClaimsPerPlayerPerDay ?? 'Global only'}</td>
                                     <td className="px-4 py-2">{renderPool(type)}</td>

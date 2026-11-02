@@ -310,7 +310,7 @@ export const RoadEdgesCard: React.FC<{
                 {createError && <p className="w-full text-xs text-red-600">{createError}</p>}
               </div>
             )}
-            <label className={`mt-2 flex items-center gap-2 text-xs ${streetChanged ? 'text-gray-700' : 'text-gray-400'}`} title="Also label the stretches that continue this one through straight junctions, until a stretch with another admin-set street">
+            <label className={`mt-2 flex items-center gap-2 text-xs ${streetChanged ? 'text-gray-700' : 'text-muted'}`} title="Also label the stretches that continue this one through straight junctions, until a stretch with another admin-set street">
               <input type="checkbox" checked={draft.propagate} disabled={!streetChanged} aria-label="Continue along the road" onChange={(e) => setDraft({ ...draft, propagate: e.target.checked })} />
               Continue along the road
             </label>
@@ -397,7 +397,7 @@ export const RoadEdgesCard: React.FC<{
         {tileId !== null && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-xs text-gray-800">
             Tile {tileLabel(tileId)}
-            <button type="button" className="text-gray-400 hover:text-red-600" aria-label="Show every tile" onClick={onTileCleared}>
+            <button type="button" className="text-muted hover:text-red-600" aria-label="Show every tile" onClick={onTileCleared}>
               <X className="h-3 w-3" />
             </button>
           </span>
@@ -462,7 +462,7 @@ export const RoadEdgesCard: React.FC<{
                     <td className="py-2 pr-4 text-gray-700 whitespace-nowrap">{tileLabel(edge.tileId)}</td>
                     <td className="py-2 pr-4">
                       {name === null ? (
-                        <span className="text-gray-400 italic">unlabelled</span>
+                        <span className="text-muted italic">unlabelled</span>
                       ) : (
                         <span className="inline-flex items-center gap-2">
                           <span className="text-gray-900">{name}</span>
@@ -476,15 +476,15 @@ export const RoadEdgesCard: React.FC<{
                       ) : edge.streetSource === 'Inferred' ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Inferred</span>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span className="text-muted">-</span>
                       )}
                     </td>
                     <td className="py-2 pr-4 text-gray-700">
-                      {profile ? `${profile.name} (${profile.roadClass})` : edge.profileId !== null ? `Profile #${edge.profileId}` : <span className="text-gray-400">none</span>}
+                      {profile ? `${profile.name} (${profile.roadClass})` : edge.profileId !== null ? `Profile #${edge.profileId}` : <span className="text-muted">none</span>}
                     </td>
                     <td className="py-2 pr-4 text-gray-700 text-right">{formatLength(edge.length)}</td>
                     <td className="py-2 pr-4 text-gray-700 text-right">{edge.avgWidth.toFixed(1)}</td>
-                    <td className="py-2 pr-4 text-gray-700">{edge.costMultiplier === 1 ? <span className="text-gray-400">×1</span> : `×${edge.costMultiplier}`}</td>
+                    <td className="py-2 pr-4 text-gray-700">{edge.costMultiplier === 1 ? <span className="text-muted">×1</span> : `×${edge.costMultiplier}`}</td>
                     <td className="py-2 pr-4 text-gray-700">
                       {edge.flags.includes('Closed') ? <span className="text-red-700 font-medium">{formatRoadFlags(edge.flags)}</span> : formatRoadFlags(edge.flags)}
                     </td>

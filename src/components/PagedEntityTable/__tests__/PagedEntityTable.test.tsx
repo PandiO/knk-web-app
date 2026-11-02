@@ -168,7 +168,7 @@ describe('PagedEntityTable', () => {
             />
         );
         const row = screen.getByText('Old Quarter').closest('tr')!;
-        await waitFor(() => expect(row.className).toContain('bg-green-50'));
+        await waitFor(() => expect(row.className).toContain('bg-success-soft'));
     });
 
     it('keeps two id-less selected items apart (selection sync no longer treats them as equal)', async () => {

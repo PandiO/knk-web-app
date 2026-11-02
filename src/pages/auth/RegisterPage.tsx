@@ -34,10 +34,10 @@ export const RegisterPage: React.FC = () => {
     };
 
     return (
-        <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
-            <div className="w-full max-w-3xl bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
+        <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 bg-backdrop">
+            <div className="w-full max-w-3xl bg-surface rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
                 <div className="mb-6 text-center">
-                    <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">
+                    <h1 className="text-3xl sm:text-4xl font-bold text-fg">
                         Create Your Account
                     </h1>
                     <p className="mt-2 text-base sm:text-lg text-gray-600">

@@ -12,11 +12,11 @@
 .display-wizard-empty {
   text-align: center;
   padding: 3rem 0;
-  color: #6b7280;
+  color: rgb(var(--color-muted));
 }
 
 .display-wizard-error {
-  color: #dc2626;
+  color: rgb(var(--color-danger));
 }
 
 /* Responsive adjustments */

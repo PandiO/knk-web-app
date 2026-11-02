@@ -63,9 +63,9 @@ export const FormConfigurationTable: React.FC<Props> = ({
     };
 
     return (
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-3">
-                <h2 className="text-lg font-medium text-gray-900">Available Form Configurations</h2>
+        <div className="bg-surface rounded-lg shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
+                <h2 className="text-lg font-medium text-fg">Available Form Configurations</h2>
                 <div className="flex gap-2">
                     <button
                         onClick={onCreate}
@@ -91,42 +91,42 @@ export const FormConfigurationTable: React.FC<Props> = ({
                 </div>
             </div>
             {configurations.length === 0 ? (
-                <div className="text-center py-12 bg-white">
-                    <p className="text-gray-500">No form configurations found for this entity.</p>
+                <div className="text-center py-12 bg-surface">
+                    <p className="text-muted">No form configurations found for this entity.</p>
                 </div>
             ) : (
                 <div className="overflow-x-auto">
-                    <table className="min-w-full table-fixed divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <table className="min-w-full table-fixed divide-y divide-line">
+                    <thead className="bg-surface-alt">
                         <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
                                 Configuration Name
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider w-20">
                                 Id
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
                                 Description
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider w-28">
                                 Default
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider w-32">
                                 Created
                             </th>
-                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-muted uppercase tracking-wider w-32">
                                 <span className="sr-only">Actions</span>
                             </th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-surface divide-y divide-line">
                         {configurations.map((config) => {
                             const menuPosition = activeMenu === config.id ? getMenuPosition(config.id!) : 'bottom';
                             
                             return (
-                                <tr key={config.id} className="hover:bg-gray-50 group">
+                                <tr key={config.id} className="hover:bg-surface-alt group">
                                     <td 
-                                        className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate"
+                                        className="px-6 py-4 text-sm text-fg max-w-xs truncate"
                                         title={config.configurationName}
                                     >
                                         <div className="flex items-center">
@@ -137,13 +137,13 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                         </div>
                                     </td>
                                     <td 
-                                        className="px-6 py-4 text-sm text-gray-500 w-20 truncate"
+                                        className="px-6 py-4 text-sm text-muted w-20 truncate"
                                         title={config.id || 'N/A'}
                                     >
                                         {config.id || 'N/A'}
                                     </td>
                                     <td 
-                                        className="px-6 py-4 text-sm text-gray-500 max-w-md truncate"
+                                        className="px-6 py-4 text-sm text-muted max-w-md truncate"
                                         title={config.description || 'N/A'}
                                     >
                                         {config.description || 'N/A'}
@@ -151,13 +151,13 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                     <td className="px-6 py-4 whitespace-nowrap w-28">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                             config.isDefault
-                                                ? 'bg-green-100 text-green-800'
+                                                ? 'bg-success-muted text-success-strong'
                                                 : 'bg-gray-100 text-gray-800'
                                         }`}>
                                             {config.isDefault ? 'Default' : 'Not Default'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-32">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted w-32">
                                         {config.createdAt ? new Date(config.createdAt).toLocaleDateString() : '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium w-32">
@@ -176,12 +176,12 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                     className="p-2 rounded-full hover:bg-gray-100 transition-colors"
                                                     aria-label={`More actions for ${config.configurationName}`}
                                                 >
-                                                    <MoreVertical className="h-4 w-4 text-gray-400" />
+                                                    <MoreVertical className="h-4 w-4 text-muted" />
                                                 </button>
                                                 {activeMenu === config.id && (
                                                     <div 
                                                         ref={menuRef}
-                                                        className={`fixed w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 ${
+                                                        className={`fixed w-48 rounded-md shadow-lg bg-surface ring-1 ring-black ring-opacity-5 z-50 ${
                                                             menuPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
                                                         }`}
                                                         style={{
@@ -201,10 +201,10 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                                         onSetDefault(config);
                                                                         setActiveMenu(null);
                                                                     }}
-                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                     role="menuitem"
                                                                 >
-                                                                    <Star className="h-4 w-4 text-gray-400" />
+                                                                    <Star className="h-4 w-4 text-muted" />
                                                                     <span>Set Default</span>
                                                                 </button>
                                                             )} 
@@ -214,10 +214,10 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                                         onRemoveDefault(config);
                                                                         setActiveMenu(null);
                                                                     }}
-                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                     role="menuitem"
                                                                 >
-                                                                    <StarOff className="h-4 w-4 text-gray-400" />
+                                                                    <StarOff className="h-4 w-4 text-muted" />
                                                                     <span>Remove as Default</span>
                                                                 </button>
                                                             )}
@@ -226,10 +226,10 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                                     onEdit(config);
                                                                     setActiveMenu(null);
                                                                 }}
-                                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                 role="menuitem"
                                                             >
-                                                                <Pencil className="h-4 w-4 text-gray-400" />
+                                                                <Pencil className="h-4 w-4 text-muted" />
                                                                 <span>Edit</span>
                                                             </button>
                                                             {onExport && (
@@ -238,17 +238,17 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                                         onExport(config);
                                                                         setActiveMenu(null);
                                                                     }}
-                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                     role="menuitem"
                                                                 >
-                                                                    <Download className="h-4 w-4 text-gray-400" />
+                                                                    <Download className="h-4 w-4 text-muted" />
                                                                     <span>Export JSON</span>
                                                                 </button>
                                                             )}
                                                             {onDelete && (
                                                                 <button
                                                                     onClick={() => handleDeleteClick(config)}
-                                                                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                                                                    className="w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger-soft flex items-center space-x-2"
                                                                     role="menuitem"
                                                                 >
                                                                     <Trash2 className="h-4 w-4" />

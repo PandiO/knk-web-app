@@ -5,9 +5,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @layer base {
+  /* Colours and fonts come from the theme tokens (src/theme/tokens.css, #95). */
   body {
     @apply bg-slate-50 text-slate-900;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body);
   }
 
   body::before {
@@ -30,18 +31,46 @@
     @apply font-semibold text-slate-900;
   }
 
+  /* The heading font (the body font in `current`; a stand-in for Enchanted Land in the brand themes). */
+  h1, h2 {
+    font-family: var(--font-display);
+  }
+
   /* #38: form fields written as `rounded-md border-gray-300 ...` (the @tailwindcss/forms idiom; the
      plugin isn't installed) set a border colour but no width, and preflight's width is 0, so they
      showed no border at all (Game Settings, the builders, lootbox filters). :where() keeps this at
      zero specificity: any border-0/border-2/border-b on the field still wins. */
-  :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):where([class*="border-gray-300"], [class*="border-slate-300"]) {
+  :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):where([class*="border-gray-300"], [class*="border-slate-300"], [class*="border-red-300"], [class*="border-danger"], [class*="border-field"]) {
     border-width: 1px;
   }
+
+  /* #95 contrast: a field's border must make 3:1 against its background (WCAG 1.4.11); gray-300 made
+     1.5:1. Specificity 0,1,1 beats the colour class (0,1,0) but not `focus:border-*` (0,2,0), so the
+     focus colour still shows. A field in the error state (border-red-300, which also had no width,
+     see the rule above) gets the danger colour. */
+  :is(input, select, textarea):where(:not([type="checkbox"]):not([type="radio"]))[class*="border-gray-300"],
+  :is(input, select, textarea):where(:not([type="checkbox"]):not([type="radio"]))[class*="border-slate-300"] {
+    border-color: rgb(var(--color-field));
+  }
+  :is(input, select, textarea):where(:not([type="checkbox"]):not([type="radio"]))[class*="border-red-300"] {
+    border-color: rgb(var(--color-danger));
+  }
+
+  /* #95 focus ring: about 104 fields set `focus:ring-primary` (a ring colour) without a ring width, so
+     they had no focus ring. Every text field gets a 2px ring in the focus colour. Specificity 0,1,1:
+     it beats `shadow-sm` (0,1,0) and loses to the fields' own `focus:ring-2` / `focus:ring-0` (0,2,0). */
+  :is(input, select, textarea):where(:not([type="checkbox"]):not([type="radio"]):not([type="range"])):focus-visible {
+    box-shadow: 0 0 0 2px rgb(var(--color-focus));
+  }
+}
+
+:root {
+  --icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' x2='12' y1='8' y2='12'/%3E%3Cline x1='12' x2='12.01' y1='16' y2='16'/%3E%3C/svg%3E");
 }
 
 @layer components {
   .panel {
-    @apply bg-white border border-slate-200 rounded-lg shadow-sm;
+    @apply bg-surface border border-slate-200 rounded-lg shadow-sm;
   }
 
   /* inline-flex: an icon sits next to its label, not above it (#38); the gap spaces them. */
@@ -57,29 +86,53 @@
     @apply mx-0 flex-shrink-0;
   }
 
+  /* #95: the hover is the darker shade (white on primary-light was 3.7:1) and the focus ring is solid
+     (primary/50 made under 3:1). */
   .btn-primary {
-    @apply btn bg-primary text-white hover:bg-primary-light
-           focus:ring-primary/50 focus:ring-offset-2;
+    @apply btn bg-primary text-primary-fg hover:bg-primary-dark
+           focus:ring-focus focus:ring-offset-2;
   }
 
   .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500
+    @apply btn bg-danger text-danger-fg hover:bg-danger-strong focus:ring-danger
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
-    @apply btn bg-white text-slate-700 border border-slate-300
-           hover:bg-slate-50 focus:ring-slate-500;
+    @apply btn bg-surface text-slate-700 border border-slate-300
+           hover:bg-slate-50 focus:ring-focus;
   }
 
   /* The quiet third action next to primary/secondary, e.g. Save Draft in the form wizard (#38). */
   .btn-tertiary {
     @apply btn bg-transparent text-primary shadow-none
-           hover:bg-primary/10 hover:text-primary-dark focus:ring-primary/50;
+           hover:bg-primary/10 hover:text-primary-dark focus:ring-focus;
+  }
+
+  /* The call to action on the public pages (landing: Create account). Orange with black text in the
+     brand themes. */
+  .btn-cta {
+    @apply btn bg-cta text-cta-fg hover:bg-cta-dark focus:ring-focus;
   }
 
   .input {
-    @apply block w-full rounded-md border border-slate-300 shadow-sm
-           focus:border-slate-500 focus:ring-slate-500 sm:text-sm;
+    @apply block w-full rounded-md border border-field shadow-sm
+           focus:border-primary sm:text-sm;
+  }
+
+  /* A field's error message. Danger is never colour alone (#95: brand red is close to error red), so
+     the message gets an alert icon (lucide AlertCircle) in front. */
+  .field-error {
+    @apply flex items-start gap-1 text-danger;
+  }
+  .field-error::before {
+    content: '';
+    flex: none;
+    width: 1em;
+    height: 1em;
+    margin-top: 0.2em;
+    background-color: currentColor;
+    -webkit-mask: var(--icon-alert) center / contain no-repeat;
+    mask: var(--icon-alert) center / contain no-repeat;
   }
 }

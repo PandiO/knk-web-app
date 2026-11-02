@@ -122,7 +122,7 @@ export function SearchableDropdown({
                   e.stopPropagation();
                   onSelect(null);
                 }}
-                className="text-gray-400 hover:text-gray-500"
+                className="text-muted hover:text-gray-500"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -132,7 +132,7 @@ export function SearchableDropdown({
           )}
           
           <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <ChevronDown className="h-4 w-4 text-muted" />
           </span>
         </button>
 
@@ -140,7 +140,7 @@ export function SearchableDropdown({
           <div className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
             <div className="sticky top-0 z-10 bg-white px-2 py-1.5">
               <div className="relative">
-                <Search className="absolute left-2 top-2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-2 top-2 h-4 w-4 text-muted" />
                 <input
                   type="search"
                   className="w-full pl-8 pr-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"

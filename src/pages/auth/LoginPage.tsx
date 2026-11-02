@@ -34,10 +34,10 @@ export const LoginPage: React.FC = () => {
   }, [isLoggedIn, returnTo, content.isChecking, content.allowed, navigate]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
+    <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-backdrop">
+      <div className="w-full max-w-md bg-surface rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
         <div className="mb-6 text-center">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">
+          <h1 className="text-3xl sm:text-4xl font-bold text-fg">
             Welcome Back
           </h1>
           <p className="mt-2 text-base sm:text-lg text-gray-600">
@@ -46,9 +46,9 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {sessionExpired && (
-          <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4" role="status">
-            <Clock className="h-5 w-5 flex-shrink-0 text-amber-600" aria-hidden="true" />
-            <p className="text-sm text-amber-900">
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-warning-line bg-warning-soft p-4" role="status">
+            <Clock className="h-5 w-5 flex-shrink-0 text-warning" aria-hidden="true" />
+            <p className="text-sm text-warning-strong">
               Your session expired. Log in again to continue{returnTo ? ' where you left off' : ''}.
             </p>
           </div>

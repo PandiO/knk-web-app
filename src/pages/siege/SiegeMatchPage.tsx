@@ -86,7 +86,7 @@ export const SiegeMatchPage: React.FC = () => {
     <div className="space-y-6">
       <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
         <div className="flex items-center gap-3">
-          <Swords className="h-10 w-10 text-gray-400" />
+          <Swords className="h-10 w-10 text-muted" />
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">{match.siegeScenarioName ?? 'Siege match'}</h1>
             <p className="text-sm text-gray-600">{match.siegeLobbyName ?? 'Siege'} · match #{match.id}</p>
@@ -119,7 +119,7 @@ export const SiegeMatchPage: React.FC = () => {
                 <li key={`${o.siegeObjectiveId ?? 'x'}-${index}`} className="py-2 text-sm">
                   <div className="flex items-center justify-between gap-4">
                     <span className="flex items-center gap-2 text-gray-900">
-                      <Flag className="h-4 w-4 text-gray-400" />
+                      <Flag className="h-4 w-4 text-muted" />
                       <span className="font-medium">{o.name ?? `Objective ${o.siegeObjectiveId ?? ''}`}</span>
                       {o.instantVictory && <span className="text-xs text-gray-500">(main)</span>}
                     </span>

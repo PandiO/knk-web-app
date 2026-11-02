@@ -236,14 +236,14 @@ export const LootboxDropLogTab: React.FC = () => {
                             <tr key={row.id} data-testid="drop-row" className={row.isSpecial ? 'bg-purple-50' : undefined}>
                                 <td className="px-3 py-2 whitespace-nowrap text-gray-600">
                                     {formatDateTime(row.claimedAt)}
-                                    <span className="block text-xs text-gray-400">claim #{row.id}</span>
+                                    <span className="block text-xs text-muted">claim #{row.id}</span>
                                 </td>
                                 <td className="px-3 py-2">
                                     <Link to={`/admin/users/${row.userId}`} className="text-primary hover:underline">{row.username ?? `User #${row.userId}`}</Link>
                                 </td>
                                 <td className="px-3 py-2 whitespace-nowrap">
                                     {row.lootboxTypeName ?? `Type #${row.lootboxTypeId}`} <span className="text-amber-600">{starLabel(row.boxStars)}</span>
-                                    <span className="block text-xs text-gray-400">{claimSourceLabel(row)}</span>
+                                    <span className="block text-xs text-muted">{claimSourceLabel(row)}</span>
                                 </td>
                                 <td className="px-3 py-2">
                                     <span className={row.isSpecial ? 'font-semibold text-purple-800' : 'text-gray-900'}>{row.itemName ?? `Blueprint #${row.itemBlueprintId}`}</span>
@@ -257,16 +257,16 @@ export const LootboxDropLogTab: React.FC = () => {
                                             #{row.itemInstanceId}
                                         </button>
                                     ) : (
-                                        <span className="text-xs text-gray-400">stackable</span>
+                                        <span className="text-xs text-muted">stackable</span>
                                     )}
                                 </td>
                                 <td className="px-3 py-2 whitespace-nowrap">
                                     {row.deliveredAt ? (
-                                        <span className="text-gray-600">{row.deliveryMethod ?? 'Delivered'}<span className="block text-xs text-gray-400">{formatDateTime(row.deliveredAt)}</span></span>
+                                        <span className="text-gray-600">{row.deliveryMethod ?? 'Delivered'}<span className="block text-xs text-muted">{formatDateTime(row.deliveredAt)}</span></span>
                                     ) : (
                                         <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800" title="Redelivered when the player next joins">Not delivered</span>
                                     )}
-                                    {row.deliveryNote && <span className="block text-xs text-gray-400">{row.deliveryNote}</span>}
+                                    {row.deliveryNote && <span className="block text-xs text-muted">{row.deliveryNote}</span>}
                                 </td>
                             </tr>
                         ))}

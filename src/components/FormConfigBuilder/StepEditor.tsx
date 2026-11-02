@@ -780,7 +780,7 @@ export const StepEditor: React.FC<Props> = ({
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            className="p-1 text-gray-400 hover:text-red-600"
+                                                            className="p-1 text-muted hover:text-red-600"
                                                             onClick={() => handleDeleteChildStep(childIdx)}
                                                             title="Remove child step"
                                                         >
@@ -1019,7 +1019,7 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({ field, onEdit, on
             }`}
         >
             <div {...attributes} {...listeners} className="mr-3 cursor-grab active:cursor-grabbing">
-                <GripVertical className="h-5 w-5 text-gray-400" />
+                <GripVertical className="h-5 w-5 text-muted" />
             </div>
             <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -1055,13 +1055,13 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({ field, onEdit, on
             <div className="flex space-x-2">
                 <button
                     onClick={onEdit}
-                    className="p-1 text-gray-400 hover:text-gray-600"
+                    className="p-1 text-muted hover:text-gray-600"
                 >
                     <Pencil className="h-4 w-4" />
                 </button>
                 <button
                     onClick={onDelete}
-                    className="p-1 text-gray-400 hover:text-red-600"
+                    className="p-1 text-muted hover:text-red-600"
                 >
                     <Trash2 className="h-4 w-4" />
                 </button>

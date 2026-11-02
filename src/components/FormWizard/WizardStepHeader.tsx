@@ -77,7 +77,7 @@ const CompactStepHeader: React.FC<{ steps: WizardStepProgressItem[] }> = ({ step
                 <span className="truncate text-sm font-medium text-gray-700">{label}</span>
                 <ChevronDown
                     aria-hidden="true"
-                    className={`h-4 w-4 flex-shrink-0 text-gray-500 transition-transform ${listOpen ? 'rotate-180' : ''}`}
+                    className={`h-4 w-4 flex-shrink-0 text-muted transition-transform ${listOpen ? 'rotate-180' : ''}`}
                 />
             </button>
             <div
@@ -95,7 +95,7 @@ const CompactStepHeader: React.FC<{ steps: WizardStepProgressItem[] }> = ({ step
                 <ol
                     id="wizard-step-compact-list"
                     aria-label="All form steps"
-                    className="mt-3 divide-y divide-gray-100 rounded-md border border-gray-200 bg-white"
+                    className="mt-3 divide-y divide-gray-100 rounded-md border border-line bg-surface"
                 >
                     {steps.map((step, position) => {
                         const name = step.name?.trim() || `Step ${position + 1}`;
@@ -104,7 +104,7 @@ const CompactStepHeader: React.FC<{ steps: WizardStepProgressItem[] }> = ({ step
                                 key={step.key}
                                 aria-current={step.isCurrent ? 'step' : undefined}
                                 className={`flex items-center gap-3 px-3 py-2 text-sm ${
-                                    step.isCurrent ? 'bg-primary/5 font-semibold text-gray-900' : 'text-gray-600'
+                                    step.isCurrent ? 'bg-primary/5 font-semibold text-fg' : 'text-gray-600'
                                 }`}
                             >
                                 <span
@@ -250,7 +250,7 @@ export const WizardStepProgress: React.FC<{ steps: WizardStepProgressItem[] }> =
                                             <span
                                                 data-testid="wizard-step-name"
                                                 className={`hidden md:block mt-1 max-w-[7rem] truncate text-center text-xs ${
-                                                    step.isCurrent ? 'font-semibold text-gray-900' : 'text-gray-500'
+                                                    step.isCurrent ? 'font-semibold text-fg' : 'text-muted'
                                                 }`}
                                             >
                                                 {name}
@@ -281,7 +281,7 @@ export const WizardStepProgress: React.FC<{ steps: WizardStepProgressItem[] }> =
                             onClick={() => scrollByPage(-1)}
                             aria-label="Show earlier steps"
                             title="Show earlier steps"
-                            className="absolute left-0 top-0 md:top-1 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="absolute left-0 top-0 md:top-1 flex h-8 w-8 items-center justify-center rounded-full border border-line bg-surface text-gray-600 shadow-sm hover:bg-surface-alt hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                         </button>
@@ -298,7 +298,7 @@ export const WizardStepProgress: React.FC<{ steps: WizardStepProgressItem[] }> =
                             onClick={() => scrollByPage(1)}
                             aria-label="Show later steps"
                             title="Show later steps"
-                            className="absolute right-0 top-0 md:top-1 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="absolute right-0 top-0 md:top-1 flex h-8 w-8 items-center justify-center rounded-full border border-line bg-surface text-gray-600 shadow-sm hover:bg-surface-alt hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                             <ChevronRight className="h-4 w-4" aria-hidden="true" />
                         </button>
@@ -323,9 +323,9 @@ export const WizardStepTitle: React.FC<{
     return (
         <div className="text-center mb-6">
             {editLabel && name && (
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{editLabel}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">{editLabel}</p>
             )}
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900">{name || editLabel}</h2>
+            <h2 className="text-xl md:text-2xl font-bold text-fg">{name || editLabel}</h2>
             {description && <p className="mt-2 text-sm text-gray-600">{description}</p>}
         </div>
     );

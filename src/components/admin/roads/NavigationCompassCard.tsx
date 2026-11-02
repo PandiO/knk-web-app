@@ -222,7 +222,7 @@ export const NavigationCompassCard: React.FC = () => {
             >
               {saving ? 'Saving…' : 'Save compass settings'}
             </button>
-            {saving && <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />}
+            {saving && <Loader2 className="h-4 w-4 text-muted animate-spin" />}
             {justSaved && !dirty && <span className="text-sm text-green-700">Saved. The game server picks it up within a minute.</span>}
           </div>
           {saveError && <p className="text-sm text-red-600">{saveError}</p>}

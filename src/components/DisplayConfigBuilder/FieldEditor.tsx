@@ -147,7 +147,7 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                     <h3 className="text-lg font-medium text-gray-900">
                         {field.id ? 'Edit Display Field' : 'New Display Field'}
                     </h3>
-                    <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={onCancel} className="text-muted hover:text-gray-600">
                         <X className="h-5 w-5" />
                     </button>
                 </div>

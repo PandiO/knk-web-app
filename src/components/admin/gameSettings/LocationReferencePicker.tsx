@@ -247,7 +247,7 @@ export const LocationReferencePicker: React.FC<{
                     }`}
                     data-testid="location-reference-selected"
                 >
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" aria-hidden />
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted" aria-hidden />
                     <div
                         className="min-w-0 flex-1 cursor-pointer"
                         onMouseDown={event => event.preventDefault()}
@@ -273,7 +273,7 @@ export const LocationReferencePicker: React.FC<{
                             aria-label="Clear spawn point"
                             title="Clear"
                             onClick={() => onChange(null)}
-                            className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                            className="rounded-md p-1 text-muted hover:bg-gray-100 hover:text-gray-700"
                         >
                             <X className="h-4 w-4" />
                         </button>
@@ -287,10 +287,10 @@ export const LocationReferencePicker: React.FC<{
                     }`}
                 >
                     <span className="inline-flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-gray-400" aria-hidden />
+                        <MapPin className="h-4 w-4 text-muted" aria-hidden />
                         Choose a spawn point
                     </span>
-                    <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden />
+                    <ChevronDown className="h-4 w-4 text-muted" aria-hidden />
                 </button>
             )}
 
@@ -320,7 +320,7 @@ export const LocationReferencePicker: React.FC<{
                             padding, 20px high, browser focus outline), so the box, padding and focus ring are
                             all set here, and the icon is centred on the input instead of a fixed offset. */}
                         <div className="relative flex items-center" data-testid="spawn-search-row">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden data-testid="spawn-search-icon" />
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden data-testid="spawn-search-icon" />
                             <input
                                 ref={inputRef}
                                 type="text"

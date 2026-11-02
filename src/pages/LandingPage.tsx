@@ -148,7 +148,7 @@ export function LandingPage() {
               {isLoggedIn ? (
                 <Link
                   to="/account"
-                  className="inline-flex items-center px-6 py-3 rounded-md text-lg font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                  className="btn-cta px-6 py-3 text-lg"
                 >
                   Go to your account
                 </Link>
@@ -156,7 +156,7 @@ export function LandingPage() {
                 <>
                   <Link
                     to="/auth/register"
-                    className="inline-flex items-center px-6 py-3 rounded-md text-lg font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                    className="btn-cta px-6 py-3 text-lg"
                   >
                     Create account
                   </Link>

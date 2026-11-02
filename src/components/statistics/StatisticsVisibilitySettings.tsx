@@ -246,7 +246,7 @@ const SettingRow: React.FC<{
   <tr>
     <td className={`py-2 ${indent ? 'pl-6 text-gray-600' : 'text-gray-900'}`}>
       {label}
-      {hint && <span className="block text-xs text-gray-400">{hint}</span>}
+      {hint && <span className="block text-xs text-muted">{hint}</span>}
     </td>
     <td className="py-2 text-right">
       {readOnly ? (

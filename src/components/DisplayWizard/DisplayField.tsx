@@ -112,7 +112,7 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
       <label className="block text-sm font-medium text-gray-700 mb-1">
         {field.label}
         {field.relatedEntityPropertyName && (
-          <span className="ml-2 text-xs font-normal text-blue-600">
+          <span className="ml-2 text-xs font-normal text-primary">
             (from {field.relatedEntityTypeName || field.relatedEntityPropertyName})
           </span>
         )}
@@ -141,7 +141,7 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
           <button
             onClick={handleEditSave}
             disabled={isSaving}
-            className="p-2 bg-green-50 hover:bg-green-100 text-green-600 rounded-md transition-colors disabled:opacity-50"
+            className="p-2 bg-success-soft hover:bg-success-muted text-success rounded-md transition-colors disabled:opacity-50"
             title="Save"
           >
             <Check className="h-4 w-4" />
@@ -149,7 +149,7 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
           <button
             onClick={handleEditCancel}
             disabled={isSaving}
-            className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-md transition-colors disabled:opacity-50"
+            className="p-2 bg-danger-soft hover:bg-danger-muted text-danger rounded-md transition-colors disabled:opacity-50"
             title="Cancel"
           >
             <X className="h-4 w-4" />
@@ -161,7 +161,7 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
           {canEdit && (
             <button
               onClick={handleEditStart}
-              className="ml-2 p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-md transition-colors"
+              className="ml-2 p-2 bg-info-soft hover:bg-info-muted text-primary rounded-md transition-colors"
               title="Edit this field"
             >
               <Edit2 className="h-4 w-4" />
@@ -171,11 +171,11 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
       )}
 
       {isEditing && editError && (
-        <p className="text-sm text-red-600 mt-1" role="alert">{editError}</p>
+        <p className="field-error text-sm mt-1" role="alert">{editError}</p>
       )}
 
       {field.description && (
-        <p className="text-xs text-gray-500 mt-1">{field.description}</p>
+        <p className="text-xs text-muted mt-1">{field.description}</p>
       )}
     </div>
   );
@@ -204,14 +204,14 @@ function renderDisplayValue(sourceData: unknown, field: DisplayFieldProps['field
     // KNG-200 phase 4: MinecraftIcon shows a placeholder for a missing or broken icon.
     if (iconUrl || namespaceKey) {
       return (
-        <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded flex-1">
+        <div className="flex items-center gap-3 bg-surface-alt px-3 py-2 rounded flex-1">
           <MinecraftIcon
             src={iconUrl ? String(iconUrl) : null}
             alt={String(namespaceKey || 'Material')}
             size={32}
           />
           <div>
-            <div className="text-base text-gray-900 font-medium">
+            <div className="text-base text-fg font-medium">
               {String(namespaceKey || displayValue || '-')}
             </div>
             {displayValue && displayValue !== namespaceKey && (
@@ -226,7 +226,7 @@ function renderDisplayValue(sourceData: unknown, field: DisplayFieldProps['field
   // Default rendering for other field types
   const formattedValue = formatValue(displayValue, field.fieldType);
   return (
-    <div className="text-base text-gray-900 bg-gray-50 px-3 py-2 rounded flex-1">
+    <div className="text-base text-fg bg-surface-alt px-3 py-2 rounded flex-1">
       {formattedValue}
     </div>
   );

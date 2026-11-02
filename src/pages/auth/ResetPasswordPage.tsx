@@ -51,10 +51,10 @@ export const ResetPasswordPage: React.FC = () => {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
+    <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-backdrop">
+      <div className="w-full max-w-md bg-surface rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
         <div className="mb-6 text-center">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">Choose New Password</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-fg">Choose New Password</h1>
           <p className="mt-2 text-base sm:text-lg text-gray-600">
             Set a new password for your account.
           </p>
@@ -62,7 +62,7 @@ export const ResetPasswordPage: React.FC = () => {
 
         {success ? (
           <div className="space-y-4">
-            <p className="text-sm text-gray-700 bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-sm text-gray-700 bg-success-soft border border-success-line rounded-lg p-3">
               Password reset successful. Redirecting to login...
             </p>
           </div>
@@ -102,7 +102,7 @@ export const ResetPasswordPage: React.FC = () => {
             </div>
 
             {error && (
-              <p className="text-sm text-red-600" role="alert">
+              <p className="field-error text-sm" role="alert">
                 {error}
               </p>
             )}

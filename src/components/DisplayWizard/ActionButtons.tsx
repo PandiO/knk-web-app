@@ -42,11 +42,11 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   };
 
   return (
-    <div className={`flex flex-wrap gap-2 ${isItemLevel ? 'mt-3 pt-3 border-t border-gray-200' : 'mt-4'}`}>
+    <div className={`flex flex-wrap gap-2 ${isItemLevel ? 'mt-3 pt-3 border-t border-line' : 'mt-4'}`}>
       {/* Common buttons */}
       {config.showViewButton && entityData && (
         <button 
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-dark bg-info-muted rounded hover:bg-info-line transition-colors"
           onClick={() => handleClick('view')}
         >
           <Eye size={16} />
@@ -56,7 +56,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
       
       {config.showEditButton && entityData && (
         <button 
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 rounded hover:bg-green-200 transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-success bg-success-muted rounded hover:bg-success-line transition-colors"
           onClick={() => onEdit ? onEdit(entityData.id as number | string) : handleClick('edit')}
         >
           <Edit size={16} />
@@ -106,7 +106,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
 
       {isCollection && isItemLevel && RELATIONSHIP_ACTIONS_AVAILABLE && config.showRemoveButton && (
         <button 
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded hover:bg-red-200 transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-danger-strong bg-danger-muted rounded hover:bg-danger-line transition-colors"
           onClick={() => handleClick('remove')}
         >
           <Trash2 size={16} />

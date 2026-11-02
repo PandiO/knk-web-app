@@ -118,16 +118,16 @@ export const LinkPage: React.FC = () => {
   const alreadyLinked = isLoggedIn && !!user && (user.minecraftLinked ?? !!user.uuid);
 
   return (
-    <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-gray-50">
-      <div className="w-full max-w-xl bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
+    <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-backdrop">
+      <div className="w-full max-w-xl bg-surface rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
         <div className="mb-6 text-center">
           <KeyRound className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />
-          <h1 className="mt-3 text-2xl sm:text-3xl font-bold text-gray-900">Link your Minecraft account</h1>
+          <h1 className="mt-3 text-2xl sm:text-3xl font-bold text-fg">Link your Minecraft account</h1>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4" role="alert">
-            <p className="text-sm font-medium text-red-800">{error}</p>
+          <div className="mb-4 rounded-lg border border-danger-line bg-danger-soft p-4" role="alert">
+            <p className="text-sm font-medium field-error-strong">{error}</p>
           </div>
         )}
 
@@ -153,7 +153,7 @@ export const LinkPage: React.FC = () => {
                 aria-describedby="claim-code-format"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-primary"
               />
-              <p id="claim-code-format" className="mt-1 text-xs text-gray-500">
+              <p id="claim-code-format" className="mt-1 text-xs text-muted">
                 The {CLAIM_CODE_LENGTH} letters and digits; the field adds the {CLAIM_CODE_SEPARATOR_NAME} itself.
               </p>
             </div>
@@ -165,8 +165,8 @@ export const LinkPage: React.FC = () => {
 
         {(step === 'verified' || step === 'linking') && claim && (
           <div className="space-y-6">
-            <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-4">
-              <CheckCircle2 className="h-5 w-5 text-green-700" aria-hidden="true" />
+            <div className="flex items-center gap-2 rounded-lg border border-success-line bg-success-soft p-4">
+              <CheckCircle2 className="h-5 w-5 text-success" aria-hidden="true" />
               <p className="text-sm text-green-900">
                 Verified: Minecraft account <strong>{claim.minecraftName}</strong>
               </p>
@@ -187,11 +187,11 @@ export const LinkPage: React.FC = () => {
             {!isLoggedIn && (
               <>
                 <div>
-                  <h2 className="text-base font-semibold text-gray-900">Already have an account?</h2>
+                  <h2 className="text-base font-semibold text-fg">Already have an account?</h2>
                   <Link to="/auth/login?returnTo=/link" className="mt-2 inline-block btn-primary">Log in</Link>
                 </div>
                 <div className="border-t pt-6">
-                  <h2 className="text-base font-semibold text-gray-900">New here? Create your account with an invitation</h2>
+                  <h2 className="text-base font-semibold text-fg">New here? Create your account with an invitation</h2>
                   <p className="mt-1 text-sm text-gray-600">
                     Got an invitation mail? Open its link now; your Minecraft account is linked when you create the account.
                     Or enter an invitation code:
@@ -214,20 +214,20 @@ export const LinkPage: React.FC = () => {
                     />
                     <button type="submit" className="btn-primary">Continue</button>
                   </form>
-                  <p className="mt-4 text-sm text-gray-500">
+                  <p className="mt-4 text-sm text-muted">
                     No invitation? The Knights &amp; Kings alpha is invite-only. Keep this page open: the code works for 15 minutes.
                   </p>
                 </div>
               </>
             )}
 
-            <button type="button" onClick={startOver} className="text-sm text-gray-500 underline">Use another code</button>
+            <button type="button" onClick={startOver} className="text-sm text-muted underline">Use another code</button>
           </div>
         )}
 
         {step === 'linked' && claim && (
           <div className="space-y-4 text-center">
-            <CheckCircle2 className="h-10 w-10 mx-auto text-green-600" aria-hidden="true" />
+            <CheckCircle2 className="h-10 w-10 mx-auto text-success" aria-hidden="true" />
             <p className="text-gray-800">
               <strong>{claim.minecraftName}</strong> is linked to your account. Join the server again to play.
             </p>

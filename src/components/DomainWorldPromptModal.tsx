@@ -67,7 +67,7 @@ export const DomainWorldPromptModal: React.FC<DomainWorldPromptModalProps> = ({ 
                             </p>
                         </div>
                     </div>
-                    <button onClick={onCancel} className="text-gray-400 hover:text-gray-600" aria-label="Close dialog">
+                    <button onClick={onCancel} className="text-muted hover:text-gray-600" aria-label="Close dialog">
                         <X className="h-5 w-5" />
                     </button>
                 </div>
