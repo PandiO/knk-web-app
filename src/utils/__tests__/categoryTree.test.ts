@@ -12,18 +12,18 @@ const categories = [
 
 describe('categoryWithDescendants', () => {
     it('includes children and grandchildren', () => {
-        expect([...categoryWithDescendants(categories, '1')].sort()).toEqual(['1', '2', '3', '4']);
-        expect([...categoryWithDescendants(categories, 2)].sort()).toEqual(['2', '4']);
+        expect(Array.from(categoryWithDescendants(categories, '1')).sort()).toEqual(['1', '2', '3', '4']);
+        expect(Array.from(categoryWithDescendants(categories, 2)).sort()).toEqual(['2', '4']);
     });
 
     it('is just the category itself without children or when unknown', () => {
-        expect([...categoryWithDescendants(categories, '3')]).toEqual(['3']);
-        expect([...categoryWithDescendants(categories, '42')]).toEqual(['42']);
+        expect(Array.from(categoryWithDescendants(categories, '3'))).toEqual(['3']);
+        expect(Array.from(categoryWithDescendants(categories, '42'))).toEqual(['42']);
     });
 
     it('survives a cycle', () => {
         const cyclic = [{ id: 1, name: 'A', parentCategoryId: 2 }, { id: 2, name: 'B', parentCategoryId: 1 }];
-        expect([...categoryWithDescendants(cyclic, 1)].sort()).toEqual(['1', '2']);
+        expect(Array.from(categoryWithDescendants(cyclic, 1)).sort()).toEqual(['1', '2']);
     });
 });
 
