@@ -39,24 +39,6 @@ interface Props {
     displayConditionSources?: SourceFieldOption[];
 }
 
-// Predefined task types (module scope: stable, so effects don't need it as a dependency)
-const PREDEFINED_TASK_TYPES = [
-    'ReagionCreate',
-    'LocationSelection',
-    'LocationCapture',
-    'RegionClaim',
-    'VerifyLocation',
-    'VerifyStructure',
-    'VerifyPlacement',
-    'VerifyResource',
-    'VerifyBoundary',
-    'GateBlockScan',
-    'GateOpenedBlockScan',
-    'ItemScan',
-    'KitScan',
-    'Custom'
-];
-
 export const FieldEditor: React.FC<Props> = ({
     field: initialField,
     onSave,
@@ -79,6 +61,24 @@ export const FieldEditor: React.FC<Props> = ({
     const [placeholderIsDefault, setPlaceholderIsDefault] = useState<boolean>(
         initialField.defaultValue !== undefined && initialField.defaultValue !== null
     );
+
+    // Predefined task types
+    const PREDEFINED_TASK_TYPES = [
+        'ReagionCreate',
+        'LocationSelection',
+        'LocationCapture',
+        'RegionClaim',
+        'VerifyLocation',
+        'VerifyStructure',
+        'VerifyPlacement',
+        'VerifyResource',
+        'VerifyBoundary',
+        'GateBlockScan',
+        'GateOpenedBlockScan',
+        'ItemScan',
+        'KitScan',
+        'Custom'
+    ];
 
     const [projectionEnabled, setProjectionEnabled] = useState<boolean>(false);
     const [projectionDefaultOverwritePolicy, setProjectionDefaultOverwritePolicy] = useState<ProjectionOverwritePolicy>('if-empty');
@@ -160,6 +160,8 @@ export const FieldEditor: React.FC<Props> = ({
             setProjectionClearOnNull(false);
             setProjectionMappings([]);
         }
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialField]);
 
     useEffect(() => {
