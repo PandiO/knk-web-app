@@ -28,7 +28,7 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
     entityId
   );
 
-  const [isSaving, setIsSaving] = useState(false);
+  const [, setIsSaving] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [modalMessage, setModalMessage] = useState('');

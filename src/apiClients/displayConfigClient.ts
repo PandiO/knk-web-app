@@ -203,7 +203,6 @@ export class DisplayConfigClient extends ObjectManager {
     configId: string,
     payload: AddReusableSectionRequestDto
   ): Promise<DisplaySectionDto> {
-    const operation = `addsection/${configId}`;
     return this.invokeServiceCall(payload, `${configId}/sections/add-from-template`, Controllers.DisplayConfigurations, HttpMethod.Post);
   }
 
@@ -214,7 +213,6 @@ export class DisplayConfigClient extends ObjectManager {
     sectionId: string,
     payload: AddReusableFieldRequestDto
   ): Promise<DisplayFieldDto> {
-    const operation = `addfield/${sectionId}`;
     return this.invokeServiceCall(payload, `${sectionId}/fields/add-from-template`, Controllers.DisplaySections, HttpMethod.Post);
   }
 

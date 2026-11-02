@@ -9,8 +9,6 @@ import { MinecraftIcon } from '../minecraft/MinecraftIcon';
 export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: string }> = ({ 
   field, 
   data,
-  entityId,
-  entityTypeName,
   onValueChange,
   parentEntityType
 }) => {
@@ -53,9 +51,6 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
     displayValue,
     isEditable: field.isEditableInDisplay
   });
-
-  // Format value based on fieldType
-  const formattedValue = formatValue(displayValue, field.fieldType);
 
   // Check if this field is editable (only for simple fields, not related entities)
   const canEdit = field.isEditableInDisplay && 

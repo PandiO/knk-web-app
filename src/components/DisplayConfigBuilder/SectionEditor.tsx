@@ -38,7 +38,7 @@ export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpda
     const [addingTemplate, setAddingTemplate] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [relatedEntityFields, setRelatedEntityFields] = useState<FieldMetadataDto[]>([]);
-    const [loadingRelatedMetadata, setLoadingRelatedMetadata] = useState(false);
+    const [, setLoadingRelatedMetadata] = useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor),

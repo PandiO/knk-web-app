@@ -38,7 +38,7 @@ export function SearchableDropdown({
     instance?.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const selectedInstance = instances?.find(instance => instance.id == selectedId);
+  const selectedInstance = instances?.find(instance => instance.id === selectedId);
   // The "Create New" row sits after the matches, when there is one.
   const lastIndex = onCreateNew ? filteredInstances.length : filteredInstances.length - 1;
 
@@ -115,7 +115,7 @@ export function SearchableDropdown({
             </div>
           ) : selectedInstance ? (
             <div className="flex items-center justify-between">
-              <span>{selectedInstance.name} ({selectedInstance.id}) {selectedInstance.id == -1 && '(New)'}</span>
+              <span>{selectedInstance.name} ({selectedInstance.id}) {selectedInstance.id === -1 && '(New)'}</span>
               <button
                 type="button"
                 onClick={(e) => {
