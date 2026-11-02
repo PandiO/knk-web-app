@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { DEFAULT_WORLD_TASK_TYPE, WORLD_TASK_TYPES_WITH_HANDLER } from '../../utils/forms/worldTaskTypes';
 import { Plus, ShieldAlert, ShieldCheck, Trash2, X } from 'lucide-react';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
@@ -62,23 +63,9 @@ export const FieldEditor: React.FC<Props> = ({
         initialField.defaultValue !== undefined && initialField.defaultValue !== null
     );
 
-    // Predefined task types
-    const PREDEFINED_TASK_TYPES = [
-        'ReagionCreate',
-        'LocationSelection',
-        'LocationCapture',
-        'RegionClaim',
-        'VerifyLocation',
-        'VerifyStructure',
-        'VerifyPlacement',
-        'VerifyResource',
-        'VerifyBoundary',
-        'GateBlockScan',
-        'GateOpenedBlockScan',
-        'ItemScan',
-        'KitScan',
-        'Custom'
-    ];
+    // #180: only task types the game server has a handler for (utils/forms/worldTaskTypes.ts). A stored type outside
+    // the list (an older configuration) is kept and shown as "Custom", marked as having no handler.
+    const PREDEFINED_TASK_TYPES = WORLD_TASK_TYPES_WITH_HANDLER;
 
     const [projectionEnabled, setProjectionEnabled] = useState<boolean>(false);
     const [projectionDefaultOverwritePolicy, setProjectionDefaultOverwritePolicy] = useState<ProjectionOverwritePolicy>('if-empty');
@@ -1150,8 +1137,8 @@ export const FieldEditor: React.FC<Props> = ({
                                     mergeSettings({ worldTask: { enabled } });
                                     if (enabled && !worldTaskType) {
                                             // Set default task type
-                                            setWorldTaskType('VerifyLocation');
-                                            mergeSettings({ worldTask: { enabled: true, taskType: 'VerifyLocation' } });
+                                            setWorldTaskType(DEFAULT_WORLD_TASK_TYPE);
+                                            mergeSettings({ worldTask: { enabled: true, taskType: DEFAULT_WORLD_TASK_TYPE } });
                                     }
                                 }}
                                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
@@ -1183,7 +1170,18 @@ export const FieldEditor: React.FC<Props> = ({
                                             {type}
                                         </option>
                                     ))}
+                                    {worldTaskType === 'Custom' && (
+                                        <option value="Custom">
+                                            {customTaskType || 'Custom'} (no handler in game)
+                                        </option>
+                                    )}
                                 </select>
+                                {worldTaskType === 'Custom' && (
+                                    <p className="mt-1 text-xs text-red-700">
+                                        The game server has no handler for this task type: a claimed task fails at once.
+                                        Pick one of the listed types.
+                                    </p>
+                                )}
                                 {worldTaskType === 'Custom' && (
                                     <input
                                         type="text"
@@ -1222,8 +1220,8 @@ export const FieldEditor: React.FC<Props> = ({
                             {worldTaskType === 'KitScan' && (
                                 <p className="mt-1 text-xs text-blue-600">
                                     Requires a player: equip and arrange the kit's items in your
-                                    inventory, then claim the displayed code in-game ("/knk
-                                    task-claim &lt;code&gt;" or "/knk kitscan claim &lt;code&gt;")
+                                    inventory, then claim the displayed task code in-game ("/knk
+                                    task &lt;code&gt;" or "/knk kitscan claim &lt;code&gt;")
                                     to capture armor, off-hand, main hand, and every inventory slot.
                                 </p>
                             )}

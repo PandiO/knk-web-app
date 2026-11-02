@@ -40,6 +40,12 @@ export interface WorldTaskCreateDto {
   taskType: string;
   assignedUserId?: number;
   inputJson?: string;
+  /** PandiO/knk-workspace#180: the draft whose field this task fills (DESIGN §8.7). */
+  formSubmissionProgressId?: number;
+}
+
+export interface CancelTaskDto {
+  reason?: string;
 }
 
 export interface ClaimTaskDto {
@@ -62,7 +68,8 @@ export interface WorldTaskReadDto {
   stepKey?: string;
   fieldName?: string;
   taskType: string;
-  status: string; // Pending, InProgress, Completed, Failed, Cancelled
+  status: string; // Pending, InProgress, Completed, Failed, Cancelled, Expired (#180)
+  /** The task code (the API column keeps the old name). */
   linkCode?: string;
   assignedUserId?: number;
   claimedByServerId?: string;
@@ -74,6 +81,21 @@ export interface WorldTaskReadDto {
   claimedAt?: string;
   updatedAt?: string;
   completedAt?: string;
+  // PandiO/knk-workspace#180
+  entityType?: string;
+  createdByUserId?: number;
+  claimedByUuid?: string;
+  claimedByUserId?: number;
+  /** Pending tasks expire at this time (30 min after create or release). */
+  expiresAt?: string;
+  /** A claim lasts until this time unless the game server renews it. */
+  leaseUntil?: string;
+  releaseCount?: number;
+  formSubmissionProgressId?: number;
+  /** When the result was written into the draft; a completed task without it is applied on reattach. */
+  appliedAt?: string;
+  targetUserId?: number;
+  offerState?: string;
 }
 
 export interface UpdateWorldTaskStatusRequest {

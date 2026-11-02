@@ -197,13 +197,13 @@ describe('WorldBoundFieldRenderer - Phase 7 E2E Tests', () => {
 
             fireEvent.click(screen.getByText(/Send to Minecraft/i));
 
-            expect(await screen.findByText('/knk task-claim K953ET')).toBeVisible();
+            expect(await screen.findByText('/knk task K953ET')).toBeVisible();
             fireEvent.click(screen.getByTitle('Copy Minecraft command'));
 
             await waitFor(() => {
-                expect(writeText).toHaveBeenCalledWith('/knk task-claim K953ET');
+                expect(writeText).toHaveBeenCalledWith('/knk task K953ET');
             });
-            expect(screen.getByTitle('Copy claim code')).toBeVisible();
+            expect(screen.getByTitle('Copy task code')).toBeVisible();
         });
     });
 

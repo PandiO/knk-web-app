@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { FormConfigurationDto, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
-import { workflowClient } from '../../apiClients/workflowClient';
+import { resolveWorkflowSessionId } from '../../utils/forms/worldTaskLifecycle';
 import { FormWizard } from './FormWizard';
 import { FeedbackModal } from '../FeedbackModal';
 import { findParentLinkField } from '../../utils/forms/findParentLinkField';
@@ -137,18 +137,16 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
         let cancelled = false;
 
         const createOwnSession = async () => {
-            try {
-                const cfgIdNum = defaultConfig.id ? parseInt(String(defaultConfig.id), 10) : undefined;
-                const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
-                const session = await workflowClient.createSession({
-                    formConfigurationId: cfgIdNum,
-                    entityTypeName,
-                    entityId: entityIdNum
-                });
-                if (!cancelled) setOwnWorkflowSessionId(session.id);
-            } catch (err) {
-                if (!cancelled) setOwnWorkflowSessionId(undefined);
-            }
+            // PandiO/knk-workspace#180 (DESIGN §8.7): a resumed child draft keeps its own workflow session.
+            const cfgIdNum = defaultConfig.id ? parseInt(String(defaultConfig.id), 10) : undefined;
+            const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
+            const sessionId = await resolveWorkflowSessionId({
+                progressId: existingProgressId,
+                formConfigurationId: cfgIdNum,
+                entityTypeName,
+                entityId: entityIdNum
+            });
+            if (!cancelled) setOwnWorkflowSessionId(sessionId);
         };
 
         void createOwnSession();
@@ -156,7 +154,7 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
         return () => {
             cancelled = true;
         };
-    }, [open, workflowSessionId, defaultConfig, entityTypeName, entityId]);
+    }, [open, workflowSessionId, defaultConfig, entityTypeName, entityId, existingProgressId]);
 
     const effectiveWorkflowSessionId = workflowSessionId ?? ownWorkflowSessionId;
 

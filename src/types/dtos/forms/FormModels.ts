@@ -157,6 +157,8 @@ export interface FormSubmissionProgressDto {
     childProgresses?: FormSubmissionProgressDto[];
     /** KNG-162: JSON array of what this root form's child forms created (utils/forms/createdEntities.ts). */
     createdEntitiesJson?: string | null;
+    /** PandiO/knk-workspace#180: the draft's workflow session (one per draft; resuming reuses it). */
+    workflowSessionId?: number | null;
 }
 
     // public class FormSubmissionProgressSummaryDto
