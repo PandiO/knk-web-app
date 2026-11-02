@@ -333,6 +333,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         return result;
     };
 
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const normalizeAllStepsData = (cfg: FormConfigurationDto, stepsData: AllStepsData): AllStepsData => {
         const normalized: AllStepsData = {};
         cfg.steps.forEach((step, idx) => {

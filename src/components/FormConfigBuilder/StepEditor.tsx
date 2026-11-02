@@ -143,6 +143,8 @@ export const StepEditor: React.FC<Props> = ({
         };
 
         void loadJoinConfigurations();
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step.isManyToManyRelationship, step.joinEntityType, step.subConfigurationId, onUpdate]);
 
     const manyToManyIssues = useMemo(() => getManyToManyStepIssues(step), [step]);
