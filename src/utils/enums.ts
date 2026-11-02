@@ -105,6 +105,8 @@ export enum Controllers {
     MinecraftCatalog = 'MinecraftCatalog',
     Workflows = 'Workflows',
     WorldTasks = 'WorldTasks',
+    // PandiO/knk-workspace#181: who is online in game (presence from the game hub)
+    Presence = 'Presence',
     GameSettings = 'GameSettings',
     FieldValidationRules = 'field-validation-rules',
     DisplayConfigurations = 'DisplayConfigurations',
