@@ -13,6 +13,10 @@ import { INVITATION_NODES } from '../types/dtos/invitations/InvitationDtos';
 import { NavLayout, pickNavLayout } from './navLayout';
 import { CreateNewMenu } from './CreateNewMenu';
 import { THEMES, selectTheme, themePickerVisible, useActiveTheme } from '../theme/themes';
+import { selectPageBackground, usePageBackground } from '../theme/pageBackground';
+
+// The theme picker's items and the background toggle (#95, #231).
+const PICKER_ITEM_CLASS = 'w-full text-left px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none flex items-center';
 
 // added: explicit types for object types prop
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -95,7 +99,11 @@ export function Navigation({ objectTypes }: Props) {
   // #95: the design-comparison theme picker, for staff only (players never see it).
   const showThemePicker = themePickerVisible(isStaff || canManageContent);
   const activeTheme = useActiveTheme();
-  const logoutItemIndex = showThemePicker ? THEMES.length + 1 : 1;
+  // #231: the page-background toggle sits under the themes, so the menu items run account, themes,
+  // background, log out.
+  const pageBackground = usePageBackground();
+  const pageBackgroundItemIndex = THEMES.length + 1;
+  const logoutItemIndex = showThemePicker ? THEMES.length + 2 : 1;
 
   const [navLayout, setNavLayout] = useState<NavLayout>('labels+title');
   const leftRef = useRef<HTMLDivElement>(null);
@@ -390,12 +398,26 @@ export function Navigation({ objectTypes }: Props) {
                             tabIndex={-1}
                             title={theme.description}
                             onClick={() => selectTheme(theme.id)}
-                            className="w-full text-left px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none flex items-center"
+                            className={PICKER_ITEM_CLASS}
                           >
                             <Check className={`h-4 w-4 mr-3 ${activeTheme === theme.id ? '' : 'invisible'}`} aria-hidden="true" />
                             {theme.label}
                           </button>
                         ))}
+                        {/* #231: landing image 1 behind every page, to compare; `?bg=on|off` does the same for one tab. */}
+                        <button
+                          ref={el => { accountItemRefs.current[pageBackgroundItemIndex] = el; }}
+                          type="button"
+                          role="menuitemcheckbox"
+                          aria-checked={pageBackground === 'on'}
+                          tabIndex={-1}
+                          title="Landing image 1 behind every page, with the page colours translucent over it"
+                          onClick={() => selectPageBackground(pageBackground === 'on' ? 'off' : 'on')}
+                          className={`${PICKER_ITEM_CLASS} mt-1 border-t border-line`}
+                        >
+                          <Check className={`h-4 w-4 mr-3 ${pageBackground === 'on' ? '' : 'invisible'}`} aria-hidden="true" />
+                          Background image
+                        </button>
                       </div>
                     )}
                     <button

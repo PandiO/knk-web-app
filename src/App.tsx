@@ -55,6 +55,7 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { CONTENT_PERMISSION_NODE, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE } from './hooks/useStaffAccess';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useEntityMetadata } from './hooks/useEntityMetadata';
+import { PageBackground } from './theme/PageBackground';
 
 function AppContent() {
   const objectTypes = Object.entries(objectConfigs).map(([type, config]) => ({
@@ -83,7 +84,10 @@ function AppContent() {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-100">
+      {/* #231: image 1 behind every page when the page background is on; `page-canvas` is the translucent
+          page backdrop over it (src/theme/pageBackground.css). Off by default: then nothing changes. */}
+      <PageBackground />
+      <div className="page-canvas min-h-screen bg-gray-100">
         {isLoggedIn && <Navigation objectTypes={objectTypes} />}
         <div className="pt-16 p-8">
           <div className="max-w-7xl mx-auto space-y-12">

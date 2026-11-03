@@ -111,6 +111,40 @@ const PAIRS: Array<[string, string, number, string]> = [
 const tokensCss = fs.readFileSync(path.join(__dirname, '..', 'tokens.css'), 'utf8');
 const themes = parseThemes(tokensCss);
 
+// ── #231: landing image 1 behind every page (pageBackground.css, data-page-bg="on") ──────────────────────
+// The layers over the image are translucent, so the colour behind a letter depends on the pixel under it.
+// Image 1 has both extremes (its darkest pixel is 0 0 5, its lightest 255 255 218), so every pair is checked
+// over pure black and pure white: then it holds wherever the text lands, and for another image too.
+const IMAGE_EXTREMES: Rgb[] = [[0, 0, 0], [255, 255, 255]];
+
+function alpha(vars: Record<string, string>, token: string): number {
+  const value = Number(vars[token]);
+  if (!vars[token] || Number.isNaN(value) || value < 0 || value > 1) {
+    throw new Error(`Token --${token} is not an alpha between 0 and 1: ${vars[token]}`);
+  }
+  return value;
+}
+
+/** `top` at `a` over `under`, per 8-bit channel as the browser composites it. */
+function over(top: Rgb, a: number, under: Rgb): Rgb {
+  return top.map((c, i) => Math.round(c * a + under[i] * (1 - a))) as Rgb;
+}
+
+/** Text straight on the page backdrop, after pageBackground.css's remap there (muted and the 500/600 greys take the
+ * 700 grey; links, border-primary and focus rings take --color-canvas-link; field borders the 700 grey). */
+const ON_CANVAS: Array<[string, number, string]> = [
+  ['color-fg', TEXT, 'body text and headings'],
+  ...['gray', 'slate'].flatMap(ramp => ['700', '800', '900'].map(step =>
+    [`${ramp}-${step}`, TEXT, `text-${ramp}-${step}; muted and ${ramp}-500/600 show as ${ramp}-700`] as [string, number, string])),
+  ['color-canvas-link', TEXT, 'links (text-primary)'],
+  ['color-canvas-link', UI, 'border-primary, ring-primary and focus rings'],
+  ['gray-700', UI, 'form field border against the backdrop'],
+];
+
+/** Dark backdrops fill the window in these themes (.public-full-bleed); pageBackground.css names the same three. */
+const DARK_BACKDROP_THEMES = ['brand', 'brand-red', 'proposal'];
+const isDark = (color: Rgb) => luminance(color) < 0.18;
+
 describe('design tokens (#95)', () => {
   it('defines a variable block for every theme the picker offers', () => {
     expect(Object.keys(themes).sort()).toEqual(THEMES.map(theme => theme.id).sort());
@@ -128,6 +162,53 @@ describe('design tokens (#95)', () => {
       const ratio = contrast(rgb(themes[name], fg), rgb(themes[name], bg));
       // Round down to two decimals, as contrast checkers report it.
       expect(Math.floor(ratio * 100) / 100).toBeGreaterThanOrEqual(minimum);
+    });
+  });
+
+  describe.each(Object.keys(themes))('theme %s with the page background on (#231)', name => {
+    const vars = themes[name];
+    const canvasAlpha = alpha(vars, 'page-bg-canvas-alpha');
+    const surfaceAlpha = alpha(vars, 'page-bg-surface-alpha');
+    const backdropAlpha = alpha(vars, 'page-bg-backdrop-alpha');
+    const canvas = IMAGE_EXTREMES.map(pixel => over(rgb(vars, 'color-canvas'), canvasAlpha, pixel));
+    const backdrop = rgb(vars, 'color-backdrop');
+    const ratio = (fg: string, bg: Rgb) => Math.floor(contrast(rgb(vars, fg), bg) * 100) / 100;
+
+    it('keeps the cards more opaque than the page backdrop', () => {
+      expect(surfaceAlpha).toBeGreaterThan(canvasAlpha);
+    });
+
+    it('has a dark full-window backdrop exactly in the themes pageBackground.css treats so', () => {
+      expect(isDark(backdrop)).toBe(DARK_BACKDROP_THEMES.includes(name));
+    });
+
+    it.each(ON_CANVAS)('--%s on the page backdrop passes %s:1 (%s)', (fg, minimum) => {
+      for (const bg of canvas) expect(ratio(fg, bg)).toBeGreaterThanOrEqual(minimum);
+    });
+
+    it('draws the field border on the backdrop at 3:1 against the white field too', () => {
+      expect(ratio('gray-700', rgb(vars, 'color-surface'))).toBeGreaterThanOrEqual(UI);
+    });
+
+    // A card on the page backdrop, or (light backdrop, `current`) on the auth backdrop inside it. On a dark
+    // backdrop the cards stay solid, which the pairs above already cover.
+    const cardUnders = isDark(backdrop)
+      ? canvas
+      : [...canvas, ...canvas.map(under => over(backdrop, backdropAlpha, under))];
+    const cards = cardUnders.map(under => over(rgb(vars, 'color-surface'), surfaceAlpha, under));
+    const onCard = PAIRS.filter(([, bg]) => bg === 'color-surface').map(([fg, , minimum, use]) => [fg, minimum, use] as [string, number, string]);
+    it.each(onCard)('--%s on a card passes %s:1 (%s)', (fg, minimum) => {
+      for (const bg of cards) expect(ratio(fg, bg)).toBeGreaterThanOrEqual(minimum);
+    });
+
+    it('keeps the text on the auth backdrop readable', () => {
+      // Dark: straight on the image, and over the page backdrop where :has() is missing. Light: inside it.
+      const unders = isDark(backdrop) ? [...IMAGE_EXTREMES, ...canvas] : canvas;
+      for (const under of unders) {
+        const bg = over(backdrop, backdropAlpha, under);
+        expect(ratio('color-backdrop-fg', bg)).toBeGreaterThanOrEqual(TEXT);
+        if (!isDark(backdrop)) for (const [fg, minimum] of ON_CANVAS) expect(ratio(fg, bg)).toBeGreaterThanOrEqual(minimum);
+      }
     });
   });
 

@@ -1,0 +1,103 @@
+/*
+ * Page background (PandiO/knk-workspace#231): landing image 1 behind every page.
+ *
+ * Only with data-page-bg="on" on <html> (pageBackground.ts: off by default; the toggle sits next to the theme
+ * picker, or `?bg=on`). Image 1 is a fixed layer behind #root (PageBackground.tsx), and the colours that
+ * cover it today become translucent, per theme (the alphas are tokens in tokens.css):
+ * - the page backdrop (`.page-canvas`, App's grey page colour) at --page-bg-canvas-alpha;
+ * - cards, panels, tables and secondary buttons (bg-white, bg-surface, .panel) at --page-bg-surface-alpha;
+ * - the auth backdrop (bg-backdrop) at --page-bg-backdrop-alpha.
+ * The rest keeps its solid colour: the quiet blocks (gray-50, surface-alt, table heads), the status tints and
+ * the navigation bar (already bg-nav/95). Solid on purpose: form fields, menus, list boxes, dialogs, tooltips
+ * and anything positioned (absolute, fixed, sticky), because other content scrolls under or sits behind them.
+ *
+ * Tailwind's background classes read --tw-bg-opacity, so setting it is enough: 0,3,0 beats the classes' own
+ * `--tw-bg-opacity: 1` (0,1,0). __tests__/contrast.test.ts checks the text on every layer over the image's
+ * darkest and lightest pixel.
+ *
+ * A file of its own, not in index.css: Tailwind's @apply there copies every rule that names an applied
+ * class (bg-surface, the body's grey) onto the class that applies it (.panel, .btn-secondary, body).
+ */
+:root[data-page-bg="on"] :is(.bg-white, .bg-surface, .panel) {
+  --tw-bg-opacity: var(--page-bg-surface-alpha);
+}
+:root[data-page-bg="on"] .bg-backdrop {
+  --tw-bg-opacity: var(--page-bg-backdrop-alpha);
+}
+:root[data-page-bg="on"] :is(input, select, textarea, .absolute, .fixed, .sticky, [role="menu"], [role="listbox"], [role="dialog"], [role="tooltip"]):is(.bg-white, .bg-surface, .panel),
+:root[data-page-bg="on"] :is(.fixed, [role="menu"], [role="listbox"], [role="dialog"], [aria-modal="true"]) :is(.bg-white, .bg-surface, .panel) {
+  --tw-bg-opacity: 1;
+}
+
+/* Text straight on the page backdrop. At 75 % over the darkest part of the image the backdrop is a mid grey,
+   where the mid-tone greys, the muted text and the theme's link colour fall below 4.5:1. There they take the
+   theme's own 700 grey and --color-canvas-link; field borders the 700 grey (3:1 against the backdrop and the
+   white field). Inside a card, menu, field or anything positioned, the theme's own values come back (the
+   --page-bg-keep-* copies); on the solid quiet blocks (gray-50 and the like) the darker values stay, which
+   only adds contrast. Status colours (danger, success, ...) are not remapped: their messages sit in
+   cards or in the solid alert tints. */
+:root[data-page-bg="on"] {
+  --page-bg-keep-muted: var(--color-muted);
+  --page-bg-keep-gray-500: var(--gray-500);
+  --page-bg-keep-gray-600: var(--gray-600);
+  --page-bg-keep-slate-500: var(--slate-500);
+  --page-bg-keep-slate-600: var(--slate-600);
+  --page-bg-keep-primary-text: var(--color-primary-text);
+  --page-bg-keep-primary-text-dark: var(--color-primary-text-dark);
+  --page-bg-keep-primary-line: var(--color-primary-line);
+  --page-bg-keep-focus: var(--color-focus);
+  --page-bg-keep-field: var(--color-field);
+}
+:root[data-page-bg="on"] .page-canvas {
+  --tw-bg-opacity: var(--page-bg-canvas-alpha);
+  --color-muted: var(--gray-700);
+  --gray-500: var(--gray-700);
+  --gray-600: var(--gray-700);
+  --slate-500: var(--slate-700);
+  --slate-600: var(--slate-700);
+  --color-primary-text: var(--color-canvas-link);
+  --color-primary-text-dark: var(--color-canvas-link);
+  --color-primary-line: var(--color-canvas-link);
+  --color-focus: var(--color-canvas-link);
+  --color-field: var(--gray-700);
+}
+:root[data-page-bg="on"] .page-canvas :is(.bg-white, .bg-surface, .panel, .absolute, .fixed, .sticky, [role="menu"], [role="listbox"], [role="dialog"]):not(.min-h-screen),
+:root[data-page-bg="on"]:is([data-theme="brand"], [data-theme="brand-red"], [data-theme="proposal"]) .page-canvas .bg-backdrop {
+  --color-muted: var(--page-bg-keep-muted);
+  --gray-500: var(--page-bg-keep-gray-500);
+  --gray-600: var(--page-bg-keep-gray-600);
+  --slate-500: var(--page-bg-keep-slate-500);
+  --slate-600: var(--page-bg-keep-slate-600);
+  --color-primary-text: var(--page-bg-keep-primary-text);
+  --color-primary-text-dark: var(--page-bg-keep-primary-text-dark);
+  --color-primary-line: var(--page-bg-keep-primary-line);
+  --color-focus: var(--page-bg-keep-focus);
+  --color-field: var(--page-bg-keep-field);
+}
+/* A field on the backdrop is solid white: its text and placeholder are the theme's own again, while its
+   border and focus ring (drawn against the backdrop) keep the darker values. */
+:root[data-page-bg="on"] .page-canvas :is(input, select, textarea) {
+  --color-muted: var(--page-bg-keep-muted);
+  --gray-500: var(--page-bg-keep-gray-500);
+  --gray-600: var(--page-bg-keep-gray-600);
+  --slate-500: var(--page-bg-keep-slate-500);
+  --slate-600: var(--page-bg-keep-slate-600);
+  --color-primary-text: var(--page-bg-keep-primary-text);
+}
+
+/* Pages that paint their own full-height page colour (account and admin pages: a full-height gray-50 or
+   surface-alt) let the page backdrop show instead, or the image would vanish behind them. */
+:root[data-page-bg="on"] .page-canvas .min-h-screen:is(.bg-gray-50, .bg-slate-50, .bg-surface-alt) {
+  --tw-bg-opacity: 0;
+}
+
+/* In brand, brand-red and proposal the auth pages' dark backdrop fills the window (.public-full-bleed, fixed),
+   so it sits straight on the image (black at 75 %, image 1 showing through): the page backdrop under it turns
+   transparent. The cards on that dark backdrop stay solid: a white card at 88 % over black makes gray-500 text
+   only 3.7:1. Browsers without :has() keep the page backdrop under it; the text still passes. */
+:root[data-page-bg="on"]:is([data-theme="brand"], [data-theme="brand-red"], [data-theme="proposal"]) .page-canvas:has(.public-full-bleed) {
+  --tw-bg-opacity: 0;
+}
+:root[data-page-bg="on"]:is([data-theme="brand"], [data-theme="brand-red"], [data-theme="proposal"]) .bg-backdrop :is(.bg-white, .bg-surface, .panel) {
+  --tw-bg-opacity: 1;
+}

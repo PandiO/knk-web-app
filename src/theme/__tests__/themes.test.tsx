@@ -129,16 +129,16 @@ describe('theme picker in the account menu (#95)', () => {
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('brand');
   });
 
-  it('keeps the arrow-key order: account, the themes, log out', () => {
+  it('keeps the arrow-key order: account, the themes, the background toggle (#231), log out', () => {
     asUser(true);
     openAccountMenu();
     const menu = screen.getByRole('menu');
     expect(document.activeElement).toHaveTextContent('Account settings');
     const seen: string[] = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       fireEvent.keyDown(menu, { key: 'ArrowDown' });
       seen.push(document.activeElement?.textContent ?? '');
     }
-    expect(seen).toEqual(['Current', 'Brand', 'Brand (red)', 'Proposal', 'Log out']);
+    expect(seen).toEqual(['Current', 'Brand', 'Brand (red)', 'Proposal', 'Background image', 'Log out']);
   });
 });
