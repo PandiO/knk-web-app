@@ -490,7 +490,7 @@ const ObjectTypeExplorer = ({
                 )}
                 {favouriteItems.length > 0 && (
                   // #225: the full list follows the favourites, starred types included.
-                  <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted">
                     All entity types
                   </h3>
                 )}
