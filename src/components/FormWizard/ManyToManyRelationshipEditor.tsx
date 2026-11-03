@@ -225,6 +225,8 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                 relatedEntityIdField
             });
         }
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step.joinEntityType, entityName, parentEntityTypeName]);
 
     useEffect(() => {

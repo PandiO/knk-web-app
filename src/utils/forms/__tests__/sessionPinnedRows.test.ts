@@ -195,7 +195,8 @@ describe('sessionPinnedRows (KNG-136)', () => {
         });
 
         it('drops duplicate and id-less pinned rows', () => {
-            const section = buildPinnedSection(
+            // Mixed row shapes on purpose, so the rows are typed loosely (PandiO/knk-workspace#63).
+            const section = buildPinnedSection<Record<string, unknown>>(
                 [...pins, { key: 'dup', row: { id: 501, name: 'again' } }, { key: 'concept:1', row: { name: 'no id' } }],
                 [],
                 '',

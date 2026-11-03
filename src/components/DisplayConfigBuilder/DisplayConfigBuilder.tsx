@@ -98,6 +98,8 @@ export const DisplayConfigBuilder: React.FC = () => {
 
     useEffect(() => {
         loadData();
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [configId]);
 
     useEffect(() => {

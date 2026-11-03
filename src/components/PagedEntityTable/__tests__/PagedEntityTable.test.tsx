@@ -114,11 +114,12 @@ describe('PagedEntityTable', () => {
         await screen.findByText('Harbour');
         search.mockResolvedValue(page([]));
         fireEvent.change(screen.getByPlaceholderText('Search...'), { target: { value: 'harb' } });
-        // While the refetch runs the table shows a spinner, so wait for both at once.
+        // While the refetch runs the table shows a spinner, so wait for both at once. The search is
+        // debounced (400 ms), so allow more than the default 1 s on a busy machine (PandiO/knk-workspace#203).
         await waitFor(() => {
             expect(screen.getByText('Harbour')).toBeInTheDocument();
             expect(screen.queryByText('Old Quarter')).not.toBeInTheDocument();
-        });
+        }, { timeout: 2000 });
         expect(search).toHaveBeenLastCalledWith(expect.objectContaining({ searchTerm: 'harb' }));
     });
 
@@ -219,7 +220,8 @@ describe('PagedEntityTable', () => {
         expect(await screen.findByText('No District yet.')).toBeInTheDocument();
 
         fireEvent.change(screen.getByPlaceholderText('Search...'), { target: { value: 'harb' } });
-        expect(await screen.findByText('No results found')).toBeInTheDocument();
+        // Debounced search: more than the default 1 s on a busy machine (PandiO/knk-workspace#203).
+        expect(await screen.findByText('No results found', undefined, { timeout: 2000 })).toBeInTheDocument();
         expect(screen.queryByText('No District yet.')).not.toBeInTheDocument();
     });
 

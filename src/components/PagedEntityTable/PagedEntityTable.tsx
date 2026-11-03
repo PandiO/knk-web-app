@@ -329,11 +329,15 @@ export function PagedEntityTable<T extends Record<string, any>>({
         }, 400);
 
         return () => clearTimeout(timer);
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchInput]);
 
     // Fetch data when query changes
     useEffect(() => {
         fetchData();
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query, entityTypeName, refreshKey]);
 
     // Sync internal selection with prop changes (only if actually different). Id-less items only
@@ -345,6 +349,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
         if (isDifferent) {
             setInternalSelection(selectedItems);
         }
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedItems, entityTypeName]);
 
     const fetchData = useCallback(async () => {

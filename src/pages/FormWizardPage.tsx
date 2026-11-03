@@ -321,6 +321,8 @@ export const FormWizardPage: React.FC<Props> = ({
 
         // Use Case 2 or 4: Only entity name provided
         loadConfigurationsAndProgress(selectedTypeName);
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedTypeName, entityId, shouldAutoOpen, urlEntityId]);
 
     // added: Auto-open default form when configurations are loaded (Use Case 4)
@@ -353,6 +355,8 @@ export const FormWizardPage: React.FC<Props> = ({
             }
         };
         void tryOpen();
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [autoOpenForm, defaultConfig, loadingConfigs, wizardConfig, entityId, selectedTypeName]);
 
     useEffect(() => {

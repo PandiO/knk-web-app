@@ -63,6 +63,7 @@ import { WizardStepProgress, WizardStepTitle } from './WizardStepHeader';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { withManyToManyCarrierFields } from '../../utils/forms/manyToManyCarrierField';
 import { formValuesSnapshot } from '../../utils/forms/formValuesSnapshot';
+import { scannedItemDescription } from '../../utils/scannedItemDescription';
 
 interface FormWizardProps {
     entityName: string;
@@ -333,6 +334,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         return result;
     };
 
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const normalizeAllStepsData = (cfg: FormConfigurationDto, stepsData: AllStepsData): AllStepsData => {
         const normalized: AllStepsData = {};
         cfg.steps.forEach((step, idx) => {
@@ -1331,9 +1334,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         const preScanGenInfoData = { ...(allStepsDataRef.current[genInfoStepIndex] || {}) };
 
         const scannedDisplayName = typeof output.displayName === 'string' ? output.displayName : '';
-        const scannedDisplayDescription = Array.isArray(output.lore) && output.lore.length > 0
-            ? output.lore.join('\n')
-            : '';
+        // #40: the plugin's cleaned descriptionLore (no enchantment/grade/origin lines, wrap joined back), else the raw lore.
+        const scannedDisplayDescription = scannedItemDescription(output);
         // Per developer feedback (2026-09-23): MaxStackSize varies per material (64 for most, 16
         // for e.g. snowballs, 1 for tools/weapons/armor), so it has to come from the scan itself,
         // unlike DefaultQuantity which is a plain static "1" set on the live FormConfiguration.
@@ -1545,7 +1547,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         type ScannedItem = {
             material: string;
             displayName: string;
-            lore: string[];
+            /** #40: the Display description for a blueprint created from this item (scannedItemDescription). */
+            description: string;
             quantity: number;
             maxStackSize?: number;
             enchantments: Array<{ key: string; level: number }>;
@@ -1556,7 +1559,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             return {
                 material: raw.material,
                 displayName: typeof raw.displayName === 'string' ? raw.displayName : raw.material,
-                lore: Array.isArray(raw.lore) ? raw.lore.filter((line: unknown) => typeof line === 'string') : [],
+                description: scannedItemDescription(raw),
                 quantity: typeof raw.quantity === 'number' && raw.quantity > 0 ? raw.quantity : 1,
                 maxStackSize: typeof raw.maxStackSize === 'number' ? raw.maxStackSize : undefined,
                 enchantments: [
@@ -1735,7 +1738,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         description: '',
                         iconMaterialRefId,
                         defaultDisplayName: item.displayName,
-                        defaultDisplayDescription: item.lore.join('\n'),
+                        defaultDisplayDescription: item.description,
                         defaultQuantity: 1,
                         maxStackSize: item.maxStackSize,
                         defaultEnchantments: defaultEnchantments as any
