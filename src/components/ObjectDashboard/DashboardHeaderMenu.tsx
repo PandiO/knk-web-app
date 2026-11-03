@@ -5,6 +5,8 @@ export type DashboardMenuItem = {
     label: React.ReactNode;
     /** A second, muted line (e.g. a draft's step and date). */
     detail?: React.ReactNode;
+    /** Hover text; defaults to the label and detail when they are strings. */
+    title?: string;
     onSelect: () => void;
 };
 
@@ -26,6 +28,8 @@ type Props = {
  * #177 follow-up: a small menu next to the dashboard's "New {Type}" button ("Drafts (n)", "New with").
  * A list of buttons in a popover: ArrowUp/ArrowDown move between them, Escape and a click outside
  * close it (Escape gives the focus back to the button).
+ * Labels wrap instead of being cut off (configuration names often differ only at the end) and every
+ * item carries its full text as a hover title (developer test 2026-11-03).
  */
 export const DashboardHeaderMenu: React.FC<Props> = ({ button, buttonClassName, buttonLabel, heading, items, footer, testId }) => {
     const [open, setOpen] = useState(false);
@@ -33,6 +37,9 @@ export const DashboardHeaderMenu: React.FC<Props> = ({ button, buttonClassName, 
     const buttonRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const menuId = useId();
+
+    const itemTitle = (item: DashboardMenuItem) => item.title
+        ?? ([item.label, item.detail].filter(part => typeof part === 'string' && part !== '').join('\n') || undefined);
 
     const focusables = () => Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>('button') ?? []);
 
@@ -95,7 +102,7 @@ export const DashboardHeaderMenu: React.FC<Props> = ({ button, buttonClassName, 
                     id={menuId}
                     ref={listRef}
                     onKeyDown={onKeyDown}
-                    className="absolute right-0 z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5"
+                    className="absolute right-0 z-20 mt-2 w-max min-w-[18rem] max-w-[min(28rem,calc(100vw-2rem))] rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5"
                 >
                     <p className="border-b border-gray-100 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
                         {heading}
@@ -106,10 +113,11 @@ export const DashboardHeaderMenu: React.FC<Props> = ({ button, buttonClassName, 
                                 <button
                                     type="button"
                                     onClick={() => select(item.onSelect)}
+                                    title={itemTitle(item)}
                                     className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-100 focus:outline-none"
                                 >
-                                    <span className="block truncate font-medium text-gray-900">{item.label}</span>
-                                    {item.detail && <span className="block truncate text-xs text-gray-500">{item.detail}</span>}
+                                    <span className="block whitespace-normal break-words font-medium text-gray-900">{item.label}</span>
+                                    {item.detail && <span className="block whitespace-normal break-words text-xs text-gray-500">{item.detail}</span>}
                                 </button>
                             </li>
                         ))}

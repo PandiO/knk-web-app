@@ -530,6 +530,32 @@ describe('ObjectDashboard "Drafts (n)" and "New with" (#177 follow-up)', () => {
         expect(mockNavigate).toHaveBeenLastCalledWith('/forms/Street?configId=9&returnTo=%2Fdashboard%2FStreet%3Fpage%3D2');
     });
 
+    it('shows long configuration names in full, wrapped, with the full name on hover (developer test 2026-11-03)', async () => {
+        const longName = 'Street with district, town and gate links - imported from the old world map, east bank';
+        getFormConfigs.mockResolvedValue([
+            formConfig('1', 'Street form', true),
+            { ...formConfig('7', longName, false), description: 'Only for streets crossing a district border' },
+        ]);
+        getDrafts.mockResolvedValue([{ ...draft('d1', 'InProgress', '2026-10-29T10:00:00Z'), formConfigurationName: longName }]);
+        render(<ObjectDashboard objectTypes={[]} />);
+
+        fireEvent.click(await screen.findByRole('button', { name: 'New Street with another form' }));
+        const option = within(screen.getByRole('list', { name: 'New with' })).getAllByRole('button')[0];
+        expect(option).toHaveTextContent(longName);
+        const label = within(option).getByText(longName);
+        expect(label).not.toHaveClass('truncate');
+        expect(label).toHaveClass('whitespace-normal');
+        expect(option).toHaveAttribute('title', `${longName}\nOnly for streets crossing a district border`);
+        // Keyboard navigation still reaches it.
+        expect(option).toHaveFocus();
+        fireEvent.keyDown(option, { key: 'Escape' });
+
+        fireEvent.click(await screen.findByRole('button', { name: /^Drafts \(1\)/ }));
+        const draftItem = within(screen.getByRole('list', { name: 'Resume a draft' })).getAllByRole('button')[0];
+        expect(within(draftItem).getByText(longName)).not.toHaveClass('truncate');
+        expect(draftItem.getAttribute('title')).toMatch(new RegExp(`^${longName}\nStep 2 · In progress`));
+    });
+
     it('lists the open drafts of this type, newest first, and resumes one', async () => {
         getDrafts.mockResolvedValue([
             draft('d1', 'InProgress', '2026-10-29T10:00:00Z'),
