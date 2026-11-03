@@ -1141,9 +1141,13 @@ export const FormWizardPage: React.FC<Props> = ({
                     {showWizard && wizardConfig && selectedTypeName && (
                         <Breadcrumbs trail={breadcrumbTrail} onNavigate={handleBreadcrumbNavigate} className="mb-4" />
                     )}
-                    <div className="mb-4">
-                        <EntityMetadataNavigator metadata={selectedEntityMetadata} />
-                    </div>
+                    {/* #227: the type overview (fields list) belongs to the setup lists; above an open
+                        form it read like debug output, so the breadcrumb sits right above the form. */}
+                    {!showWizard && (
+                        <div className="mb-4">
+                            <EntityMetadataNavigator metadata={selectedEntityMetadata} />
+                        </div>
+                    )}
 
                     {selectedTypeName && !showWizard && (
                         <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-4">
