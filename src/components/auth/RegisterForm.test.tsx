@@ -120,6 +120,23 @@ describe('RegisterForm', () => {
     expect(field).toHaveValue('ABCD-O1L2');
   });
 
+  it('centres the link-code step like /link and keeps the email and password step left-aligned (#229 fix round)', async () => {
+    mockedValidate.mockResolvedValue({ isValid: true, username: 'Steve' });
+    render(<RegisterForm />);
+
+    expect(screen.getByRole('heading', { name: /enter your link code/i })).toHaveClass('text-center');
+    const step = screen.getByTestId('link-code-step');
+    expect(step).toHaveClass('text-center');
+    expect(step).toContainElement(screen.getByTestId('link-code'));
+    expect(step).toContainElement(screen.getByText(/adds the dash itself/));
+    expect(screen.getByRole('button', { name: /check code/i })).toHaveClass('w-full');
+
+    await enterCode('ABCD1234');
+    expect(await screen.findByRole('heading', { name: /choose your email and password/i })).not.toHaveClass('text-center');
+    expect(screen.getByRole('button', { name: /create account/i })).not.toHaveClass('w-full');
+    expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument();
+  });
+
   it('checks a valid /account link code without asking about claim codes (#229)', async () => {
     mockedValidate.mockResolvedValue({ isValid: true, username: 'Steve' });
     render(<RegisterForm />);
@@ -289,6 +306,14 @@ describe('RegisterForm with invitations on (Mode=Invite, 2026-10-25)', () => {
     render(<RegisterForm />);
     return screen.findByTestId('invite-mode');
   }
+
+  it('centres the invitation step too (#229 fix round)', async () => {
+    await openInviteStep();
+
+    expect(screen.getByTestId('invite-mode')).toHaveClass('text-center');
+    expect(screen.getByRole('heading', { name: /sign up with your invitation/i })).toHaveClass('text-center');
+    expect(screen.getByTestId('invite-entry')).toHaveClass('text-center');
+  });
 
   it('opens on the invitation step and folds the link-code form away', async () => {
     const step = await openInviteStep();

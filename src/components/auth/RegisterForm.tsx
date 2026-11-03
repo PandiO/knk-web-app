@@ -295,7 +295,13 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
       {showLinkCodePath && <FormStepper steps={STEPS} currentStep={currentStep} />}
 
       <div className="mt-6 sm:mt-8 mb-6 sm:mb-8">
-        <h2 ref={stepHeadingRef} tabIndex={-1} className="text-xl font-semibold text-fg mb-4 focus:outline-none">
+        {/* #229 fix round: the code steps (and Done) are centred like /link and the page heading; the email and
+            password step keeps its left-aligned form. */}
+        <h2
+          ref={stepHeadingRef}
+          tabIndex={-1}
+          className={`text-xl font-semibold text-fg mb-4 focus:outline-none${currentStep === 1 ? '' : ' text-center'}`}
+        >
           {currentStep === 0 && (showLinkCodePath ? 'Enter your link code' : 'Sign up with your invitation')}
           {currentStep === 1 && 'Choose your email and password'}
           {currentStep === 2 && 'You’re all set'}
@@ -317,7 +323,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
         )}
 
         {currentStep === 0 && inviteSignup && !linkCodePathOpen && (
-          <div className="space-y-4" data-testid="invite-mode">
+          <div className="space-y-4 text-center" data-testid="invite-mode">
             <div className="rounded-lg border border-warning-line bg-warning-soft p-4 text-sm text-warning-strong">
               <p className="font-medium">Knights &amp; Kings is invite-only right now.</p>
               <p className="mt-1">
@@ -343,14 +349,14 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
                   setInviteEntryError(null);
                 }}
                 placeholder={`KNK-XXXXX-XXXXX or ${CLAIM_CODE_EXAMPLE}`}
-                className={`w-full px-4 py-2 border rounded-lg font-mono tracking-wider focus:outline-none focus:ring-2 ${
+                className={`w-full px-4 py-2 border rounded-lg font-mono tracking-wider text-center focus:outline-none focus:ring-2 ${
                   inviteEntryError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
                 }`}
                 aria-invalid={!!inviteEntryError}
                 aria-describedby={inviteEntryError ? 'invite-entry-error' : undefined}
               />
               {inviteEntryError && (
-                <p id="invite-entry-error" className="field-error mt-1 text-sm" role="alert">{inviteEntryError}</p>
+                <p id="invite-entry-error" className="field-error mt-1 justify-center text-sm" role="alert">{inviteEntryError}</p>
               )}
             </div>
             <button type="submit" disabled={isBusy} className="w-full btn-primary disabled:opacity-50">
@@ -367,7 +373,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
         )}
 
         {currentStep === 0 && showLinkCodePath && (
-          <div className="space-y-4">
+          <div className="space-y-4 text-center" data-testid="link-code-step">
             {inviteSignup && (
               <p className="text-sm text-gray-600" data-testid="grandfathered-note">
                 For players from before the invitations. New here?{' '}
@@ -408,7 +414,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
                 The {LINK_CODE_LENGTH} letters and digits; the field adds the {CLAIM_CODE_SEPARATOR_NAME} itself.
               </p>
               {errors.linkCode && (
-                <p id="link-code-error" className="field-error mt-1 text-sm" role="alert">
+                <p id="link-code-error" className="field-error mt-1 justify-center text-sm" role="alert">
                   {errors.linkCode}
                 </p>
               )}
@@ -476,8 +482,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
       </div>
 
       {currentStep < 2 && showLinkCodePath && (
-        <div className="flex flex-col-reverse sm:flex-row gap-4 justify-between">
-          {currentStep === 1 ? (
+        // #229 fix round: on the code step one full-width button, like /link; Back + Create account on the next.
+        <div className={currentStep === 0 ? 'flex' : 'flex flex-col-reverse sm:flex-row gap-4 justify-between'}>
+          {currentStep === 1 && (
             <button
               type="button"
               onClick={startOver}
@@ -487,13 +494,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
               <ChevronLeft className="h-5 w-5" aria-hidden="true" />
               Back
             </button>
-          ) : (
-            <span />
           )}
           <button
             type="submit"
             disabled={isBusy}
-            className="flex items-center justify-center gap-2 px-6 py-2 text-base rounded-lg font-medium bg-primary text-primary-fg hover:bg-primary-dark shadow-md disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+            className={`${currentStep === 0 ? 'w-full ' : ''}flex items-center justify-center gap-2 px-6 py-2 text-base rounded-lg font-medium bg-primary text-primary-fg hover:bg-primary-dark shadow-md disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary`}
           >
             {isBusy && (
               <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" aria-hidden="true" />
