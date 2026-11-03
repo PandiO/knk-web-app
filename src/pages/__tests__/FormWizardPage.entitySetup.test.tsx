@@ -110,6 +110,8 @@ describe('FormWizardPage as Entity setup (#177 link 2)', () => {
         await screen.findByText('wizard');
         expect(screen.queryByText('(Category)')).not.toBeInTheDocument();
         expect(screen.queryByText('0 fields')).not.toBeInTheDocument();
+        // Fix round: the breadcrumb sits in the form card's centred column (FormWizard: max-w-4xl mx-auto).
+        expect(breadcrumb()).toHaveClass('mx-auto', 'max-w-4xl');
         unmount();
 
         // New from the dashboard: the same.
