@@ -101,7 +101,7 @@
 
 /* ── brand: the 2020 styleguide (docs/vision/brand/huisstijlhandboek.pdf) ───────────────────────────
    Orange #F29100 leads (buttons, the call to action, the active nav item) with black text (white on orange is
-   2.4:1); brand red #BE1622 is an accent (the line under the bar) and no longer the primary, so primary and
+   2.4:1); brand red #BE1622 is no longer the primary (it is the danger colour, and the primary of `brand-red`), so primary and
    danger differ (2026-11-03). Black carries the navigation and the public backdrop, charcoal #353535 is the dark
    neutral. Headings in Enchanted Land, the guide's own heading font. Neutral ramps are pure greys around charcoal. Info has no brand blue, so it goes charcoal.
    Danger stays red: brand red and error red are close, so every danger state has an icon and text. */
@@ -145,7 +145,7 @@
   --color-nav-fg: 255 255 255;
   --color-nav-muted: 200 200 200;
   --color-nav-hover: 38 38 38;
-  --color-nav-line: 190 22 34;       /* brand red stays as the accent: the line under the black bar */
+  --color-nav-line: 38 38 38;        /* the bar's bottom edge: no red line (it read as an outline, 2026-11-03) */
   --color-nav-accent: 242 145 0;     /* orange on black: 8.8:1 */
   --color-nav-focus: 242 145 0;        /* focus rings on the bar's own controls */
   --color-nav-action: 242 145 0;       /* Create New in the bar */

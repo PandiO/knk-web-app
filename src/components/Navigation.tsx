@@ -221,8 +221,10 @@ export function Navigation({ objectTypes }: Props) {
     }
   };
 
+  // The bar: bottom border only and square corners. `.panel` (a border on every side, rounded) showed as an
+  // outline and light corner notches on the dark bars (#95, 2026-11-03).
   return (
-    <nav className="panel fixed w-full top-0 z-50 border-b border-nav-line bg-nav/95 backdrop-blur">
+    <nav className="fixed w-full top-0 z-50 border-b border-nav-line bg-nav/95 shadow-sm backdrop-blur">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 justify-between gap-4">
           <div ref={leftRef} className="relative flex min-w-0 flex-1 items-center gap-4">
