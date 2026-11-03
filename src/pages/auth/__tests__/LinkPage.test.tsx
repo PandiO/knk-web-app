@@ -53,6 +53,33 @@ describe('LinkPage (/link)', () => {
     expect(loadPendingClaim()).toBeNull();
   });
 
+  it('centres all the text of the card while the code entry is all it holds (#228)', async () => {
+    checkClaim.mockResolvedValue({ valid: false });
+    render(<LinkPage />);
+
+    const entry = screen.getByTestId('claim-code-entry');
+    expect(entry).toHaveClass('text-center');
+    expect(entry).toContainElement(screen.getByText('Code from the server'));
+    expect(entry).toContainElement(screen.getByText(/adds the dash itself/));
+    expect(entry).toContainElement(screen.getByText(/disconnect screen/));
+
+    await userEvent.type(screen.getByLabelText('Code from the server'), 'zzzzzzzz');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByRole('alert')).toHaveClass('text-center');
+  });
+
+  it('keeps the verified step left-aligned: it holds more than the code entry (#228)', async () => {
+    checkClaim.mockResolvedValue({ valid: true, minecraftName: 'Steve', expiresAt: inAMinute() });
+    render(<LinkPage />);
+
+    await userEvent.type(screen.getByLabelText('Code from the server'), 'k7qhm2xa');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await screen.findByText(/Verified: Minecraft account/);
+    expect(screen.queryByTestId('claim-code-entry')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Already have an account?' }).closest('.text-center')).toBeNull();
+  });
+
   // 2026-10-25: the register page sends a claim code typed into its link-code field here.
   it('checks a code from the URL at once and drops it from the address bar', async () => {
     mockSearch = '?code=K7QH-M2XA';

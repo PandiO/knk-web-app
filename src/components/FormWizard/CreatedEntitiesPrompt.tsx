@@ -119,7 +119,7 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
                                     {note && <p className="mt-2 text-xs text-muted">{note}</p>}
                                 </>
                             )}
-                            {error && <p className="field-error mt-2 text-sm -strong" role="alert">{error}</p>}
+                            {error && <p className="mt-2 text-sm text-danger-strong" role="alert">{error}</p>}
                         </div>
                     </div>
                     {phase === 'choose' && (

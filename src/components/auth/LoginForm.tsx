@@ -126,7 +126,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
               </svg>
             </div>
             <div className="ml-3">
-              <p className="field-error text-sm font-medium -strong">
+              <p className="text-sm font-medium text-danger-strong">
                 {errors.general}
               </p>
             </div>

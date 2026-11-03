@@ -315,8 +315,8 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                             />
                         </label>
                         {fileState && <span className="ml-3 text-sm text-gray-600">{fileState.fileName}</span>}
-                        {fileState?.readError && <p className="field-error mt-2 text-sm -strong" role="alert">{fileState.readError}</p>}
-                        {fileError && <p className="field-error mt-2 text-sm -strong" role="alert">{fileError}</p>}
+                        {fileState?.readError && <p className="mt-2 text-sm text-danger-strong" role="alert">{fileState.readError}</p>}
+                        {fileError && <p className="mt-2 text-sm text-danger-strong" role="alert">{fileError}</p>}
                         {busy === 'file' && <Loader2 className="ml-2 inline h-4 w-4 animate-spin text-muted" aria-label="Working" />}
                         {fileState?.result && (
                             <ImportResultView result={fileState.result} label="File import result" describe={adapter.describeResult} counts={adapter.describeCounts} />
@@ -339,7 +339,7 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                         </div>
                         <p className="text-xs text-muted">{adapter.seedsHint}</p>
                         {seeds === null && <Loader2 className="mt-2 h-4 w-4 animate-spin text-muted" aria-label="Loading seeds" />}
-                        {seedsError && <p className="field-error mt-2 text-sm -strong" role="alert">{seedsError}</p>}
+                        {seedsError && <p className="mt-2 text-sm text-danger-strong" role="alert">{seedsError}</p>}
                         {seeds !== null && visibleSeeds.length === 0 && !seedsError && (
                             <p className="mt-2 text-sm text-muted">
                                 {entityTypeName && !showAllSeeds ? `No bundled seeds for ${entityTypeName}.` : 'No bundled seeds.'}
@@ -386,8 +386,8 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                                                 )}
                                             </div>
                                         </div>
-                                        {seed.error && <p className="field-error mt-1 text-xs -strong">{seed.error}</p>}
-                                        {state?.error && <p className="field-error mt-1 text-sm -strong" role="alert">{state.error}</p>}
+                                        {seed.error && <p className="mt-1 text-xs text-danger-strong">{seed.error}</p>}
+                                        {state?.error && <p className="mt-1 text-sm text-danger-strong" role="alert">{state.error}</p>}
                                         {state?.result && (
                                             <ImportResultView
                                                 result={state.result}
