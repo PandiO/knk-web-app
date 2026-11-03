@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronDown, Clock, Eye, Pencil, Plus, Settings, Trash2 } from 'lucide-react';
-import ObjectTypeExplorer from '../ObjectTypeExplorer';
+import ObjectTypeExplorer, { ObjectTypeExplorerFilter } from '../ObjectTypeExplorer';
 import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 // @ts-ignore: side-effect import for CSS without type declarations
 import './ObjectDashboard.css';
@@ -10,6 +10,7 @@ import { FeedbackModal } from '../FeedbackModal';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
+import { formConfigClient } from '../../apiClients/formConfigClient';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
 import { logging } from '../../utils';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
@@ -71,6 +72,9 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     // True once the display configurations answered (or failed), so the default selection can
     // prefer a type that has one.
     const [displayConfigsSettled, setDisplayConfigsSettled] = useState(false);
+    // #226: lower-cased names of the types with at least one form configuration (the explorer's
+    // "Form configuration" filter); null while loading or after a failure (no such filter then).
+    const [formConfiguredEntities, setFormConfiguredEntities] = useState<Set<string> | null>(null);
     // #194: starred types, listed first in the explorer; per browser.
     const [favouriteNames, setFavouriteNames] = useState<string[]>(readDashboardFavourites);
     const favourites = useMemo(() => ({
@@ -101,6 +105,31 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
             cancelled = true;
         };
     }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        // An extra for the filter only: a failure just leaves the "Form configuration" filter out.
+        Promise.resolve()
+            .then(() => formConfigClient.getEntityNames())
+            .then(names => {
+                if (!cancelled) {
+                    setFormConfiguredEntities(new Set((names ?? []).filter(Boolean).map(name => name.toLowerCase())));
+                }
+            })
+            .catch(error => {
+                if (!cancelled) console.error('Failed to load the entity types with a form configuration', error);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    // #226: the explorer's filters. "Display configuration" follows the marker below (a published
+    // default display configuration); "Form configuration" means at least one form configuration.
+    const explorerFilters = useMemo<ObjectTypeExplorerFilter[]>(() => [
+        { id: 'displayConfiguration', label: 'Display configuration', entityNames: displayConfiguredEntities },
+        { id: 'formConfiguration', label: 'Form configuration', entityNames: formConfiguredEntities },
+    ], [displayConfiguredEntities, formConfiguredEntities]);
 
     // #177 link 2: one flat list; types without a published default display configuration are
     // marked, and their View (the detail page needs that configuration) is disabled.
@@ -322,6 +351,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                     storageKey="dashboard"
                     marked={withoutDisplayConfiguration ? { entityNames: withoutDisplayConfiguration, hint: viewHint } : undefined}
                     favourites={favourites}
+                    filters={explorerFilters}
                 />
             </div>
             <div className="dashboard-content">
