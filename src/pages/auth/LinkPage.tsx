@@ -131,7 +131,7 @@ export const LinkPage: React.FC = () => {
 
         {error && (
           <div className={`mb-4 rounded-lg border border-danger-line bg-danger-soft p-4${codeEntryOnly ? ' text-center' : ''}`} role="alert">
-            <p className="text-sm font-medium field-error-strong">{error}</p>
+            <p className="text-sm font-medium text-danger-strong">{error}</p>
           </div>
         )}
 
