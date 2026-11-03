@@ -71,9 +71,11 @@ export const JoinPage: React.FC = () => {
         </div>
 
         {(step === 'code' || step === 'invalid' || step === 'checking') && (
+          // #228: the code entry is all the card holds, so all of its text is centred like the code.
           <form
             noValidate
-            className="space-y-4"
+            className="space-y-4 text-center"
+            data-testid="invite-code-entry"
             onSubmit={e => {
               e.preventDefault();
               check(code);
