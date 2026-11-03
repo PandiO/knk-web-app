@@ -147,7 +147,7 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                     <h3 className="text-lg font-medium text-gray-900">
                         {field.id ? 'Edit Display Field' : 'New Display Field'}
                     </h3>
-                    <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={onCancel} className="text-muted hover:text-gray-600">
                         <X className="h-5 w-5" />
                     </button>
                 </div>
@@ -353,7 +353,7 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                     </button>
                     <button
                         onClick={handleSave}
-                        className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-primary-dark"
+                        className="px-4 py-2 bg-primary text-primary-fg rounded-md text-sm font-medium hover:bg-primary-dark"
                     >
                         Save Field
                     </button>

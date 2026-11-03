@@ -189,7 +189,7 @@ const PolicyForm: React.FC<{
                         <input id={`${policy.currency}-${f.key}`} inputMode="numeric"
                             className={`border rounded-md px-2 py-1.5 text-sm w-full ${invalid.includes(f.key) ? 'border-red-400' : 'border-gray-300'}`}
                             value={draft[f.key]} onChange={e => setDraft({ ...draft, [f.key]: e.target.value })} />
-                        <p className="text-xs text-gray-400 mt-0.5">{invalid.includes(f.key) ? 'Whole number required.' : f.help}</p>
+                        <p className="text-xs text-muted mt-0.5">{invalid.includes(f.key) ? 'Whole number required.' : f.help}</p>
                     </div>
                 ))}
                 <div>
@@ -197,7 +197,7 @@ const PolicyForm: React.FC<{
                     <input id={`${policy.currency}-title`} inputMode="numeric"
                         className={`border rounded-md px-2 py-1.5 text-sm w-full ${titleInvalid ? 'border-red-400' : 'border-gray-300'}`}
                         value={draft.minSenderTitleBracketId} onChange={e => setDraft({ ...draft, minSenderTitleBracketId: e.target.value })} />
-                    <p className="text-xs text-gray-400 mt-0.5">Lowest title a sender must hold; empty = none.</p>
+                    <p className="text-xs text-muted mt-0.5">Lowest title a sender must hold; empty = none.</p>
                 </div>
             </div>
             <div className="flex items-center gap-3">

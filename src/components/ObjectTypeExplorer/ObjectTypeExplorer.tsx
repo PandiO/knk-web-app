@@ -385,8 +385,8 @@ const ObjectTypeExplorer = ({
               className={`
                 ${favourites ? 'min-w-0 flex-1' : 'w-full'} text-left px-4 py-2 text-sm flex items-center justify-between rounded-md
                 ${selected
-                  ? 'bg-gray-100 text-gray-900'
-                  : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-gray-100 text-fg'
+                  : 'text-gray-700 hover:bg-surface-alt'
                 }
               `}
             >
@@ -394,7 +394,7 @@ const ObjectTypeExplorer = ({
                 {type.label}
               </span>
               {isMarked && (
-                <span className="ml-2 flex-shrink-0 text-gray-400" title={marked!.hint} data-testid="explorer-marker">
+                <span className="ml-2 flex-shrink-0 text-muted" title={marked!.hint} data-testid="explorer-marker">
                   <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="sr-only">{marked!.hint}</span>
                 </span>
@@ -408,8 +408,8 @@ const ObjectTypeExplorer = ({
                 aria-label={isFavourite ? `Remove ${type.label} from favourites` : `Add ${type.label} to favourites`}
                 title={isFavourite ? 'Remove from favourites' : 'Add to favourites'}
                 className={`flex-shrink-0 rounded-md p-1.5 hover:bg-gray-100 ${isFavourite
-                  ? 'text-amber-500 hover:text-amber-600'
-                  : 'text-gray-300 hover:text-gray-500'
+                  ? 'text-amber-500 hover:text-warning'
+                  : 'text-gray-300 hover:text-muted'
                 }`}
               >
                 <Star className={`h-4 w-4 ${isFavourite ? 'fill-current' : ''}`} aria-hidden="true" />
@@ -444,7 +444,7 @@ const ObjectTypeExplorer = ({
                 onClick={() => toggleGroup(group, expanded)}
                 aria-expanded={expanded}
                 aria-controls={listId}
-                className="w-full flex items-start gap-1 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700"
+                className="w-full flex items-start gap-1 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted hover:text-gray-700"
               >
                 {expanded
                   ? <ChevronDown className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
@@ -452,7 +452,7 @@ const ObjectTypeExplorer = ({
                 {heading}
               </button>
             ) : (
-              <h3 className="flex items-start gap-1 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <h3 className="flex items-start gap-1 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted">
                 {heading}
               </h3>
             )}
@@ -496,7 +496,7 @@ const ObjectTypeExplorer = ({
       aria-controls={panelId}
       aria-label={panelVisible ? 'Hide entity types' : 'Show entity types'}
       title={panelVisible ? 'Hide entity types' : 'Show entity types'}
-      className="flex-shrink-0 rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+      className="flex-shrink-0 rounded-md p-1.5 text-muted hover:bg-gray-100 hover:text-fg"
     >
       <ToggleIcon className="h-5 w-5" aria-hidden="true" />
     </button>
@@ -509,18 +509,18 @@ const ObjectTypeExplorer = ({
         className={`${docked
           ? 'h-full'
           : 'fixed bottom-0 left-0 top-16 z-40 w-72 max-w-[85vw]'
-        } ${panelVisible ? 'flex' : 'hidden'} flex-col overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5`}
+        } ${panelVisible ? 'flex' : 'hidden'} flex-col overflow-hidden rounded-md bg-surface shadow-lg ring-1 ring-black ring-opacity-5`}
       >
         <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-3 py-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Entity types</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted">Entity types</span>
           {/* One toggle at a time: here while the panel shows, on the rail otherwise. */}
           {panelVisible && toggleButton}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
           {searchable && (
-            <div className="sticky top-0 z-10 bg-white pt-4 pb-2 flex items-center gap-2">
+            <div className="sticky top-0 z-10 bg-surface pt-4 pb-2 flex items-center gap-2">
               <div className="relative flex-1 min-w-0">
-                <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
                 <input
                   type="search"
                   value={query}
@@ -533,7 +533,7 @@ const ObjectTypeExplorer = ({
                   }}
                   placeholder="Search entity types"
                   aria-label="Search entity types"
-                  className="w-full rounded-md border border-gray-300 py-1.5 pl-8 pr-7 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 [&::-webkit-search-cancel-button]:hidden"
+                  className="w-full rounded-md border border-gray-300 py-1.5 pl-8 pr-7 text-sm focus:border-primary-light focus:outline-none focus:ring-1 focus:ring-focus [&::-webkit-search-cancel-button]:hidden"
                 />
                 {query && (
                   <button
@@ -541,7 +541,7 @@ const ObjectTypeExplorer = ({
                     onClick={() => updateQuery('')}
                     aria-label="Clear search"
                     title="Clear search"
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:text-gray-600"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted hover:text-gray-600"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </button>
@@ -553,7 +553,7 @@ const ObjectTypeExplorer = ({
                 aria-label="Sort Z to A"
                 aria-pressed={sortDirection === 'desc'}
                 title={sortDirection === 'asc' ? 'Sorted A–Z (click for Z–A)' : 'Sorted Z–A (click for A–Z)'}
-                className="flex-shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                className="flex-shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-600 hover:bg-surface-alt hover:text-fg"
               >
                 <SortIcon className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -567,15 +567,15 @@ const ObjectTypeExplorer = ({
                   aria-label={filterActive ? `Filter entity types (${activeFilters.length} on)` : 'Filter entity types'}
                   title={filterActive ? `Filters on: ${activeFilters.map(filter => filter.label).join(', ')}` : 'Filter entity types'}
                   data-testid="explorer-filter-button"
-                  className={`relative flex-shrink-0 rounded-md border p-1.5 hover:bg-gray-50 hover:text-gray-900 ${filterActive
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-gray-300 text-gray-600'
+                  className={`relative flex-shrink-0 rounded-md border p-1.5 hover:bg-surface-alt hover:text-fg ${filterActive
+                    ? 'border-primary text-primary'
+                    : 'border-field text-muted'
                   }`}
                 >
                   <ListFilter className="h-4 w-4" aria-hidden="true" />
                   {filterActive && (
                     <span
-                      className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold leading-none text-white"
+                      className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-fg"
                       aria-hidden="true"
                     >
                       {activeFilters.length}
@@ -591,7 +591,7 @@ const ObjectTypeExplorer = ({
               id={filterPanelId}
               role="group"
               aria-label="Filter entity types"
-              className="mb-2 space-y-2 rounded-md border border-gray-200 bg-gray-50 p-2"
+              className="mb-2 space-y-2 rounded-md border border-line bg-surface-alt p-2"
               onKeyDown={event => {
                 if (event.key === 'Escape') {
                   event.preventDefault();
@@ -608,14 +608,14 @@ const ObjectTypeExplorer = ({
                 ];
                 return (
                   <fieldset key={filter.id} className="min-w-0">
-                    <legend className="px-1 text-xs font-semibold text-gray-700">{filter.label}</legend>
+                    <legend className="px-1 text-xs font-semibold text-fg">{filter.label}</legend>
                     <div className="mt-1 flex gap-1">
                       {options.map(option => (
                         <label
                           key={option.label}
-                          className={`flex flex-1 cursor-pointer items-center justify-center rounded-md border px-2 py-1 text-xs focus-within:ring-2 focus-within:ring-blue-500 ${value === option.value
-                            ? 'border-blue-500 bg-white font-semibold text-blue-700'
-                            : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-100'
+                          className={`flex flex-1 cursor-pointer items-center justify-center rounded-md border bg-surface px-2 py-1 text-xs focus-within:ring-2 focus-within:ring-focus ${value === option.value
+                            ? 'border-primary font-semibold text-primary'
+                            : 'border-field text-muted hover:bg-surface-hover hover:text-fg'
                           }`}
                         >
                           <input
@@ -637,11 +637,11 @@ const ObjectTypeExplorer = ({
                   type="button"
                   onClick={clearFilters}
                   disabled={!filterActive}
-                  className="text-xs font-medium text-blue-600 hover:underline disabled:cursor-default disabled:text-gray-400 disabled:no-underline"
+                  className="text-xs font-medium text-primary hover:underline disabled:cursor-default disabled:text-muted disabled:no-underline"
                 >
                   Clear filters
                 </button>
-                <button type="button" onClick={closeFilters} className="text-xs font-medium text-gray-600 hover:underline">
+                <button type="button" onClick={closeFilters} className="text-xs font-medium text-muted hover:text-fg hover:underline">
                   Done
                 </button>
               </div>
@@ -649,10 +649,10 @@ const ObjectTypeExplorer = ({
           )}
           <div className={searchable ? 'pt-1' : 'pt-4'}>
             {visibleItems.length === 0 && (searchActive || filterActive) ? (
-              <div className="px-2 py-4 text-sm text-gray-500" role="status">
+              <div className="px-2 py-4 text-sm text-muted" role="status">
                 <p>No entity types match</p>
                 {filterActive && (
-                  <button type="button" onClick={clearFilters} className="mt-1 font-medium text-blue-600 hover:underline">
+                  <button type="button" onClick={clearFilters} className="mt-1 font-medium text-primary hover:underline">
                     Clear filters
                   </button>
                 )}
@@ -661,7 +661,7 @@ const ObjectTypeExplorer = ({
               <>
                 {favouriteItems.length > 0 && (
                   <section aria-label="Favourites" className="mb-3 space-y-1 border-b border-gray-100 pb-3">
-                    <h3 className="flex items-center gap-1 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <h3 className="flex items-center gap-1 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted">
                       <Star className="h-3.5 w-3.5 fill-current text-amber-500" aria-hidden="true" />
                       Favourites
                     </h3>
@@ -690,7 +690,7 @@ const ObjectTypeExplorer = ({
       className={`relative flex h-full min-h-0 flex-col ${docked && panelVisible ? 'w-64' : 'w-10'}`}
     >
       {!panelVisible && (
-        <div className="flex h-full flex-col items-center rounded-md bg-white py-2 shadow-sm ring-1 ring-black ring-opacity-5">
+        <div className="flex h-full flex-col items-center rounded-md bg-surface py-2 shadow-sm ring-1 ring-black ring-opacity-5">
           {toggleButton}
         </div>
       )}

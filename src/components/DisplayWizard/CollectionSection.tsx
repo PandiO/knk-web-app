@@ -13,7 +13,7 @@ export const CollectionSection: React.FC<CollectionSectionProps> = ({
   const navigate = useNavigate();
   
   if (!Array.isArray(collectionData) || collectionData.length === 0) {
-    return <div className="text-center py-8 text-gray-500 italic">No items</div>;
+    return <div className="text-center py-8 text-muted italic">No items</div>;
   }
 
   // Item template: the collection section's own fields (the builder offers the item
@@ -58,7 +58,7 @@ export const CollectionSection: React.FC<CollectionSectionProps> = ({
       {/* Iterate over collection items */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
         {collectionData.map((item, index) => (
-          <div key={(item as Record<string, unknown>).id as string || index} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-colors">
+          <div key={(item as Record<string, unknown>).id as string || index} className="bg-surface-alt rounded-lg p-4 border border-line hover:border-gray-300 transition-colors">
             <div className="space-y-2">
               {orderedFields.map(field => field && (
                 <DisplayField

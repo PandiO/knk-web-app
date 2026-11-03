@@ -238,7 +238,7 @@ export const RoadProfilesCard: React.FC<{
             {draft.scopeTownIds.map((id) => (
               <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-xs text-gray-800">
                 {townName(id)}
-                <button type="button" className="text-gray-400 hover:text-red-600" aria-label={`Remove ${townName(id)} from scope`} onClick={() => removeScopeTown(id)}>
+                <button type="button" className="text-muted hover:text-red-600" aria-label={`Remove ${townName(id)} from scope`} onClick={() => removeScopeTown(id)}>
                   <X className="h-3 w-3" />
                 </button>
               </span>
@@ -307,7 +307,7 @@ export const RoadProfilesCard: React.FC<{
                       <td className="py-1 pr-3 text-gray-500">{formatShare(m.edgeShare)}</td>
                       <td className="py-1 pr-3 text-gray-500">{m.samples.toLocaleString('en-US')}</td>
                       <td className="py-1 pr-3 text-right">
-                        <button type="button" className="text-gray-400 hover:text-red-600" aria-label={`Remove ${label}`} onClick={() => removeMaterial(index)}>
+                        <button type="button" className="text-muted hover:text-red-600" aria-label={`Remove ${label}`} onClick={() => removeMaterial(index)}>
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </td>
@@ -385,13 +385,13 @@ export const RoadProfilesCard: React.FC<{
                     <td className="py-2 pr-4 text-gray-700">{`×${profile.costMultiplier}`}</td>
                     <td className="py-2 pr-4 text-gray-700 whitespace-nowrap">{profile.widthMin === profile.widthMax ? profile.widthMin : `${profile.widthMin} – ${profile.widthMax}`}</td>
                     <td className="py-2 pr-4 text-gray-700 text-xs font-mono" title={materials.map((m) => `${m.material} (${m.role}${m.ambiguous ? ', ambiguous' : ''})`).join('\n')}>
-                      {materials.length === 0 ? <span className="text-gray-400 font-sans">none</span> : `${shown}${materials.length > 4 ? ` +${materials.length - 4}` : ''}`}
+                      {materials.length === 0 ? <span className="text-muted font-sans">none</span> : `${shown}${materials.length > 4 ? ` +${materials.length - 4}` : ''}`}
                     </td>
                     <td className="py-2 pr-4 text-gray-700">{profile.sampleCount.toLocaleString('en-US')}</td>
                     <td className="py-2 pr-4 text-gray-700">
                       {profile.scopeTownIds && profile.scopeTownIds.length > 0
                         ? `${profile.scopeTownIds.length} town${profile.scopeTownIds.length === 1 ? '' : 's'}`
-                        : <span className="text-gray-400">Everywhere</span>}
+                        : <span className="text-muted">Everywhere</span>}
                     </td>
                     <td className="py-2 pr-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${profile.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
@@ -413,7 +413,7 @@ export const RoadProfilesCard: React.FC<{
                         </button>
                         <button
                           type="button"
-                          className="text-gray-400 hover:text-red-600 disabled:opacity-40"
+                          className="text-muted hover:text-red-600 disabled:opacity-40"
                           title="Delete profile"
                           aria-label={`Delete ${profile.name} profile`}
                           disabled={removingId !== null}

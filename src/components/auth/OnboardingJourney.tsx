@@ -38,7 +38,7 @@ export const OnboardingJourney: React.FC<OnboardingJourneyProps> = ({ accessGate
   return (
     <ol className="space-y-1 text-sm text-gray-700" data-testid="onboarding-journey" aria-label="What happens next">
       {steps.map((step, index) => (
-        <li key={index} className={`flex gap-2 ${index + 1 === current ? 'font-medium text-gray-900' : ''}`}>
+        <li key={index} className={`flex gap-2 ${index + 1 === current ? 'font-medium text-fg' : ''}`}>
           <span className="w-5 flex-shrink-0 text-right">{index + 1}.</span>
           <span>{step}</span>
         </li>

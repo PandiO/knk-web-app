@@ -33,10 +33,10 @@ export const SavedProgressList: React.FC<Props> = ({
     const getStatusBadge = (status: string) => {
         const statusColors: Record<string, string> = {
             Draft: 'bg-gray-100 text-gray-800',
-            InProgress: 'bg-blue-100 text-blue-800',
-            Paused: 'bg-yellow-100 text-yellow-800',
-            Completed: 'bg-green-100 text-green-800',
-            Abandoned: 'bg-red-100 text-red-800'
+            InProgress: 'bg-info-muted text-info-strong',
+            Paused: 'bg-warning-muted text-warning-strong',
+            Completed: 'bg-success-muted text-success-strong',
+            Abandoned: 'bg-danger-muted text-danger-strong'
         };
 
         return (
@@ -47,28 +47,28 @@ export const SavedProgressList: React.FC<Props> = ({
     };
 
     return (
-        <div className="mt-8 bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900 flex items-center">
-                    <Clock className="h-5 w-5 mr-2 text-gray-400" />
+        <div className="mt-8 bg-surface rounded-lg shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-line">
+                <h2 className="text-lg font-medium text-fg flex items-center">
+                    <Clock className="h-5 w-5 mr-2 text-muted" />
                     Saved Progress
                 </h2>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-muted">
                     Continue where you left off
                 </p>
             </div>
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-line">
                 {progressList.map((progress) => (
-                    <div key={progress.id} className="px-6 py-4 hover:bg-gray-50">
+                    <div key={progress.id} className="px-6 py-4 hover:bg-surface-alt">
                         <div className="flex items-center justify-between">
                             <div className="flex-1">
                                 <div className="flex items-center space-x-3">
-                                    <h3 className="text-sm font-medium text-gray-900">
+                                    <h3 className="text-sm font-medium text-fg">
                                         {getConfigName(progress)}
                                     </h3>
                                     {getStatusBadge(progress.status)}
                                 </div>
-                                <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+                                <div className="mt-1 flex items-center space-x-4 text-sm text-muted">
                                     <span>Step {progress.currentStepIndex + 1}</span>
                                     <span>•</span>
                                     <span>
@@ -83,7 +83,7 @@ export const SavedProgressList: React.FC<Props> = ({
                             <div className="flex items-center space-x-2">
                                 <button
                                     onClick={() => onResume(progress)}
-                                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark"
+                                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-primary-fg bg-primary hover:bg-primary-dark"
                                 >
                                     <PlayCircle className="h-4 w-4 mr-1" />
                                     Resume
@@ -92,7 +92,7 @@ export const SavedProgressList: React.FC<Props> = ({
                                     onClick={() => onDelete(progress)}
                                     aria-label="Delete saved progress"
                                     title="Delete saved progress"
-                                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-surface hover:bg-surface-alt"
                                 >
                                     <Trash2 className="h-4 w-4" />
                                 </button>

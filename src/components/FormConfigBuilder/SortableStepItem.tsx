@@ -40,7 +40,7 @@ export const SortableStepItem: React.FC<Props> = ({ step, index, isSelected, onS
             onClick={onSelect}
         >
             <div {...attributes} {...listeners} className="mr-2 cursor-grab active:cursor-grabbing">
-                <GripVertical className="h-5 w-5 text-gray-400" />
+                <GripVertical className="h-5 w-5 text-muted" />
             </div>
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -78,7 +78,7 @@ export const SortableStepItem: React.FC<Props> = ({ step, index, isSelected, onS
                     e.stopPropagation();
                     onDelete();
                 }}
-                className="ml-2 p-1 text-gray-400 hover:text-red-600"
+                className="ml-2 p-1 text-muted hover:text-red-600"
             >
                 <Trash2 className="h-4 w-4" />
             </button>
