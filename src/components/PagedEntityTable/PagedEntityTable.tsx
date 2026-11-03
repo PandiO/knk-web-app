@@ -759,7 +759,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
             {/* Error State */}
             {error && (
                 <div className="bg-danger-soft border border-danger-line rounded-md p-4">
-                    <p className="text-sm field-error-strong">{error}</p>
+                    <p className="text-sm text-danger-strong">{error}</p>
                 </div>
             )}
 
