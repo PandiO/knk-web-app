@@ -85,9 +85,10 @@ function swap(source, { sweepOnly, primaryFgOnly }) {
   if (sweepOnly) return { out, count };
   // A field's error line gets the alert icon (.field-error in index.css): danger is never colour alone.
   // Matches a <p>/<span> in text-danger that shows an error: its id says "error", or it holds an
-  // `{...error...}` expression.
+  // `{...error...}` expression. Only the whole class text-danger: \b also matched inside text-danger-strong,
+  // which left `field-error-strong` and a stray `-strong` on 12 lines (PandiO/knk-workspace#230).
   const withErrors = out.replace(
-    /<(p|span)((?:\s+id="[^"]*")?)\s+className="([^"]*?)\btext-danger\b([^"]*)"([^>]*)>(\s*\{[^}]*[eE]rror[^}]*\}\s*<\/\1>)?/g,
+    /<(p|span)((?:\s+id="[^"]*")?)\s+className="([^"]*?)(?<![\w-])text-danger(?![\w-])([^"]*)"([^>]*)>(\s*\{[^}]*[eE]rror[^}]*\}\s*<\/\1>)?/g,
     (match, tag, id, before, after, rest, body) => {
       if (!/error/i.test(id) && !body) return match;
       count++;
