@@ -1,6 +1,7 @@
 import { MinecraftMaterialRefDto } from '../minecraftMaterialRef/MinecraftMaterialRefDto';
 import { GateBlockSnapshotDto } from './GateBlockSnapshotDto';
 import { LocationDto } from '../locations/LocationModels';
+import { GatePassThroughMethod } from '../userManagement/UserProfileSummaryDtos';
 
 export type GateType = 'SLIDING' | 'TRAP' | 'DRAWBRIDGE' | 'DOUBLE_DOORS';
 export type GeometryDefinitionMode = 'PLANE_GRID' | 'FLOOD_FILL' | 'REGION';
@@ -88,6 +89,12 @@ export interface GateDoorDto {
   allowPassThrough?: boolean;
   passThroughDurationSeconds?: number;
   passThroughConditionsJson?: string;
+  // PandiO/knk-workspace#167: the styles the door offers and its default style.
+  allowAnimatedPassThrough?: boolean;
+  allowSnapPassThrough?: boolean;
+  allowWalkPathPassThrough?: boolean;
+  allowTeleportPassThrough?: boolean;
+  defaultPassThroughMethod?: GatePassThroughMethod;
 
   infoDisplayLocationId?: number | null;
   infoDisplayLocation?: LocationDto | null;

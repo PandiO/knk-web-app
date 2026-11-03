@@ -8,7 +8,8 @@
 // converter), e.g. {"activeMode":"None"} - confirmed live against GET /api/Users/{id} rather
 // than assumed from the C# enum's underlying int values.
 export type ActiveMode = 'None' | 'Staff' | 'Owner';
-export type GatePassThroughMethod = 'Default' | 'InstantOpen' | 'Teleport';
+// PandiO/knk-workspace#167 added 'Snap'. Also a gate door's pass-through style (GateDoorDto.defaultPassThroughMethod).
+export type GatePassThroughMethod = 'Default' | 'InstantOpen' | 'Teleport' | 'Snap';
 
 export interface ProfileAccountDto {
   id: number;

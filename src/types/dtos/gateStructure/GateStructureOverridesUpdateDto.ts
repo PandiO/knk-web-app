@@ -1,4 +1,5 @@
 import { GateDoorOpenState, HealthDisplayMode, GateInfoDisplayMode } from './GateDoorDto';
+import { GatePassThroughMethod } from '../userManagement/UserProfileSummaryDtos';
 
 /**
  * Request body for PATCH /api/GateStructures/{id}/overrides - sets/clears the structure-level
@@ -28,6 +29,18 @@ export interface GateStructureOverridesUpdateDto {
 
   passThroughDurationSecondsOverride?: number | null;
   clearPassThroughDurationSecondsOverride?: boolean;
+
+  // PandiO/knk-workspace#167: pass-through styles
+  allowAnimatedPassThroughOverride?: boolean | null;
+  clearAllowAnimatedPassThroughOverride?: boolean;
+  allowSnapPassThroughOverride?: boolean | null;
+  clearAllowSnapPassThroughOverride?: boolean;
+  allowWalkPathPassThroughOverride?: boolean | null;
+  clearAllowWalkPathPassThroughOverride?: boolean;
+  allowTeleportPassThroughOverride?: boolean | null;
+  clearAllowTeleportPassThroughOverride?: boolean;
+  defaultPassThroughMethodOverride?: GatePassThroughMethod | null;
+  clearDefaultPassThroughMethodOverride?: boolean;
 
   showHealthDisplayOverride?: boolean | null;
   clearShowHealthDisplayOverride?: boolean;
