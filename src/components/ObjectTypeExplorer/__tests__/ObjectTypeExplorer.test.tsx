@@ -79,12 +79,33 @@ describe('ObjectTypeExplorer', () => {
   describe('favourites (PandiO/knk-workspace#194)', () => {
     const favourites = (names: string[], onToggle = jest.fn()) => ({ entityNames: new Set(names), onToggle });
 
-    it('lists favourites first, A–Z, and the rest A–Z below', () => {
+    it('lists favourites first, A–Z, and the full list A–Z below, favourites included (#225)', () => {
       render(<ObjectTypeExplorer entityMetadata={metadata} favourites={favourites(['town', 'district'])} />);
 
       const section = screen.getByRole('region', { name: 'Favourites' });
       expect(itemLabels(section)).toEqual(['District', 'Town']);
-      expect(itemLabels()).toEqual(['District', 'Town', 'category', 'Gate', 'Street']);
+      expect(screen.getByRole('heading', { name: 'All entity types' })).toBeInTheDocument();
+      expect(itemLabels()).toEqual(['District', 'Town', 'category', 'District', 'Gate', 'Street', 'Town']);
+    });
+
+    it('shows both copies of a favourite starred and selected (#225)', () => {
+      render(
+        <ObjectTypeExplorer entityMetadata={metadata} selectedId="town" favourites={favourites(['town'])} />
+      );
+
+      const stars = screen.getAllByRole('button', { name: 'Remove Town from favourites' });
+      expect(stars).toHaveLength(2);
+      stars.forEach(star => expect(star).toHaveAttribute('aria-pressed', 'true'));
+      const copies = screen.getAllByRole('button', { name: 'Town' });
+      expect(copies).toHaveLength(2);
+      copies.forEach(copy => expect(copy).toHaveAttribute('aria-current', 'true'));
+    });
+
+    it('keeps every type in the groups when favourites are set (#225)', () => {
+      render(<ObjectTypeExplorer entityMetadata={metadata} groups={groups} favourites={favourites(['town'])} />);
+
+      expect(itemLabels(screen.getByRole('region', { name: 'Favourites' }))).toEqual(['Town']);
+      expect(itemLabels(groupSection('Entities'))).toEqual(['Street', 'Town']);
     });
 
     it('toggles a favourite with the star next to each type, without selecting it', async () => {
@@ -99,7 +120,7 @@ describe('ObjectTypeExplorer', () => {
       await userEvent.click(unstarred);
       expect(onToggle).toHaveBeenCalledWith('GateStructure');
 
-      const starred = screen.getByRole('button', { name: 'Remove Town from favourites' });
+      const [starred] = screen.getAllByRole('button', { name: 'Remove Town from favourites' });
       expect(starred).toHaveAttribute('aria-pressed', 'true');
       await userEvent.click(starred);
       expect(onToggle).toHaveBeenLastCalledWith('Town');
@@ -110,14 +131,15 @@ describe('ObjectTypeExplorer', () => {
       render(<ObjectTypeExplorer entityMetadata={metadata} favourites={favourites(['street', 'district'])} />);
 
       await userEvent.click(screen.getByRole('button', { name: 'Sort Z to A' }));
-      expect(itemLabels()).toEqual(['Street', 'District', 'Town', 'Gate', 'category']);
+      expect(itemLabels()).toEqual(['Street', 'District', 'Town', 'Street', 'Gate', 'District', 'category']);
 
-      await userEvent.type(screen.getByRole('searchbox'), 't');
+      await userEvent.type(screen.getByRole('searchbox'), 'st');
       expect(itemLabels(screen.getByRole('region', { name: 'Favourites' }))).toEqual(['Street', 'District']);
-      expect(itemLabels()).toEqual(['Street', 'District', 'Town', 'Gate', 'category']);
+      expect(itemLabels()).toEqual(['Street', 'District', 'Street', 'Gate', 'District']);
       await userEvent.clear(screen.getByRole('searchbox'));
       await userEvent.type(screen.getByRole('searchbox'), 'gate');
       expect(screen.queryByRole('region', { name: 'Favourites' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'All entity types' })).not.toBeInTheDocument();
       expect(itemLabels()).toEqual(['Gate']);
     });
 
