@@ -177,7 +177,7 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                         <div className="flex items-center justify-end space-x-2">
                                             <button
                                                 onClick={() => onEdit(config)}
-                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-primary hover:bg-primary-dark"
+                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-primary-fg bg-primary hover:bg-primary-dark"
                                             >
                                                 <Pencil className="h-3 w-3 mr-1" />
                                                 Edit

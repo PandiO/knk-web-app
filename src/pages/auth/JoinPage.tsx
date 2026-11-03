@@ -12,6 +12,7 @@ import { useOnboardingInfo } from '../../hooks/useOnboardingInfo';
 import { OnboardingJourney } from '../../components/auth/OnboardingJourney';
 import { InviteCodeInput } from '../../components/auth/InviteCodeInput';
 import { INVITE_CODE_LENGTH, INVITE_CODE_PREFIX, formatInviteCode, inviteCodeChars } from '../../utils/inviteCode';
+import { usePublicSurface } from '../../theme/surface';
 
 type Step = 'code' | 'checking' | 'invalid' | 'signup';
 
@@ -23,6 +24,7 @@ type Step = 'code' | 'checking' | 'invalid' | 'signup';
  */
 export const JoinPage: React.FC = () => {
   usePageTitle('Join the closed alpha');
+  usePublicSurface();
   useNoReferrer();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -61,7 +63,7 @@ export const JoinPage: React.FC = () => {
   }, [isLoading, isLoggedIn, navigate]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-backdrop">
+    <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-backdrop public-full-bleed">
       <div className="w-full max-w-xl bg-surface rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
         <div className="mb-6 text-center">
           <Ticket className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />

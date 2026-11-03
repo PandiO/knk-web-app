@@ -34,7 +34,8 @@ describe('Tailwind styles (#38)', () => {
   it('defines primary-dark, so the primary buttons and links get a hover colour', () => {
     // #95: the colour is a theme token (29 78 216 = blue-700 in the `current` theme, src/theme/tokens.css).
     expect(rule('.hover\\:bg-primary-dark:hover')).toMatch(/background-color: rgb\(var\(--color-primary-dark\) \/ var\(--tw-bg-opacity/);
-    expect(rule('.hover\\:text-primary-dark:hover')).toMatch(/color: rgb\(var\(--color-primary-dark\) \/ var\(--tw-text-opacity/);
+    // As text, primary reads its own token (a darker orange in `brand`, 2026-11-03).
+    expect(rule('.hover\\:text-primary-dark:hover')).toMatch(/color: rgb\(var\(--color-primary-text-dark\) \/ var\(--tw-text-opacity/);
   });
 
   it('lays out every button as inline-flex, so an icon sits next to its label', () => {

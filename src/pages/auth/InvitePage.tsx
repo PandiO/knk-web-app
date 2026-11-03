@@ -11,6 +11,7 @@ import { clearPendingInvite, loadPendingInvite, savePendingInvite } from '../../
 import { AFTER_SIGNUP_PATH } from '../../utils/onboardingPaths';
 import { useOnboardingInfo } from '../../hooks/useOnboardingInfo';
 import { OnboardingJourney } from '../../components/auth/OnboardingJourney';
+import { usePublicSurface } from '../../theme/surface';
 
 export { AFTER_SIGNUP_PATH };
 
@@ -25,6 +26,7 @@ type CheckState = { status: 'checking' } | { status: 'invalid' } | { status: 'va
  */
 export const InvitePage: React.FC = () => {
   usePageTitle('Accept your invitation');
+  usePublicSurface();
   useNoReferrer();
   const params = useParams<{ token?: string }>();
   const navigate = useNavigate();
@@ -72,7 +74,7 @@ export const InvitePage: React.FC = () => {
   }, [isLoading, isLoggedIn, navigate]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-backdrop">
+    <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-backdrop public-full-bleed">
       <div className="w-full max-w-xl bg-surface rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
         <div className="mb-6 text-center">
           <MailCheck className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />

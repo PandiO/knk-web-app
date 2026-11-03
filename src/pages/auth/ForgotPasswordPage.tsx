@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import { validateEmailFormat } from '../../utils/passwordValidator';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { usePublicSurface } from '../../theme/surface';
 
 export const ForgotPasswordPage: React.FC = () => {
   usePageTitle('Forgot password');
+  usePublicSurface();
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -51,7 +53,7 @@ export const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-backdrop">
+    <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-backdrop public-full-bleed">
       <div className="w-full max-w-md bg-surface rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
         <div className="mb-6 text-center">
           <h1 className="text-3xl sm:text-4xl font-bold text-fg">Reset Password</h1>
@@ -88,7 +90,7 @@ export const ForgotPasswordPage: React.FC = () => {
               type="submit"
               disabled={isSubmitting}
               className={`w-full px-4 py-2 text-base font-medium rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
-                isSubmitting ? 'bg-primary-light text-white opacity-60 cursor-not-allowed' : 'bg-primary text-white hover:bg-primary-dark'
+                isSubmitting ? 'bg-primary-light text-primary-fg opacity-60 cursor-not-allowed' : 'bg-primary text-primary-fg hover:bg-primary-dark'
               }`}
             >
               {isSubmitting ? 'Sending...' : 'Send Reset Link'}

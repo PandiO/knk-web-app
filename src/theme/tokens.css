@@ -64,6 +64,9 @@
   --color-primary-dark: 29 78 216;   /* blue-700: hover/pressed */
   --color-primary-light: 59 130 246; /* blue-500: icons and accents only, not behind white text */
   --color-primary-fg: 255 255 255;
+  --color-primary-text: 37 99 235;        /* text-primary (links), border-primary, ring-primary: the fill in `current` */
+  --color-primary-text-dark: 29 78 216;
+  --color-primary-line: 37 99 235;
 
   --color-cta: 21 128 61;            /* landing "Create account": green-700 (green-600 + white was 3.3:1) */
   --color-cta-dark: 22 101 52;
@@ -78,6 +81,7 @@
   --color-nav-hover: 241 245 249;    /* slate-100 */
   --color-nav-line: 226 232 240;     /* slate-200 */
   --color-nav-accent: 37 99 235;     /* active-page underline */
+  --color-nav-focus: 37 99 235;        /* focus rings on the bar's own controls */
   --color-nav-action: 37 99 235;       /* Create New in the bar */
   --color-nav-action-hover: 29 78 216;
   --color-nav-action-fg: 255 255 255;
@@ -96,8 +100,9 @@
 }
 
 /* ── brand: the 2020 styleguide (docs/vision/brand/huisstijlhandboek.pdf) ───────────────────────────
-   Red #BE1622 leads (buttons, links, focus), orange #F29100 is the call to action with black text (white on
-   orange is 2.4:1), black carries the navigation and the public backdrop, charcoal #353535 is the dark
+   Orange #F29100 leads (buttons, the call to action, the active nav item) with black text (white on orange is
+   2.4:1); brand red #BE1622 is an accent (the line under the bar) and no longer the primary, so primary and
+   danger differ (2026-11-03). Black carries the navigation and the public backdrop, charcoal #353535 is the dark
    neutral. Headings in Enchanted Land, the guide's own heading font. Neutral ramps are pure greys around charcoal. Info has no brand blue, so it goes charcoal.
    Danger stays red: brand red and error red are close, so every danger state has an icon and text. */
 :root[data-theme="brand"] {
@@ -115,12 +120,18 @@
   --color-muted: 94 94 94;
   --color-line: 228 228 228;
   --color-field: 128 128 128;
-  --color-focus: 190 22 34;
+  --color-focus: 163 82 0;           /* dark orange: 3:1 on white, the grey canvas and the black bar */
 
-  --color-primary: 190 22 34;        /* #BE1622: 6.3:1 with white */
-  --color-primary-dark: 150 15 25;
-  --color-primary-light: 214 35 47;
-  --color-primary-fg: 255 255 255;
+  /* Primary is the guide's orange (developer decision 2026-11-03, after the live comparison; it was red).
+     Filled: orange with black text (8.8:1). As text, a border or a ring on a light background orange makes
+     only 2.4:1, so text-primary / border-primary / ring-primary read the darker shades below. */
+  --color-primary: 242 145 0;        /* #F29100 */
+  --color-primary-dark: 222 128 0;   /* hover of the filled button, black text 7.2:1 */
+  --color-primary-light: 196 106 0;  /* icons: 3:1 on white and the canvas */
+  --color-primary-fg: 0 0 0;
+  --color-primary-text: 163 82 0;    /* links and orange text: 5.0:1 on the canvas */
+  --color-primary-text-dark: 138 69 0;
+  --color-primary-line: 196 106 0;   /* active tab and selected borders: 3:1 */
 
   --color-cta: 242 145 0;            /* #F29100 with black text: 8.8:1 */
   --color-cta-dark: 222 128 0;
@@ -133,11 +144,12 @@
   --color-nav-fg: 255 255 255;
   --color-nav-muted: 200 200 200;
   --color-nav-hover: 38 38 38;
-  --color-nav-line: 64 64 64;
+  --color-nav-line: 190 22 34;       /* brand red stays as the accent: the line under the black bar */
   --color-nav-accent: 242 145 0;     /* orange on black: 8.8:1 */
-  --color-nav-action: 190 22 34;       /* Create New in the bar */
-  --color-nav-action-hover: 150 15 25;
-  --color-nav-action-fg: 255 255 255;
+  --color-nav-focus: 242 145 0;        /* focus rings on the bar's own controls */
+  --color-nav-action: 242 145 0;       /* Create New in the bar */
+  --color-nav-action-hover: 222 128 0;
+  --color-nav-action-fg: 0 0 0;
 
   --color-danger: 185 28 28;         --color-danger-strong: 153 27 27;   --color-danger-fg: 255 255 255;
   --color-danger-soft: 254 242 242;  --color-danger-muted: 254 226 226;  --color-danger-line: 254 202 202;
@@ -178,6 +190,9 @@
   --color-primary-dark: 20 20 20;
   --color-primary-light: 82 82 82;
   --color-primary-fg: 255 255 255;
+  --color-primary-text: 53 53 53;
+  --color-primary-text-dark: 20 20 20;
+  --color-primary-line: 53 53 53;
 
   --color-cta: 242 145 0;
   --color-cta-dark: 222 128 0;
@@ -192,6 +207,7 @@
   --color-nav-hover: 70 70 70;
   --color-nav-line: 90 90 90;
   --color-nav-accent: 242 145 0;     /* orange on charcoal: 5.2:1 */
+  --color-nav-focus: 242 145 0;        /* focus rings on the bar's own controls */
   --color-nav-action: 242 145 0;       /* Create New in the bar */
   --color-nav-action-hover: 222 128 0;
   --color-nav-action-fg: 0 0 0;

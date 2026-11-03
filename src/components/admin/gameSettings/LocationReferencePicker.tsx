@@ -209,7 +209,7 @@ export const LocationReferencePicker: React.FC<{
                 }}
                 className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
                     pressed
-                        ? 'border-primary bg-primary text-white'
+                        ? 'border-primary bg-primary text-primary-fg'
                         : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
                 }`}
             >

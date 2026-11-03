@@ -164,7 +164,7 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                         <div className="flex items-center justify-end space-x-2">
                                             <button
                                                 onClick={() => onOpen(config)}
-                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-primary hover:bg-primary-dark"
+                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-primary-fg bg-primary hover:bg-primary-dark"
                                             >
                                                 <Play className="h-3 w-3 mr-1" />
                                                 Use

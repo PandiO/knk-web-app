@@ -13,6 +13,7 @@ import {
   siegeOutcomeBadgeClass,
   siegeTeamColor,
 } from '../../types/dtos/siege/SiegeMatchDtos';
+import { usePublicSurface } from '../../theme/surface';
 
 // The public page of one finished siege match (alpha run 1, PandiO/knk-workspace#174), /siege/matches/:id - the
 // in-game result and /siege history link here. Open to everyone: the facts are public; each player's own numbers
@@ -25,6 +26,7 @@ const formatDateTime = (iso?: string | null): string => {
 };
 
 export const SiegeMatchPage: React.FC = () => {
+  usePublicSurface();
   const { id = '' } = useParams<{ id: string }>();
   const [match, setMatch] = React.useState<SiegeMatchPublicDto | null>(null);
   const [loading, setLoading] = React.useState(true);

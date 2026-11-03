@@ -309,7 +309,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                     {/* #195: title and buttons on one row, centred on each other; the row is as tall as
                         the buttons (h-9) whether they show or not, and starts level with the explorer. */}
                     <div className="mb-6 flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2" data-testid="dashboard-header">
-                        <h2 className="min-w-0 break-words font-display text-3xl font-bold leading-9 text-fg">
+                        <h2 className="min-w-0 break-words text-3xl font-bold leading-9 text-fg">
                             {typeLabel || 'Items'}
                         </h2>
                         {selectedType && selectedIsKnown && (

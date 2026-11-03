@@ -10,6 +10,7 @@ import {
   LeaderboardViewDto,
 } from '../../types/dtos/leaderboards/LeaderboardDtos';
 import { formatStatistic } from '../../types/dtos/statistics/StatisticsDtos';
+import { usePublicSurface } from '../../theme/surface';
 
 // Leaderboards (/leaderboards, KNG-34, DESIGN.md §F.11): every board, weekly / monthly / all time,
 // from snapshots refreshed every few minutes. Signed out, only the always-public boards (playtime,
@@ -21,6 +22,7 @@ export const LEADERBOARD_TOP = 25;
 const metricOf = (boardKey: string) => boardKey.split('@')[0];
 
 export const LeaderboardsPage: React.FC = () => {
+  usePublicSurface();
   const [boards, setBoards] = React.useState<LeaderboardBoardDto[]>([]);
   const [boardKey, setBoardKey] = React.useState<string | null>(null);
   const [period, setPeriod] = React.useState<LeaderboardPeriod>('weekly');
@@ -95,7 +97,7 @@ export const LeaderboardsPage: React.FC = () => {
                     aria-current={b.boardKey === boardKey ? 'true' : undefined}
                     onClick={() => setBoardKey(b.boardKey)}
                     className={`w-full text-left rounded-md px-3 py-1.5 text-sm ${b.boardKey === boardKey
-                      ? 'bg-primary text-white'
+                      ? 'bg-primary text-primary-fg'
                       : 'text-gray-700 hover:bg-gray-100'}`}
                   >
                     {b.label}
@@ -115,7 +117,7 @@ export const LeaderboardsPage: React.FC = () => {
                   aria-selected={p === period}
                   onClick={() => setPeriod(p)}
                   className={`rounded-full px-3 py-1 text-sm border ${p === period
-                    ? 'bg-primary text-white border-primary'
+                    ? 'bg-primary text-primary-fg border-primary'
                     : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                 >
                   {leaderboardPeriodLabel(p)}

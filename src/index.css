@@ -31,15 +31,25 @@
     @apply font-semibold text-slate-900;
   }
 
-  /* The heading font (the body font in `current`, Enchanted Land in `brand`, Cinzel in `proposal`).
-     Page titles only: in an alert or a card heading a display face reads oddly. */
-  h1 {
+  /* The decorative heading font (`--font-display`: the body font in `current`, Enchanted Land in `brand`,
+     Cinzel in `proposal`) on player-facing pages only; manager and admin pages keep the body font (developer
+     decision 2026-11-03, #92). Pages opt in with usePublicSurface() (src/theme/surface.ts). Enchanted Land
+     has one weight: no faux bold on a script face. */
+  :root[data-surface="public"] h1,
+  [class~="font-display"] {
     font-family: var(--font-display);
-    /* Enchanted Land has one weight: no faux bold on a script face. */
     font-synthesis: none;
   }
-  [class~="font-display"] {
-    font-synthesis: none;
+
+  /* #92 phase 2 (prioritised 2026-11-03): in the brand themes the auth pages and the landing fill the
+     window, so the dark backdrop is full-bleed instead of a box inside the app's page padding. `current`
+     keeps today's layout. Below the fixed navigation (z-50) when someone is logged in. */
+  :root[data-theme="brand"] .public-full-bleed,
+  :root[data-theme="proposal"] .public-full-bleed {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    overflow-y: auto;
   }
 
   /* The bar's own action (Create New): in `proposal` the primary is the nav's charcoal, so it gets the

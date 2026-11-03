@@ -5,6 +5,7 @@ import { Slideshow } from '../components/Slideshow';
 import { useAuth } from '../contexts/AuthContext';
 import { appConfig } from '../config/appConfig';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { usePublicSurface } from '../theme/surface';
 
 const SLIDES = [
   { id: '1', url: '/images/1.jpg', title: 'Cinix from the north-west gate' },
@@ -91,11 +92,12 @@ const JOIN_STEPS: { title: string; body: React.ReactNode }[] = [
 
 export function LandingPage() {
   usePageTitle(null);
+  usePublicSurface();
   const { isLoggedIn } = useAuth();
   const serverAddress = appConfig.minecraft.serverAddress;
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative public-full-bleed">
       {/* Background slideshow */}
       <div className="fixed inset-0">
         <Slideshow images={SLIDES} decorative />

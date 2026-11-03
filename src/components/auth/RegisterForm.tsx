@@ -454,7 +454,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
             </p>
             <Link
               to="/account"
-              className="mt-4 inline-block rounded-lg bg-primary px-6 py-2 font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              className="mt-4 inline-block rounded-lg bg-primary px-6 py-2 font-medium text-primary-fg hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
             >
               Go to your account
             </Link>
@@ -480,7 +480,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
           <button
             type="submit"
             disabled={isBusy}
-            className="flex items-center justify-center gap-2 px-6 py-2 text-base rounded-lg font-medium bg-primary text-white hover:bg-primary-dark shadow-md disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+            className="flex items-center justify-center gap-2 px-6 py-2 text-base rounded-lg font-medium bg-primary text-primary-fg hover:bg-primary-dark shadow-md disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
           >
             {isBusy && (
               <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" aria-hidden="true" />

@@ -353,7 +353,7 @@ export const FieldEditor: React.FC<Props> = ({ field: initialField, onSave, onCa
                     </button>
                     <button
                         onClick={handleSave}
-                        className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-primary-dark"
+                        className="px-4 py-2 bg-primary text-primary-fg rounded-md text-sm font-medium hover:bg-primary-dark"
                     >
                         Save Field
                     </button>

@@ -4,6 +4,7 @@
  *
  *   node scripts/codemods/tokens-95.js --sweep-only <files...>   only text-gray-400 → text-muted
  *   node scripts/codemods/tokens-95.js <files...>                every mapping below
+ *   node scripts/codemods/tokens-95.js --primary-fg-only <files...>  only the text on bg-primary (all files)
  *   add --dry-run to print the counts without writing
  *
  * The swaps are mechanical, one class for one class, so a branch that still has the old classes can be
@@ -52,7 +53,24 @@ const UTILITIES = 'text|bg|border(?:-[xytrbl])?|divide|ring|ring-offset|outline|
 const COLOUR = 'white|(?:gray|slate|blue|red|green|amber|yellow)-(?:50|[1-9]00)';
 const CLASS = new RegExp(`(?<![\\w-])((?:[a-z0-9-]+:)*)(${UTILITIES})-(${COLOUR})(\\/\\d+)?(?![\\w-])`, 'g');
 
-function swap(source, { sweepOnly }) {
+// Text on a filled primary must use primary-fg: it is black in `brand` (white on orange is 2.4:1). In a class
+// string that has a bg-primary / bg-primary-dark / bg-primary-light, text-white becomes text-primary-fg.
+const CLASS_STRING = /(["'`])((?:(?!\1)[^\n])*?\bbg-primary(?:-dark|-light)?(?![\w/-])(?:(?!\1)[^\n])*?)\1/g;
+
+function primaryFg(source) {
+  let count = 0;
+  const out = source.replace(CLASS_STRING, (match, quote, body) => {
+    const swapped = body.replace(/(?<![\w-])((?:[a-z0-9-]+:)*)text-white(?![\w/-])/g, (m, variants) => {
+      count++;
+      return `${variants}text-primary-fg`;
+    });
+    return `${quote}${swapped}${quote}`;
+  });
+  return { out, count };
+}
+
+function swap(source, { sweepOnly, primaryFgOnly }) {
+  if (primaryFgOnly) return primaryFg(source);
   let count = 0;
   const out = source.replace(CLASS, (match, variants, utility, colour, opacity = '') => {
     // Disabled controls and placeholders are exempt from WCAG contrast: leave them.
@@ -77,17 +95,19 @@ function swap(source, { sweepOnly }) {
       return `<${tag}${id} className="${classes}"${rest}>${body ?? ''}`;
     },
   );
-  return { out: withErrors, count };
+  const fg = primaryFg(withErrors);
+  return { out: fg.out, count: count + fg.count };
 }
 
 function main(argv) {
   const sweepOnly = argv.includes('--sweep-only');
+  const primaryFgOnly = argv.includes('--primary-fg-only');
   const dryRun = argv.includes('--dry-run');
   const files = argv.filter(arg => !arg.startsWith('--') && !/\.test\.|__tests__/.test(arg));
   let total = 0;
   for (const file of files) {
     const source = fs.readFileSync(file, 'utf8');
-    const { out, count } = swap(source, { sweepOnly });
+    const { out, count } = swap(source, { sweepOnly, primaryFgOnly });
     if (count === 0) continue;
     total += count;
     console.log(`${String(count).padStart(4)}  ${file}`);

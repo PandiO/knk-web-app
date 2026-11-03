@@ -165,7 +165,7 @@ export const ReusableSectionSelector: React.FC<Props> = ({
                     <button
                         onClick={handleConfirm}
                         disabled={!selectedSection}
-                        className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-primary-dark disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        className="px-4 py-2 bg-primary text-primary-fg rounded-md text-sm font-medium hover:bg-primary-dark disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                         Add Section
                     </button>

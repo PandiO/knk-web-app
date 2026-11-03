@@ -10,6 +10,7 @@ import {
   formatStatisticsDate,
   PublicPlayerProfileDto,
 } from '../../types/dtos/statistics/StatisticsDtos';
+import { usePublicSurface } from '../../theme/surface';
 
 // A player's public profile (/players/:username, KNG-34, IMPLEMENTATION_PLAN.md §3.2): the
 // always-public fields for anyone (signed in or not), then the statistics and title history the
@@ -17,6 +18,7 @@ import {
 // online status (vanish must not leak).
 
 export const PublicPlayerProfilePage: React.FC = () => {
+  usePublicSurface();
   const { username = '' } = useParams<{ username: string }>();
   const [profile, setProfile] = React.useState<PublicPlayerProfileDto | null>(null);
   const [loading, setLoading] = React.useState(true);

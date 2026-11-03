@@ -155,7 +155,7 @@ export const StatisticsVisibilitySettings: React.FC<{ userId: number; readOnly?:
             aria-selected={g === group}
             onClick={() => { setGroup(g); setPending(null); }}
             className={`rounded-full px-3 py-1 text-sm border ${g === group
-              ? 'bg-primary text-white border-primary'
+              ? 'bg-primary text-primary-fg border-primary'
               : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
           >
             {groupLabel(g)}
@@ -216,7 +216,7 @@ export const StatisticsVisibilitySettings: React.FC<{ userId: number; readOnly?:
             {pending.value === 'Friends' && !settings.friendsAvailable && <li>{FRIENDS_NOTE}</li>}
           </ul>
           <div className="flex gap-2">
-            <button type="button" disabled={saving} className="px-3 py-1 text-sm rounded-md bg-primary text-white disabled:opacity-50"
+            <button type="button" disabled={saving} className="px-3 py-1 text-sm rounded-md bg-primary text-primary-fg disabled:opacity-50"
               onClick={() => void save(pending.changes, `Set ${pending.changes.length} ${groupLabel(group)} setting(s) to ${pending.value}.`)}>
               Confirm
             </button>

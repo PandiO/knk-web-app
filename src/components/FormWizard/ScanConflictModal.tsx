@@ -98,7 +98,7 @@ export const ScanConflictModal: React.FC<ScanConflictModalProps> = ({ open, fiel
                     </button>
                     <button
                         onClick={() => onResolve(choices)}
-                        className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-md"
+                        className="px-4 py-2 text-sm font-medium text-primary-fg bg-primary hover:bg-primary-dark rounded-md"
                     >
                         Apply
                     </button>

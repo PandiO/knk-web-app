@@ -163,7 +163,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                     )}
                     <button
                         onClick={handleContinue}
-                        className={`px-4 py-2 text-sm font-medium text-white rounded-md ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary-dark'}`}
+                        className={`px-4 py-2 text-sm font-medium rounded-md ${danger ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-primary hover:bg-primary-dark text-primary-fg'}`}
                     >
                         {continueLabel ?? (onContinue ? 'Continue' : 'Close')}
                     </button>

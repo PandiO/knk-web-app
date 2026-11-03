@@ -2,10 +2,12 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Compass } from 'lucide-react';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { usePublicSurface } from '../theme/surface';
 
 /** The catch-all route: an unknown path. */
 export const NotFoundPage: React.FC = () => {
   usePageTitle('Page not found');
+  usePublicSurface();
   return (
     <main className="max-w-md mx-auto mt-16 bg-white shadow-sm rounded-lg border border-gray-200 p-8 text-center">
       <Compass className="h-10 w-10 mx-auto text-muted" aria-hidden="true" />

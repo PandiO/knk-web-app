@@ -63,7 +63,8 @@ const PAIRS: Array<[string, string, number, string]> = [
   ...['canvas', 'surface', 'surface-alt'].flatMap(bg => [
     [`color-fg`, `color-${bg}`, TEXT, 'body text'],
     [`color-muted`, `color-${bg}`, TEXT, 'secondary text (was text-gray-400)'],
-    [`color-primary`, `color-${bg}`, TEXT, 'links and text-primary'],
+    [`color-primary-text`, `color-${bg}`, TEXT, 'links and text-primary'],
+    [`color-primary-line`, `color-${bg}`, UI, 'border-primary / ring-primary (active tab, selection)'],
     [`color-danger`, `color-${bg}`, TEXT, 'field errors and danger text'],
     [`color-success`, `color-${bg}`, TEXT, 'success text'],
     [`color-warning`, `color-${bg}`, TEXT, 'warning text'],
@@ -71,7 +72,7 @@ const PAIRS: Array<[string, string, number, string]> = [
     [`color-field`, `color-${bg}`, UI, 'form field border'],
     [`color-focus`, `color-${bg}`, UI, 'focus ring'],
   ] as Array<[string, string, number, string]>),
-  ['color-primary-dark', 'color-surface', TEXT, 'link hover'],
+  ['color-primary-text-dark', 'color-surface', TEXT, 'link hover'],
   ['color-primary-light', 'color-surface', UI, 'primary icons'],
   // Filled buttons
   ['color-primary-fg', 'color-primary', TEXT, 'primary button'],
@@ -88,7 +89,8 @@ const PAIRS: Array<[string, string, number, string]> = [
     [`color-${status}-strong`, `color-${status}-muted`, TEXT, `${status} badge text`],
     [`color-${status}`, `color-${status}-soft`, UI, `${status} alert icon`],
   ] as Array<[string, string, number, string]>),
-  ['color-primary', 'color-info-soft', TEXT, 'a link inside an info box'],
+  ['color-primary-text', 'color-info-soft', TEXT, 'a link inside an info box'],
+  ['color-nav-focus', 'color-nav', UI, 'focus ring on the bar\'s controls'],
   // Public pages and navigation
   ['color-backdrop-fg', 'color-backdrop', TEXT, 'text on the auth backdrop'],
   ['color-nav-fg', 'color-nav', TEXT, 'navigation title and active link'],

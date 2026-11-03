@@ -22,6 +22,7 @@ import {
 import { ClaimCodeInput } from '../../components/auth/ClaimCodeInput';
 import { InviteCodeInput } from '../../components/auth/InviteCodeInput';
 import { formatInviteCode } from '../../utils/inviteCode';
+import { usePublicSurface } from '../../theme/surface';
 
 type Step = 'code' | 'checking' | 'verified' | 'linking' | 'linked';
 
@@ -37,6 +38,7 @@ const INVALID_CODE = `This code is invalid or has expired. ${CLAIM_CODE_STAYS_VA
  */
 export const LinkPage: React.FC = () => {
   usePageTitle('Link your Minecraft account');
+  usePublicSurface();
   useNoReferrer();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -118,7 +120,7 @@ export const LinkPage: React.FC = () => {
   const alreadyLinked = isLoggedIn && !!user && (user.minecraftLinked ?? !!user.uuid);
 
   return (
-    <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-backdrop">
+    <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-backdrop public-full-bleed">
       <div className="w-full max-w-xl bg-surface rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
         <div className="mb-6 text-center">
           <KeyRound className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />

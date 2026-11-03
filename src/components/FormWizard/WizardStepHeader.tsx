@@ -112,7 +112,7 @@ const CompactStepHeader: React.FC<{ steps: WizardStepProgressItem[] }> = ({ step
                                         step.isDone
                                             ? 'bg-green-500 text-white'
                                             : step.isCurrent
-                                            ? 'bg-primary text-white'
+                                            ? 'bg-primary text-primary-fg'
                                             : 'bg-gray-200 text-gray-600'
                                     }`}
                                 >
@@ -240,7 +240,7 @@ export const WizardStepProgress: React.FC<{ steps: WizardStepProgressItem[] }> =
                                                 step.isDone
                                                     ? 'bg-green-500 text-white'
                                                     : step.isCurrent
-                                                    ? 'bg-primary text-white'
+                                                    ? 'bg-primary text-primary-fg'
                                                     : 'bg-gray-200 text-gray-600'
                                             }`}
                                         >

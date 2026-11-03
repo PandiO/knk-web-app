@@ -83,7 +83,7 @@ export const SavedProgressList: React.FC<Props> = ({
                             <div className="flex items-center space-x-2">
                                 <button
                                     onClick={() => onResume(progress)}
-                                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark"
+                                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-primary-fg bg-primary hover:bg-primary-dark"
                                 >
                                     <PlayCircle className="h-4 w-4 mr-1" />
                                     Resume

@@ -132,7 +132,7 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
                     {phase === 'report' ? (
                         <button
                             onClick={() => onDone(results)}
-                            className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-md"
+                            className="px-4 py-2 text-sm font-medium text-primary-fg bg-primary hover:bg-primary-dark rounded-md"
                         >
                             Done
                         </button>
@@ -149,7 +149,7 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
                                 onClick={keep}
                                 disabled={phase === 'working'}
                                 autoFocus
-                                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-md disabled:opacity-50 inline-flex items-center"
+                                className="px-4 py-2 text-sm font-medium text-primary-fg bg-primary hover:bg-primary-dark rounded-md disabled:opacity-50 inline-flex items-center"
                             >
                                 {phase === 'working' && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                                 {keepLabel}

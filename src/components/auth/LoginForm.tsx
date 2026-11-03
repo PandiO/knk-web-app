@@ -222,7 +222,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
         type="submit"
         disabled={isSubmitting}
         className={`w-full px-4 py-2 text-base font-medium rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
-          isSubmitting ? 'bg-primary-light text-white opacity-60 cursor-not-allowed' : 'bg-primary text-white hover:bg-primary-dark'
+          isSubmitting ? 'bg-primary-light text-primary-fg opacity-60 cursor-not-allowed' : 'bg-primary text-primary-fg hover:bg-primary-dark'
         }`}
       >
         {isSubmitting ? 'Logging in…' : 'Log In'}

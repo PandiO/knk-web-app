@@ -63,7 +63,7 @@ const LINK_CLASS = 'inline-flex items-center gap-2 whitespace-nowrap border-b-2 
 // active page filled in rather than just underlined.
 const ICON_LINK_CLASS = 'inline-flex items-center justify-center rounded-lg p-2 transition-colors';
 const LINKS_ROW_CLASS = 'flex items-center gap-1';
-const TITLE_CLASS = 'whitespace-nowrap font-display text-xl font-semibold text-nav-fg';
+const TITLE_CLASS = 'whitespace-nowrap text-xl font-semibold text-nav-fg';
 
 // changed: accept props object instead of raw array parameter
 export function Navigation({ objectTypes }: Props) {
@@ -250,7 +250,7 @@ export function Navigation({ objectTypes }: Props) {
               <div className="relative flex-shrink-0" ref={navMenuRef}>
                 <button
                   onClick={() => setIsNavMenuOpen(open => !open)}
-                  className="inline-flex items-center justify-center rounded-md p-2 text-nav-muted hover:bg-nav-hover hover:text-nav-fg focus:outline-none focus:ring-2 focus:ring-focus"
+                  className="inline-flex items-center justify-center rounded-md p-2 text-nav-muted hover:bg-nav-hover hover:text-nav-fg focus:outline-none focus:ring-2 focus:ring-nav-focus"
                   aria-label={isNavMenuOpen ? 'Close menu' : 'Open menu'}
                   aria-expanded={isNavMenuOpen}
                 >
@@ -341,7 +341,7 @@ export function Navigation({ objectTypes }: Props) {
                 aria-expanded={isAccountMenuOpen}
                 aria-controls={isAccountMenuOpen ? 'account-menu' : undefined}
                 aria-label="Account menu"
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-nav-muted bg-nav hover:bg-nav-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-focus transition-colors"
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-nav-muted bg-nav hover:bg-nav-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-nav focus:ring-nav-focus transition-colors"
               >
                 <UserCircle2 className="h-5 w-5" aria-hidden="true" />
               </button>

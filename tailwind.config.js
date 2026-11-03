@@ -17,6 +17,13 @@ const status = (name) => ({
   ...(name === 'info' ? {} : { fg: v(`color-${name}-fg`) }),
 });
 
+const primaryOn = (use) => ({
+  DEFAULT: v(`color-primary-${use}`),
+  dark: v('color-primary-text-dark'),
+  light: v('color-primary-light'),
+  fg: v('color-primary-fg'),
+});
+
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
@@ -54,6 +61,7 @@ export default {
           hover: v('color-nav-hover'),
           line: v('color-nav-line'),
           accent: v('color-nav-accent'),
+          focus: v('color-nav-focus'),
         },
         danger: status('danger'),
         success: status('success'),
@@ -62,6 +70,12 @@ export default {
         secondary: v('slate-500'),
         accent: v('slate-900'),
       },
+      // `primary` as text, border or ring reads its own tokens: in `brand` the fill is orange, too light for
+      // text on white, so text-primary is a darker orange (#95, 2026-11-03). Same values in the other themes.
+      textColor: { primary: primaryOn('text') },
+      borderColor: { primary: primaryOn('line') },
+      ringColor: { primary: primaryOn('line') },
+      divideColor: { primary: primaryOn('line') },
       fontFamily: {
         sans: ['var(--font-body)'],
         display: ['var(--font-display)'],

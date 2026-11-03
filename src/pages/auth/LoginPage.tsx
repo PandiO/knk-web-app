@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { CONTENT_PERMISSION_NODE, usePermission } from '../../hooks/useStaffAccess';
 import { returnToFromState, sanitizeReturnTo } from '../../utils/returnTo';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { usePublicSurface } from '../../theme/surface';
 
 /**
  * Where a logged-in player goes: back to the page they came from (`?returnTo=` or ProtectedRoute's
@@ -14,6 +15,7 @@ import { usePageTitle } from '../../hooks/usePageTitle';
  */
 export const LoginPage: React.FC = () => {
   usePageTitle('Log in');
+  usePublicSurface();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -34,7 +36,7 @@ export const LoginPage: React.FC = () => {
   }, [isLoggedIn, returnTo, content.isChecking, content.allowed, navigate]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-backdrop">
+    <main className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-backdrop public-full-bleed">
       <div className="w-full max-w-md bg-surface rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
         <div className="mb-6 text-center">
           <h1 className="text-3xl sm:text-4xl font-bold text-fg">

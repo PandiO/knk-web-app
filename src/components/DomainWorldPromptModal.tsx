@@ -117,7 +117,7 @@ export const DomainWorldPromptModal: React.FC<DomainWorldPromptModalProps> = ({ 
                     <button
                         onClick={() => trimmed && onConfirm(trimmed)}
                         disabled={!trimmed}
-                        className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-md disabled:opacity-50"
+                        className="px-4 py-2 text-sm font-medium text-primary-fg bg-primary hover:bg-primary-dark rounded-md disabled:opacity-50"
                     >
                         Use this world
                     </button>
