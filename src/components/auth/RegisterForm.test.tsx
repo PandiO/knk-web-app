@@ -8,7 +8,7 @@ import { RegisterForm } from './RegisterForm';
 import { authClient } from '../../apiClients/authClient';
 import { useAuth } from '../../contexts/AuthContext';
 import { ERROR_MESSAGES } from '../../utils/authConstants';
-import { normalizeLinkCode, normalizeLinkCodeInput } from '../../utils/linkCode';
+import { normalizeLinkCode } from '../../utils/linkCode';
 import { fetchOnboardingInfo, resetOnboardingInfoCache } from '../../hooks/useOnboardingInfo';
 import { admissionClient } from '../../apiClients/admissionClient';
 import { loadPendingClaim } from '../../utils/claimCode';
@@ -104,25 +104,81 @@ describe('RegisterForm', () => {
     expect(screen.queryByLabelText(/email address/i)).not.toBeInTheDocument();
   });
 
-  it('sends a claim code typed as XXXX-XXXX to /link instead of checking it as a link code (2026-10-25)', async () => {
+  it('uses the masked claim-code field: the dash is drawn by the field, look-alikes are kept (#229)', async () => {
     render(<RegisterForm />);
+    const field = screen.getByTestId('link-code');
 
-    await userEvent.type(screen.getByTestId('link-code'), 'k7qh-m2xa');
-
-    expect(screen.getByTestId('link-code')).toHaveValue('K7QH-M2XA');
-    expect(screen.getByTestId('claim-code-detected')).toHaveTextContent(/disconnect screen/);
-    await userEvent.click(screen.getByRole('button', { name: /continue with this code/i }));
-    expect(mockNavigate).toHaveBeenCalledWith('/link?code=K7QH-M2XA');
-    expect(mockedValidate).not.toHaveBeenCalled();
+    expect(field).toHaveValue('');
+    expect(field).not.toHaveAttribute('placeholder');
+    expect(field).toHaveAccessibleDescription(/adds the dash itself/);
+    await userEvent.type(field, 'abcd');
+    expect(field).toHaveValue('ABCD-');
+    await userEvent.type(field, 'o1l2');
+    // An /account link code may hold O, I and L: not folded to 0 and 1.
+    expect(field).toHaveValue('ABCD-O1L2');
+    await userEvent.type(field, 'xyz');
+    expect(field).toHaveValue('ABCD-O1L2');
   });
 
-  it('hints at the claim flow when a refused link code could be a claim code without its dash', async () => {
+  it('checks a valid /account link code without asking about claim codes (#229)', async () => {
+    mockedValidate.mockResolvedValue({ isValid: true, username: 'Steve' });
+    render(<RegisterForm />);
+
+    await enterCode('k7qh-m2xa');
+
+    expect(await screen.findByTestId('link-code-owner')).toHaveTextContent('Steve');
+    expect(mockedValidate).toHaveBeenCalledWith('K7QHM2XA');
+    expect(mockedCheckClaim).not.toHaveBeenCalled();
+  });
+
+  it('takes a refused code that is a live claim code on to /link, verified (2026-10-25, #229)', async () => {
+    const expiresAt = new Date(Date.now() + 60_000).toISOString();
     mockedValidate.mockResolvedValue({ isValid: false });
+    mockedCheckClaim.mockResolvedValue({ valid: true, minecraftName: 'Steve', expiresAt });
+    render(<RegisterForm />);
+
+    await enterCode('k7qh-m2xo');
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/link'));
+    expect(mockedValidate).toHaveBeenCalledWith('K7QHM2XO');
+    // Folded like the API does (O→0).
+    expect(mockedCheckClaim).toHaveBeenCalledWith('K7QHM2X0');
+    expect(loadPendingClaim()).toEqual({ code: 'K7QHM2X0', minecraftName: 'Steve', expiresAt });
+    expect(screen.queryByText(ERROR_MESSAGES.InvalidLinkCode)).not.toBeInTheDocument();
+    sessionStorage.clear();
+  });
+
+  it('does not ask about a refused code with a U, which a claim code never has (#229)', async () => {
+    mockedValidate.mockResolvedValue({ isValid: false });
+    render(<RegisterForm />);
+
+    await enterCode('abcu1234');
+
+    expect(await screen.findByText(ERROR_MESSAGES.InvalidLinkCode)).toBeInTheDocument();
+    expect(mockedCheckClaim).not.toHaveBeenCalled();
+  });
+
+  it('does not ask about claim codes when the link-code check could not answer (#229)', async () => {
+    mockedValidate.mockRejectedValue({ status: 429, code: 'TooManyAttempts' });
+    render(<RegisterForm />);
+
+    await enterCode('k7qhm2xa');
+
+    expect(await screen.findByText(ERROR_MESSAGES.TooManyAttempts)).toBeInTheDocument();
+    expect(mockedCheckClaim).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('hints at the claim flow when a refused link code could be a claim code but is no live one', async () => {
+    mockedValidate.mockResolvedValue({ isValid: false });
+    mockedCheckClaim.mockResolvedValue({ valid: false });
     render(<RegisterForm />);
 
     await enterCode('k7qhm2xa');
 
     expect(await screen.findByText(ERROR_MESSAGES.InvalidLinkCode)).toBeInTheDocument();
+    expect(mockedCheckClaim).toHaveBeenCalledWith('K7QHM2XA');
+    expect(mockNavigate).not.toHaveBeenCalled();
     const hint = screen.getByTestId('claim-code-hint');
     expect(hint).toHaveTextContent(/15 minutes/);
     expect(hint.querySelector('a')).toHaveAttribute('href', '/link?code=K7QH-M2XA');
@@ -136,6 +192,8 @@ describe('RegisterForm', () => {
 
     expect(await screen.findByText(ERROR_MESSAGES.InvalidLinkCode)).toBeInTheDocument();
     expect(screen.queryByTestId('claim-code-hint')).not.toBeInTheDocument();
+    // Asked once as a claim code with the look-alikes folded; not live.
+    expect(mockedCheckClaim).toHaveBeenCalledWith('ABCD0111');
   });
 
   it('asks for all 8 characters before calling the API', async () => {
@@ -291,7 +349,7 @@ describe('RegisterForm with invitations on (Mode=Invite, 2026-10-25)', () => {
     await userEvent.type(screen.getByTestId('invite-entry'), 'abcd1234');
     await userEvent.click(screen.getByRole('button', { name: /continue/i }));
 
-    expect(await screen.findByTestId('link-code')).toHaveValue('ABCD1234');
+    expect(await screen.findByTestId('link-code')).toHaveValue('ABCD-1234');
     expect(mockedCheckClaim).toHaveBeenCalledWith('ABCD1234');
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(screen.getByTestId('grandfathered-note')).toBeInTheDocument();
@@ -303,14 +361,14 @@ describe('RegisterForm with invitations on (Mode=Invite, 2026-10-25)', () => {
 
     await userEvent.type(screen.getByTestId('invite-entry'), 'abcd1234');
     await userEvent.click(screen.getByRole('button', { name: /continue/i }));
-    expect(await screen.findByTestId('link-code')).toHaveValue('ABCD1234');
+    expect(await screen.findByTestId('link-code')).toHaveValue('ABCD-1234');
 
     await userEvent.click(screen.getByRole('button', { name: /sign up with your invitation instead/i }));
     mockedCheckClaim.mockClear();
     await userEvent.clear(screen.getByTestId('invite-entry'));
     await userEvent.type(screen.getByTestId('invite-entry'), 'abcu1234');
     await userEvent.click(screen.getByRole('button', { name: /continue/i }));
-    expect(await screen.findByTestId('link-code')).toHaveValue('ABCU1234');
+    expect(await screen.findByTestId('link-code')).toHaveValue('ABCU-1234');
     expect(mockedCheckClaim).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
@@ -356,14 +414,5 @@ describe('RegisterForm with invitations on (Mode=Invite, 2026-10-25)', () => {
 describe('normalizeLinkCode', () => {
   it('uppercases, drops separators and caps the length', () => {
     expect(normalizeLinkCode('ab-cd 12_34xyz')).toBe('ABCD1234');
-  });
-
-  it('keeps one dash while typing, so a claim code stays recognisable', () => {
-    expect(normalizeLinkCodeInput('k7qh-m2xa')).toBe('K7QH-M2XA');
-    expect(normalizeLinkCodeInput('k7qh–m2xa')).toBe('K7QH-M2XA');
-    expect(normalizeLinkCodeInput('ab-cd-12 34xyz')).toBe('AB-CD1234');
-    expect(normalizeLinkCodeInput('abcd1234xyz')).toBe('ABCD1234');
-    expect(normalizeLinkCodeInput('k7qh-m2xa99')).toBe('K7QH-M2XA');
-    expect(normalizeLinkCode(normalizeLinkCodeInput('abcd1234xyz'))).toBe('ABCD1234');
   });
 });
