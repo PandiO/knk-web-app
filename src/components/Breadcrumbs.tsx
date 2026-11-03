@@ -28,22 +28,22 @@ export const Breadcrumbs: React.FC<Props> = ({ trail, onNavigate, className = ''
 
     return (
         <nav aria-label="Breadcrumb" className={className}>
-            <ol className="flex flex-wrap items-center gap-1 text-sm text-gray-500">
+            <ol className="flex flex-wrap items-center gap-1 text-sm text-muted">
                 {trail.map((crumb, index) => {
                     const last = index === trail.length - 1;
                     return (
                         <li key={`${index}:${crumb.label}`} className="flex min-w-0 items-center gap-1">
-                            {index > 0 && <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" aria-hidden="true" />}
+                            {index > 0 && <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted" aria-hidden="true" />}
                             {crumb.to && !last ? (
                                 <a
                                     href={crumb.to}
                                     onClick={event => follow(event, crumb.to!)}
-                                    className="truncate text-gray-600 hover:text-gray-900 hover:underline"
+                                    className="truncate text-gray-600 hover:text-fg hover:underline"
                                 >
                                     {crumb.label}
                                 </a>
                             ) : (
-                                <span className="truncate font-medium text-gray-900" aria-current={last ? 'page' : undefined}>
+                                <span className="truncate font-medium text-fg" aria-current={last ? 'page' : undefined}>
                                     {crumb.label}
                                 </span>
                             )}

@@ -360,17 +360,17 @@ export const PlayerProfilePage: React.FC = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-surface-alt">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-                <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
+                <div className="bg-surface shadow-sm rounded-lg p-6 border border-line">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <button className="text-sm text-gray-500 hover:text-gray-700 mb-2 inline-flex items-center" onClick={() => navigate(-1)}>
+                            <button className="text-sm text-muted hover:text-gray-700 mb-2 inline-flex items-center" onClick={() => navigate(-1)}>
                                 <ArrowLeft className="h-4 w-4 mr-1" />
                                 Back
                             </button>
-                            <h1 className="text-2xl font-bold text-gray-900">{account.username}</h1>
-                            <p className="mt-1 text-sm text-gray-500">
+                            <h1 className="text-2xl font-bold text-fg">{account.username}</h1>
+                            <p className="mt-1 text-sm text-muted">
                                 User #{account.id}
                                 {account.uuid && <span className="font-mono"> &middot; {account.uuid}</span>}
                                 {account.email && <span> &middot; {account.email}</span>}
@@ -378,7 +378,7 @@ export const PlayerProfilePage: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-2">
                             {account.activeMode !== 'None' && (
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-warning-muted text-warning-strong">
                                     <EyeOff className="h-3.5 w-3.5 mr-1" />
                                     {activeModeLabel(account.activeMode)}
                                 </span>
@@ -392,23 +392,23 @@ export const PlayerProfilePage: React.FC = () => {
 
                     {/* Quick action: vanish/owner-staff mode toggle (DESIGN.md §3) */}
                     <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-gray-500 mr-1">Mode:</span>
+                        <span className="text-sm text-muted mr-1">Mode:</span>
                         {ACTIVE_MODES.map((mode) => (
                             <button
                                 key={mode}
                                 disabled={togglingMode || account.activeMode === mode}
                                 className={`text-xs px-3 py-1.5 rounded-full font-medium border transition-colors disabled:cursor-default ${
                                     account.activeMode === mode
-                                        ? 'bg-amber-100 text-amber-800 border-amber-200'
-                                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                        ? 'bg-warning-muted text-warning-strong border-warning-line'
+                                        : 'bg-surface text-gray-600 border-line hover:bg-surface-alt'
                                 }`}
                                 onClick={() => void handleToggleMode(mode)}
                             >
                                 {activeModeLabel(mode)}
                             </button>
                         ))}
-                        {togglingMode && <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />}
-                        {modeActionError && <span className="text-xs text-red-600">{modeActionError}</span>}
+                        {togglingMode && <Loader2 className="h-4 w-4 text-muted animate-spin" />}
+                        {modeActionError && <span className="field-error text-xs">{modeActionError}</span>}
                     </div>
                 </div>
 
@@ -416,44 +416,44 @@ export const PlayerProfilePage: React.FC = () => {
                 <PlayerAccessCard account={account} onChanged={refreshAfterAction} />
 
                 {/* Account */}
-                <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Account</h2>
+                <div className="bg-surface shadow-sm rounded-lg p-6 border border-line">
+                    <h2 className="text-lg font-semibold text-fg mb-4">Account</h2>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                         <div>
-                            <p className="text-gray-500">Coins</p>
-                            <p className="font-semibold text-gray-900">{account.coins}</p>
+                            <p className="text-muted">Coins</p>
+                            <p className="font-semibold text-fg">{account.coins}</p>
                         </div>
                         <div>
-                            <p className="text-gray-500">Gems</p>
-                            <p className="font-semibold text-gray-900">{account.gems}</p>
+                            <p className="text-muted">Gems</p>
+                            <p className="font-semibold text-fg">{account.gems}</p>
                         </div>
                         <div>
-                            <p className="text-gray-500">Experience</p>
-                            <p className="font-semibold text-gray-900">{account.experiencePoints}</p>
+                            <p className="text-muted">Experience</p>
+                            <p className="font-semibold text-fg">{account.experiencePoints}</p>
                         </div>
                         <div>
-                            <p className="text-gray-500">Account type</p>
-                            <p className="font-semibold text-gray-900">{account.isFullAccount ? 'Full account' : 'Minecraft-only'}</p>
+                            <p className="text-muted">Account type</p>
+                            <p className="font-semibold text-fg">{account.isFullAccount ? 'Full account' : 'Minecraft-only'}</p>
                         </div>
                         <div>
-                            <p className="text-gray-500">Created</p>
-                            <p className="font-semibold text-gray-900">{formatDate(account.createdAt)}</p>
+                            <p className="text-muted">Created</p>
+                            <p className="font-semibold text-fg">{formatDate(account.createdAt)}</p>
                         </div>
                         <div>
-                            <p className="text-gray-500">Status</p>
-                            <p className="font-semibold text-gray-900">{account.isActive ? 'Active' : 'Deactivated'}</p>
+                            <p className="text-muted">Status</p>
+                            <p className="font-semibold text-fg">{account.isActive ? 'Active' : 'Deactivated'}</p>
                         </div>
                     </div>
 
                     {/* Payment lock (currency Phase 4): shown to staff, changeable with knk.admin.currency.lock. */}
                     {transferLock && (
                         <form className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-3 text-sm" onSubmit={(e) => void handleToggleTransferLock(e)}>
-                            <span className={`inline-flex items-center font-medium ${transferLock.locked ? 'text-red-700' : 'text-gray-600'}`}>
+                            <span className={`inline-flex items-center font-medium ${transferLock.locked ? 'text-danger-strong' : 'text-gray-600'}`}>
                                 {transferLock.locked ? <Lock className="h-4 w-4 mr-1" /> : <Unlock className="h-4 w-4 mr-1" />}
                                 {transferLock.locked ? `Payments locked: ${transferLock.reason ?? ''}` : 'Payments allowed'}
                             </span>
                             {transferLock.locked && transferLock.lockedAt && (
-                                <span className="text-xs text-gray-500">since {formatDate(transferLock.lockedAt)}</span>
+                                <span className="text-xs text-muted">since {formatDate(transferLock.lockedAt)}</span>
                             )}
                             {canLockTransfers && !transferLock.locked && (
                                 <input
@@ -471,7 +471,7 @@ export const PlayerProfilePage: React.FC = () => {
                                     {changingLock ? <Loader2 className="h-4 w-4 animate-spin" /> : transferLock.locked ? 'Unlock payments' : 'Lock payments'}
                                 </button>
                             )}
-                            {lockError && <span className="text-xs text-red-600 w-full">{lockError}</span>}
+                            {lockError && <span className="field-error text-xs w-full">{lockError}</span>}
                         </form>
                     )}
                 </div>
@@ -484,7 +484,7 @@ export const PlayerProfilePage: React.FC = () => {
                     onAdjusted={handleBalanceAdjusted}
                 >
                     {titleChangeNotice && (
-                        <div className={`mt-3 rounded-md p-3 text-sm ${titleChangeNotice.direction === 'promotion' ? 'bg-amber-50 border border-amber-200 text-amber-900' : 'bg-red-50 border border-red-200 text-red-900'}`}>
+                        <div className={`mt-3 rounded-md p-3 text-sm ${titleChangeNotice.direction === 'promotion' ? 'bg-warning-soft border border-warning-line text-warning-strong' : 'bg-danger-soft border border-danger-line text-red-900'}`}>
                             <p className="font-semibold">
                                 {titleChangeNotice.direction === 'promotion' ? '✦ Promoted!' : 'Demoted'}
                                 {titleChangeNotice.crossedTitles.length > 1
@@ -503,19 +503,19 @@ export const PlayerProfilePage: React.FC = () => {
                 </AdjustBalanceCard>
 
                 {/* Title / XP */}
-                <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <div className="bg-surface shadow-sm rounded-lg p-6 border border-line">
+                    <h2 className="text-lg font-semibold text-fg mb-4 flex items-center">
                         <Award className="h-5 w-5 mr-2" />
                         Title &amp; Experience
                     </h2>
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <div>
-                            <p className="text-xl font-semibold text-gray-900">{title.titleName || 'No title'}</p>
-                            <p className="text-sm text-gray-500">{account.experiencePoints} XP total</p>
+                            <p className="text-xl font-semibold text-fg">{title.titleName || 'No title'}</p>
+                            <p className="text-sm text-muted">{account.experiencePoints} XP total</p>
                         </div>
                         {title.nextTitleName ? (
                             <div className="text-sm text-gray-600 text-right">
-                                <p>Next: <span className="font-medium text-gray-900">{title.nextTitleName}</span></p>
+                                <p>Next: <span className="font-medium text-fg">{title.nextTitleName}</span></p>
                                 <p>{Math.max(0, (title.nextTitleMinExperience ?? 0) - account.experiencePoints)} XP to go</p>
                             </div>
                         ) : (
@@ -529,14 +529,14 @@ export const PlayerProfilePage: React.FC = () => {
 
                 {/* Premium tier */}
                 {premiumGroups.length > 0 && (
-                    <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">Premium Tier</h2>
+                    <div className="bg-surface shadow-sm rounded-lg p-6 border border-line">
+                        <h2 className="text-lg font-semibold text-fg mb-4">Premium Tier</h2>
                         <div className="flex flex-wrap gap-3">
                             {premiumGroups.map(g => (
                                 <span
                                     key={g.permissionGroupId}
                                     className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
-                                        g.isActive ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-500 line-through'
+                                        g.isActive ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-muted line-through'
                                     }`}
                                 >
                                     {g.permissionGroupName}
@@ -548,18 +548,18 @@ export const PlayerProfilePage: React.FC = () => {
                 )}
 
                 {/* Groups */}
-                <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <div className="bg-surface shadow-sm rounded-lg p-6 border border-line">
+                    <h2 className="text-lg font-semibold text-fg mb-4 flex items-center">
                         <Users className="h-5 w-5 mr-2" />
                         Groups ({activeGroups.length} active)
                     </h2>
                     {groups.length === 0 ? (
-                        <p className="text-sm text-gray-500 mb-4">No group memberships.</p>
+                        <p className="text-sm text-muted mb-4">No group memberships.</p>
                     ) : (
                         <div className="overflow-x-auto mb-4">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="text-left border-b border-gray-200">
+                                    <tr className="text-left border-b border-line">
                                         <th className="py-2 pr-4">Group</th>
                                         <th className="py-2 pr-4">Weight</th>
                                         <th className="py-2 pr-4">Premium</th>
@@ -571,20 +571,20 @@ export const PlayerProfilePage: React.FC = () => {
                                 <tbody>
                                     {groups.map(g => (
                                         <tr key={g.permissionGroupId} className="border-b border-gray-100">
-                                            <td className="py-2 pr-4 font-medium text-gray-900">{g.permissionGroupName || `#${g.permissionGroupId}`}</td>
+                                            <td className="py-2 pr-4 font-medium text-fg">{g.permissionGroupName || `#${g.permissionGroupId}`}</td>
                                             <td className="py-2 pr-4 text-gray-700">{g.weight}</td>
                                             <td className="py-2 pr-4 text-gray-700">{g.isPremiumTier ? 'Yes' : '-'}</td>
                                             <td className="py-2 pr-4 text-gray-700">{g.expiresAt ? formatDate(g.expiresAt) : 'Never'}</td>
                                             <td className="py-2 pr-4">
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                    g.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'
+                                                    g.isActive ? 'bg-success-muted text-success-strong' : 'bg-gray-100 text-muted'
                                                 }`}>
                                                     {g.isActive ? 'Active' : 'Expired'}
                                                 </span>
                                             </td>
                                             <td className="py-2 pr-4 text-right">
                                                 <button
-                                                    className="text-gray-400 hover:text-red-600 disabled:opacity-50"
+                                                    className="text-muted hover:text-danger disabled:opacity-50"
                                                     disabled={removingGroupId === g.permissionGroupId}
                                                     onClick={() => void handleRemoveGroup(g.permissionGroupId)}
                                                     title="Remove group"
@@ -604,7 +604,7 @@ export const PlayerProfilePage: React.FC = () => {
                     {/* Quick action: assign group (DESIGN.md §3) */}
                     <form className="flex flex-wrap items-end gap-3 pt-4 border-t border-gray-100" onSubmit={(e) => void handleAssignGroup(e)}>
                         <div>
-                            <label className="block text-xs text-gray-500 mb-1">Assign group</label>
+                            <label className="block text-xs text-muted mb-1">Assign group</label>
                             <select
                                 className="text-sm border border-gray-300 rounded-md px-2 py-1.5 min-w-[10rem]"
                                 value={selectedGroupId}
@@ -617,7 +617,7 @@ export const PlayerProfilePage: React.FC = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs text-gray-500 mb-1">Expires (optional)</label>
+                            <label className="block text-xs text-muted mb-1">Expires (optional)</label>
                             <input
                                 type="datetime-local"
                                 className="text-sm border border-gray-300 rounded-md px-2 py-1.5"
@@ -629,51 +629,51 @@ export const PlayerProfilePage: React.FC = () => {
                             {assigningGroup ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
                             Assign
                         </button>
-                        {groupActionError && <span className="text-xs text-red-600">{groupActionError}</span>}
+                        {groupActionError && <span className="field-error text-xs">{groupActionError}</span>}
                     </form>
                 </div>
 
                 {/* Salary */}
-                <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <div className="bg-surface shadow-sm rounded-lg p-6 border border-line">
+                    <h2 className="text-lg font-semibold text-fg mb-4 flex items-center">
                         <Coins className="h-5 w-5 mr-2" />
                         Salary
                     </h2>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mb-4">
                         <div>
-                            <p className="text-gray-500">Title salary x Global x Personal x Rank</p>
-                            <p className="font-semibold text-gray-900">
+                            <p className="text-muted">Title salary x Global x Personal x Rank</p>
+                            <p className="font-semibold text-fg">
                                 {salary.titleSalary} &times; {salary.globalMultiplier} &times; {salary.personalMultiplier} &times; {salary.rankMultiplier}
                             </p>
                         </div>
                         <div>
-                            <p className="text-gray-500">Effective rate</p>
-                            <p className="font-semibold text-gray-900">{salary.effectiveHourlyRate.toFixed(2)} coins/hr</p>
+                            <p className="text-muted">Effective rate</p>
+                            <p className="font-semibold text-fg">{salary.effectiveHourlyRate.toFixed(2)} coins/hr</p>
                         </div>
                         <div>
-                            <p className="text-gray-500">Last payout</p>
-                            <p className="font-semibold text-gray-900">{formatDate(salary.lastSalaryPayoutAt)}</p>
+                            <p className="text-muted">Last payout</p>
+                            <p className="font-semibold text-fg">{formatDate(salary.lastSalaryPayoutAt)}</p>
                         </div>
                         <div>
-                            <p className="text-gray-500">Next eligible</p>
-                            <p className="font-semibold text-gray-900">{formatDate(salary.nextEligibleAt)}</p>
+                            <p className="text-muted">Next eligible</p>
+                            <p className="font-semibold text-fg">{formatDate(salary.nextEligibleAt)}</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Permissions */}
-                <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <div className="bg-surface shadow-sm rounded-lg p-6 border border-line">
+                    <h2 className="text-lg font-semibold text-fg mb-4 flex items-center">
                         <ShieldCheck className="h-5 w-5 mr-2" />
                         Effective Permissions ({permissions.permissions.length})
                     </h2>
                     {permissions.permissions.length === 0 ? (
-                        <p className="text-sm text-gray-500 mb-4">No declared permission nodes for this player.</p>
+                        <p className="text-sm text-muted mb-4">No declared permission nodes for this player.</p>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="text-left border-b border-gray-200">
+                                    <tr className="text-left border-b border-line">
                                         <th className="py-2 pr-4">Node</th>
                                         <th className="py-2 pr-4">Value</th>
                                         <th className="py-2 pr-4">Source</th>
@@ -683,10 +683,10 @@ export const PlayerProfilePage: React.FC = () => {
                                 <tbody>
                                     {permissions.permissions.map(p => (
                                         <tr key={p.node} className="border-b border-gray-100">
-                                            <td className="py-2 pr-4 font-mono text-xs text-gray-900">{p.node}</td>
+                                            <td className="py-2 pr-4 font-mono text-xs text-fg">{p.node}</td>
                                             <td className="py-2 pr-4">
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                    p.value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                    p.value ? 'bg-success-muted text-success-strong' : 'bg-danger-muted text-danger-strong'
                                                 }`}>
                                                     {p.value ? 'Granted' : 'Denied'}
                                                 </span>
@@ -699,7 +699,7 @@ export const PlayerProfilePage: React.FC = () => {
                                             <td className="py-2 pr-4 text-right">
                                                 {p.sourceHolderType === 'User' ? (
                                                     <button
-                                                        className="text-gray-400 hover:text-red-600 disabled:opacity-50"
+                                                        className="text-muted hover:text-danger disabled:opacity-50"
                                                         disabled={revokingNode !== null}
                                                         onClick={() => void handleRevokeNode(p.node)}
                                                         title={`Remove direct ${p.value ? 'grant' : 'deny'}`}
@@ -711,7 +711,7 @@ export const PlayerProfilePage: React.FC = () => {
                                                     </button>
                                                 ) : (
                                                     <span
-                                                        className="text-xs text-gray-400"
+                                                        className="text-xs text-muted"
                                                         title="Inherited from a group: remove the node on the group, or remove the group membership above"
                                                     >
                                                         Inherited
@@ -724,13 +724,13 @@ export const PlayerProfilePage: React.FC = () => {
                             </table>
                         </div>
                     )}
-                    {revokeNodeError && <p className="text-xs text-red-600 mt-2">{revokeNodeError}</p>}
+                    {revokeNodeError && <p className="text-xs field-error mt-2">{revokeNodeError}</p>}
 
                     {/* Quick action: grant/deny a node directly on the player (DESIGN.md §3). Saving a node
                         the player already has directly updates its value and expiry (KNG-59). */}
                     <form className="flex flex-wrap items-end gap-3 pt-4 border-t border-gray-100" onSubmit={(e) => void handleGrantNode(e)}>
                         <div className="flex-1 min-w-[12rem]">
-                            <label className="block text-xs text-gray-500 mb-1">Grant/deny node</label>
+                            <label className="block text-xs text-muted mb-1">Grant/deny node</label>
                             <input
                                 type="text"
                                 placeholder="e.g. knk.gate.open"
@@ -740,7 +740,7 @@ export const PlayerProfilePage: React.FC = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs text-gray-500 mb-1">Value</label>
+                            <label className="block text-xs text-muted mb-1">Value</label>
                             <select
                                 className="text-sm border border-gray-300 rounded-md px-2 py-1.5"
                                 value={grantValue}
@@ -751,8 +751,8 @@ export const PlayerProfilePage: React.FC = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs text-gray-500 mb-1">
-                                Expires {grantExpiresAt ? '(clear for permanent)' : <span className="font-medium text-amber-700">(permanent)</span>}
+                            <label className="block text-xs text-muted mb-1">
+                                Expires {grantExpiresAt ? '(clear for permanent)' : <span className="font-medium text-warning">(permanent)</span>}
                             </label>
                             <div className="flex items-center gap-2">
                                 <input
@@ -762,11 +762,11 @@ export const PlayerProfilePage: React.FC = () => {
                                     onChange={(e) => setGrantExpiresAt(e.target.value)}
                                 />
                                 {grantExpiresAt ? (
-                                    <button type="button" className="text-xs text-gray-500 hover:text-red-600 underline" onClick={() => setGrantExpiresAt('')}>
+                                    <button type="button" className="text-xs text-muted hover:text-danger underline" onClick={() => setGrantExpiresAt('')}>
                                         Clear
                                     </button>
                                 ) : (
-                                    <button type="button" className="text-xs text-gray-500 hover:text-gray-800 underline" onClick={() => setGrantExpiresAt(defaultGrantExpiry())}>
+                                    <button type="button" className="text-xs text-muted hover:text-gray-800 underline" onClick={() => setGrantExpiresAt(defaultGrantExpiry())}>
                                         Reset to 1 day
                                     </button>
                                 )}
@@ -776,30 +776,30 @@ export const PlayerProfilePage: React.FC = () => {
                             {grantingNode ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
                             Save
                         </button>
-                        {grantActionError && <span className="text-xs text-red-600">{grantActionError}</span>}
+                        {grantActionError && <span className="field-error text-xs">{grantActionError}</span>}
                     </form>
                 </div>
 
                 {/* Kits (docs/specs/kits/IMPLEMENTATION_PLAN.md §6, DESIGN.md §4.6) */}
-                <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <div className="bg-surface shadow-sm rounded-lg p-6 border border-line">
+                    <h2 className="text-lg font-semibold text-fg mb-4 flex items-center">
                         <Gift className="h-5 w-5 mr-2" />
                         Kits
                     </h2>
                     {kitsLoading ? (
-                        <div className="flex items-center text-sm text-gray-500">
+                        <div className="flex items-center text-sm text-muted">
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                             Loading…
                         </div>
                     ) : kitsError ? (
-                        <p className="text-sm text-red-600">{kitsError}</p>
+                        <p className="text-sm field-error">{kitsError}</p>
                     ) : kits.length === 0 ? (
-                        <p className="text-sm text-gray-500">No kits are configured yet.</p>
+                        <p className="text-sm text-muted">No kits are configured yet.</p>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="text-left border-b border-gray-200">
+                                    <tr className="text-left border-b border-line">
                                         <th className="py-2 pr-4">Kit</th>
                                         <th className="py-2 pr-4">Status</th>
                                         <th className="py-2 pr-4">Cooldown</th>
@@ -813,12 +813,12 @@ export const PlayerProfilePage: React.FC = () => {
                                         return (
                                             <tr key={kit.kitId} className="border-b border-gray-100">
                                                 <td className="py-2 pr-4">
-                                                    <p className="font-medium text-gray-900">{kit.name}</p>
-                                                    {kit.description && <p className="text-xs text-gray-500">{kit.description}</p>}
+                                                    <p className="font-medium text-fg">{kit.name}</p>
+                                                    {kit.description && <p className="text-xs text-muted">{kit.description}</p>}
                                                 </td>
                                                 <td className="py-2 pr-4">
                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                        kit.canClaim ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                                                        kit.canClaim ? 'bg-success-muted text-success-strong' : 'bg-gray-100 text-gray-600'
                                                     }`}>
                                                         {kit.canClaim ? 'Available' : (kit.denialReason || 'Not available')}
                                                     </span>
@@ -851,7 +851,7 @@ export const PlayerProfilePage: React.FC = () => {
                             </table>
                         </div>
                     )}
-                    {grantKitError && <p className="mt-3 text-xs text-red-600">{grantKitError}</p>}
+                    {grantKitError && <p className="mt-3 text-xs field-error">{grantKitError}</p>}
                 </div>
 
                 {/* Discoveries (docs/specs/domain-discovery/DESIGN.md §3.9) - only for holders of
@@ -866,8 +866,8 @@ export const PlayerProfilePage: React.FC = () => {
 
                 {/* Balance history (KNG-23, currency Phase 4): the balance event log filtered to this player. */}
                 {canReadLedger && (
-                    <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <div className="bg-surface shadow-sm rounded-lg p-6 border border-line">
+                        <h2 className="text-lg font-semibold text-fg mb-4 flex items-center">
                             <Coins className="h-5 w-5 mr-2" />
                             Balance history
                         </h2>
@@ -884,27 +884,27 @@ export const PlayerProfilePage: React.FC = () => {
                 <StaffDataDeletionCard key={`deletion-${userId}`} userId={userId} username={account.username} onChanged={loadActivity} />
 
                 {/* Recent activity (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 2) */}
-                <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <div className="bg-surface shadow-sm rounded-lg p-6 border border-line">
+                    <h2 className="text-lg font-semibold text-fg mb-4 flex items-center">
                         <History className="h-5 w-5 mr-2" />
                         Recent Activity
                     </h2>
                     {activityLoading ? (
-                        <div className="flex items-center text-sm text-gray-500">
+                        <div className="flex items-center text-sm text-muted">
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                             Loading…
                         </div>
                     ) : activityError ? (
-                        <p className="text-sm text-red-600">{activityError}</p>
+                        <p className="text-sm field-error">{activityError}</p>
                     ) : activity.length === 0 ? (
-                        <p className="text-sm text-gray-500">No recorded activity for this player yet.</p>
+                        <p className="text-sm text-muted">No recorded activity for this player yet.</p>
                     ) : (
                         <ul className="divide-y divide-gray-100">
                             {activity.map((entry) => (
                                 <li key={entry.id} className="py-3 flex items-start justify-between gap-4">
                                     <div className="min-w-0">
-                                        <p className="text-sm font-medium text-gray-900">{auditActionLabel(entry)}</p>
-                                        <p className="text-xs text-gray-500 mt-0.5">
+                                        <p className="text-sm font-medium text-fg">{auditActionLabel(entry)}</p>
+                                        <p className="text-xs text-muted mt-0.5">
                                             {entry.actorUsername
                                                 ? <>by <span className="font-medium">{entry.actorUsername}</span></>
                                                 : <span className="italic">system</span>}
@@ -917,7 +917,7 @@ export const PlayerProfilePage: React.FC = () => {
                                             <div className="flex flex-wrap gap-1 mt-1">
                                                 {auditTags(entry).map(tag => (
                                                     <span key={tag.label} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                        tag.tone === 'red' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                                                        tag.tone === 'red' ? 'bg-danger-muted text-danger-strong' : 'bg-gray-100 text-gray-800'
                                                     }`}>
                                                         {tag.label}
                                                     </span>
@@ -925,7 +925,7 @@ export const PlayerProfilePage: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
-                                    <span className="text-xs text-gray-400 whitespace-nowrap">{formatDate(entry.timestamp)}</span>
+                                    <span className="text-xs text-muted whitespace-nowrap">{formatDate(entry.timestamp)}</span>
                                 </li>
                             ))}
                         </ul>

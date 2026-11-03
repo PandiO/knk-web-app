@@ -181,15 +181,15 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
   return (
     <div className="display-wizard">
       {renderHeader ? (
-        <div className="mb-6 pb-4 border-b border-gray-200">
+        <div className="mb-6 pb-4 border-b border-line">
           {renderHeader(entityData)}
           {config.description && (
             <p className="text-gray-600 mt-2">{config.description}</p>
           )}
         </div>
       ) : (
-        <div className="mb-6 pb-4 border-b border-gray-200">
-          <h2 className="text-3xl font-bold text-gray-900">{config.name}</h2>
+        <div className="mb-6 pb-4 border-b border-line">
+          <h2 className="text-3xl font-bold text-fg">{config.name}</h2>
           {config.description && (
             <p className="text-gray-600 mt-2">{config.description}</p>
           )}

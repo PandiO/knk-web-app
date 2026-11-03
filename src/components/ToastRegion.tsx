@@ -78,20 +78,20 @@ export const ToastRegion: React.FC = () => {
                 <div
                     key={toast.id}
                     data-kind={toast.kind}
-                    className={`flex items-start gap-3 rounded-md border bg-white p-3 text-sm text-gray-900 shadow-lg ${
-                        toast.kind === 'success' ? 'border-green-200' : 'border-red-200'
+                    className={`flex items-start gap-3 rounded-md border bg-surface p-3 text-sm text-fg shadow-lg ${
+                        toast.kind === 'success' ? 'border-success-line' : 'border-danger-line'
                     }`}
                 >
                     {toast.kind === 'success' ? (
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" aria-hidden="true" />
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-success" aria-hidden="true" />
                     ) : (
-                        <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" aria-hidden="true" />
+                        <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-danger" aria-hidden="true" />
                     )}
                     <p className="flex-1">{toast.message}</p>
                     <button
                         type="button"
                         onClick={() => dismiss(toast.id)}
-                        className="text-gray-500 hover:text-gray-900"
+                        className="text-muted hover:text-fg"
                         aria-label="Dismiss"
                     >
                         <X className="h-4 w-4" aria-hidden="true" />

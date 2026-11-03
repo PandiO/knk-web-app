@@ -118,7 +118,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
 
       {/* General login error message */}
       {errors.general && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4" data-testid="login-error">
+        <div className="bg-danger-soft border border-danger-line rounded-lg p-4" data-testid="login-error">
           <div className="flex items-start">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -126,7 +126,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
               </svg>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-red-800">
+              <p className="field-error text-sm font-medium -strong">
                 {errors.general}
               </p>
             </div>
@@ -155,7 +155,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
           required
         />
         {errors.login && (
-          <p id="login-identifier-error" className="mt-1 text-sm text-red-600" role="alert">
+          <p id="login-identifier-error" className="field-error mt-1 text-sm" role="alert">
             {errors.login}
           </p>
         )}
@@ -182,7 +182,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
           <button
             type="button"
             onClick={() => setShowPassword(v => !v)}
-            className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary rounded-r-lg"
+            className="absolute inset-y-0 right-0 px-3 flex items-center text-muted hover:text-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary rounded-r-lg"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
             aria-pressed={showPassword}
           >
@@ -190,7 +190,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
           </button>
         </div>
         {errors.password && (
-          <p id="login-password-error" className="mt-1 text-sm text-red-600" role="alert">
+          <p id="login-password-error" className="field-error mt-1 text-sm" role="alert">
             {errors.password}
           </p>
         )}
@@ -209,7 +209,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
             />
             <span className="text-sm text-gray-700">Remember me</span>
           </label>
-          <p id="remember-help" className="text-xs text-gray-500 mt-1">
+          <p id="remember-help" className="text-xs text-muted mt-1">
             Stay logged in for 30 days. Don't use on a shared computer.
           </p>
         </div>
@@ -222,14 +222,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
         type="submit"
         disabled={isSubmitting}
         className={`w-full px-4 py-2 text-base font-medium rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
-          isSubmitting ? 'bg-primary-light text-white opacity-60 cursor-not-allowed' : 'bg-primary text-white hover:bg-primary-dark'
+          isSubmitting ? 'bg-primary-light text-primary-fg opacity-60 cursor-not-allowed' : 'bg-primary text-primary-fg hover:bg-primary-dark'
         }`}
       >
         {isSubmitting ? 'Logging in…' : 'Log In'}
       </button>
 
       {accessGate && (
-        <p className="text-center text-xs text-gray-500" data-testid="access-gate-note">
+        <p className="text-center text-xs text-muted" data-testid="access-gate-note">
           First time on this device? Cloudflare asks for your email and emails you a 6-digit code before this page opens.
         </p>
       )}
@@ -240,7 +240,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
           Create an account
         </Link>
         {inviteSignup && (
-          <p className="mt-1 text-xs text-gray-500" data-testid="invite-only-note">
+          <p className="mt-1 text-xs text-muted" data-testid="invite-only-note">
             The alpha is invite-only: you sign up with your invitation link or code, or with the code the server showed you.
           </p>
         )}

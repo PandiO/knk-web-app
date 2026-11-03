@@ -123,7 +123,7 @@ export const MinecraftEnchantmentPicker: React.FC<MinecraftEnchantmentPickerProp
                             index === 0 ? 'rounded-l-md' : '-ml-px'
                         } ${index === ORIGIN_OPTIONS.length - 1 ? 'rounded-r-md' : ''} ${
                             active
-                                ? 'bg-primary text-white border-primary'
+                                ? 'bg-primary text-primary-fg border-primary'
                                 : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                         }`}
                     >

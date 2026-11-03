@@ -45,7 +45,7 @@ const ROAD_OVERRIDES_HELP =
 
 /** A small (i) whose explanation shows on hover (and is read out by screen readers). */
 const InfoTip: React.FC<{ text: string }> = ({ text }) => (
-  <span role="img" aria-label={text} title={text} className="inline-flex align-middle ml-1 text-gray-400 cursor-help">
+  <span role="img" aria-label={text} title={text} className="inline-flex align-middle ml-1 text-muted cursor-help">
     <Info className="h-3.5 w-3.5" aria-hidden="true" />
   </span>
 );
@@ -146,7 +146,7 @@ export const DomainNavigationDefaultsCard: React.FC = () => {
                           {NAVIGATION_DESTINATION_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
                         </select>
                         {savingType === d.domainType ? (
-                          <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+                          <Loader2 className="h-4 w-4 text-muted animate-spin" />
                         ) : (
                           <span className="text-xs text-gray-500">{MODE_HELP[d.defaultMode] ?? ''}</span>
                         )}
