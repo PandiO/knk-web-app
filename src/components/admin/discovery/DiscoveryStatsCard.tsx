@@ -176,7 +176,7 @@ export const DiscoveryStatsCard: React.FC = () => {
                 {stats.topExplorers.map((explorer, index) => (
                   <li key={explorer.userId} className="flex justify-between gap-2">
                     <span className="min-w-0 truncate">
-                      <span className="text-gray-400 mr-1.5">{index + 1}.</span>
+                      <span className="text-muted mr-1.5">{index + 1}.</span>
                       <Link to={`/admin/users/${explorer.userId}`} className="text-primary hover:underline">
                         {explorer.username ?? `User #${explorer.userId}`}
                       </Link>

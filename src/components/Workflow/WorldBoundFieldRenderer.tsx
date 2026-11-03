@@ -705,7 +705,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                                 </div>
                             </div>
                             <div className="bg-gray-800 p-3 rounded-md">
-                                <p className="text-xs text-gray-400 mb-1">In Minecraft, type:</p>
+                                <p className="text-xs text-muted mb-1">In Minecraft, type:</p>
                                 <div className="flex items-center justify-between gap-2">
                                     <code className="min-w-0 break-all text-sm font-mono text-green-400">
                                         /knk task-claim {task.linkCode}

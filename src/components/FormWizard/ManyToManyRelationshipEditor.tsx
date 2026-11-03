@@ -601,14 +601,14 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
             }
 
             return (
-                <div className="text-xs text-gray-500 italic">
+                <div className="text-xs text-muted italic">
                     Join entry fields are configured via the linked form. Use “Create Join Entry” to edit details.
                 </div>
             );
         }
 
         if (!step.childFormSteps || step.childFormSteps.length === 0) {
-            return <p className="text-xs text-gray-500 italic">No editable fields configured</p>;
+            return <p className="text-xs text-muted italic">No editable fields configured</p>;
         }
 
         const cardErrors = relationshipErrors[index] || {};
@@ -637,7 +637,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                                         validationResult={validationResult}
                                     />
                                     {field.description && !fieldError && (
-                                        <p className="mt-1 text-xs text-gray-500">{field.description}</p>
+                                        <p className="mt-1 text-xs text-muted">{field.description}</p>
                                     )}
                                 </div>
                             );
@@ -645,8 +645,8 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                     </div>
                 ))}
                 {hasErrors && (
-                    <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-md">
-                        <p className="text-xs text-red-700 font-medium">Please fix the errors above before proceeding.</p>
+                    <div className="mt-3 p-2 bg-danger-soft border border-danger-line rounded-md">
+                        <p className="text-xs text-danger-strong font-medium">Please fix the errors above before proceeding.</p>
                     </div>
                 )}
             </div>
@@ -658,7 +658,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
         return (
             <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                <p className="mt-2 text-sm text-gray-500">Loading relationship configuration...</p>
+                <p className="mt-2 text-sm text-muted">Loading relationship configuration...</p>
             </div>
         );
     }
@@ -671,12 +671,12 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
             metadataError
         });
         return (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                <p className="text-sm text-yellow-800">
+            <div className="bg-warning-soft border border-warning-line rounded-md p-4">
+                <p className="text-sm text-warning-strong">
                     Many-to-many relationship configuration is incomplete. Please configure the join entity type and related entity property.
                 </p>
                 {metadataError && (
-                    <p className="text-xs text-yellow-700 mt-2">
+                    <p className="text-xs text-warning mt-2">
                         {metadataError}
                     </p>
                 )}
@@ -695,15 +695,15 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
     return (
         <div className="space-y-6">
             {metadataError && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                    <p className="text-sm text-yellow-800">{metadataError}</p>
+                <div className="bg-warning-soft border border-warning-line rounded-md p-3">
+                    <p className="text-sm text-warning-strong">{metadataError}</p>
                 </div>
             )}
 
             {/* Section 1: Selected Relationships (Cards) */}
             <div>
                 <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-medium text-gray-900">
+                    <h3 className="text-sm font-medium text-fg">
                         Selected and Current Relationships
                     </h3>
                     {joinConfigId && onOpenJoinEntry && (
@@ -718,13 +718,13 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                     )}
                 </div>
                 {value.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 text-sm border border-dashed border-gray-300 rounded-md">
+                    <div className="text-center py-8 text-muted text-sm border border-dashed border-gray-300 rounded-md">
                         No relationships selected yet. Use “Create New Join Entry” to add one.
                     </div>
                 ) : (
                     <>
                         {hasSequenceNumberField && (
-                            <p className="text-xs text-gray-500 mb-2">
+                            <p className="text-xs text-muted mb-2">
                                 Drag cards to reorder - {SEQUENCE_NUMBER_FIELD} is set automatically from position (0 = first/oldest).
                             </p>
                         )}
@@ -732,30 +732,30 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                             const renderCard = (relationship: Record<string, unknown>, index: number) => {
                                 const hasMissingEntity = missingEntityWarnings[index];
                                 const hasFieldErrors = relationshipErrors[index] && Object.keys(relationshipErrors[index]).length > 0;
-                                const cardBorderClass = hasMissingEntity ? 'border-red-300' : hasFieldErrors ? 'border-yellow-300' : 'border-gray-200';
+                                const cardBorderClass = hasMissingEntity ? 'border-danger' : hasFieldErrors ? 'border-yellow-300' : 'border-line';
 
                                 return (
                                     <div
-                                        className={`bg-white border ${cardBorderClass} rounded-lg shadow-sm p-4`}
+                                        className={`bg-surface border ${cardBorderClass} rounded-lg shadow-sm p-4`}
                                     >
                                         {hasMissingEntity && (
-                                            <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-md flex items-start">
-                                                <AlertTriangle className="h-4 w-4 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                                            <div className="mb-3 p-2 bg-danger-soft border border-danger-line rounded-md flex items-start">
+                                                <AlertTriangle className="h-4 w-4 text-danger mr-2 flex-shrink-0 mt-0.5" />
                                                 <div className="flex-1">
-                                                    <p className="text-xs text-red-700 font-medium">Missing Entity</p>
-                                                    <p className="text-xs text-red-600 mt-1">{missingEntityWarnings[index]}</p>
+                                                    <p className="text-xs text-danger-strong font-medium">Missing Entity</p>
+                                                    <p className="text-xs text-danger mt-1">{missingEntityWarnings[index]}</p>
                                                 </div>
                                             </div>
                                         )}
                                         <div className="flex items-start justify-between mb-3">
                                             <div className="flex-1">
-                                                <h4 className="text-sm font-medium text-gray-900">
+                                                <h4 className="text-sm font-medium text-fg">
                                                     {(relationship.relatedEntity as { name?: string; displayName?: string })?.name ||
                                                      (relationship.relatedEntity as { name?: string; displayName?: string })?.displayName ||
                                                      `Relationship #${index + 1}`}
                                                 </h4>
                                                 {(relationship.relatedEntity as { description?: string })?.description && (
-                                                    <p className="text-xs text-gray-500 mt-1">
+                                                    <p className="text-xs text-muted mt-1">
                                                         {(relationship.relatedEntity as { description?: string }).description}
                                                     </p>
                                                 )}
@@ -771,7 +771,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
                                             )}
                                             <button
                                                 onClick={() => handleRemoveRelationship(index)}
-                                                className="p-1 text-gray-400 hover:text-red-600 flex-shrink-0"
+                                                className="p-1 text-muted hover:text-danger flex-shrink-0"
                                                 title="Remove relationship"
                                             >
                                                 <Trash2 className="h-4 w-4" />
@@ -817,7 +817,7 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
 
             {drafts.length > 0 && (
                 <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">
+                    <h3 className="text-sm font-medium text-fg mb-3">
                         Drafts in progress ({drafts.length}) - not yet saved
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

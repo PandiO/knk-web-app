@@ -68,7 +68,7 @@ export const TitleHistoryList: React.FC<{ userId: number; ownerLabel?: string }>
                 <span className="font-medium">{change.toTitleName}</span>
               </span>
             </span>
-            <span className="text-xs text-gray-400 whitespace-nowrap">{formatStatisticsDate(change.changedAt)}</span>
+            <span className="text-xs text-muted whitespace-nowrap">{formatStatisticsDate(change.changedAt)}</span>
           </li>
         ))}
       </ul>

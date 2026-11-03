@@ -10,9 +10,11 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { MyStatisticsSection } from './statistics/MyStatisticsSection';
 import { MyDataDeletionSection } from '../components/privacy/MyDataDeletionSection';
 import { apiRefusalReason } from '../utils/apiRefusalReason';
+import { usePublicSurface } from '../theme/surface';
 
 export const AccountManagementPage: React.FC = () => {
   usePageTitle('Account');
+  usePublicSurface();
   const navigate = useNavigate();
   const { user, refresh, logout, logoutAll, isLoading } = useAuth();
   const [isEditing, setIsEditing] = useState({ email: false, password: false });
@@ -150,7 +152,7 @@ export const AccountManagementPage: React.FC = () => {
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           {/* Header */}
           <div className="bg-primary px-6 py-4">
-            <h1 className="text-2xl font-bold text-white flex items-center">
+            <h1 className="text-2xl font-bold text-primary-fg flex items-center">
               <User className="h-6 w-6 mr-2" />
               Account Management
             </h1>
@@ -260,7 +262,7 @@ export const AccountManagementPage: React.FC = () => {
                     <button
                       onClick={handleEmailUpdate}
                       disabled={isSubmitting}
-                      className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
+                      className="flex items-center px-4 py-2 bg-primary text-primary-fg rounded-lg hover:bg-primary-dark disabled:opacity-50"
                     >
                       <Save className="h-4 w-4 mr-2" />
                       Save
@@ -362,7 +364,7 @@ export const AccountManagementPage: React.FC = () => {
                     <button
                       onClick={handlePasswordUpdate}
                       disabled={isSubmitting}
-                      className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
+                      className="flex items-center px-4 py-2 bg-primary text-primary-fg rounded-lg hover:bg-primary-dark disabled:opacity-50"
                     >
                       <Save className="h-4 w-4 mr-2" />
                       Update Password

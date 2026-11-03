@@ -40,13 +40,13 @@ export const ScanConflictModal: React.FC<ScanConflictModalProps> = ({ open, fiel
             <div
                 role="dialog"
                 aria-label="Scan result conflicts with existing values"
-                className="w-full max-w-lg rounded-lg shadow-lg border border-yellow-200 bg-white relative"
+                className="w-full max-w-lg rounded-lg shadow-lg border border-warning-line bg-surface relative"
                 onClick={e => e.stopPropagation()}
             >
                 <div className="flex items-start space-x-3 px-5 py-4 border-b border-gray-100">
-                    <AlertTriangle className="h-6 w-6 text-yellow-600 shrink-0" />
+                    <AlertTriangle className="h-6 w-6 text-warning shrink-0" />
                     <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Scan result conflicts with existing values</h3>
+                        <h3 className="text-lg font-semibold text-fg">Scan result conflicts with existing values</h3>
                         <p className="mt-1 text-sm text-gray-600">
                             These fields already have a value. Choose which value to keep for each one.
                         </p>
@@ -55,8 +55,8 @@ export const ScanConflictModal: React.FC<ScanConflictModalProps> = ({ open, fiel
 
                 <div className="px-5 py-4 space-y-4 max-h-96 overflow-y-auto">
                     {fields.map(field => (
-                        <div key={field.key} className="border border-gray-200 rounded-md p-3">
-                            <p className="text-sm font-medium text-gray-900 mb-2">{field.label}</p>
+                        <div key={field.key} className="border border-line rounded-md p-3">
+                            <p className="text-sm font-medium text-fg mb-2">{field.label}</p>
                             <div className="space-y-2">
                                 <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
                                     <input
@@ -67,7 +67,7 @@ export const ScanConflictModal: React.FC<ScanConflictModalProps> = ({ open, fiel
                                         className="mt-1"
                                     />
                                     <span>
-                                        <span className="font-medium text-green-700">Use scan result:</span>{' '}
+                                        <span className="font-medium text-success">Use scan result:</span>{' '}
                                         <span className="font-mono text-xs break-words">{field.scannedValueLabel}</span>
                                     </span>
                                 </label>
@@ -92,13 +92,13 @@ export const ScanConflictModal: React.FC<ScanConflictModalProps> = ({ open, fiel
                 <div className="px-5 pb-4 flex justify-end space-x-3">
                     <button
                         onClick={onCancel}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-surface border border-gray-300 rounded-md hover:bg-surface-alt"
                     >
                         Cancel scan
                     </button>
                     <button
                         onClick={() => onResolve(choices)}
-                        className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-md"
+                        className="px-4 py-2 text-sm font-medium text-primary-fg bg-primary hover:bg-primary-dark rounded-md"
                     >
                         Apply
                     </button>

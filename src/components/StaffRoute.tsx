@@ -33,7 +33,7 @@ const StaffGate: React.FC<{ children: React.ReactNode; node: string }> = ({ chil
   if (status === 'error') {
     return (
       <div className="max-w-md mx-auto mt-16 bg-white shadow-sm rounded-lg border border-gray-200 p-8 text-center" role="alert">
-        <WifiOff className="h-10 w-10 mx-auto text-gray-400" aria-hidden="true" />
+        <WifiOff className="h-10 w-10 mx-auto text-muted" aria-hidden="true" />
         <h1 className="mt-4 text-lg font-semibold text-gray-900">Couldn't check your access</h1>
         <p className="mt-2 text-sm text-gray-600">The server didn't answer. Check your connection and try again.</p>
         <button type="button" onClick={retry} className="mt-6 btn-primary">Try again</button>
