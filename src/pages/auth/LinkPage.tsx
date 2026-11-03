@@ -116,6 +116,8 @@ export const LinkPage: React.FC = () => {
   };
 
   const alreadyLinked = isLoggedIn && !!user && (user.minecraftLinked ?? !!user.uuid);
+  // #228: while the code entry is all the card holds, all of its text is centred like the code.
+  const codeEntryOnly = step === 'code' || step === 'checking';
 
   return (
     <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 bg-gray-50">
@@ -126,19 +128,20 @@ export const LinkPage: React.FC = () => {
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4" role="alert">
+          <div className={`mb-4 rounded-lg border border-red-200 bg-red-50 p-4${codeEntryOnly ? ' text-center' : ''}`} role="alert">
             <p className="text-sm font-medium text-red-800">{error}</p>
           </div>
         )}
 
-        {(step === 'code' || step === 'checking') && (
+        {codeEntryOnly && (
           <form
             noValidate
             onSubmit={e => {
               e.preventDefault();
               checkCode(code);
             }}
-            className="space-y-4"
+            className="space-y-4 text-center"
+            data-testid="claim-code-entry"
           >
             <p className="text-sm text-gray-600">
               Joining the server showed you a code on the disconnect screen. Enter it here. Never give this code to anyone; staff never ask for it.
