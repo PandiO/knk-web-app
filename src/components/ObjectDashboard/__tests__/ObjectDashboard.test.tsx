@@ -23,7 +23,7 @@ jest.mock('../../../apiClients/displayConfigClient', () => ({
 }));
 // #177 follow-up: the header's "New with" and "Drafts (n)" read the type's configurations and drafts.
 jest.mock('../../../apiClients/formConfigClient', () => ({
-    formConfigClient: { getByEntityTypeName: jest.fn() },
+    formConfigClient: { getByEntityTypeName: jest.fn(), getEntityNames: jest.fn() },
 }));
 jest.mock('../../../apiClients/formSubmissionClient', () => ({
     formSubmissionClient: { getByEntityTypeName: jest.fn() },
@@ -68,11 +68,13 @@ jest.mock('../../PagedEntityTable/PagedEntityTable', () => ({
 const getAll = displayConfigClient.getAll as jest.Mock;
 const getFormConfigs = formConfigClient.getByEntityTypeName as jest.Mock;
 const getDrafts = formSubmissionClient.getByEntityTypeName as jest.Mock;
+const getFormEntityNames = formConfigClient.getEntityNames as jest.Mock;
 
 // CRA resets mock implementations before each test: no other configurations and no drafts by default.
 beforeEach(() => {
     getFormConfigs.mockResolvedValue([]);
     getDrafts.mockResolvedValue([]);
+    getFormEntityNames.mockResolvedValue([]);
 });
 
 const config = (entityTypeName: string, isDefault: boolean, isDraft: boolean): DisplayConfigurationDto => ({
@@ -248,6 +250,57 @@ describe('ObjectDashboard favourite types (PandiO/knk-workspace#194)', () => {
 
         expect(typeNames(screen.getByRole('complementary', { name: 'Sidebar' })))
             .toEqual(['Street', 'Town', 'Category', 'District', 'Street', 'Town']);
+    });
+});
+
+describe('ObjectDashboard explorer filters (PandiO/knk-workspace#226)', () => {
+    const typeNames = (container: HTMLElement) =>
+        itemLabels(container).map(text => text?.replace('No display configuration – set one up via ⚙', ''));
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        window.localStorage.clear();
+        mockMetadata = { baseMetadata: loadedMetadata, loading: false };
+        mockParams = { entityName: 'District' };
+        mockLocation = { pathname: '/dashboard/District', search: '' };
+        getAll.mockResolvedValue([config('Street', true, false), config('District', true, false)]);
+        getFormEntityNames.mockResolvedValue(['Town', 'district']);
+    });
+
+    it('filters the explorer by display configuration (the marker\'s rule) and by form configuration', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
+        await waitFor(() => expect(getFormEntityNames).toHaveBeenCalledTimes(1));
+
+        fireEvent.click(within(sidebar).getByTestId('explorer-filter-button'));
+        const display = await within(sidebar).findByRole('group', { name: 'Display configuration' });
+        fireEvent.click(within(display).getByRole('radio', { name: 'No' }));
+        expect(typeNames(sidebar)).toEqual(['Category', 'Town']);
+
+        fireEvent.click(within(display).getByRole('radio', { name: 'Any' }));
+        const form = await within(sidebar).findByRole('group', { name: 'Form configuration' });
+        fireEvent.click(within(form).getByRole('radio', { name: 'No' }));
+        expect(typeNames(sidebar)).toEqual(['Category', 'Street']);
+        expect(JSON.parse(window.localStorage.getItem('objectTypeExplorer.dashboard.filters') ?? '{}'))
+            .toEqual({ formConfiguration: 'no' });
+        // Filtering the list doesn't change the selected type or its table.
+        expect(screen.getByTestId('table')).toHaveTextContent('District');
+        expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('leaves the form configuration filter out when its list could not be loaded', async () => {
+        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        getFormEntityNames.mockRejectedValue(new Error('offline'));
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
+        await waitFor(() => expect(consoleError).toHaveBeenCalled());
+
+        fireEvent.click(await within(sidebar).findByTestId('explorer-filter-button'));
+        expect(await within(sidebar).findByRole('group', { name: 'Display configuration' })).toBeInTheDocument();
+        expect(within(sidebar).queryByRole('group', { name: 'Form configuration' })).not.toBeInTheDocument();
+        consoleError.mockRestore();
     });
 });
 
