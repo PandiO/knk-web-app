@@ -8,9 +8,10 @@ import { ERROR_MESSAGES, PASSWORD_MIN_LENGTH } from '../../utils/authConstants';
 import { validateEmailFormat, validatePasswordPolicy, calculatePasswordStrength } from '../../utils/passwordValidator';
 import { useAuth } from '../../contexts/AuthContext';
 import { appConfig } from '../../config/appConfig';
-import { LINK_CODE_LENGTH, normalizeLinkCode, normalizeLinkCodeInput } from '../../utils/linkCode';
+import { LINK_CODE_LENGTH, normalizeLinkCode } from '../../utils/linkCode';
 import {
   CLAIM_CODE_EXAMPLE,
+  CLAIM_CODE_SEPARATOR_NAME,
   CLAIM_CODE_SHAPE,
   CLAIM_CODE_STAYS_VALID,
   couldBeClaimCode,
@@ -19,6 +20,7 @@ import {
   normalizeClaimCode,
   savePendingClaim,
 } from '../../utils/claimCode';
+import { ClaimCodeInput } from './ClaimCodeInput';
 import { admissionClient } from '../../apiClients/admissionClient';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { useRegistrationMode } from '../../hooks/useOnboardingInfo';
@@ -68,8 +70,10 @@ const apiMessageOf = (error: any): string | undefined =>
  * With invitations on (Security:Registration:Mode=Invite, KNG-212) that path only works for
  * grandfathered players, so the form opens on an invitation step instead: an invitation code goes
  * to /join, the claim code from the server's disconnect screen to /link, and the link-code step
- * sits behind "Already playing and got a code from /account link?". A claim code typed into the
- * link-code field (XXXX-XXXX) is recognised and sent to /link too (alpha finding, 2026-10-25), and one
+ * sits behind "Already playing and got a code from /account link?". The link-code field is the masked
+ * claim-code field of /link (#229: XXXX-XXXX with the dash drawn by the field, look-alikes not folded),
+ * so a dash no longer tells the two codes apart: a code the API refuses as a link code that could be a
+ * claim code is asked about as one and, if live, taken to /link verified (alpha finding 2026-10-25). One
  * typed into the invitation field without its separator is checked as a claim code first (#192).
  */
 export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onRegistrationSuccess }) => {
@@ -78,10 +82,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
   const { inviteSignup } = useRegistrationMode();
   const serverAddress = appConfig.minecraft.serverAddress;
   const [currentStep, setCurrentStep] = useState(0);
-  // As typed (a dash is kept, so a claim code can be told apart); the API gets the 8 characters.
-  const [linkCodeInput, setLinkCodeInput] = useState('');
-  const linkCode = normalizeLinkCode(linkCodeInput);
-  const claimCodeTyped = looksLikeClaimCode(linkCodeInput);
+  // The code's 8 characters (#229: the field shows the dash itself), as the API gets them.
+  const [linkCode, setLinkCode] = useState('');
   // Invite mode: the link-code step is folded away until the player says they have one.
   const [linkCodePathOpen, setLinkCodePathOpen] = useState(false);
   const [inviteEntry, setInviteEntry] = useState('');
@@ -145,19 +147,35 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
         }
       }
       // Otherwise an /account link code. Open that path with it filled in.
-      setLinkCodeInput(asLinkCode);
+      setLinkCode(asLinkCode);
       setLinkCodePathOpen(true);
       return;
     }
     navigate(`/join?code=${encodeURIComponent(raw.toUpperCase())}`);
   };
 
-  const handleCheckCode = async () => {
-    if (claimCodeTyped) {
-      // The code from the server's disconnect screen, not an /account link code: the claim flow takes it.
-      navigate(claimPath(linkCodeInput));
-      return;
+  /**
+   * #229: a code refused as an /account link code may be the code from the server's disconnect screen
+   * (the field shows both as XXXX-XXXX). Ask the API; a live one goes on to /link, verified.
+   */
+  const continueAsClaimCode = async (): Promise<boolean> => {
+    // Like the invitation step: O, I and L may be a claim code's 0 and 1 typed as letters; a U never is.
+    if (linkCode.includes('U')) return false;
+    const claimCode = normalizeClaimCode(linkCode);
+    try {
+      const result = await admissionClient.checkClaim(claimCode);
+      if (result?.valid && result.minecraftName && result.expiresAt) {
+        savePendingClaim({ code: claimCode, minecraftName: result.minecraftName, expiresAt: result.expiresAt });
+        navigate('/link');
+        return true;
+      }
+    } catch {
+      // Couldn't ask: the refusal below still hints at /link.
     }
+    return false;
+  };
+
+  const handleCheckCode = async () => {
     if (linkCode.length !== LINK_CODE_LENGTH) {
       setErrors({ linkCode: `Enter the ${LINK_CODE_LENGTH}-character code from /account link.` });
       return;
@@ -169,7 +187,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
       if (result?.isValid && result.username) {
         setMinecraftName(result.username);
         setCurrentStep(1);
-      } else {
+      } else if (!(await continueAsClaimCode())) {
         setErrors({ linkCode: ERROR_MESSAGES.InvalidLinkCode });
       }
     } catch (error: any) {
@@ -255,7 +273,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
 
   const startOver = () => {
     setMinecraftName(null);
-    setLinkCodeInput('');
+    setLinkCode('');
     setErrors({});
     setCurrentStep(0);
   };
@@ -363,43 +381,38 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
               <li>Type <code className="rounded bg-gray-100 px-1 py-0.5 font-mono">/account link</code> in chat.</li>
               <li>Enter the {LINK_CODE_LENGTH}-character code below. It's valid for 20 minutes.</li>
             </ol>
+            {/* #229: the same masked field as /link (____-____, the dash drawn by the field). */}
             <div>
               <label htmlFor="linkCode" className="block text-sm font-medium text-gray-700 mb-2">
                 Link code <span aria-hidden="true">*</span>
               </label>
-              <input
+              <ClaimCodeInput
                 id="linkCode"
                 data-testid="link-code"
-                type="text"
-                inputMode="text"
                 autoComplete="one-time-code"
-                autoCapitalize="characters"
-                spellCheck={false}
-                value={linkCodeInput}
-                onChange={e => {
-                  setLinkCodeInput(normalizeLinkCodeInput(e.target.value));
+                value={linkCode}
+                onChange={code => {
+                  setLinkCode(code);
                   setErrors(prev => ({ ...prev, linkCode: undefined }));
                 }}
-                className={`w-full px-4 py-2 border rounded-lg font-mono text-lg tracking-widest uppercase focus:outline-none focus:ring-2 transition-colors ${
+                // An /account link code may hold O, I and L: no look-alike folding (the API folds a claim code).
+                foldLookAlikes={false}
+                className={`w-full px-4 py-2 border rounded-lg font-mono text-lg tracking-widest focus:outline-none focus:ring-2 transition-colors ${
                   errors.linkCode ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
                 }`}
-                placeholder="ABCD1234"
                 aria-invalid={!!errors.linkCode}
-                aria-describedby={errors.linkCode ? 'link-code-help link-code-error' : 'link-code-help'}
+                aria-describedby={errors.linkCode ? 'link-code-help link-code-format link-code-error' : 'link-code-help link-code-format'}
                 required
               />
+              <p id="link-code-format" className="mt-1 text-xs text-gray-500">
+                The {LINK_CODE_LENGTH} letters and digits; the field adds the {CLAIM_CODE_SEPARATOR_NAME} itself.
+              </p>
               {errors.linkCode && (
                 <p id="link-code-error" className="mt-1 text-sm text-red-600" role="alert">
                   {errors.linkCode}
                 </p>
               )}
-              {claimCodeTyped && (
-                <p className="mt-2 text-sm text-amber-900" data-testid="claim-code-detected">
-                  That's the code from the server's disconnect screen, not an /account link code. Continue and it is
-                  used to link your Minecraft account.
-                </p>
-              )}
-              {errors.linkCode && !claimCodeTyped && couldBeClaimCode(linkCode) && (
+              {errors.linkCode && couldBeClaimCode(linkCode) && (
                 <p className="mt-2 text-sm text-gray-700" data-testid="claim-code-hint">
                   Is this the code the server showed you when you tried to join ({CLAIM_CODE_SHAPE})? Then{' '}
                   <Link to={claimPath(linkCode)} className="font-medium underline">use it to link your Minecraft account</Link>.{' '}
@@ -486,7 +499,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
               <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" aria-hidden="true" />
             )}
             {currentStep === 0
-              ? (isBusy ? 'Checking…' : claimCodeTyped ? 'Continue with this code' : 'Check code')
+              ? (isBusy ? 'Checking…' : 'Check code')
               : (isBusy ? 'Creating account…' : 'Create account')}
           </button>
         </div>
