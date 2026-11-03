@@ -41,7 +41,8 @@ type Props = {
   marked?: { entityNames: ReadonlySet<string>; hint: string };
   /**
    * PandiO/knk-workspace#194: a star on every type toggles it as a favourite. Favourites (lower-cased
-   * names in `entityNames`) are listed first, sorted among themselves; the rest follows as before.
+   * names in `entityNames`) are listed first, sorted among themselves, and stay in the full list below
+   * at their usual place too (#225: copies, so nothing goes missing from the list).
    * The caller keeps them (the dashboard: per browser). Omit for no stars.
    */
   favourites?: { entityNames: ReadonlySet<string>; onToggle: (entityName: string) => void };
@@ -192,16 +193,11 @@ const ObjectTypeExplorer = ({
     return sortDirection === 'desc' ? sorted.reverse() : sorted;
   }, [sourceItems, normalizedQuery, searchActive, sortDirection]);
 
-  // #194: favourites first (in the same order), the rest below; without favourites one list.
+  // #194: favourites first (in the same order). #225: they are copies, the full list below still
+  // holds every type at its usual place.
   const favouriteItems = useMemo(
     () => (favourites ? visibleItems.filter(item => favourites.entityNames.has(item.id.toLowerCase())) : []),
     [favourites, visibleItems]
-  );
-  const otherItems = useMemo(
-    () => (favouriteItems.length > 0
-      ? visibleItems.filter(item => !favourites!.entityNames.has(item.id.toLowerCase()))
-      : visibleItems),
-    [favourites, favouriteItems, visibleItems]
   );
 
   const activeGroups = groups && groups.length > 0 ? groups : undefined;
@@ -209,9 +205,9 @@ const ObjectTypeExplorer = ({
   const groupedItems = useMemo(() => {
     if (!activeGroups) return [];
     const buckets: ExplorerItem[][] = activeGroups.map(() => []);
-    otherItems.forEach(item => buckets[findGroupIndex(item.id, activeGroups)].push(item));
+    visibleItems.forEach(item => buckets[findGroupIndex(item.id, activeGroups)].push(item));
     return activeGroups.map((group, index) => ({ group, items: buckets[index] }));
-  }, [activeGroups, otherItems]);
+  }, [activeGroups, visibleItems]);
 
   const isBaseExpanded = useCallback(
     (group: ObjectTypeExplorerGroup) => !group.collapsible || (expandedState[group.id] ?? group.defaultExpanded),
@@ -492,10 +488,16 @@ const ObjectTypeExplorer = ({
                     {renderItems(favouriteItems)}
                   </section>
                 )}
+                {favouriteItems.length > 0 && (
+                  // #225: the full list follows the favourites, starred types included.
+                  <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                    All entity types
+                  </h3>
+                )}
                 {activeGroups ? (
                   <div className="space-y-3">{renderGroups()}</div>
                 ) : (
-                  renderItems(otherItems)
+                  renderItems(visibleItems)
                 )}
               </>
             )}
