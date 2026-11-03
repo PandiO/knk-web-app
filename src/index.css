@@ -45,6 +45,7 @@
      window, so the dark backdrop is full-bleed instead of a box inside the app's page padding. `current`
      keeps today's layout. Below the fixed navigation (z-50) when someone is logged in. */
   :root[data-theme="brand"] .public-full-bleed,
+  :root[data-theme="brand-red"] .public-full-bleed,
   :root[data-theme="proposal"] .public-full-bleed {
     position: fixed;
     inset: 0;

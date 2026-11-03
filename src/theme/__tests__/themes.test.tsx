@@ -64,6 +64,10 @@ describe('resolveInitialTheme (#95)', () => {
     expect(resolveInitialTheme('')).toBe('proposal');
   });
 
+  it('accepts ?theme=brand-red', () => {
+    expect(resolveInitialTheme('?theme=brand-red')).toBe('brand-red');
+  });
+
   it('ignores unknown values', () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, 'neon');
     expect(resolveInitialTheme('?theme=dark')).toBe('current');
@@ -114,7 +118,7 @@ describe('theme picker in the account menu (#95)', () => {
     asUser(true);
     openAccountMenu();
     const options = screen.getAllByRole('menuitemradio');
-    expect(options.map(option => option.textContent)).toEqual(['Current', 'Brand', 'Proposal']);
+    expect(options.map(option => option.textContent)).toEqual(['Current', 'Brand', 'Brand (red)', 'Proposal']);
     expect(screen.getByRole('menuitemradio', { name: 'Current' })).toHaveAttribute('aria-checked', 'true');
 
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'Brand' }));
@@ -131,10 +135,10 @@ describe('theme picker in the account menu (#95)', () => {
     const menu = screen.getByRole('menu');
     expect(document.activeElement).toHaveTextContent('Account settings');
     const seen: string[] = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       fireEvent.keyDown(menu, { key: 'ArrowDown' });
       seen.push(document.activeElement?.textContent ?? '');
     }
-    expect(seen).toEqual(['Current', 'Brand', 'Proposal', 'Log out']);
+    expect(seen).toEqual(['Current', 'Brand', 'Brand (red)', 'Proposal', 'Log out']);
   });
 });

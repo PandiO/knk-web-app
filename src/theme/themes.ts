@@ -12,13 +12,14 @@ import { useSyncExternalStore } from 'react';
  *  3. `current`.
  * Storage can be blocked (private windows, cleared site data): every access is wrapped in try/catch.
  */
-export type ThemeId = 'current' | 'brand' | 'proposal';
+export type ThemeId = 'current' | 'brand' | 'brand-red' | 'proposal';
 
 export type ThemeInfo = { id: ThemeId; label: string; description: string };
 
 export const THEMES: ThemeInfo[] = [
   { id: 'current', label: 'Current', description: "Today's look, on the tokens" },
   { id: 'brand', label: 'Brand', description: 'Styleguide 2020: orange, black, a red accent, Lato; Enchanted Land on player pages' },
+  { id: 'brand-red', label: 'Brand (red)', description: 'Brand with the brand red as primary, to compare with the orange' },
   { id: 'proposal', label: 'Proposal', description: 'Calm brand: charcoal, orange accents, red only for danger; Cinzel on player pages' },
 ];
 

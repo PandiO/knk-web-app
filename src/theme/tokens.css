@@ -105,7 +105,8 @@
    danger differ (2026-11-03). Black carries the navigation and the public backdrop, charcoal #353535 is the dark
    neutral. Headings in Enchanted Land, the guide's own heading font. Neutral ramps are pure greys around charcoal. Info has no brand blue, so it goes charcoal.
    Danger stays red: brand red and error red are close, so every danger state has an icon and text. */
-:root[data-theme="brand"] {
+:root[data-theme="brand"],
+:root[data-theme="brand-red"] {
   --gray-50: 250 250 250;  --gray-100: 242 242 242; --gray-200: 228 228 228; --gray-300: 208 208 208;
   --gray-400: 163 163 163; --gray-500: 112 112 112; --gray-600: 82 82 82;    --gray-700: 53 53 53;
   --gray-800: 36 36 36;    --gray-900: 20 20 20;    --gray-950: 0 0 0;
@@ -162,6 +163,25 @@
 
   --font-body: 'Lato', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Enchanted Land', 'Lato', Georgia, serif;
+}
+
+/* ── brand-red: `brand` with the brand red as primary (developer request 2026-11-03) ───────────────────
+   Everything as `brand` (block above: black nav, Lato, Enchanted Land on player pages, full-bleed auth), only
+   the primary family is red #BE1622 with white text, as `brand` was until the fix round of 2026-11-03, so red
+   and orange can be compared by switching. Primary and danger are the same red again: every danger state
+   keeps its icon and text. */
+:root[data-theme="brand-red"] {
+  --color-focus: 190 22 34;
+  --color-primary: 190 22 34;        /* #BE1622: 6.3:1 with white */
+  --color-primary-dark: 150 15 25;
+  --color-primary-light: 214 35 47;
+  --color-primary-fg: 255 255 255;
+  --color-primary-text: 190 22 34;
+  --color-primary-text-dark: 150 15 25;
+  --color-primary-line: 190 22 34;
+  --color-nav-action: 190 22 34;
+  --color-nav-action-hover: 150 15 25;
+  --color-nav-action-fg: 255 255 255;
 }
 
 /* ── proposal: "calm brand" ─────────────────────────────────────────────────────────────────────────
