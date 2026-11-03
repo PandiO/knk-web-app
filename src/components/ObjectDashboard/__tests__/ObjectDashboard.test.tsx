@@ -274,13 +274,13 @@ describe('ObjectDashboard explorer filters (PandiO/knk-workspace#226)', () => {
         await waitFor(() => expect(getFormEntityNames).toHaveBeenCalledTimes(1));
 
         fireEvent.click(within(sidebar).getByTestId('explorer-filter-button'));
-        const display = await within(sidebar).findByRole('group', { name: 'Display configuration' });
-        fireEvent.click(within(display).getByRole('radio', { name: 'No' }));
+        const display = await within(sidebar).findByRole('combobox', { name: 'Display configuration' });
+        fireEvent.change(display, { target: { value: 'no' } });
         expect(typeNames(sidebar)).toEqual(['Category', 'Town']);
 
-        fireEvent.click(within(display).getByRole('radio', { name: 'Any' }));
-        const form = await within(sidebar).findByRole('group', { name: 'Form configuration' });
-        fireEvent.click(within(form).getByRole('radio', { name: 'No' }));
+        fireEvent.change(display, { target: { value: '' } });
+        const form = await within(sidebar).findByRole('combobox', { name: 'Form configuration' });
+        fireEvent.change(form, { target: { value: 'no' } });
         expect(typeNames(sidebar)).toEqual(['Category', 'Street']);
         expect(JSON.parse(window.localStorage.getItem('objectTypeExplorer.dashboard.filters') ?? '{}'))
             .toEqual({ formConfiguration: 'no' });
@@ -298,8 +298,8 @@ describe('ObjectDashboard explorer filters (PandiO/knk-workspace#226)', () => {
         await waitFor(() => expect(consoleError).toHaveBeenCalled());
 
         fireEvent.click(await within(sidebar).findByTestId('explorer-filter-button'));
-        expect(await within(sidebar).findByRole('group', { name: 'Display configuration' })).toBeInTheDocument();
-        expect(within(sidebar).queryByRole('group', { name: 'Form configuration' })).not.toBeInTheDocument();
+        expect(await within(sidebar).findByRole('combobox', { name: 'Display configuration' })).toBeInTheDocument();
+        expect(within(sidebar).queryByRole('combobox', { name: 'Form configuration' })).not.toBeInTheDocument();
         consoleError.mockRestore();
     });
 });

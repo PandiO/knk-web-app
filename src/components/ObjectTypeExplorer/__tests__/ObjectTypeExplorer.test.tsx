@@ -165,7 +165,7 @@ describe('ObjectTypeExplorer', () => {
     ];
     const filterButton = () => screen.getByTestId('explorer-filter-button');
     const choose = async (filter: string, option: 'Any' | 'Yes' | 'No') =>
-      userEvent.click(within(screen.getByRole('group', { name: filter })).getByRole('radio', { name: option }));
+      userEvent.selectOptions(screen.getByRole('combobox', { name: filter }), option);
 
     it('offers a filter button next to the sort toggle that opens Any / Yes / No per filter', async () => {
       render(<ObjectTypeExplorer entityMetadata={metadata} filters={filters()} />);
@@ -178,8 +178,12 @@ describe('ObjectTypeExplorer', () => {
       expect(filterButton()).toHaveAttribute('aria-expanded', 'true');
       const panel = document.getElementById(filterButton().getAttribute('aria-controls')!);
       expect(panel).toBeInTheDocument();
-      expect(within(screen.getByRole('group', { name: 'Display configuration' })).getByRole('radio', { name: 'Any' })).toBeChecked();
-      expect(within(screen.getByRole('group', { name: 'Form configuration' })).getAllByRole('radio')).toHaveLength(3);
+      // Fix round: one labelled select per filter, Any / Yes / No.
+      const display = screen.getByRole('combobox', { name: 'Display configuration' });
+      expect(display).toHaveDisplayValue('Any');
+      expect(within(display).getAllByRole('option').map(option => option.textContent)).toEqual(['Any', 'Yes', 'No']);
+      expect(screen.getByRole('combobox', { name: 'Form configuration' })).toHaveDisplayValue('Any');
+      expect(within(panel!).queryByRole('radio')).not.toBeInTheDocument();
     });
 
     it('narrows the list by yes and no, combined with each other and the search', async () => {
@@ -232,7 +236,7 @@ describe('ObjectTypeExplorer', () => {
       await userEvent.click(filterButton());
       await choose('Display configuration', 'Yes');
       await userEvent.keyboard('{Escape}');
-      expect(screen.queryByRole('group', { name: 'Display configuration' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: 'Display configuration' })).not.toBeInTheDocument();
       expect(filterButton()).toHaveFocus();
       expect(itemLabels()).toEqual(['Street', 'Town']);
 
@@ -248,7 +252,7 @@ describe('ObjectTypeExplorer', () => {
       expect(itemLabels()).toHaveLength(5);
       expect(filterButton()).toHaveAccessibleName('Filter entity types');
       await userEvent.click(filterButton());
-      expect(screen.queryByRole('group', { name: 'Form configuration' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: 'Form configuration' })).not.toBeInTheDocument();
 
       rerender(<ObjectTypeExplorer entityMetadata={metadata} filters={filters()} storageKey="dashboard" />);
       expect(itemLabels()).toEqual(['District', 'Gate', 'Town']);

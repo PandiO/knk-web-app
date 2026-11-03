@@ -587,7 +587,7 @@ const ObjectTypeExplorer = ({
               id={filterPanelId}
               role="group"
               aria-label="Filter entity types"
-              className="mb-2 space-y-2 rounded-md border border-line bg-surface-alt p-2"
+              className="mb-2 space-y-1.5 rounded-md border border-line bg-surface-alt p-2"
               onKeyDown={event => {
                 if (event.key === 'Escape') {
                   event.preventDefault();
@@ -595,37 +595,33 @@ const ObjectTypeExplorer = ({
                 }
               }}
             >
+              {/* #226 fix round: one compact row per filter, the choice in a native select (keyboard and
+                  screen readers as usual), instead of three buttons. */}
               {offeredFilters.map(filter => {
+                const selectId = `${filterPanelId}-${filter.id}`;
                 const value = filterValues[filter.id];
-                const options: Array<{ value: ObjectTypeFilterValue | undefined; label: string }> = [
-                  { value: undefined, label: 'Any' },
-                  { value: 'yes', label: 'Yes' },
-                  { value: 'no', label: 'No' },
-                ];
                 return (
-                  <fieldset key={filter.id} className="min-w-0">
-                    <legend className="px-1 text-xs font-semibold text-fg">{filter.label}</legend>
-                    <div className="mt-1 flex gap-1">
-                      {options.map(option => (
-                        <label
-                          key={option.label}
-                          className={`flex flex-1 cursor-pointer items-center justify-center rounded-md border bg-surface px-2 py-1 text-xs focus-within:ring-2 focus-within:ring-focus ${value === option.value
-                            ? 'border-primary font-semibold text-primary'
-                            : 'border-field text-muted hover:bg-surface-hover hover:text-fg'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`${filterPanelId}-${filter.id}`}
-                            className="sr-only"
-                            checked={value === option.value}
-                            onChange={() => setFilterValue(filter.id, option.value)}
-                          />
-                          {option.label}
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
+                  <div key={filter.id} className="flex items-center justify-between gap-2 px-1">
+                    <label htmlFor={selectId} className="min-w-0 truncate text-xs font-semibold text-fg">
+                      {filter.label}
+                    </label>
+                    <select
+                      id={selectId}
+                      value={value ?? ''}
+                      onChange={event => {
+                        const next = event.target.value;
+                        setFilterValue(filter.id, next === 'yes' || next === 'no' ? next : undefined);
+                      }}
+                      className={`flex-shrink-0 rounded-md border bg-surface px-1.5 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-focus ${value
+                        ? 'border-primary font-semibold text-primary'
+                        : 'border-field text-fg'
+                      }`}
+                    >
+                      <option value="">Any</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
                 );
               })}
               <div className="flex justify-between gap-2 px-1">
