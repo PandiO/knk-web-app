@@ -24,7 +24,7 @@ const hasImposedCategoryFilter = (filters?: Record<string, string>): boolean =>
  * creates anything.
  */
 const RowBadge: React.FC<{ label?: string }> = ({ label }) => (
-    <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full text-amber-700 bg-amber-100">
+    <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full text-warning bg-warning-muted">
         <PlusCircle className="h-3 w-3 mr-1" />{label ?? 'New'}
     </span>
 );
@@ -503,13 +503,13 @@ export function PagedEntityTable<T extends Record<string, any>>({
         const value = getValueByKeyPath(row, column.key);
 
         if (value === null || value === undefined) {
-            return <span className="text-gray-400">-</span>;
+            return <span className="text-muted">-</span>;
         }
 
         if (typeof value === 'boolean') {
             return (
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    value ? 'bg-success-muted text-success-strong' : 'bg-danger-muted text-danger-strong'
                 }`}>
                     {value ? 'Yes' : 'No'}
                 </span>
@@ -539,7 +539,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 return String(value.id);
             }
             // Fallback: don't render the object, show a placeholder
-            return <span className="text-gray-400">-</span>;
+            return <span className="text-muted">-</span>;
         }
 
         return String(value);
@@ -648,19 +648,19 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 } : undefined}
                 className={`transition-all duration-150 ${
                     selected
-                        ? 'bg-green-50 hover:bg-green-100 border-l-4 border-green-500'
-                        : 'hover:bg-slate-50 border-l-4 border-transparent'
+                        ? 'bg-success-soft hover:bg-success-muted border-l-4 border-green-500'
+                        : 'hover:bg-surface-alt border-l-4 border-transparent'
                 } ${selectionConfig.mode !== 'none' || onRowClick ? 'cursor-pointer' : ''}`}
             >
                 {effectiveColumns.map((column, colIndex) => (
                     <td key={column.key} className={`px-6 py-4 whitespace-nowrap text-sm ${
-                        selected ? 'text-gray-900 font-medium' : 'text-gray-500'
+                        selected ? 'text-fg font-medium' : 'text-muted'
                     }`}>
                         {/* check icon in the first column if selected, plus the badge of a pinned row */}
                         {colIndex === 0 ? (
                             <div className="flex items-center space-x-2">
                                 {selected && selectionConfig.mode !== 'none' && (
-                                    <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                    <Check className="h-5 w-5 text-success flex-shrink-0" />
                                 )}
                                 {sessionBadge && <RowBadge label={sessionBadge} />}
                                 {href ? (
@@ -708,7 +708,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 <div className="flex items-center justify-between">
                     {showSearchBar && (
                         <div className="relative flex-1 max-w-md">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted" />
                             <input
                                 type="text"
                                 value={searchInput}
@@ -736,8 +736,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
 
             {/* Selection Info Banner - changed: conditionally render based on showSelectionBanner prop */}
             {showSelectionBanner && selectionConfig.mode !== 'none' && internalSelection.length > 0 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-md px-4 py-2 flex items-center justify-between">
-                    <span className="text-sm text-blue-800">
+                <div className="bg-info-soft border border-info-line rounded-md px-4 py-2 flex items-center justify-between">
+                    <span className="text-sm text-info-strong">
                         {internalSelection.length} item{internalSelection.length !== 1 ? 's' : ''} selected
                         {selectionConfig.min && ` (min: ${selectionConfig.min})`}
                         {selectionConfig.max && ` (max: ${selectionConfig.max})`}
@@ -748,7 +748,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                 setInternalSelection([]);
                                 onSelectionChange?.([]);
                             }}
-                            className="text-sm text-blue-600 hover:text-blue-800 underline"
+                            className="text-sm text-primary hover:text-info-strong underline"
                         >
                             Clear selection
                         </button>
@@ -758,20 +758,20 @@ export function PagedEntityTable<T extends Record<string, any>>({
 
             {/* Error State */}
             {error && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                    <p className="text-sm text-red-800">{error}</p>
+                <div className="bg-danger-soft border border-danger-line rounded-md p-4">
+                    <p className="text-sm field-error-strong">{error}</p>
                 </div>
             )}
 
             {/* Table */}
-            <div className="w-full overflow-x-auto panel bg-white/95 backdrop-blur">
+            <div className="w-full overflow-x-auto panel bg-surface/95 backdrop-blur">
                 {loading ? (
                     <div className="flex items-center justify-center py-12">
                         <Loader2 className="h-8 w-8 text-primary animate-spin" />
                     </div>
                 ) : (
-                    <table className="w-full min-w-full divide-y divide-gray-200">
-                        <thead className="bg-slate-50">
+                    <table className="w-full min-w-full divide-y divide-line">
+                        <thead className="bg-surface-alt">
                             <tr>
                                 {/* changed: removed checkbox column header since we show check icon in row */}
                                 {effectiveColumns.map(column => (
@@ -780,7 +780,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                         scope="col"
                                         // #39: screen readers hear which column sorts the table, and how.
                                         aria-sort={column.sortable ? ariaSort(column.key) : undefined}
-                                        className={`px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider ${
+                                        className={`px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider ${
                                             column.sortable ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''
                                         }`}
                                         onClick={() => column.sortable && handleSort(column.key)}
@@ -808,18 +808,18 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                 )}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
+                        <tbody className="divide-y divide-line">
                             {section.pinned.length > 0 && (
                                 <>
-                                    <tr className="bg-amber-50/60">
-                                        <td colSpan={columnCount} className="px-6 py-2 text-xs font-semibold uppercase tracking-wider text-amber-800">
+                                    <tr className="bg-warning-soft/60">
+                                        <td colSpan={columnCount} className="px-6 py-2 text-xs font-semibold uppercase tracking-wider text-warning-strong">
                                             Created in this form
                                         </td>
                                     </tr>
                                     {section.pinned.map(pin => renderRow(pin.row, `pinned:${pin.key}`, pin.badge ?? 'New'))}
                                     {section.pageItems.length > 0 && (
-                                        <tr className="bg-slate-50">
-                                            <td colSpan={columnCount} className="px-6 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                        <tr className="bg-surface-alt">
+                                            <td colSpan={columnCount} className="px-6 py-2 text-xs font-semibold uppercase tracking-wider text-muted">
                                                 Search results
                                             </td>
                                         </tr>
@@ -828,7 +828,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                             )}
                             {section.pinned.length === 0 && section.pageItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan={columnCount} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={columnCount} className="px-6 py-12 text-center text-muted">
                                         {emptyState && !query.searchTerm && !hasActiveFilters(query.filters) ? emptyState : 'No results found'}
                                     </td>
                                 </tr>
@@ -843,7 +843,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
 
             {/* Pagination - changed: conditionally render based on totalCount vs pageSize */}
             {shouldShowPagination && (
-                <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+                <div className="flex items-center justify-between px-4 py-3 bg-surface border-t border-line sm:px-6">
                     <div className="flex-1 flex justify-between sm:hidden">
                         <button
                             onClick={() => handlePageChange(query.page - 1)}

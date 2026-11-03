@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { dataDeletionClient } from '../../apiClients/dataDeletionClient';
 import { PrivacyDeletionRequestDto } from '../../types/dtos/privacy/PrivacyDtos';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { usePublicSurface } from '../../theme/surface';
 
 /**
  * Target of the emailed confirmation link (KNG-34 GDPR deletion, developer decisions 2026-10-03):
@@ -11,6 +12,7 @@ import { apiRefusalReason } from '../../utils/apiRefusalReason';
  * account page. No sign-in needed: the link proves access to the mailbox.
  */
 export const ConfirmDataDeletionPage: React.FC = () => {
+  usePublicSurface();
   const [searchParams] = useSearchParams();
   const token = useMemo(() => searchParams.get('token')?.trim() ?? '', [searchParams]);
   const [confirmed, setConfirmed] = useState<PrivacyDeletionRequestDto | null>(null);

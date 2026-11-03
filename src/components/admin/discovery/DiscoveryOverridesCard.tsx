@@ -27,7 +27,7 @@ type Editing = { domainId: number; name: string; domainType: string; isNew: bool
 
 const inheritedBool = (own: boolean | null | undefined, inherited: boolean | undefined) =>
   own === null || own === undefined
-    ? <span className="text-gray-400" title="Inherited from the type rule">{inherited ? 'Yes' : 'No'}</span>
+    ? <span className="text-muted" title="Inherited from the type rule">{inherited ? 'Yes' : 'No'}</span>
     : <span className="font-medium text-gray-900">{own ? 'Yes' : 'No'}</span>;
 
 export const DiscoveryOverridesCard: React.FC<{
@@ -237,7 +237,7 @@ export const DiscoveryOverridesCard: React.FC<{
                       const max = o[`${range.key}Max`];
                       const inherited = (min === null || min === undefined) && (max === null || max === undefined);
                       return (
-                        <td key={range.key} className={`py-2 pr-4 ${inherited ? 'text-gray-400' : 'text-gray-900 font-medium'}`}>
+                        <td key={range.key} className={`py-2 pr-4 ${inherited ? 'text-muted' : 'text-gray-900 font-medium'}`}>
                           {formatRange(min ?? rule?.[`${range.key}Min`] ?? '?', max ?? rule?.[`${range.key}Max`] ?? '?')}
                         </td>
                       );
@@ -258,7 +258,7 @@ export const DiscoveryOverridesCard: React.FC<{
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button
-                          className="text-gray-400 hover:text-red-600 disabled:opacity-40"
+                          className="text-muted hover:text-red-600 disabled:opacity-40"
                           title="Remove override"
                           aria-label={`Remove ${name} override`}
                           disabled={removingId !== null}

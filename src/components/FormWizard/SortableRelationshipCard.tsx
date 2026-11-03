@@ -29,7 +29,7 @@ export const SortableRelationshipCard: React.FC<Props> = ({ id, children }) => {
             <div
                 {...attributes}
                 {...listeners}
-                className="absolute top-4 left-2 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 z-10"
+                className="absolute top-4 left-2 cursor-grab active:cursor-grabbing text-muted hover:text-gray-600 z-10"
                 title="Drag to reorder"
             >
                 <GripVertical className="h-4 w-4" />

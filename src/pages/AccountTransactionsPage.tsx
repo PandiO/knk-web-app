@@ -6,6 +6,7 @@ import { currencyClient, LedgerFilter } from '../apiClients/currencyClient';
 import { BalancesDto, LedgerLineDto, LedgerPageDto } from '../types/dtos/currency/CurrencyDtos';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { apiRefusalReason } from '../utils/apiRefusalReason';
+import { usePublicSurface } from '../theme/surface';
 
 const PAGE_SIZE = 20;
 const numberFormat = new Intl.NumberFormat('en-US');
@@ -32,6 +33,7 @@ const describe = (line: LedgerLineDto): string => {
  */
 export const AccountTransactionsPage: React.FC = () => {
   usePageTitle('Transactions');
+  usePublicSurface();
   const { user } = useAuth();
   const userId = user?.id;
   const [filter, setFilter] = useState<LedgerFilter | ''>('');
@@ -70,11 +72,11 @@ export const AccountTransactionsPage: React.FC = () => {
       <div className="max-w-5xl mx-auto">
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           <div className="bg-primary px-6 py-4 flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-white flex items-center">
+            <h1 className="text-2xl font-bold text-primary-fg flex items-center">
               <History className="h-6 w-6 mr-2" />
               Transactions
             </h1>
-            <Link to="/account" className="text-white text-sm flex items-center hover:underline">
+            <Link to="/account" className="text-primary-fg text-sm flex items-center hover:underline">
               <ArrowLeft className="h-4 w-4 mr-1" />
               Account
             </Link>

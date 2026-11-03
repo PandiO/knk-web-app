@@ -45,7 +45,7 @@ export const ItemInstanceDetail: React.FC<{ instanceId: number; onClose: () => v
         <section className="bg-white rounded-lg shadow p-4 md:p-6 border border-gray-200" aria-label={`Item instance ${instanceId}`}>
             <div className="flex items-start justify-between gap-3">
                 <h3 className="text-base font-semibold text-gray-900">Item instance #{instanceId}</h3>
-                <button type="button" onClick={onClose} aria-label="Close item instance" className="text-gray-400 hover:text-gray-600">
+                <button type="button" onClick={onClose} aria-label="Close item instance" className="text-muted hover:text-gray-600">
                     <X className="h-4 w-4" />
                 </button>
             </div>

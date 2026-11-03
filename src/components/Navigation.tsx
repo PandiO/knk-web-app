@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes } from 'lucide-react';
+import { Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes, Check } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { CONTENT_PERMISSION_NODE, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE, usePermission, useStaffAccess } from '../hooks/useStaffAccess';
 import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
@@ -12,6 +12,7 @@ import { EMAIL_ADMIN_NODE } from '../types/dtos/email/EmailOutboxDtos';
 import { INVITATION_NODES } from '../types/dtos/invitations/InvitationDtos';
 import { NavLayout, pickNavLayout } from './navLayout';
 import { CreateNewMenu } from './CreateNewMenu';
+import { THEMES, selectTheme, themePickerVisible, useActiveTheme } from '../theme/themes';
 
 // added: explicit types for object types prop
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -62,7 +63,7 @@ const LINK_CLASS = 'inline-flex items-center gap-2 whitespace-nowrap border-b-2 
 // active page filled in rather than just underlined.
 const ICON_LINK_CLASS = 'inline-flex items-center justify-center rounded-lg p-2 transition-colors';
 const LINKS_ROW_CLASS = 'flex items-center gap-1';
-const TITLE_CLASS = 'whitespace-nowrap text-xl font-semibold text-slate-900';
+const TITLE_CLASS = 'whitespace-nowrap text-xl font-semibold text-nav-fg';
 
 // changed: accept props object instead of raw array parameter
 export function Navigation({ objectTypes }: Props) {
@@ -91,6 +92,10 @@ export function Navigation({ objectTypes }: Props) {
     [SIEGE_ADMIN_PERMISSION_NODE]: usePermission(SIEGE_ADMIN_PERMISSION_NODE).allowed,
   };
   const navLinks = NAV_LINKS.filter(link => (!link.staffOnly || isStaff) && (!link.node || nodeAccess[link.node]));
+  // #95: the design-comparison theme picker, for staff only (players never see it).
+  const showThemePicker = themePickerVisible(isStaff || canManageContent);
+  const activeTheme = useActiveTheme();
+  const logoutItemIndex = showThemePicker ? THEMES.length + 1 : 1;
 
   const [navLayout, setNavLayout] = useState<NavLayout>('labels+title');
   const leftRef = useRef<HTMLDivElement>(null);
@@ -216,8 +221,10 @@ export function Navigation({ objectTypes }: Props) {
     }
   };
 
+  // The bar: bottom border only and square corners. `.panel` (a border on every side, rounded) showed as an
+  // outline and light corner notches on the dark bars (#95, 2026-11-03).
   return (
-    <nav className="panel fixed w-full top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <nav className="fixed w-full top-0 z-50 border-b border-nav-line bg-nav/95 shadow-sm backdrop-blur">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 justify-between gap-4">
           <div ref={leftRef} className="relative flex min-w-0 flex-1 items-center gap-4">
@@ -245,7 +252,7 @@ export function Navigation({ objectTypes }: Props) {
               <div className="relative flex-shrink-0" ref={navMenuRef}>
                 <button
                   onClick={() => setIsNavMenuOpen(open => !open)}
-                  className="inline-flex items-center justify-center rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="inline-flex items-center justify-center rounded-md p-2 text-nav-muted hover:bg-nav-hover hover:text-nav-fg focus:outline-none focus:ring-2 focus:ring-nav-focus"
                   aria-label={isNavMenuOpen ? 'Close menu' : 'Open menu'}
                   aria-expanded={isNavMenuOpen}
                 >
@@ -300,13 +307,13 @@ export function Navigation({ objectTypes }: Props) {
                     className={showLabels
                       ? `${LINK_CLASS} ${
                         isActive(link)
-                          ? 'border-primary text-slate-900'
-                          : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                          ? 'border-nav-accent text-nav-fg'
+                          : 'border-transparent text-nav-muted hover:border-slate-300 hover:text-nav-fg'
                       }`
                       : `${ICON_LINK_CLASS} ${
                         isActive(link)
-                          ? 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/30'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          ? 'bg-nav-accent/10 text-nav-accent ring-1 ring-inset ring-nav-accent/30'
+                          : 'text-nav-muted hover:bg-nav-hover hover:text-nav-fg'
                       }`}
                   >
                     {showLabels ? (
@@ -336,7 +343,7 @@ export function Navigation({ objectTypes }: Props) {
                 aria-expanded={isAccountMenuOpen}
                 aria-controls={isAccountMenuOpen ? 'account-menu' : undefined}
                 aria-label="Account menu"
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-nav-muted bg-nav hover:bg-nav-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-nav focus:ring-nav-focus transition-colors"
               >
                 <UserCircle2 className="h-5 w-5" aria-hidden="true" />
               </button>
@@ -366,8 +373,33 @@ export function Navigation({ objectTypes }: Props) {
                       <UserCircle2 className="h-4 w-4 mr-3" aria-hidden="true" />
                       Account settings
                     </Link>
+                    {showThemePicker && (
+                      // Design comparison (#95): switching is instant and the menu stays open, so the
+                      // themes can be flipped through. `?theme=` in the URL does the same for one tab.
+                      <div role="group" aria-labelledby="theme-picker-label" className="border-y border-gray-100 py-1 my-1">
+                        <div id="theme-picker-label" className="px-4 pt-1 pb-0.5 text-xs font-medium text-gray-500" role="none">
+                          Theme (design comparison)
+                        </div>
+                        {THEMES.map((theme, index) => (
+                          <button
+                            key={theme.id}
+                            ref={el => { accountItemRefs.current[index + 1] = el; }}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={activeTheme === theme.id}
+                            tabIndex={-1}
+                            title={theme.description}
+                            onClick={() => selectTheme(theme.id)}
+                            className="w-full text-left px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none flex items-center"
+                          >
+                            <Check className={`h-4 w-4 mr-3 ${activeTheme === theme.id ? '' : 'invisible'}`} aria-hidden="true" />
+                            {theme.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <button
-                      ref={el => { accountItemRefs.current[1] = el; }}
+                      ref={el => { accountItemRefs.current[logoutItemIndex] = el; }}
                       type="button"
                       role="menuitem"
                       tabIndex={-1}
@@ -376,7 +408,7 @@ export function Navigation({ objectTypes }: Props) {
                         handleLogout();
                       }}
                       disabled={isLoading}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none flex items-center disabled:opacity-50"
+                      className="w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger-soft focus:bg-danger-soft focus:outline-none flex items-center disabled:opacity-50"
                     >
                       <LogOut className="h-4 w-4 mr-3" aria-hidden="true" />
                       Log out

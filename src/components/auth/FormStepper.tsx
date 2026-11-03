@@ -30,7 +30,7 @@ export const FormStepper: React.FC<FormStepperProps> = ({
                 disabled={!onStepClick}
                 className={`flex items-center justify-center w-10 h-10 rounded-full font-semibold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
                   index === currentStep
-                    ? 'bg-primary text-white shadow-lg'
+                    ? 'bg-primary text-primary-fg shadow-lg'
                     : index < currentStep
                       ? 'bg-green-500 text-white'
                       : 'bg-gray-200 text-gray-600'
@@ -63,8 +63,8 @@ export const FormStepper: React.FC<FormStepperProps> = ({
                 index === currentStep
                   ? 'text-primary font-semibold'
                   : index < currentStep
-                    ? 'text-green-600'
-                    : 'text-gray-500'
+                    ? 'text-success'
+                    : 'text-muted'
               }`}
             >
               {step}
@@ -82,7 +82,7 @@ export const FormStepper: React.FC<FormStepperProps> = ({
             </div>
             <div className="text-lg font-bold text-primary mt-1">{steps[currentStep]}</div>
           </div>
-          <ChevronRight className="h-5 w-5 text-gray-400" aria-hidden="true" />
+          <ChevronRight className="h-5 w-5 text-muted" aria-hidden="true" />
         </div>
 
         {/* Progress bar */}

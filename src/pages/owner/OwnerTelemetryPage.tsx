@@ -204,7 +204,7 @@ export const OwnerTelemetryPage: React.FC = () => {
         </div>
         <div className="mt-4 flex gap-2">
           <button type="button" onClick={() => runSearch()} disabled={loading}
-            className="inline-flex items-center gap-1 rounded bg-primary px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
+            className="inline-flex items-center gap-1 rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg disabled:opacity-50">
             <Search className="h-4 w-4" /> Search events
           </button>
           <button type="button" onClick={runTimeline} disabled={loading}
@@ -428,7 +428,7 @@ const TestRunsPanel: React.FC = () => {
             className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm" />
           <button type="button" disabled={!runName.trim()}
             onClick={() => act(telemetryClient.startTestRun(runName.trim())).then(() => setRunName(''))}
-            className="rounded bg-primary px-3 py-1 text-sm text-white disabled:opacity-50">Start</button>
+            className="rounded bg-primary px-3 py-1 text-sm text-primary-fg disabled:opacity-50">Start</button>
         </div>
         <ul className="mt-3 divide-y divide-gray-100 text-sm">
           {runs.map(r => (
@@ -453,7 +453,7 @@ const TestRunsPanel: React.FC = () => {
           <input aria-label="Hours" value={hours} onChange={e => setHours(e.target.value)} type="number" min={1} max={168}
             className="rounded border border-gray-300 px-2 py-1 text-sm" />
           <button type="button" onClick={addTarget} disabled={!targetUser && !targetRun}
-            className="rounded bg-primary px-3 py-1 text-sm text-white disabled:opacity-50">Add</button>
+            className="rounded bg-primary px-3 py-1 text-sm text-primary-fg disabled:opacity-50">Add</button>
         </div>
         <ul className="mt-3 divide-y divide-gray-100 text-sm">
           {targets.map(t => (

@@ -18,21 +18,21 @@ export const RelationshipDraftCard: React.FC<RelationshipDraftCardProps> = ({ dr
 
     return (
         <div
-            className="p-2 bg-amber-50 border border-amber-200 rounded-md flex items-center justify-between"
+            className="p-2 bg-warning-soft border border-warning-line rounded-md flex items-center justify-between"
             data-testid="relationship-draft-card"
         >
             <div className="flex items-center space-x-2 flex-1 min-w-0">
-                <div className="flex-shrink-0 h-6 w-6 rounded-full bg-amber-100 flex items-center justify-center">
-                    <span className="text-amber-600 font-medium text-xs">?</span>
+                <div className="flex-shrink-0 h-6 w-6 rounded-full bg-warning-muted flex items-center justify-center">
+                    <span className="text-warning font-medium text-xs">?</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-amber-900 truncate flex items-center gap-2">
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-amber-200 text-amber-900">
+                    <p className="text-sm font-medium text-warning-strong truncate flex items-center gap-2">
+                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-warning-line text-warning-strong">
                             Draft
                         </span>
                         <span>not yet saved</span>
                     </p>
-                    <p className="text-xs text-amber-700">
+                    <p className="text-xs text-warning">
                         Started by {draft.createdByUsername}
                         {lastSavedLabel ? ` · last saved ${lastSavedLabel}` : ''}
                     </p>
