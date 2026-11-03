@@ -1139,7 +1139,9 @@ export const FormWizardPage: React.FC<Props> = ({
                 )}
                 <div className='dashboard-content'>
                     {showWizard && wizardConfig && selectedTypeName && (
-                        <Breadcrumbs trail={breadcrumbTrail} onNavigate={handleBreadcrumbNavigate} className="mb-4" />
+                        // #227 fix round: in the form card's centred column (FormWizard: max-w-4xl mx-auto), so
+                        // the breadcrumb starts at the card's left edge.
+                        <Breadcrumbs trail={breadcrumbTrail} onNavigate={handleBreadcrumbNavigate} className="mx-auto mb-4 max-w-4xl" />
                     )}
                     {/* #227: the type overview (fields list) belongs to the setup lists; above an open
                         form it read like debug output, so the breadcrumb sits right above the form. */}
