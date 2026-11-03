@@ -9,6 +9,7 @@ import { AuditLogEntryDto } from '../../types/dtos/userManagement/UserProfileSum
 import { UserListDto } from '../../types/dtos/auth/UserDtos';
 import { toApiPagedQuery } from '../../utils/entityApiMapping';
 import { usePermission } from '../../hooks/useStaffAccess';
+import { useTabParam } from '../../hooks/useTabParam';
 import { CURRENCY_NODES } from '../../types/dtos/currency/CurrencyDtos';
 import { INVITATION_NODES } from '../../types/dtos/invitations/InvitationDtos';
 import { usePageTitle } from '../../hooks/usePageTitle';
@@ -22,6 +23,22 @@ import { LOCATION_RETENTION_NODES } from '../../types/dtos/locationRetention/Loc
 // item: every row here links to /admin/users/:id.
 
 type Tab = 'all' | 'group' | 'expiring' | 'demoted';
+const TAB_KEYS: readonly Tab[] = ['all', 'group', 'expiring', 'demoted'];
+
+/**
+ * PandiO/knk-workspace#39 (CRUD-4): the player's name is a real link to the profile, so middle-click,
+ * Ctrl/Cmd-click and the keyboard work; a click anywhere else on the row still opens it.
+ */
+const ProfileLink: React.FC<{ userId: number | string | null | undefined; children: React.ReactNode }> = ({ userId, children }) =>
+    userId == null ? <>{children}</> : (
+        <Link
+            to={`/admin/users/${userId}`}
+            onClick={(event) => event.stopPropagation()}
+            className="hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+        >
+            {children}
+        </Link>
+    );
 
 const formatDate = (iso?: string | null): string => {
     if (!iso) return '-';
@@ -32,7 +49,8 @@ const formatDate = (iso?: string | null): string => {
 export const UserModerationPage: React.FC = () => {
     usePageTitle('Moderation');
     const navigate = useNavigate();
-    const [tab, setTab] = React.useState<Tab>('all');
+    // #39: the tab is in the URL (?tab=group), so Back from a player's profile comes back to it.
+    const [tab, setTab] = useTabParam(TAB_KEYS, 'all');
     const { allowed: canReadLedger } = usePermission(CURRENCY_NODES.history);
     const { allowed: canEditPolicy } = usePermission(CURRENCY_NODES.policy);
     const { allowed: canSeeAlerts } = usePermission(CURRENCY_NODES.alerts);
@@ -289,7 +307,7 @@ export const UserModerationPage: React.FC = () => {
                                                             className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                                                             onClick={() => u.id != null && navigate(`/admin/users/${u.id}`)}
                                                         >
-                                                            <td className="py-2 pr-4 font-medium text-gray-900">{u.username}</td>
+                                                            <td className="py-2 pr-4 font-medium text-gray-900"><ProfileLink userId={u.id}>{u.username}</ProfileLink></td>
                                                             <td className="py-2 pr-4 text-gray-500">{u.email ?? '-'}</td>
                                                             <td className="py-2 pr-4">
                                                                 {u.isOnline ? (
@@ -385,7 +403,7 @@ export const UserModerationPage: React.FC = () => {
                                                         className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                                                         onClick={() => u.id != null && navigate(`/admin/users/${u.id}`)}
                                                     >
-                                                        <td className="py-2 pr-4 font-medium text-gray-900">{u.username}</td>
+                                                        <td className="py-2 pr-4 font-medium text-gray-900"><ProfileLink userId={u.id}>{u.username}</ProfileLink></td>
                                                         <td className="py-2 pr-4">
                                                             {u.isOnline ? (
                                                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Online</span>
@@ -461,7 +479,7 @@ export const UserModerationPage: React.FC = () => {
                                                         className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                                                         onClick={() => navigate(`/admin/users/${m.userId}`)}
                                                     >
-                                                        <td className="py-2 pr-4 font-medium text-gray-900">{m.username}</td>
+                                                        <td className="py-2 pr-4 font-medium text-gray-900"><ProfileLink userId={m.userId}>{m.username}</ProfileLink></td>
                                                         <td className="py-2 pr-4 text-gray-500">{formatDate(m.expiresAt)}</td>
                                                     </tr>
                                                 ))}
@@ -504,7 +522,7 @@ export const UserModerationPage: React.FC = () => {
                                                         className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                                                         onClick={() => navigate(`/admin/users/${entry.targetUserId}`)}
                                                     >
-                                                        <td className="py-2 pr-4 font-medium text-gray-900">{entry.targetUsername ?? `#${entry.targetUserId}`}</td>
+                                                        <td className="py-2 pr-4 font-medium text-gray-900"><ProfileLink userId={entry.targetUserId}>{entry.targetUsername ?? `#${entry.targetUserId}`}</ProfileLink></td>
                                                         <td className="py-2 pr-4 text-gray-500">{formatDate(entry.timestamp)}</td>
                                                         <td className="py-2 pr-4 text-gray-500 font-mono text-xs">{entry.details}</td>
                                                     </tr>

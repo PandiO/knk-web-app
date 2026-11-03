@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Eye, Pencil, Plus, Settings, Trash2 } from 'lucide-react';
+import { ChevronDown, Clock, Eye, Pencil, Plus, Settings, Trash2 } from 'lucide-react';
 import ObjectTypeExplorer from '../ObjectTypeExplorer';
 import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 // @ts-ignore: side-effect import for CSS without type declarations
@@ -13,7 +13,12 @@ import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
 import { logging } from '../../utils';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
-import { buildReturnTo, dashboardPath, displayPath, editFormPath, entityEditPath, entitySetupPath, newFormPath } from '../../utils/returnTo';
+import { buildReturnTo, dashboardPath, displayPath, editFormPath, entityEditPath, entitySetupPath, newFormPath, newFormWithConfigPath, resumeDraftPath } from '../../utils/returnTo';
+import { readTableQuery, toSearch, writeTableQuery } from '../../utils/tableQueryParams';
+import { PagedQueryDto } from '../../types/dtos/common/PagedQuery';
+import { useDashboardFormOptions } from '../../hooks/useDashboardFormOptions';
+import { DashboardHeaderMenu } from './DashboardHeaderMenu';
+import { FormSubmissionStatus } from '../../utils/enums';
 import { readLastDashboardType, writeLastDashboardType } from '../../utils/lastDashboardType';
 import { readDashboardFavourites, toggleFavourite, writeDashboardFavourites } from '../../utils/dashboardFavourites';
 
@@ -206,8 +211,23 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         ? findName(baseMetadata.map(metadata => metadata.entityName), selectedType) !== null
         : findName(objectTypes.map(objectType => objectType.id), selectedType) !== null;
 
-    // Where a form opened from here comes back to (#58): this type, with whatever the URL holds.
+    // Where a form opened from here comes back to (#58): this type, with whatever the URL holds
+    // (page, search and sort included, #39).
     const returnTo = () => buildReturnTo(location) ?? dashboardPath(selectedType);
+
+    // #39: the table's page, search, sort and filters live in the URL (?page=2&q=…&sort=…&dir=desc),
+    // so Back, a refresh, a shared link and a form's returnTo keep the view. Picking another type
+    // goes to its bare /dashboard/{type}, i.e. page 1 without a search. Changes replace the history
+    // entry, so Back leaves the dashboard type instead of stepping through pages.
+    const tableQuery = useMemo(() => readTableQuery(new URLSearchParams(location.search)), [location.search]);
+    const handleTableQueryChange = (next: PagedQueryDto) => {
+        const search = toSearch(writeTableQuery(new URLSearchParams(location.search), next));
+        if (search === location.search || (search === '' && !location.search)) return;
+        navigate({ pathname: location.pathname, search }, { replace: true });
+    };
+
+    // #177 follow-up: "Drafts (n)" and "New with: {config}" next to New.
+    const { otherConfigs, drafts } = useDashboardFormOptions(selectedType && selectedIsKnown ? selectedType : null);
 
     const handleEdit = (entityTypeName: string, item: any) => {
         // Users are edited on the player profile (#177 decision 2026-10-26).
@@ -315,15 +335,56 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                         {selectedType && selectedIsKnown && (
                             <div className="flex min-w-0 max-w-full items-center gap-2">
                                 {/* On a phone a long type name is cut off rather than pushing ⚙ off-screen. */}
-                                <button
-                                    type="button"
-                                    onClick={handleNew}
-                                    className="btn-primary h-9 min-w-0 whitespace-nowrap"
-                                    title={`New ${typeLabel}`}
-                                >
-                                    <Plus className="h-4 w-4" aria-hidden="true" />
-                                    <span className="truncate">New {typeLabel}</span>
-                                </button>
+                                <div className="flex min-w-0 items-center">
+                                    <button
+                                        type="button"
+                                        onClick={handleNew}
+                                        className={`btn-primary h-9 min-w-0 whitespace-nowrap ${otherConfigs.length > 0 ? 'rounded-r-none' : ''}`}
+                                        title={`New ${typeLabel}`}
+                                    >
+                                        <Plus className="h-4 w-4" aria-hidden="true" />
+                                        <span className="truncate">New {typeLabel}</span>
+                                    </button>
+                                    {otherConfigs.length > 0 && (
+                                        // #177 follow-up: New with a form configuration other than the default.
+                                        <DashboardHeaderMenu
+                                            testId="dashboard-new-with"
+                                            button={<ChevronDown className="h-4 w-4" aria-hidden="true" />}
+                                            buttonClassName="btn-primary h-9 w-8 rounded-l-none border-l border-white/40 p-0"
+                                            buttonLabel={`New ${typeLabel} with another form`}
+                                            heading="New with"
+                                            items={otherConfigs.map(config => ({
+                                                key: String(config.id),
+                                                label: config.configurationName || `Configuration ${config.id}`,
+                                                detail: config.description || undefined,
+                                                onSelect: () => navigate(newFormWithConfigPath(selectedType, config.id!, returnTo())),
+                                            }))}
+                                        />
+                                    )}
+                                </div>
+                                {drafts.length > 0 && (
+                                    // #177 follow-up: the caller's open drafts of this type, resumed in place.
+                                    <DashboardHeaderMenu
+                                        testId="dashboard-drafts"
+                                        button={(
+                                            <>
+                                                <Clock className="h-4 w-4" aria-hidden="true" />
+                                                <span>Drafts ({drafts.length})</span>
+                                            </>
+                                        )}
+                                        buttonClassName="btn-secondary h-9 whitespace-nowrap"
+                                        buttonLabel={`Drafts (${drafts.length}): your saved ${typeLabel} forms`}
+                                        heading="Resume a draft"
+                                        items={drafts.map(draft => ({
+                                            key: String(draft.id),
+                                            label: draft.formConfigurationName || 'Untitled form',
+                                            detail: `Step ${draft.currentStepIndex + 1} · ${draft.status === FormSubmissionStatus.Paused ? 'Paused' : 'In progress'}${
+                                                draft.updatedAt ? ` · ${new Date(draft.updatedAt).toLocaleString()}` : ''}`,
+                                            onSelect: () => navigate(resumeDraftPath(selectedType, draft.id!, returnTo())),
+                                        }))}
+                                        footer={{ label: 'All saved progress (Entity setup)', onSelect: () => navigate(entitySetupPath(selectedType)) }}
+                                    />
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => navigate(entitySetupPath(selectedType))}
@@ -356,7 +417,13 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                             entityTypeName={selectedType}
                             columns={getColumnDefinitions(selectedType)}
                             initialQuery={{ page: 1, pageSize: 10 }}
+                            query={tableQuery}
+                            onQueryChange={handleTableQueryChange}
                             onRowClick={canView(selectedType) ? (row) => handleView(selectedType, row) : undefined}
+                            // #39 (CRUD-4): rows are links to the detail page (middle-click, keyboard).
+                            rowHref={canView(selectedType)
+                                ? (row) => (row?.id != null ? displayPath(selectedType, row.id, returnTo()) : undefined)
+                                : undefined}
                             refreshKey={refreshKey}
                             emptyState={(
                                 <div className="flex flex-col items-center gap-3">

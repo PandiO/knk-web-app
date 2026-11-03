@@ -82,6 +82,25 @@ export function newFormPath(entityTypeName: string, returnTo?: string | null): s
   return withReturnTo(`/forms/${encodeURIComponent(entityTypeName)}?autoOpen=true`, returnTo);
 }
 
+/**
+ * A new entity with one particular form configuration (#177 follow-up, "New with: {config}"): the
+ * Entity setup page opens that configuration (`configId`), coming back to `returnTo`.
+ */
+export function newFormWithConfigPath(entityTypeName: string, configId: string | number, returnTo?: string | null): string {
+  return withReturnTo(
+    `/forms/${encodeURIComponent(entityTypeName)}?configId=${encodeURIComponent(String(configId))}`,
+    returnTo
+  );
+}
+
+/** Resume a saved draft (#177 follow-up, "Drafts (n)"): the Entity setup page opens it (`resume`). */
+export function resumeDraftPath(entityTypeName: string, progressId: string | number, returnTo?: string | null): string {
+  return withReturnTo(
+    `/forms/${encodeURIComponent(entityTypeName)}?resume=${encodeURIComponent(String(progressId))}`,
+    returnTo
+  );
+}
+
 /** The detail page of one entity (`/display/:entityName/:id`), coming back to `returnTo` (#81). */
 export function displayPath(entityTypeName: string, entityId: string | number, returnTo?: string | null): string {
   return withReturnTo(
