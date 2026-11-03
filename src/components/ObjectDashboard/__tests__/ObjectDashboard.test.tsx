@@ -221,7 +221,7 @@ describe('ObjectDashboard favourite types (PandiO/knk-workspace#194)', () => {
         getAll.mockResolvedValue([config('Street', true, false), config('District', true, false)]);
     });
 
-    it('stars a type to the top of the explorer and remembers it in this browser', async () => {
+    it('stars a type to the top of the explorer, keeps it in the list (#225) and remembers it in this browser', async () => {
         render(<ObjectDashboard objectTypes={[]} />);
         await screen.findByTestId('table');
         const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
@@ -230,12 +230,13 @@ describe('ObjectDashboard favourite types (PandiO/knk-workspace#194)', () => {
         fireEvent.click(within(sidebar).getByRole('button', { name: 'Add Category to favourites' }));
 
         expect(typeNames(within(sidebar).getByRole('region', { name: 'Favourites' }))).toEqual(['Category', 'Town']);
-        expect(typeNames(sidebar)).toEqual(['Category', 'Town', 'District', 'Street']);
+        expect(typeNames(sidebar)).toEqual(['Category', 'Town', 'Category', 'District', 'Street', 'Town']);
         expect(JSON.parse(window.localStorage.getItem('knk.dashboard.favouriteEntityTypes') ?? '[]')).toEqual(['Town', 'Category']);
         expect(mockNavigate).not.toHaveBeenCalled();
 
-        fireEvent.click(within(sidebar).getByRole('button', { name: 'Remove Town from favourites' }));
-        expect(typeNames(sidebar)).toEqual(['Category', 'District', 'Street', 'Town']);
+        // Either copy's star unstars it; the type stays in the full list.
+        fireEvent.click(within(sidebar).getAllByRole('button', { name: 'Remove Town from favourites' })[1]);
+        expect(typeNames(sidebar)).toEqual(['Category', 'Category', 'District', 'Street', 'Town']);
         expect(JSON.parse(window.localStorage.getItem('knk.dashboard.favouriteEntityTypes') ?? '[]')).toEqual(['Category']);
     });
 
@@ -246,7 +247,7 @@ describe('ObjectDashboard favourite types (PandiO/knk-workspace#194)', () => {
         await screen.findByTestId('table');
 
         expect(typeNames(screen.getByRole('complementary', { name: 'Sidebar' })))
-            .toEqual(['Street', 'Town', 'Category', 'District']);
+            .toEqual(['Street', 'Town', 'Category', 'District', 'Street', 'Town']);
     });
 });
 
