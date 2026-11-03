@@ -10,6 +10,7 @@ import {
   formatStatisticsDate,
   PublicPlayerProfileDto,
 } from '../../types/dtos/statistics/StatisticsDtos';
+import { usePublicSurface } from '../../theme/surface';
 
 // A player's public profile (/players/:username, KNG-34, IMPLEMENTATION_PLAN.md §3.2): the
 // always-public fields for anyone (signed in or not), then the statistics and title history the
@@ -17,6 +18,7 @@ import {
 // online status (vanish must not leak).
 
 export const PublicPlayerProfilePage: React.FC = () => {
+  usePublicSurface();
   const { username = '' } = useParams<{ username: string }>();
   const [profile, setProfile] = React.useState<PublicPlayerProfileDto | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -44,7 +46,7 @@ export const PublicPlayerProfilePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center text-sm text-gray-500">
+      <div className="flex items-center text-sm text-muted">
         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
         Loading…
       </div>
@@ -52,8 +54,8 @@ export const PublicPlayerProfilePage: React.FC = () => {
   }
   if (error || !profile) {
     return (
-      <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 space-y-2">
-        <p className="text-red-600">{error ?? 'Could not load this player.'}</p>
+      <div className="bg-surface shadow-sm rounded-lg p-6 border border-line space-y-2">
+        <p className="field-error">{error ?? 'Could not load this player.'}</p>
         <Link to="/leaderboards" className="text-sm text-primary hover:underline">Back to the leaderboards</Link>
       </div>
     );
@@ -61,11 +63,11 @@ export const PublicPlayerProfilePage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
+      <div className="bg-surface shadow-sm rounded-lg p-6 border border-line">
         <div className="flex items-center gap-3">
-          <UserCircle2 className="h-10 w-10 text-gray-400" />
+          <UserCircle2 className="h-10 w-10 text-muted" />
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">{profile.username}</h1>
+            <h1 className="text-2xl font-semibold text-fg">{profile.username}</h1>
             <p className="text-sm text-gray-600">{profile.titleName ?? 'No title yet'}</p>
           </div>
         </div>
@@ -79,19 +81,19 @@ export const PublicPlayerProfilePage: React.FC = () => {
         </dl>
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900">Statistics</h2>
+      <div className="bg-surface shadow-sm rounded-lg p-6 border border-line space-y-4">
+        <h2 className="text-lg font-semibold text-fg">Statistics</h2>
         <StatisticsOverview userId={profile.userId} showProfile={false} />
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 space-y-2">
-        <h2 className="text-lg font-semibold text-gray-900">Title history</h2>
+      <div className="bg-surface shadow-sm rounded-lg p-6 border border-line space-y-2">
+        <h2 className="text-lg font-semibold text-fg">Title history</h2>
         <TitleHistoryList userId={profile.userId} ownerLabel={profile.username} />
       </div>
 
       {/* Alpha run 1 (#174): the player's siege matches, each with its match page. */}
-      <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 space-y-2">
-        <h2 className="text-lg font-semibold text-gray-900">Siege matches</h2>
+      <div className="bg-surface shadow-sm rounded-lg p-6 border border-line space-y-2">
+        <h2 className="text-lg font-semibold text-fg">Siege matches</h2>
         <PlayerSiegeMatchList userId={profile.userId} />
       </div>
     </div>
@@ -99,9 +101,9 @@ export const PublicPlayerProfilePage: React.FC = () => {
 };
 
 const Fact: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-    <dt className="text-xs text-gray-500">{label}</dt>
-    <dd className="font-medium text-gray-900">{value}</dd>
+  <div className="rounded-lg border border-line bg-surface-alt px-3 py-2">
+    <dt className="text-xs text-muted">{label}</dt>
+    <dd className="font-medium text-fg">{value}</dd>
   </div>
 );
 

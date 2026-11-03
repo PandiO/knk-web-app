@@ -44,14 +44,14 @@ export const ReusableFieldSelector: React.FC<Props> = ({
                     <h3 className="text-lg font-medium text-gray-900">
                         Select Reusable Field Template
                     </h3>
-                    <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={onCancel} className="text-muted hover:text-gray-600">
                         <X className="h-5 w-5" />
                     </button>
                 </div>
 
                 <div className="px-6 py-4 border-b border-gray-200 space-y-3">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted" />
                         <input
                             type="text"
                             value={searchTerm}
@@ -183,7 +183,7 @@ export const ReusableFieldSelector: React.FC<Props> = ({
                     <button
                         onClick={handleConfirm}
                         disabled={!selectedField}
-                        className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-primary-dark disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        className="px-4 py-2 bg-primary text-primary-fg rounded-md text-sm font-medium hover:bg-primary-dark disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                         Add Field
                     </button>

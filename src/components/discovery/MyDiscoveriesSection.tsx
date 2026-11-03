@@ -84,7 +84,7 @@ export const MyDiscoveriesSection: React.FC<{ userId: number }> = ({ userId }) =
                         {' '}&middot; {formatDiscoveryRewards(row)}
                       </p>
                     </div>
-                    <span className="text-xs text-gray-400 whitespace-nowrap">{formatDiscoveryDate(row.discoveredAt)}</span>
+                    <span className="text-xs text-muted whitespace-nowrap">{formatDiscoveryDate(row.discoveredAt)}</span>
                   </li>
                 ))}
               </ul>

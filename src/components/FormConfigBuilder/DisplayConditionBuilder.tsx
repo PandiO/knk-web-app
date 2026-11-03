@@ -120,7 +120,7 @@ export const DisplayConditionBuilder: React.FC<DisplayConditionBuilderProps> = (
         condition: DisplayConditionDto
     ) => {
         if (NO_VALUE_OPERATORS.includes(condition.operator)) {
-            return <span className="text-xs text-gray-400 italic self-center">no value needed</span>;
+            return <span className="text-xs text-muted italic self-center">no value needed</span>;
         }
 
         const setValue = (value: unknown) => {

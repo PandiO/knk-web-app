@@ -5,6 +5,7 @@ import { Slideshow } from '../components/Slideshow';
 import { useAuth } from '../contexts/AuthContext';
 import { appConfig } from '../config/appConfig';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { usePublicSurface } from '../theme/surface';
 
 const SLIDES = [
   { id: '1', url: '/images/1.jpg', title: 'Cinix from the north-west gate' },
@@ -91,11 +92,12 @@ const JOIN_STEPS: { title: string; body: React.ReactNode }[] = [
 
 export function LandingPage() {
   usePageTitle(null);
+  usePublicSurface();
   const { isLoggedIn } = useAuth();
   const serverAddress = appConfig.minecraft.serverAddress;
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative public-full-bleed">
       {/* Background slideshow */}
       <div className="fixed inset-0">
         <Slideshow images={SLIDES} decorative />
@@ -148,7 +150,7 @@ export function LandingPage() {
               {isLoggedIn ? (
                 <Link
                   to="/account"
-                  className="inline-flex items-center px-6 py-3 rounded-md text-lg font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                  className="btn-cta px-6 py-3 text-lg"
                 >
                   Go to your account
                 </Link>
@@ -156,7 +158,7 @@ export function LandingPage() {
                 <>
                   <Link
                     to="/auth/register"
-                    className="inline-flex items-center px-6 py-3 rounded-md text-lg font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                    className="btn-cta px-6 py-3 text-lg"
                   >
                     Create account
                   </Link>

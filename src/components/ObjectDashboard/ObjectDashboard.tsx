@@ -329,7 +329,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                     {/* #195: title and buttons on one row, centred on each other; the row is as tall as
                         the buttons (h-9) whether they show or not, and starts level with the explorer. */}
                     <div className="mb-6 flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2" data-testid="dashboard-header">
-                        <h2 className="min-w-0 break-words text-3xl font-bold leading-9 text-gray-900">
+                        <h2 className="min-w-0 break-words text-3xl font-bold leading-9 text-fg">
                             {typeLabel || 'Items'}
                         </h2>
                         {selectedType && selectedIsKnown && (
@@ -398,7 +398,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                         )}
                     </div>
                     {metadataLoading && (
-                        <div className="mb-4 text-sm text-gray-500">Loading entity metadata...</div>
+                        <div className="mb-4 text-sm text-muted">Loading entity metadata...</div>
                     )}
                     <FeedbackModal
                         open={modalOpen}
@@ -446,7 +446,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                             handleView(selectedType, row);
                                         }}
                                         disabled={!canView(selectedType)}
-                                        className="p-2 text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-gray-400"
+                                        className="p-2 text-muted hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-gray-400"
                                         title={canView(selectedType) ? 'View' : viewHint}
                                         aria-label={canView(selectedType) ? 'View' : `View – ${viewHint}`}
                                     >
@@ -459,7 +459,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                             e.stopPropagation();
                                             handleEdit(selectedType, row);
                                         }}
-                                        className="p-2 text-gray-400 hover:text-gray-600"
+                                        className="p-2 text-muted hover:text-gray-600"
                                         title="Edit"
                                     >
                                         <Pencil className="h-4 w-4" />
@@ -471,7 +471,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                             e.stopPropagation();
                                             handleDelete(selectedType, row);
                                         }}
-                                        className="p-2 text-gray-400 hover:text-red-600"
+                                        className="p-2 text-muted hover:text-danger"
                                         title="Delete"
                                     >
                                         <Trash2 className="h-4 w-4" />

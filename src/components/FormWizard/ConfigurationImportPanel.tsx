@@ -85,19 +85,19 @@ export function ImportResultView<TResult extends ConfigurationImportResultBase>(
         <div
             role="status"
             aria-label={label}
-            className={`mt-2 rounded-md border px-3 py-2 text-sm ${ok ? 'border-green-200 bg-green-50 text-green-900' : 'border-yellow-200 bg-yellow-50 text-yellow-900'}`}
+            className={`mt-2 rounded-md border px-3 py-2 text-sm ${ok ? 'border-success-line bg-success-soft text-green-900' : 'border-warning-line bg-warning-soft text-warning-strong'}`}
         >
             <p className="font-medium">{describe(result)}</p>
             {result.status !== 'AlreadyImported' && result.status !== 'Invalid' && (
                 <p className="text-xs text-gray-600">{counts(result)}</p>
             )}
             {result.errors.length > 0 && (
-                <ul className="mt-1 list-disc pl-5 text-red-700" aria-label="Import problems">
+                <ul className="mt-1 list-disc pl-5 text-danger-strong" aria-label="Import problems">
                     {result.errors.map((error, i) => <li key={i}>{error}</li>)}
                 </ul>
             )}
             {result.warnings.length > 0 && (
-                <ul className="mt-1 list-disc pl-5 text-yellow-800" aria-label="Import warnings">
+                <ul className="mt-1 list-disc pl-5 text-warning-strong" aria-label="Import warnings">
                     {result.warnings.map((warning, i) => <li key={i}>{warning}</li>)}
                 </ul>
             )}
@@ -247,18 +247,18 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
             <div
                 role="dialog"
                 aria-label={adapter.title}
-                className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg bg-white shadow-lg"
+                className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg bg-surface shadow-lg"
                 onClick={e => e.stopPropagation()}
             >
-                <div className="flex items-start justify-between border-b border-gray-200 px-5 py-4">
+                <div className="flex items-start justify-between border-b border-line px-5 py-4">
                     <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{adapter.title}</h3>
+                        <h3 className="text-lg font-semibold text-fg">{adapter.title}</h3>
                         <p className="mt-1 text-sm text-gray-600">
                             Every import is checked first (dry run, nothing written). Importing never changes an existing
                             configuration: a file that was imported before is reported as already imported.
                         </p>
                     </div>
-                    <button onClick={onClose} disabled={!!busy} className="text-gray-400 hover:text-gray-600" aria-label="Close dialog">
+                    <button onClick={onClose} disabled={!!busy} className="text-muted hover:text-gray-600" aria-label="Close dialog">
                         <X className="h-5 w-5" />
                     </button>
                 </div>
@@ -275,7 +275,7 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                             />
                             <span>
                                 Make the imported configuration the default for its entity
-                                <span className="block text-xs text-gray-500">
+                                <span className="block text-xs text-muted">
                                     Replaces the current default. Without this, an import only becomes the default when the entity has none.
                                 </span>
                             </span>
@@ -291,7 +291,7 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                                 />
                                 <span>
                                     Import as a draft
-                                    <span className="block text-xs text-gray-500">
+                                    <span className="block text-xs text-muted">
                                         Imports are published by default. A draft is not shown on the entity's display page until it is published.
                                     </span>
                                 </span>
@@ -300,9 +300,9 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                     </div>
 
                     <section aria-label="Import a file">
-                        <h4 className="text-sm font-semibold text-gray-900">Import a file</h4>
-                        <p className="text-xs text-gray-500">{adapter.fileHint}</p>
-                        <label className="mt-2 inline-flex cursor-pointer items-center rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+                        <h4 className="text-sm font-semibold text-fg">Import a file</h4>
+                        <p className="text-xs text-muted">{adapter.fileHint}</p>
+                        <label className="mt-2 inline-flex cursor-pointer items-center rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-surface-alt">
                             <Upload className="mr-2 h-4 w-4" />
                             Choose file…
                             <input
@@ -315,9 +315,9 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                             />
                         </label>
                         {fileState && <span className="ml-3 text-sm text-gray-600">{fileState.fileName}</span>}
-                        {fileState?.readError && <p className="mt-2 text-sm text-red-700" role="alert">{fileState.readError}</p>}
-                        {fileError && <p className="mt-2 text-sm text-red-700" role="alert">{fileError}</p>}
-                        {busy === 'file' && <Loader2 className="ml-2 inline h-4 w-4 animate-spin text-gray-400" aria-label="Working" />}
+                        {fileState?.readError && <p className="field-error mt-2 text-sm -strong" role="alert">{fileState.readError}</p>}
+                        {fileError && <p className="field-error mt-2 text-sm -strong" role="alert">{fileError}</p>}
+                        {busy === 'file' && <Loader2 className="ml-2 inline h-4 w-4 animate-spin text-muted" aria-label="Working" />}
                         {fileState?.result && (
                             <ImportResultView result={fileState.result} label="File import result" describe={adapter.describeResult} counts={adapter.describeCounts} />
                         )}
@@ -330,18 +330,18 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
 
                     <section aria-label="Available seeds">
                         <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-semibold text-gray-900">Available seeds</h4>
+                            <h4 className="text-sm font-semibold text-fg">Available seeds</h4>
                             {entityTypeName && seeds && seeds.length > entitySeeds.length && (
                                 <button className="text-xs text-primary hover:underline" onClick={() => setShowAllSeeds(v => !v)}>
                                     {showAllSeeds ? `Only ${entityTypeName}` : `Show all (${seeds.length})`}
                                 </button>
                             )}
                         </div>
-                        <p className="text-xs text-gray-500">{adapter.seedsHint}</p>
-                        {seeds === null && <Loader2 className="mt-2 h-4 w-4 animate-spin text-gray-400" aria-label="Loading seeds" />}
-                        {seedsError && <p className="mt-2 text-sm text-red-700" role="alert">{seedsError}</p>}
+                        <p className="text-xs text-muted">{adapter.seedsHint}</p>
+                        {seeds === null && <Loader2 className="mt-2 h-4 w-4 animate-spin text-muted" aria-label="Loading seeds" />}
+                        {seedsError && <p className="field-error mt-2 text-sm -strong" role="alert">{seedsError}</p>}
                         {seeds !== null && visibleSeeds.length === 0 && !seedsError && (
-                            <p className="mt-2 text-sm text-gray-500">
+                            <p className="mt-2 text-sm text-muted">
                                 {entityTypeName && !showAllSeeds ? `No bundled seeds for ${entityTypeName}.` : 'No bundled seeds.'}
                             </p>
                         )}
@@ -354,22 +354,22 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                                     <li key={seed.name} className="py-2" aria-label={`Seed ${seed.name}`}>
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="truncate text-sm font-medium text-gray-900">{seed.configurationName ?? seed.name}</p>
-                                                <p className="truncate text-xs text-gray-500">
+                                                <p className="truncate text-sm font-medium text-fg">{seed.configurationName ?? seed.name}</p>
+                                                <p className="truncate text-xs text-muted">
                                                     {seed.entityTypeName ?? '?'} · {adapter.describeSeedCounts(seed)} · {seed.name}.json
                                                 </p>
                                             </div>
                                             <div className="flex flex-shrink-0 items-center gap-2">
                                                 {seed.error ? (
-                                                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-800">Unreadable</span>
+                                                    <span className="rounded-full bg-danger-muted px-2 py-0.5 text-xs text-danger-strong">Unreadable</span>
                                                 ) : seed.imported ? (
-                                                    <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800">
+                                                    <span className="inline-flex items-center rounded-full bg-success-muted px-2 py-0.5 text-xs text-success-strong">
                                                         <CheckCircle2 className="mr-1 h-3 w-3" />
                                                         Imported (#{adapter.importedId(seed)})
                                                     </span>
                                                 ) : (
                                                     <>
-                                                        {working && <Loader2 className="h-4 w-4 animate-spin text-gray-400" aria-label="Working" />}
+                                                        {working && <Loader2 className="h-4 w-4 animate-spin text-muted" aria-label="Working" />}
                                                         <button
                                                             onClick={() => runSeed(seed, true)}
                                                             disabled={!!busy}
@@ -386,8 +386,8 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                                                 )}
                                             </div>
                                         </div>
-                                        {seed.error && <p className="mt-1 text-xs text-red-700">{seed.error}</p>}
-                                        {state?.error && <p className="mt-1 text-sm text-red-700" role="alert">{state.error}</p>}
+                                        {seed.error && <p className="field-error mt-1 text-xs -strong">{seed.error}</p>}
+                                        {state?.error && <p className="field-error mt-1 text-sm -strong" role="alert">{state.error}</p>}
                                         {state?.result && (
                                             <ImportResultView
                                                 result={state.result}

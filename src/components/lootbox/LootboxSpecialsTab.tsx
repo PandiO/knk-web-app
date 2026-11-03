@@ -75,12 +75,12 @@ export const LootboxSpecialsTab: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {entries.map(entry => (
-                                <tr key={entry.id} className={entry.enabled ? '' : 'text-gray-400'}>
+                                <tr key={entry.id} className={entry.enabled ? '' : 'text-muted'}>
                                     <td className="px-4 py-2 font-medium text-gray-900">{entry.itemBlueprint?.name ?? `Blueprint #${entry.itemBlueprintId}`}</td>
                                     <td className="px-4 py-2">{entry.lootboxType?.name ?? 'Any box'}</td>
                                     <td className="px-4 py-2">
                                         {formatPercent(perMillionToPercent(entry.chancePerMillion))}
-                                        <span className="block text-xs text-gray-400">{entry.chancePerMillion.toLocaleString('en-US')} per million</span>
+                                        <span className="block text-xs text-muted">{entry.chancePerMillion.toLocaleString('en-US')} per million</span>
                                     </td>
                                     <td className="px-4 py-2">{starLabel(entry.minBoxStars)}+</td>
                                     <td className="px-4 py-2">{entry.sortOrder}</td>

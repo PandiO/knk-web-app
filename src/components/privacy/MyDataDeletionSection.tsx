@@ -77,7 +77,7 @@ export const MyDataDeletionSection: React.FC<Props> = ({ hasEmail }) => {
         name. This can't be undone.
       </p>
 
-      {loading && <Loader2 className="mt-3 h-5 w-5 animate-spin text-gray-400" aria-label="Loading" />}
+      {loading && <Loader2 className="mt-3 h-5 w-5 animate-spin text-muted" aria-label="Loading" />}
       {error && <p className="mt-3 text-sm text-red-700" role="alert">{error}</p>}
       {notice && <p className="mt-3 text-sm text-green-800" role="status">{notice}</p>}
 

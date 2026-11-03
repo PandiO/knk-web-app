@@ -104,7 +104,7 @@ export const CopyCommand: React.FC<{ label: string; command: string }> = ({ labe
                     title="Click to copy"
                 >
                     <span className="truncate">{command}</span>
-                    {copied ? <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" /> : <Clipboard className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />}
+                    {copied ? <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" /> : <Clipboard className="h-3.5 w-3.5 text-muted flex-shrink-0" />}
                     {copied && <span className="text-green-700 font-sans">Copied</span>}
                 </button>
             )}
@@ -273,7 +273,7 @@ export const LocationRetentionPage: React.FC = () => {
                                             </div>
                                             <p className="mt-1 text-gray-700">
                                                 {item.world ?? 'world'} · {coord(item.x)}, {coord(item.y)}, {coord(item.z)}
-                                                <span className="text-gray-400"> (yaw {coord(item.yaw)}, pitch {coord(item.pitch)})</span>
+                                                <span className="text-muted"> (yaw {coord(item.yaw)}, pitch {coord(item.pitch)})</span>
                                             </p>
                                             <p className="mt-1 text-xs text-gray-500">
                                                 Created {item.locationCreatedAt ? formatWhen(item.locationCreatedAt) : 'before creation dates were recorded'}
