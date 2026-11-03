@@ -247,7 +247,7 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
                 </option>
               ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
         </div>
       </div>
 
@@ -292,7 +292,7 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
                     );
                   })}
                 </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" style={{ zIndex: 5 }} />
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" style={{ zIndex: 5 }} />
               </>
             )}
           </div>

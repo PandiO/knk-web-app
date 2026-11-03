@@ -147,7 +147,7 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
       <div className="space-y-5" data-testid="access-pin-step">
         <div className="text-center">
           <KeyRound className="h-10 w-10 mx-auto text-primary" aria-hidden="true" />
-          <h2 className="mt-2 text-xl font-semibold text-gray-900">Your account is ready</h2>
+          <h2 className="mt-2 text-xl font-semibold text-fg">Your account is ready</h2>
         </div>
         <ol className="space-y-2 text-sm text-gray-800">
           <li className="flex gap-2"><span className="w-5 flex-shrink-0 text-right">1.</span><span>One more security step: this site is protected by <strong>Cloudflare</strong>.</span></li>
@@ -166,13 +166,13 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
   return (
     <form noValidate onSubmit={submit} className="space-y-5">
       {claim && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900" data-testid="pending-claim">
+        <div className="rounded-lg border border-success-line bg-success-soft p-3 text-sm text-green-900" data-testid="pending-claim">
           Your Minecraft account <strong>{claim.minecraftName}</strong> will be linked to this account.
         </div>
       )}
       {errors.general && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4" role="alert">
-          <p className="text-sm font-medium text-red-800">{errors.general}</p>
+        <div className="rounded-lg border border-danger-line bg-danger-soft p-4" role="alert">
+          <p className="text-sm font-medium field-error-strong">{errors.general}</p>
         </div>
       )}
 
@@ -191,9 +191,9 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
           aria-describedby={errors.email ? 'invite-email-error' : lockedEmail ? 'invite-email-locked' : undefined}
         />
         {lockedEmail && !errors.email && (
-          <p id="invite-email-locked" className="mt-1 text-xs text-gray-500">The invitation was sent to this address, so it's already verified.</p>
+          <p id="invite-email-locked" className="mt-1 text-xs text-muted">The invitation was sent to this address, so it's already verified.</p>
         )}
-        {errors.email && <p id="invite-email-error" className="mt-1 text-sm text-red-600" role="alert">{errors.email}</p>}
+        {errors.email && <p id="invite-email-error" className="field-error mt-1 text-sm" role="alert">{errors.email}</p>}
       </div>
 
       <div>
@@ -210,13 +210,13 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
             aria-describedby={errors.password ? 'invite-password-error' : undefined}
           />
           <button type="button" onClick={() => setShowPassword(s => !s)}
-            className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500"
+            className="absolute inset-y-0 right-0 flex items-center px-3 text-muted"
             aria-label={showPassword ? 'Hide password' : 'Show password'}>
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
         {password && <PasswordStrengthMeter password={password} />}
-        {errors.password && <p id="invite-password-error" className="mt-1 text-sm text-red-600" role="alert">{errors.password}</p>}
+        {errors.password && <p id="invite-password-error" className="field-error mt-1 text-sm" role="alert">{errors.password}</p>}
       </div>
 
       <div>
@@ -231,7 +231,7 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
           aria-invalid={!!errors.confirmPassword}
           aria-describedby={errors.confirmPassword ? 'invite-confirm-error' : undefined}
         />
-        {errors.confirmPassword && <p id="invite-confirm-error" className="mt-1 text-sm text-red-600" role="alert">{errors.confirmPassword}</p>}
+        {errors.confirmPassword && <p id="invite-confirm-error" className="field-error mt-1 text-sm" role="alert">{errors.confirmPassword}</p>}
       </div>
 
       <div>
@@ -243,7 +243,7 @@ export const InviteSignupForm: React.FC<InviteSignupFormProps> = ({ inviteToken,
             until the alpha opens up.
           </span>
         </label>
-        {errors.rules && <p id="invite-rules-error" className="mt-1 text-sm text-red-600" role="alert">{errors.rules}</p>}
+        {errors.rules && <p id="invite-rules-error" className="field-error mt-1 text-sm" role="alert">{errors.rules}</p>}
       </div>
 
       <button type="submit" disabled={busy} className="w-full btn-primary disabled:opacity-50">

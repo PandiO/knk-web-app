@@ -42,7 +42,7 @@ export const parseDisplayPanel = (settingsJson?: string): string | null => {
 export const renderDisplayPanel = (name: string, context: DisplayPanelContext): React.ReactElement => {
     const panel = panels[name];
     if (!panel) {
-        return <div className="text-sm text-gray-500">Unknown display panel: {name}</div>;
+        return <div className="text-sm text-muted">Unknown display panel: {name}</div>;
     }
     return panel(context);
 };

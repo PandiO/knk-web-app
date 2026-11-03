@@ -75,17 +75,17 @@ export const LootboxAreasTab: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {areas.map(area => (
-                                <tr key={area.id} className={area.enabled ? '' : 'text-gray-400'}>
+                                <tr key={area.id} className={area.enabled ? '' : 'text-muted'}>
                                     <td className="px-4 py-2 font-medium text-gray-900">
                                         {area.name}
-                                        {area.createdByUserId != null && <span className="block text-xs font-normal text-gray-400">made in game</span>}
+                                        {area.createdByUserId != null && <span className="block text-xs font-normal text-muted">made in game</span>}
                                     </td>
                                     <td className="px-4 py-2">{area.world} / {area.wgRegionId}</td>
                                     <td className="px-4 py-2">{area.enabled ? 'Yes' : 'No'}</td>
                                     <td className="px-4 py-2">{area.maxActive}</td>
                                     <td className="px-4 py-2 whitespace-nowrap">
                                         {area.spawnIntervalSeconds}s
-                                        {area.spawnChancePercent < 100 && <span className="block text-xs text-gray-400">{area.spawnChancePercent}% chance</span>}
+                                        {area.spawnChancePercent < 100 && <span className="block text-xs text-muted">{area.spawnChancePercent}% chance</span>}
                                     </td>
                                     <td className="px-4 py-2">{area.minOnlinePlayers} players</td>
                                     <td className="px-4 py-2">{area.lifetimeMinutes} min</td>

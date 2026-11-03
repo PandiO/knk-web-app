@@ -136,7 +136,7 @@ export const CreateNewMenu: React.FC<Props> = ({ objectTypes }) => {
 
             {open && (
                 <div
-                    className="origin-top-right absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10"
+                    className="origin-top-right absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-surface ring-1 ring-black ring-opacity-5 z-10"
                     onKeyDown={onKeyDown}
                 >
                     <div className="border-b border-gray-100 p-2">
@@ -149,12 +149,12 @@ export const CreateNewMenu: React.FC<Props> = ({ objectTypes }) => {
                             aria-label="Filter entity types to create"
                             aria-controls={listId}
                             aria-activedescendant={visible[activeIndex] ? `${listId}-${visible[activeIndex].entityName}` : undefined}
-                            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-primary-light focus:outline-none focus:ring-1 focus:ring-focus"
                         />
                     </div>
                     <ul id={listId} className="max-h-80 overflow-y-auto py-1" aria-label="Entity types">
                         {visible.length === 0 && (
-                            <li className="px-4 py-2 text-sm text-gray-500" role="status">
+                            <li className="px-4 py-2 text-sm text-muted" role="status">
                                 {items.length === 0 ? 'Loading entity types…' : 'No entity types match'}
                             </li>
                         )}
@@ -166,14 +166,14 @@ export const CreateNewMenu: React.FC<Props> = ({ objectTypes }) => {
                                     onClick={() => pick(item)}
                                     onMouseEnter={() => setActiveIndex(index)}
                                     className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between ${
-                                        index === activeIndex ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'
+                                        index === activeIndex ? 'bg-gray-100 text-fg' : 'text-gray-700 hover:bg-surface-alt'
                                     }`}
                                 >
                                     <span className="flex min-w-0 items-center">
-                                        <span className="mr-3 flex-shrink-0 text-gray-400" aria-hidden="true">{item.icon}</span>
+                                        <span className="mr-3 flex-shrink-0 text-muted" aria-hidden="true">{item.icon}</span>
                                         <span className="truncate">{item.label}</span>
                                     </span>
-                                    <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" aria-hidden="true" />
+                                    <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted" aria-hidden="true" />
                                 </button>
                             </li>
                         ))}
