@@ -56,7 +56,7 @@ jest.mock('../../components/FormWizard/FormCancelAction', () => ({
     )
 }));
 jest.mock('../../components/FormWizard/FormWizard', () => ({
-    FormWizard: () => <div>wizard</div>
+    FormWizard: ({ footerStart }: { footerStart?: React.ReactNode }) => <div>wizard{footerStart}</div>
 }));
 
 const breadcrumb = () => screen.getByRole('navigation', { name: 'Breadcrumb' });
@@ -103,6 +103,40 @@ describe('FormWizardPage as Entity setup (#177 link 2)', () => {
         render(<FormWizardPage entityTypeName="" objectTypes={[]} />);
         await screen.findByText('wizard');
         expect(crumbs()).toEqual(['Dashboard', 'Category', 'New Category']);
+    });
+
+    it('hides the entity type overview card while a form is open (#227)', async () => {
+        const { unmount } = render(<FormWizardPage entityTypeName="" objectTypes={[]} />);
+        await screen.findByText('wizard');
+        expect(screen.queryByText('(Category)')).not.toBeInTheDocument();
+        expect(screen.queryByText('0 fields')).not.toBeInTheDocument();
+        unmount();
+
+        // New from the dashboard: the same.
+        mockParams = { entityName: 'category' };
+        mockSearch = 'autoOpen=true&returnTo=%2Fdashboard%2FCategory';
+        render(<FormWizardPage entityTypeName="" objectTypes={[]} />);
+        await screen.findByText('wizard');
+        expect(screen.queryByText('(Category)')).not.toBeInTheDocument();
+    });
+
+    it('keeps the entity type overview card on the configuration lists and shows it again after Cancel (#227)', async () => {
+        mockParams = { entityName: 'category' };
+        mockSearch = '';
+        const { unmount } = render(<FormWizardPage entityTypeName="" objectTypes={[]} />);
+        await waitFor(() => expect(formConfigClient.getByEntityTypeName).toHaveBeenCalled());
+        expect(await screen.findByText('(Category)')).toBeInTheDocument();
+        expect(screen.getByText('0 fields')).toBeInTheDocument();
+        unmount();
+
+        // A form opened on this page (no returnTo): Cancel goes back to the lists, card included.
+        mockParams = { entityName: 'category', entityId: '4' };
+        render(<FormWizardPage entityTypeName="" objectTypes={[]} />);
+        await screen.findByText('wizard');
+        expect(screen.queryByText('(Category)')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel form' }));
+        expect(await screen.findByText('(Category)')).toBeInTheDocument();
+        expect(screen.queryByText('wizard')).not.toBeInTheDocument();
     });
 
     it('keeps the explorer on the configuration lists', async () => {
