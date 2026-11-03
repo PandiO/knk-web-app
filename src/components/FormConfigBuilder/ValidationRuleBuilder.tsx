@@ -191,7 +191,7 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                     <h3 className="text-lg font-semibold text-gray-900">{initialRule ? 'Edit Validation Rule' : 'Add Validation Rule'}</h3>
                     <p className="text-sm text-gray-600">Configure cross-field validation for {field.label || field.fieldName}</p>
                 </div>
-                <button onClick={onCancel} className="text-gray-400 hover:text-gray-600" aria-label="Close">
+                <button onClick={onCancel} className="text-muted hover:text-gray-600" aria-label="Close">
                     <X className="h-5 w-5" />
                 </button>
             </div>

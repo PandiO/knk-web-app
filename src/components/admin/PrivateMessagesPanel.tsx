@@ -192,7 +192,7 @@ export const PrivateMessagesPanel: React.FC<{
                         ) : (
                             <span className="text-xs text-gray-500">Click a name to show only that conversation.</span>
                         )}
-                        {loading && <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />}
+                        {loading && <Loader2 className="h-4 w-4 text-muted animate-spin" />}
                     </form>
 
                     {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
@@ -285,7 +285,7 @@ const MessageRow: React.FC<{
             </td>
             <td className="py-2 pr-4 text-gray-800 break-words whitespace-pre-wrap">
                 {entry.content}
-                {entry.viaReply && <span className="ml-2 text-xs text-gray-400">(reply)</span>}
+                {entry.viaReply && <span className="ml-2 text-xs text-muted">(reply)</span>}
             </td>
             <td className="py-2 pr-4 whitespace-nowrap">
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>

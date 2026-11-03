@@ -350,7 +350,7 @@ describe('ObjectDashboard as the CRUD hub (#177 link 2)', () => {
         const header = screen.getByTestId('dashboard-header');
         expect(header).toHaveClass('flex', 'items-center', 'justify-between', 'min-h-9');
         const title = within(header).getByRole('heading', { level: 2, name: 'Street' });
-        expect(title).toHaveClass('leading-9', 'text-gray-900');
+        expect(title).toHaveClass('leading-9', 'text-fg');
         const newButton = within(header).getByRole('button', { name: 'New Street' });
         const configure = within(header).getByRole('button', { name: 'Configure Street' });
         expect(newButton).toHaveClass('btn-primary', 'h-9');

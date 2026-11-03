@@ -273,7 +273,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
             );
         }
         default:
-            return <div className="text-sm text-gray-500">Unsupported field type: {field.fieldType}</div>;
+            return <div className="text-sm text-muted">Unsupported field type: {field.fieldType}</div>;
     }
 };
 
@@ -338,13 +338,13 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
     // KNG-269: a result the API answered from its log of an earlier run says so, with that run's age,
     // and offers a Re-check that runs the rule for real.
     const checkedAgo = validationResult?.metadata?.fromCache ? describeCheckedAgo(validationResult.metadata.executedAt) : null;
-    const checkedNote = checkedAgo ? <span className="ml-1 text-gray-500">· checked {checkedAgo}</span> : null;
+    const checkedNote = checkedAgo ? <span className="ml-1 text-muted">· checked {checkedAgo}</span> : null;
     const retryButton = onRetryValidation ? (
         <button
             type="button"
             onClick={onRetryValidation}
             disabled={!!pending}
-            className="ml-2 text-xs px-2 py-1 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="ml-2 text-xs px-2 py-1 border border-gray-300 rounded text-gray-700 hover:bg-surface-alt disabled:opacity-50"
         >
             {checkedAgo ? 'Re-check' : 'Re-run validation'}
         </button>
@@ -352,7 +352,7 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
 
     if (pending) {
         return (
-            <div className="flex items-center justify-between text-xs text-gray-500">
+            <div className="flex items-center justify-between text-xs text-muted">
                 <div className="flex items-center">
                     <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Validating…
                 </div>
@@ -368,7 +368,7 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
     if (validationResult.isValid) {
         if (!message) return null;
         return (
-            <div className="flex items-center justify-between text-xs text-green-700">
+            <div className="flex items-center justify-between text-xs text-success">
                 <div className="flex items-center">
                     <CheckCircle2 className="h-4 w-4 mr-1" /> {message}{checkedNote}
                 </div>
@@ -382,12 +382,12 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
     // for "this value is invalid".
     if (validationResult.metadata?.failureReason) {
         return (
-            <div className="flex items-start justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
+            <div className="flex items-start justify-between gap-2 rounded-md border border-amber-300 bg-warning-soft px-3 py-2">
                 <div className="flex items-start">
-                    <WifiOff className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0 text-amber-600" />
+                    <WifiOff className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0 text-warning" />
                     <div>
-                        <p className="text-xs font-semibold text-amber-800">Validation could not be completed</p>
-                        <p className="mt-0.5 text-xs text-amber-700">
+                        <p className="text-xs font-semibold text-warning-strong">Validation could not be completed</p>
+                        <p className="mt-0.5 text-xs text-warning">
                             {message || 'This check requires the Minecraft server and plugin to be running, but they could not be reached.'}
                         </p>
                     </div>
@@ -398,7 +398,7 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
     }
 
     const isBlocking = validationResult.isBlocking;
-    const color = isBlocking ? 'text-red-700' : 'text-yellow-700';
+    const color = isBlocking ? 'text-danger-strong' : 'text-warning';
     const Icon = isBlocking ? AlertTriangle : Info;
 
     return (
@@ -421,7 +421,7 @@ const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
     // `border`: the #38 base rule gives only border-gray-300 fields a width, so the red error border needs it.
     const inputClass = `block w-full rounded-md border px-3 py-2 shadow-sm sm:text-sm ${
         error
-            ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+            ? 'border-danger focus:border-red-500 focus:ring-red-500'
             : 'border-gray-300 focus:border-primary focus:ring-primary'
     } ${field.isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`;
 
@@ -432,7 +432,7 @@ const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
             {field.description && (
-                <p className="text-xs text-gray-500 mb-2">{field.description}</p>
+                <p className="text-xs text-muted mb-2">{field.description}</p>
             )}
             {enumValues.length > 0 ? (
                 <select
@@ -443,7 +443,7 @@ const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
                     disabled={field.isReadOnly}
                     className={`block w-full rounded-md shadow-sm sm:text-sm ${
                         error
-                            ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                            ? 'border-danger focus:border-red-500 focus:ring-red-500'
                             : 'border-gray-300 focus:border-primary focus:ring-primary'
                     } ${field.isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 >
@@ -478,16 +478,16 @@ const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
             )}
             {minecraftTextColorEnabled && (
                 <>
-                    <p className="mt-1 text-xs text-blue-700">
+                    <p className="mt-1 text-xs text-primary-dark">
                         Minecraft text coloring is enabled. Use &amp; followed by a code like 1-2-3-4-5-6-7-8-9-0-a-e-l.
                     </p>
-                    <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-2">
-                        <p className="text-xs text-gray-500 mb-1">Preview</p>
+                    <div className="mt-2 rounded-md border border-line bg-surface-alt p-2">
+                        <p className="text-xs text-muted mb-1">Preview</p>
                         <MinecraftLegacyPreview text={textValue} />
                     </div>
                 </>
             )}
-            {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+            {error && <p className="mt-1 text-sm field-error">{error}</p>}
         </div>
     );
 };
@@ -690,13 +690,13 @@ const IntegerField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
                 {field.label}
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
-            {field.description && <p className="text-xs text-gray-500 mb-2">{field.description}</p>}
+            {field.description && <p className="text-xs text-muted mb-2">{field.description}</p>}
             <div className="flex items-center space-x-2">
                 <button
                     type="button"
                     onClick={handleDecrement}
                     disabled={field.isReadOnly}
-                    className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                    className="p-2 rounded-md border border-gray-300 hover:bg-surface-alt disabled:opacity-50"
                 >
                     <Minus className="h-4 w-4" />
                 </button>
@@ -709,7 +709,7 @@ const IntegerField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
                     disabled={field.isReadOnly}
                     className={`block w-full rounded-md shadow-sm sm:text-sm text-center ${
                         error
-                            ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                            ? 'border-danger focus:border-red-500 focus:ring-red-500'
                             : 'border-gray-300 focus:border-primary focus:ring-primary'
                     }`}
                 />
@@ -717,12 +717,12 @@ const IntegerField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
                     type="button"
                     onClick={handleIncrement}
                     disabled={field.isReadOnly}
-                    className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                    className="p-2 rounded-md border border-gray-300 hover:bg-surface-alt disabled:opacity-50"
                 >
                     <Plus className="h-4 w-4" />
                 </button>
             </div>
-            {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+            {error && <p className="mt-1 text-sm field-error">{error}</p>}
         </div>
     );
 };
@@ -733,7 +733,7 @@ const DecimalField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
             {field.label}
             {field.isRequired && <span className="text-red-500 ml-1">*</span>}
         </label>
-        {field.description && <p className="text-xs text-gray-500 mb-2">{field.description}</p>}
+        {field.description && <p className="text-xs text-muted mb-2">{field.description}</p>}
         <input
             type="number"
             step="0.01"
@@ -744,11 +744,11 @@ const DecimalField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
             disabled={field.isReadOnly}
             className={`block w-full rounded-md shadow-sm sm:text-sm ${
                 error
-                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                    ? 'border-danger focus:border-red-500 focus:ring-red-500'
                     : 'border-gray-300 focus:border-primary focus:ring-primary'
             }`}
         />
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-1 text-sm field-error">{error}</p>}
     </div>
 );
 
@@ -765,14 +765,14 @@ const BooleanField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
                 aria-describedby={field.description ? `${field.fieldName}-description` : undefined}
                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
             />
-            <label htmlFor={field.fieldName} className="ml-2 block text-sm text-gray-900">
+            <label htmlFor={field.fieldName} className="ml-2 block text-sm text-fg">
                 {field.label}
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
-            {error && <p className="ml-2 text-sm text-red-600">{error}</p>}
+            {error && <p className="ml-2 text-sm field-error">{error}</p>}
         </div>
         {field.description && (
-            <p id={`${field.fieldName}-description`} className="ml-6 mt-1 text-xs text-gray-500">
+            <p id={`${field.fieldName}-description`} className="ml-6 mt-1 text-xs text-muted">
                 {field.description}
             </p>
         )}
@@ -785,7 +785,7 @@ const DateTimeField: React.FC<FieldRendererProps> = ({ field, value, onChange, e
             {field.label}
             {field.isRequired && <span className="text-red-500 ml-1">*</span>}
         </label>
-        {field.description && <p className="text-xs text-gray-500 mb-2">{field.description}</p>}
+        {field.description && <p className="text-xs text-muted mb-2">{field.description}</p>}
         <div className="relative">
             <input
                 type="datetime-local"
@@ -795,13 +795,13 @@ const DateTimeField: React.FC<FieldRendererProps> = ({ field, value, onChange, e
                 disabled={field.isReadOnly}
                 className={`block w-full rounded-md shadow-sm sm:text-sm ${
                     error
-                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                        ? 'border-danger focus:border-red-500 focus:ring-red-500'
                         : 'border-gray-300 focus:border-primary focus:ring-primary'
                 }`}
             />
-            <Calendar className="absolute right-3 top-2.5 h-5 w-5 text-gray-400 pointer-events-none" />
+            <Calendar className="absolute right-3 top-2.5 h-5 w-5 text-muted pointer-events-none" />
         </div>
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-1 text-sm field-error">{error}</p>}
     </div>
 );
 
@@ -814,7 +814,7 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                 {field.label}
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
-            {field.description && <p className="text-xs text-gray-500 mb-2">{field.description}</p>}
+            {field.description && <p className="text-xs text-muted mb-2">{field.description}</p>}
             <select
                 id={field.fieldName}
                 value={value ?? ''}
@@ -823,7 +823,7 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                 disabled={field.isReadOnly}
                 className={`block w-full rounded-md shadow-sm sm:text-sm ${
                     error
-                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                        ? 'border-danger focus:border-red-500 focus:ring-red-500'
                         : 'border-gray-300 focus:border-primary focus:ring-primary'
                 }`}
             >
@@ -832,7 +832,7 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                     <option key={val} value={val}>{val}</option>
                 ))}
             </select>
-            {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+            {error && <p className="mt-1 text-sm field-error">{error}</p>}
         </div>
     );
 };
@@ -1002,14 +1002,14 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                 {field.label}
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
-            {field.description && <p className="text-xs text-gray-500 mb-2">{field.description}</p>}
+            {field.description && <p className="text-xs text-muted mb-2">{field.description}</p>}
             
             {/* changed: moved selected item display above the table */}
             {value && (
-                <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-md flex items-center justify-between">
+                <div className="mb-3 p-3 bg-success-soft border border-success-line rounded-md flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                            <span className="text-green-600 font-medium text-sm">
+                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-success-muted flex items-center justify-center">
+                            <span className="text-success font-medium text-sm">
                                 {getEntityDisplayLabel(value, '?').charAt(0).toUpperCase()}
                             </span>
                         </div>
@@ -1018,13 +1018,13 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                                 {getEntityDisplayLabel(value, 'Selected Item')}
                             </p>
                             {getEntityDisplayId(value) !== undefined && (
-                                <p className="text-xs text-green-600">ID: {getEntityDisplayId(value)}</p>
+                                <p className="text-xs text-success">ID: {getEntityDisplayId(value)}</p>
                             )}
                             {summaryDetails.length > 0 && (
                                 <dl className="mt-2 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
                                     {summaryDetails.map(detail => (
                                         <React.Fragment key={detail.label}>
-                                            <dt className="font-medium text-green-700">{detail.label}</dt>
+                                            <dt className="font-medium text-success">{detail.label}</dt>
                                             <dd className="min-w-0 break-words font-mono text-green-950">{detail.value}</dd>
                                         </React.Fragment>
                                     ))}
@@ -1036,7 +1036,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                         <button
                             type="button"
                             onClick={handleRemoveSelection}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-100 rounded-full p-1"
+                            className="text-danger hover:text-danger-strong hover:bg-danger-muted rounded-full p-1"
                             title="Remove selection"
                         >
                             <X className="h-4 w-4" />
@@ -1051,13 +1051,13 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                         <summary className="btn-secondary whitespace-nowrap cursor-pointer list-none">
                             Actions
                         </summary>
-                        <div className="absolute right-0 z-20 mt-2 min-w-[220px] rounded-md border border-gray-200 bg-white p-2 shadow-lg">
+                        <div className="absolute right-0 z-20 mt-2 min-w-[220px] rounded-md border border-line bg-surface p-2 shadow-lg">
                             {actions.map(action => (
                                 <button
                                     key={action.key}
                                     type="button"
                                     onClick={action.onClick}
-                                    className="w-full px-3 py-2 text-sm rounded hover:bg-gray-50 inline-flex items-center gap-2"
+                                    className="w-full px-3 py-2 text-sm rounded hover:bg-surface-alt inline-flex items-center gap-2"
                                 >
                                     {action.icon}
                                     {action.label}
@@ -1111,7 +1111,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                 </div>
 
                 {pickerUnavailableReason && (
-                    <p className="text-xs text-amber-700 flex items-start gap-1">
+                    <p className="text-xs text-warning flex items-start gap-1">
                         <Info className="h-4 w-4 flex-shrink-0" />
                         {pickerUnavailableReason}
                     </p>
@@ -1135,7 +1135,7 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                     </div>
                 )}
             </div>}
-            {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+            {error && <p className="mt-1 text-sm field-error">{error}</p>}
         </div>
     );
 };
@@ -1223,7 +1223,7 @@ const ListField: React.FC<FieldRendererProps> = ({
                     {field.label}
                     {field.isRequired && <span className="text-red-500 ml-1">*</span>}
                 </label>
-                {field.description && <p className="text-xs text-gray-500 mb-2">{field.description}</p>}
+                {field.description && <p className="text-xs text-muted mb-2">{field.description}</p>}
                 <div className="space-y-2">
                     {items.map((item, index) => (
                         <div key={index} className="flex items-center space-x-2">
@@ -1256,7 +1256,7 @@ const ListField: React.FC<FieldRendererProps> = ({
                                 type="button"
                                 onClick={() => removeItem(index)}
                                 disabled={field.isReadOnly}
-                                className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md"
+                                className="p-2 text-danger hover:text-danger-strong hover:bg-danger-soft rounded-md"
                             >
                                 <Minus className="h-4 w-4" />
                             </button>
@@ -1275,7 +1275,7 @@ const ListField: React.FC<FieldRendererProps> = ({
                     )}
                     {worldTaskButton}
                 </div>
-                {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+                {error && <p className="mt-1 text-sm field-error">{error}</p>}
             </div>
         );
     }
@@ -1286,10 +1286,10 @@ const ListField: React.FC<FieldRendererProps> = ({
                 {field.label}
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
-            {field.description && <p className="text-xs text-gray-500 mb-2">{field.description}</p>}
+            {field.description && <p className="text-xs text-muted mb-2">{field.description}</p>}
             
             {!field.objectType ? (
-                <div className="text-sm text-red-600">
+                <div className="text-sm text-danger">
                     Object type is required for Object lists. Please configure this field.
                 </div>
             ) : (
@@ -1310,11 +1310,11 @@ const ListField: React.FC<FieldRendererProps> = ({
                                 {items.map((item, index) => (
                                     <div
                                         key={itemKeys[index]}
-                                        className="p-2 bg-green-50 border border-green-200 rounded-md flex items-center justify-between"
+                                        className="p-2 bg-success-soft border border-success-line rounded-md flex items-center justify-between"
                                     >
                                         <div className="flex items-center space-x-2 flex-1 min-w-0">
-                                            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
-                                                <span className="text-green-600 font-medium text-xs">
+                                            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-success-muted flex items-center justify-center">
+                                                <span className="text-success font-medium text-xs">
                                                     {getEntityDisplayLabel(item, '?').charAt(0).toUpperCase()}
                                                 </span>
                                             </div>
@@ -1322,14 +1322,14 @@ const ListField: React.FC<FieldRendererProps> = ({
                                                 <p className="text-sm font-medium text-green-900 truncate">
                                                     {getEntityDisplayLabel(item, 'Item')}
                                                 </p>
-                                                <p className="text-xs text-green-600">{item.id != null ? `ID: ${item.id}` : 'Not saved yet'}</p>
+                                                <p className="text-xs text-success">{item.id != null ? `ID: ${item.id}` : 'Not saved yet'}</p>
                                             </div>
                                         </div>
                                         {!field.isReadOnly && !ownedChildCollection && (
                                             <button
                                                 type="button"
                                                 onClick={() => handleRemoveItem(index)}
-                                                className="text-green-600 hover:text-green-800 hover:bg-green-100 rounded-full p-1 flex-shrink-0"
+                                                className="text-success hover:text-success-strong hover:bg-success-muted rounded-full p-1 flex-shrink-0"
                                                 title="Remove from selection"
                                             >
                                                 <X className="h-4 w-4" />
@@ -1389,13 +1389,13 @@ const ListField: React.FC<FieldRendererProps> = ({
                     )}
 
                     {!field.isReadOnly && !ownedChildCollection && pickerFilters?.unavailableReason && (
-                        <p className="text-xs text-amber-700 flex items-start gap-1">
+                        <p className="text-xs text-warning flex items-start gap-1">
                             <Info className="h-4 w-4 flex-shrink-0" />
                             {pickerFilters.unavailableReason}
                         </p>
                     )}
 
-                    {!field.isReadOnly && !isScanList && !ownedChildCollection && !pickerFilters?.unavailableReason && <div className="border border-gray-200 rounded-md p-4">
+                    {!field.isReadOnly && !isScanList && !ownedChildCollection && !pickerFilters?.unavailableReason && <div className="border border-line rounded-md p-4">
                         <PagedEntityTable
                             key={JSON.stringify(pickerFilters?.filters ?? {})}
                             entityTypeName={field.objectType}
@@ -1412,7 +1412,7 @@ const ListField: React.FC<FieldRendererProps> = ({
                     </div>}
                 </>
             )}
-            {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+            {error && <p className="mt-1 text-sm field-error">{error}</p>}
         </div>
     );
 };

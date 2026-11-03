@@ -89,7 +89,7 @@ export const MaterialMergeTargetDialog: React.FC<{
               Pick the material that takes over its {source.totalReferences} reference{source.totalReferences === 1 ? '' : 's'}. You confirm before anything changes.
             </p>
           </div>
-          <button type="button" onClick={onClose} className="rounded p-1 text-gray-400 hover:text-gray-600" aria-label="Close">
+          <button type="button" onClick={onClose} className="rounded p-1 text-muted hover:text-gray-600" aria-label="Close">
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>

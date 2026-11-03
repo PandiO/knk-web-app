@@ -67,7 +67,7 @@ export const PlayerSiegeMatchList: React.FC<{ userId: number }> = ({ userId }) =
               <td className="py-2 pr-4">
                 {row.team
                   ? <span className="font-medium" style={{ color: siegeTeamColor(row.team.chatColor) }}>{row.team.name}</span>
-                  : <span className="text-gray-400">-</span>}
+                  : <span className="text-muted">-</span>}
               </td>
               <td className="py-2 pr-4">
                 <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${siegeOutcomeBadgeClass(row.participant.outcome)}`}>

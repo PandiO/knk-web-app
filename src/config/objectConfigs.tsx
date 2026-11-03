@@ -221,7 +221,7 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
         render: (row: any) => row.isPremiumTier ? (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Premium</span>
         ) : (
-          <span className="text-gray-400 text-xs">-</span>
+          <span className="text-muted text-xs">-</span>
         )
       },
       { key: 'salaryMultiplier', label: 'Salary x', sortable: true },

@@ -119,7 +119,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             >
                 {/* Auto-close countdown */}
                 {autoCloseMs && secondsRemaining !== null && (
-                    <div className="absolute top-3 right-12 text-xs text-gray-400 opacity-70">
+                    <div className="absolute top-3 right-12 text-xs text-muted opacity-70">
                         Closing in {secondsRemaining}s...
                     </div>
                 )}
@@ -134,7 +134,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                     </div>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-muted hover:text-gray-600"
                         aria-label="Close dialog"
                     >
                         <X className="h-5 w-5" />
@@ -163,7 +163,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                     )}
                     <button
                         onClick={handleContinue}
-                        className={`px-4 py-2 text-sm font-medium text-white rounded-md ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary-dark'}`}
+                        className={`px-4 py-2 text-sm font-medium rounded-md ${danger ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-primary hover:bg-primary-dark text-primary-fg'}`}
                     >
                         {continueLabel ?? (onContinue ? 'Continue' : 'Close')}
                     </button>

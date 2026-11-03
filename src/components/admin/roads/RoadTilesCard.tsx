@@ -47,7 +47,7 @@ export const RoadTilesCard: React.FC<{
           </p>
         </div>
         <div className="flex items-center gap-4 text-sm text-gray-700">
-          <ListFilter className="h-4 w-4 text-gray-400" />
+          <ListFilter className="h-4 w-4 text-muted" />
           <label className="inline-flex items-center gap-1.5">
             <input type="checkbox" checked={dirtyOnly} aria-label="Dirty tiles only" onChange={(e) => setDirtyOnly(e.target.checked)} />
             Dirty only ({dirtyCount})
@@ -109,7 +109,7 @@ export const RoadTilesCard: React.FC<{
                       <td className="py-2 pr-4 text-gray-700 text-right">{tile.levelCount}</td>
                       <td className="py-2 pr-4">
                         {tile.warnings.length === 0 ? (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-muted">-</span>
                         ) : (
                           <button
                             type="button"

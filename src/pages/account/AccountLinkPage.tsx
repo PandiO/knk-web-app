@@ -18,6 +18,7 @@ import {
   loadPendingClaim,
 } from '../../utils/claimCode';
 import { ClaimCodeInput } from '../../components/auth/ClaimCodeInput';
+import { usePublicSurface } from '../../theme/surface';
 
 /**
  * /account/link (KNG-214, DESIGN.md § 5.3): where a new account lands after sign-up. It explains the
@@ -31,6 +32,7 @@ import { ClaimCodeInput } from '../../components/auth/ClaimCodeInput';
  */
 export const AccountLinkPage: React.FC = () => {
   usePageTitle('Link your Minecraft account');
+  usePublicSurface();
   useNoReferrer();
   const navigate = useNavigate();
   const { user, refresh } = useAuth();

@@ -28,7 +28,7 @@ export const MinecraftIcon: React.FC<MinecraftIconProps> = ({ src, alt, size = 2
         aria-label={alt}
         title={url === null ? `${alt} (no icon)` : `${alt} (icon could not be loaded)`}
         data-testid="minecraft-icon-placeholder"
-        className={`inline-flex shrink-0 items-center justify-center rounded border border-gray-200 bg-gray-100 text-gray-400 ${className}`}
+        className={`inline-flex shrink-0 items-center justify-center rounded border border-gray-200 bg-gray-100 text-muted ${className}`}
         style={{ width: size, height: size }}
       >
         <Box aria-hidden="true" style={{ width: Math.round(size * 0.6), height: Math.round(size * 0.6) }} />

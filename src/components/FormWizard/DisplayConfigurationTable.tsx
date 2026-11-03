@@ -63,9 +63,9 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
     };
 
     return (
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-lg font-medium text-gray-900">Display Configurations</h2>
+        <div className="bg-surface rounded-lg shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+                <h2 className="text-lg font-medium text-fg">Display Configurations</h2>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={onCreate}
@@ -88,49 +88,49 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                             Import / Seeds
                         </button>
                     )}
-                    <span className="text-xs text-gray-500">{configurations.length} total</span>
+                    <span className="text-xs text-muted">{configurations.length} total</span>
                 </div>
             </div>
             {configurations.length === 0 ? (
-                <div className="text-center py-12 bg-white">
-                    <p className="text-gray-500">No display configurations found for this entity.</p>
+                <div className="text-center py-12 bg-surface">
+                    <p className="text-muted">No display configurations found for this entity.</p>
                 </div>
             ) : (
                 <div className="overflow-x-auto">
-                    <table className="min-w-full table-fixed divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <table className="min-w-full table-fixed divide-y divide-line">
+                    <thead className="bg-surface-alt">
                         <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
                                 Name
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider w-24">
                                 Id
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
                                 Description
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider w-28">
                                 Default
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider w-20">
                                 Draft
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider w-32">
                                 Created
                             </th>
-                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-muted uppercase tracking-wider w-28">
                                 <span className="sr-only">Actions</span>
                             </th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-surface divide-y divide-line">
                         {configurations.map((config) => {
                             const menuPosition = activeMenu === config.id ? getMenuPosition(config.id!) : 'bottom';
 
                             return (
-                                <tr key={config.id} className="hover:bg-gray-50 group">
+                                <tr key={config.id} className="hover:bg-surface-alt group">
                                     <td
-                                        className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate"
+                                        className="px-6 py-4 text-sm text-fg max-w-xs truncate"
                                         title={config.name}
                                     >
                                         <div className="flex items-center">
@@ -141,13 +141,13 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                         </div>
                                     </td>
                                     <td
-                                        className="px-6 py-4 text-sm text-gray-500 w-24 truncate"
+                                        className="px-6 py-4 text-sm text-muted w-24 truncate"
                                         title={config.id || 'N/A'}
                                     >
                                         {config.id || 'N/A'}
                                     </td>
                                     <td
-                                        className="px-6 py-4 text-sm text-gray-500 max-w-md truncate"
+                                        className="px-6 py-4 text-sm text-muted max-w-md truncate"
                                         title={config.description || 'N/A'}
                                     >
                                         {config.description || 'N/A'}
@@ -155,7 +155,7 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                     <td className="px-6 py-4 whitespace-nowrap w-28">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                             config.isDefault
-                                                ? 'bg-green-100 text-green-800'
+                                                ? 'bg-success-muted text-success-strong'
                                                 : 'bg-gray-100 text-gray-800'
                                         }`}>
                                             {config.isDefault ? 'Default' : 'Not Default'}
@@ -164,20 +164,20 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                     <td className="px-6 py-4 whitespace-nowrap w-20">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                             config.isDraft
-                                                ? 'bg-yellow-100 text-yellow-800'
-                                                : 'bg-green-50 text-green-800'
+                                                ? 'bg-warning-muted text-warning-strong'
+                                                : 'bg-success-soft text-success-strong'
                                         }`}>
                                             {config.isDraft ? 'Draft' : 'Published'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-32">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted w-32">
                                         {config.createdAt ? new Date(config.createdAt).toLocaleDateString() : '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium w-28">
                                         <div className="flex items-center justify-end space-x-2">
                                             <button
                                                 onClick={() => onEdit(config)}
-                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-primary hover:bg-primary-dark"
+                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-primary-fg bg-primary hover:bg-primary-dark"
                                             >
                                                 <Pencil className="h-3 w-3 mr-1" />
                                                 Edit
@@ -188,12 +188,12 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                     onClick={() => setActiveMenu(activeMenu === config.id ? null : config.id!)}
                                                     className="p-2 rounded-full hover:bg-gray-100 transition-colors"
                                                 >
-                                                    <MoreVertical className="h-4 w-4 text-gray-400" />
+                                                    <MoreVertical className="h-4 w-4 text-muted" />
                                                 </button>
                                                 {activeMenu === config.id && (
                                                     <div
                                                         ref={menuRef}
-                                                        className={`fixed w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 ${
+                                                        className={`fixed w-48 rounded-md shadow-lg bg-surface ring-1 ring-black ring-opacity-5 z-50 ${
                                                             menuPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
                                                         }`}
                                                         style={{
@@ -213,10 +213,10 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                                         onSetDefault(config);
                                                                         setActiveMenu(null);
                                                                     }}
-                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                     role="menuitem"
                                                                 >
-                                                                    <Star className="h-4 w-4 text-gray-400" />
+                                                                    <Star className="h-4 w-4 text-muted" />
                                                                     <span>Set Default</span>
                                                                 </button>
                                                             )}
@@ -226,10 +226,10 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                                         onRemoveDefault(config);
                                                                         setActiveMenu(null);
                                                                     }}
-                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                     role="menuitem"
                                                                 >
-                                                                    <StarOff className="h-4 w-4 text-gray-400" />
+                                                                    <StarOff className="h-4 w-4 text-muted" />
                                                                     <span>Remove Default</span>
                                                                 </button>
                                                             )}
@@ -238,10 +238,10 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                                     onEdit(config);
                                                                     setActiveMenu(null);
                                                                 }}
-                                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                 role="menuitem"
                                                             >
-                                                                <Eye className="h-4 w-4 text-gray-400" />
+                                                                <Eye className="h-4 w-4 text-muted" />
                                                                 <span>Open in Builder</span>
                                                             </button>
                                                             {onExport && (
@@ -250,10 +250,10 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                                         onExport(config);
                                                                         setActiveMenu(null);
                                                                     }}
-                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                     role="menuitem"
                                                                 >
-                                                                    <Download className="h-4 w-4 text-gray-400" />
+                                                                    <Download className="h-4 w-4 text-muted" />
                                                                     <span>Export JSON</span>
                                                                 </button>
                                                             )}
@@ -263,7 +263,7 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                                         onPublish(config);
                                                                         setActiveMenu(null);
                                                                     }}
-                                                                    className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center space-x-2"
+                                                                    className="w-full text-left px-4 py-2 text-sm text-primary hover:bg-info-soft flex items-center space-x-2"
                                                                     role="menuitem"
                                                                 >
                                                                     <Rocket className="h-4 w-4" />
@@ -273,7 +273,7 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                             {onDelete && (
                                                                 <button
                                                                     onClick={() => handleDeleteClick(config)}
-                                                                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                                                                    className="w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger-soft flex items-center space-x-2"
                                                                     role="menuitem"
                                                                 >
                                                                     <Trash2 className="h-4 w-4" />
