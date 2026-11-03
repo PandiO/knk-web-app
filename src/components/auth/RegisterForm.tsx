@@ -285,7 +285,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
 
         {errors.general && (
           <div className="mb-4 rounded-lg border border-danger-line bg-danger-soft p-4" role="alert">
-            <p className="text-sm font-medium field-error-strong">{errors.general}</p>
+            <p className="text-sm font-medium text-danger-strong">{errors.general}</p>
           </div>
         )}
 

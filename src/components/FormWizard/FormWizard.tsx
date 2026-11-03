@@ -2779,7 +2779,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     <div className="mb-4 bg-danger-soft border border-danger-line rounded-md p-4 flex items-start">
                         <AlertCircle className="h-5 w-5 text-danger mr-2 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
-                            <p className="text-sm field-error-strong">{error}</p>
+                            <p className="text-sm text-danger-strong">{error}</p>
                         </div>
                     </div>
                 )}
