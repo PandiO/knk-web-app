@@ -10,6 +10,7 @@ import {
   themePickerVisible,
 } from '../themes';
 import { Navigation } from '../../components/Navigation';
+import { ThemeSwitcher } from '../ThemeSwitcher';
 import { usePermission, useStaffAccess } from '../../hooks/useStaffAccess';
 
 // Jest 27 can't read react-router-dom v7's exports map; react-router has the same components.
@@ -31,12 +32,16 @@ function asUser(staff: boolean) {
   mockedStaff.mockReturnValue({ isStaff: staff, isChecking: false, status: staff ? 'allowed' : 'denied' });
 }
 
-function openAccountMenu() {
+function renderNav() {
   render(
     <MemoryRouter initialEntries={['/']}>
       <Navigation objectTypes={[]} />
     </MemoryRouter>,
   );
+}
+
+function openAccountMenu() {
+  renderNav();
   fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
 }
 
@@ -98,47 +103,60 @@ describe('selectTheme (#95)', () => {
 });
 
 describe('themePickerVisible (#95)', () => {
-  it('shows the picker to staff only, unless the flag says otherwise', () => {
-    expect(themePickerVisible(true, undefined)).toBe(true);
-    expect(themePickerVisible(false, undefined)).toBe(false);
-    expect(themePickerVisible(false, 'on')).toBe(true);
-    expect(themePickerVisible(true, 'off')).toBe(false);
+  it('shows the switcher to everyone unless the flag is off', () => {
+    expect(themePickerVisible(undefined)).toBe(true);
+    expect(themePickerVisible('on')).toBe(true);
+    expect(themePickerVisible('off')).toBe(false);
   });
 });
 
-describe('theme picker in the account menu (#95)', () => {
-  it('is not shown to players', () => {
+describe('theme switcher (cogwheel) in the navigation (#95)', () => {
+  it('is shown to players too, and the account menu no longer lists the themes', () => {
     asUser(false);
     openAccountMenu();
+    expect(screen.getByRole('button', { name: 'Theme' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitemradio')).toBeNull();
-    expect(screen.getByRole('menuitem', { name: /Log out/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Account settings', 'Log out']);
   });
 
-  it('switches the theme for staff without a reload, keeping the menu open', () => {
+  it('switches the theme without a reload, keeping its menu open', () => {
     asUser(true);
-    openAccountMenu();
+    renderNav();
+    fireEvent.click(screen.getByRole('button', { name: 'Theme' }));
     const options = screen.getAllByRole('menuitemradio');
-    expect(options.map(option => option.textContent)).toEqual(['Current', 'Brand', 'Brand (red)', 'Proposal']);
-    expect(screen.getByRole('menuitemradio', { name: 'Current' })).toHaveAttribute('aria-checked', 'true');
+    expect(options.map(option => option.querySelector('.font-medium')?.textContent)).toEqual(['Current', 'Brand', 'Brand (red)', 'Proposal']);
+    expect(screen.getByRole('menuitemradio', { name: /^Current/ })).toHaveAttribute('aria-checked', 'true');
+    // Opening focuses the selected theme.
+    expect(document.activeElement).toBe(screen.getByRole('menuitemradio', { name: /^Current/ }));
 
-    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Brand' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /^Brand Styleguide/ }));
 
     expect(document.documentElement.getAttribute('data-theme')).toBe('brand');
-    expect(screen.getByRole('menuitemradio', { name: 'Brand' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('menuitemradio', { name: 'Current' })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('menuitemradio', { name: /^Brand Styleguide/ })).toHaveAttribute('aria-checked', 'true');
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('brand');
   });
 
-  it('keeps the arrow-key order: account, the themes, log out', () => {
-    asUser(true);
-    openAccountMenu();
+  it('moves with the arrow keys and closes on Escape, focus back on the cogwheel', () => {
+    asUser(false);
+    renderNav();
+    const button = screen.getByRole('button', { name: 'Theme' });
+    fireEvent.keyDown(button, { key: 'ArrowDown' });
     const menu = screen.getByRole('menu');
-    expect(document.activeElement).toHaveTextContent('Account settings');
-    const seen: string[] = [];
-    for (let i = 0; i < 5; i++) {
-      fireEvent.keyDown(menu, { key: 'ArrowDown' });
-      seen.push(document.activeElement?.textContent ?? '');
-    }
-    expect(seen).toEqual(['Current', 'Brand', 'Brand (red)', 'Proposal', 'Log out']);
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(document.activeElement?.querySelector('.font-medium')?.textContent).toBe('Brand');
+    fireEvent.keyDown(menu, { key: 'End' });
+    expect(document.activeElement?.querySelector('.font-medium')?.textContent).toBe('Proposal');
+    fireEvent.keyDown(menu, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+});
+
+describe('floating theme switcher (logged out, #95)', () => {
+  it('switches the theme from the cogwheel', () => {
+    render(<ThemeSwitcher variant="floating" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Theme' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /^Proposal/ }));
+    expect(document.documentElement.getAttribute('data-theme')).toBe('proposal');
   });
 });
