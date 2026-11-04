@@ -417,3 +417,38 @@ describe('PathBuilder Component', () => {
     expect(options[2].textContent).toBe('Town');
   });
 });
+
+// PandiO/knk-workspace#218: the callback is read through a ref, so a parent that passes a new
+// (inline) function on every render neither re-runs the validation nor misses the result.
+describe('PathBuilder validation callback', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (logging.getLogger as jest.Mock).mockReturnValue({ debug: jest.fn(), error: jest.fn(), warn: jest.fn() });
+  });
+
+  it('validates once and reports to the latest callback when the parent re-renders with a new one', async () => {
+    let resolveValidation: (value: { isValid: boolean }) => void = () => undefined;
+    const validatePathMock = jest.fn(() => new Promise<{ isValid: boolean }>(resolve => { resolveValidation = resolve; }));
+    (fieldValidationRuleClient as any).fieldValidationRuleClient = {
+      getEntityProperties: jest.fn().mockResolvedValue([{ propertyName: 'wgRegionId', propertyType: 'string' }]),
+      validatePath: validatePathMock,
+    };
+    const first = jest.fn();
+    const second = jest.fn();
+    const metadata = createMockEntityMetadata();
+
+    const { rerender } = render(
+      <PathBuilder entityTypeName="Town" entityMetadata={metadata} initialPath="Town.wgRegionId" onPathChange={jest.fn()} onValidationStatusChange={first} />
+    );
+    await waitFor(() => expect(validatePathMock).toHaveBeenCalledTimes(1));
+
+    // A new callback mid-validation: no second validation, and the result goes to the new one.
+    rerender(<PathBuilder entityTypeName="Town" entityMetadata={metadata} initialPath="Town.wgRegionId" onPathChange={jest.fn()} onValidationStatusChange={second} />);
+    resolveValidation({ isValid: true });
+
+    await waitFor(() => expect(second).toHaveBeenCalledWith({ isValid: true }));
+    expect(first).not.toHaveBeenCalled();
+    await new Promise(resolve => setTimeout(resolve, 400));
+    expect(validatePathMock).toHaveBeenCalledTimes(1);
+  });
+});
