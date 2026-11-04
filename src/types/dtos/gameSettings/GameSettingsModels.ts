@@ -163,6 +163,8 @@ export interface GameSettingsDto {
   motd?: string | null;
   groupOverrides?: PermissionGroupGameSettingsDto[];
   hub?: HubSettingsDto | null;
+  /** Chat hashtag token limits (PandiO/knk-workspace#233); 0 = off. */
+  chatTokens?: ChatTokenSettingsDto | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -181,6 +183,19 @@ export interface GameSettingsUpdateDto {
   groupOverrides?: PermissionGroupGameSettingsDto[] | null;
   /** null/undefined keeps the stored hub settings. */
   hub?: HubSettingsDto | null;
+  /** null/undefined keeps the stored chat-token limits. */
+  chatTokens?: ChatTokenSettingsDto | null;
+}
+
+/**
+ * Limits of the chat hashtag tokens such as #hand and #kills (PandiO/knk-workspace#233). 0 = off (the default);
+ * players holding knk.chat.token.bypass skip both.
+ */
+export interface ChatTokenSettingsDto {
+  /** The most tokens expanded in one message (later ones stay plain text); 0 = no limit, at most 20. */
+  maxTokensPerMessage: number;
+  /** Seconds between two messages with statistics tokens; 0 = no cooldown, at most 3600. */
+  statCooldownSeconds: number;
 }
 
 export interface GameSettingsRuntimeWorldsUpdateDto {

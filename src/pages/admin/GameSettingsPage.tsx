@@ -11,6 +11,7 @@ import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { DataRetentionCard } from '../../components/admin/DataRetentionCard';
 import { GroupOverridesCard } from '../../components/admin/gameSettings/GroupOverridesCard';
 import { HubSettingsCard, defaultHubRules, defaultHubSettings } from '../../components/admin/gameSettings/HubSettingsCard';
+import { ChatTokensCard, defaultChatTokenSettings } from '../../components/admin/gameSettings/ChatTokensCard';
 import { LocationReferencePicker } from '../../components/admin/gameSettings/LocationReferencePicker';
 import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
 import { RespawnPolicyEditor } from '../../components/admin/gameSettings/RespawnPolicyEditor';
@@ -122,6 +123,7 @@ const normalizeSettings = (settings: GameSettingsDto): GameSettingsDto => {
     next.worldSettings = Array.from(byWorld.values()).sort((a, b) => a.worldName.localeCompare(b.worldName));
     next.groupOverrides = next.groupOverrides || [];
     next.hub = { ...defaultHubSettings(), ...(next.hub || {}), rules: { ...defaultHubRules(), ...(next.hub?.rules || {}) } };
+    next.chatTokens = { ...defaultChatTokenSettings(), ...(next.chatTokens || {}) };
 
     if (!next.defaultRespawnPolicy) {
         next.defaultRespawnPolicy = {
@@ -226,6 +228,7 @@ export const GameSettingsPage: React.FC = () => {
             motd: settings.motd ?? '',
             groupOverrides: settings.groupOverrides ?? [],
             hub: settings.hub ?? defaultHubSettings(),
+            chatTokens: settings.chatTokens ?? defaultChatTokenSettings(),
         };
 
         try {
@@ -394,6 +397,11 @@ export const GameSettingsPage: React.FC = () => {
                         <MinecraftLegacyPreview dark text={fillMessagePlaceholders(settings.motd || '', PREVIEW_SAMPLE)} />
                     </div>
                 </div>
+
+                <ChatTokensCard
+                    value={settings.chatTokens ?? defaultChatTokenSettings()}
+                    onChange={chatTokens => updateSettings(prev => ({ ...prev, chatTokens }))}
+                />
 
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 space-y-4">
                     <h2 className="text-lg font-semibold text-gray-900">Join Spawn Settings</h2>
