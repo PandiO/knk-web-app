@@ -54,6 +54,7 @@ import { UnlinkedBanner } from './components/UnlinkedBanner';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { CONTENT_PERMISSION_NODE, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE } from './hooks/useStaffAccess';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { RealtimeProvider } from './realtime/RealtimeProvider';
 import { useEntityMetadata } from './hooks/useEntityMetadata';
 import { ThemeSwitcher } from './theme/ThemeSwitcher';
 import { themePickerVisible } from './theme/themes';
@@ -333,7 +334,10 @@ function App() {
   const [router] = React.useState(() => createBrowserRouter([{ path: '*', element: <AppContent /> }]));
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      {/* PandiO/knk-workspace#181: the web hub (world tasks live); components poll while it is down. */}
+      <RealtimeProvider>
+        <RouterProvider router={router} />
+      </RealtimeProvider>
     </AuthProvider>
   );
 }
