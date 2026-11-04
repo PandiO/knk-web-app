@@ -7,8 +7,8 @@ import { useSyncExternalStore } from 'react';
  *
  * Off by default, so players see no change. Which setting a tab uses, first match wins (like the theme):
  *  1. `?bg=on` / `?bg=off` in the URL (any page): this tab only, kept in sessionStorage.
- *  2. The toggle in the account menu, next to the theme picker (localStorage, every tab; staff only, or
- *     everyone with REACT_APP_THEME_PICKER=on).
+ *  2. The "Background image" item in the theme switcher's cogwheel menu (localStorage, every tab; shown
+ *     to every visitor like the themes, hidden with them by REACT_APP_THEME_PICKER=off).
  *  3. REACT_APP_PAGE_BACKGROUND=on at build time turns it on by default; otherwise off.
  * Storage can be blocked (private windows, cleared site data): every access is wrapped in try/catch.
  */

@@ -55,6 +55,8 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { CONTENT_PERMISSION_NODE, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE } from './hooks/useStaffAccess';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useEntityMetadata } from './hooks/useEntityMetadata';
+import { ThemeSwitcher } from './theme/ThemeSwitcher';
+import { themePickerVisible } from './theme/themes';
 import { PageBackground } from './theme/PageBackground';
 
 function AppContent() {
@@ -89,6 +91,12 @@ function AppContent() {
       <PageBackground />
       <div className="page-canvas min-h-screen bg-gray-100">
         {isLoggedIn && <Navigation objectTypes={objectTypes} />}
+        {/* Logged out there is no navigation bar: the theme switcher floats in the top-right corner (#95). */}
+        {!isLoggedIn && themePickerVisible() && (
+          <div className="fixed right-4 top-4 z-[60]">
+            <ThemeSwitcher variant="floating" />
+          </div>
+        )}
         <div className="pt-16 p-8">
           <div className="max-w-7xl mx-auto space-y-12">
             {/* A crash in one page shows a recoverable message instead of a blank app (X-4, KNG-141). */}

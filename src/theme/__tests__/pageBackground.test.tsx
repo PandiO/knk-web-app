@@ -10,6 +10,7 @@ import {
   selectPageBackground,
 } from '../pageBackground';
 import { PageBackground } from '../PageBackground';
+import { ThemeSwitcher } from '../ThemeSwitcher';
 import { Navigation } from '../../components/Navigation';
 import { usePermission, useStaffAccess } from '../../hooks/useStaffAccess';
 
@@ -125,35 +126,43 @@ describe('PageBackground (#231)', () => {
   });
 });
 
-describe('background toggle in the account menu (#231)', () => {
-  function openAccountMenu() {
+describe('background toggle in the theme switcher (#231)', () => {
+  it('sits under the themes in the cogwheel menu, for every visitor, off by default', () => {
+    render(<ThemeSwitcher variant="floating" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Theme' }));
+    const toggle = screen.getByRole('menuitemcheckbox', { name: /^Background image/ });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    const items = screen.getAllByRole('menu')[0].querySelectorAll('[role^="menuitem"]');
+    expect(items[items.length - 1]).toBe(toggle);
+  });
+
+  it('switches the background without a reload, keeping the menu open', () => {
+    asUser(false);
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Navigation objectTypes={[]} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Theme' }));
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /^Background image/ }));
+    expect(document.documentElement.getAttribute('data-page-bg')).toBe('on');
+    expect(screen.getByRole('menuitemcheckbox', { name: /^Background image/ })).toHaveAttribute('aria-checked', 'true');
+    expect(window.localStorage.getItem(PAGE_BACKGROUND_STORAGE_KEY)).toBe('on');
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /^Background image/ }));
+    expect(document.documentElement.getAttribute('data-page-bg')).toBe('off');
+    expect(window.localStorage.getItem(PAGE_BACKGROUND_STORAGE_KEY)).toBe('off');
+  });
+
+  it('is not in the account menu any more', () => {
+    asUser(true);
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <Navigation objectTypes={[]} />
       </MemoryRouter>,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
-  }
-
-  it('is not shown to players', () => {
-    asUser(false);
-    openAccountMenu();
     expect(screen.queryByRole('menuitemcheckbox')).toBeNull();
-  });
-
-  it('switches the background for staff without a reload, keeping the menu open', () => {
-    asUser(true);
-    openAccountMenu();
-    const toggle = screen.getByRole('menuitemcheckbox', { name: 'Background image' });
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
-
-    fireEvent.click(toggle);
-    expect(document.documentElement.getAttribute('data-page-bg')).toBe('on');
-    expect(screen.getByRole('menuitemcheckbox', { name: 'Background image' })).toHaveAttribute('aria-checked', 'true');
-    expect(window.localStorage.getItem(PAGE_BACKGROUND_STORAGE_KEY)).toBe('on');
-
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Background image' }));
-    expect(document.documentElement.getAttribute('data-page-bg')).toBe('off');
-    expect(window.localStorage.getItem(PAGE_BACKGROUND_STORAGE_KEY)).toBe('off');
   });
 });

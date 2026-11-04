@@ -102,9 +102,9 @@ export const DashboardHeaderMenu: React.FC<Props> = ({ button, buttonClassName, 
                     id={menuId}
                     ref={listRef}
                     onKeyDown={onKeyDown}
-                    className="absolute right-0 z-20 mt-2 w-max min-w-[18rem] max-w-[min(28rem,calc(100vw-2rem))] rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5"
+                    className="absolute right-0 z-20 mt-2 w-max min-w-[18rem] max-w-[min(28rem,calc(100vw-2rem))] rounded-md bg-surface shadow-lg ring-1 ring-black ring-opacity-5"
                 >
-                    <p className="border-b border-gray-100 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    <p className="border-b border-line px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted">
                         {heading}
                     </p>
                     <ul className="max-h-80 overflow-y-auto py-1" aria-label={heading}>
@@ -114,20 +114,20 @@ export const DashboardHeaderMenu: React.FC<Props> = ({ button, buttonClassName, 
                                     type="button"
                                     onClick={() => select(item.onSelect)}
                                     title={itemTitle(item)}
-                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-100 focus:outline-none"
+                                    className="w-full px-4 py-2 text-left text-sm text-fg hover:bg-surface-alt focus:bg-canvas focus:outline-none"
                                 >
-                                    <span className="block whitespace-normal break-words font-medium text-gray-900">{item.label}</span>
-                                    {item.detail && <span className="block whitespace-normal break-words text-xs text-gray-500">{item.detail}</span>}
+                                    <span className="block whitespace-normal break-words font-medium text-fg">{item.label}</span>
+                                    {item.detail && <span className="block whitespace-normal break-words text-xs text-muted">{item.detail}</span>}
                                 </button>
                             </li>
                         ))}
                     </ul>
                     {footer && (
-                        <div className="border-t border-gray-100 py-1">
+                        <div className="border-t border-line py-1">
                             <button
                                 type="button"
                                 onClick={() => select(footer.onSelect)}
-                                className="w-full px-4 py-2 text-left text-sm text-primary hover:bg-gray-50 focus:bg-gray-100 focus:outline-none"
+                                className="w-full px-4 py-2 text-left text-sm text-primary hover:bg-surface-alt focus:bg-canvas focus:outline-none"
                             >
                                 {footer.label}
                             </button>

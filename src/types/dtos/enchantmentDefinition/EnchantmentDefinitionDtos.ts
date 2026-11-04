@@ -22,6 +22,11 @@ export interface EnchantmentDefinitionDto {
     // PandiO/knk-workspace#201: Flash Chaos only: its Slowness level (1 = I) and its Nausea duration at level I.
     effectLevel?: number | null;
     secondaryEffectDurationSeconds?: number | null;
+    // PandiO/knk-workspace#223: Chaos / Flash Chaos only: area damage and gate damage at level I, radii in blocks.
+    areaDamage?: number | null;
+    gateDamage?: number | null;
+    damageRadiusBlocks?: number | null;
+    effectRadiusBlocks?: number | null;
 }
 
 export interface EnchantmentDefinitionCreateDto {
@@ -43,6 +48,11 @@ export interface EnchantmentDefinitionCreateDto {
     // PandiO/knk-workspace#201: Flash Chaos only: its Slowness level (1 = I) and its Nausea duration at level I.
     effectLevel?: number | null;
     secondaryEffectDurationSeconds?: number | null;
+    // PandiO/knk-workspace#223: Chaos / Flash Chaos only: area damage and gate damage at level I, radii in blocks.
+    areaDamage?: number | null;
+    gateDamage?: number | null;
+    damageRadiusBlocks?: number | null;
+    effectRadiusBlocks?: number | null;
 }
 
 export interface EnchantmentDefinitionUpdateDto {
@@ -64,6 +74,11 @@ export interface EnchantmentDefinitionUpdateDto {
     // PandiO/knk-workspace#201: Flash Chaos only: its Slowness level (1 = I) and its Nausea duration at level I.
     effectLevel?: number | null;
     secondaryEffectDurationSeconds?: number | null;
+    // PandiO/knk-workspace#223: Chaos / Flash Chaos only: area damage and gate damage at level I, radii in blocks.
+    areaDamage?: number | null;
+    gateDamage?: number | null;
+    damageRadiusBlocks?: number | null;
+    effectRadiusBlocks?: number | null;
 }
 
 export interface EnchantmentDefinitionListDto {

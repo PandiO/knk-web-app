@@ -151,6 +151,7 @@
   "src/pages/privacy/ConfirmDataDeletionPage.tsx": 9,
   "src/pages/siege/SiegeMatchPage.tsx": 27,
   "src/pages/statistics/MyStatisticsSection.tsx": 4,
+  "src/theme/ThemeSwitcher.tsx": 1,
   "src/theme/pageBackground.css": 2,
   "src/theme/tokens.css": 2,
   "src/types/dtos/siege/SiegeMatchDtos.ts": 8

@@ -1,8 +1,8 @@
 /*
  * Page background (PandiO/knk-workspace#231): landing image 1 behind every page.
  *
- * Only with data-page-bg="on" on <html> (pageBackground.ts: off by default; the toggle sits next to the theme
- * picker, or `?bg=on`). Image 1 is a fixed layer behind #root (PageBackground.tsx), and the colours that
+ * Only with data-page-bg="on" on <html> (pageBackground.ts: off by default; the toggle is in the theme
+ * switcher's cogwheel menu, or `?bg=on`). Image 1 is a fixed layer behind #root (PageBackground.tsx), and the colours that
  * cover it today become translucent, per theme (the alphas are tokens in tokens.css):
  * - the page backdrop (`.page-canvas`, App's grey page colour) at --page-bg-canvas-alpha;
  * - cards, panels, tables and secondary buttons (bg-white, bg-surface, .panel) at --page-bg-surface-alpha;
