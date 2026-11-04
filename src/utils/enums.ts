@@ -199,7 +199,10 @@ export enum FieldType {
     // Renders MinecraftMaterialPicker (database-only since KNG-200 phase 5). The name stays: stored
     // FormConfigurations hold it as a string; renaming it needs a data migration of formfields.FieldType.
     HybridMinecraftMaterialRefPicker = 'HybridMinecraftMaterialRefPicker',
-    HybridMinecraftEnchantmentRefPicker = 'HybridMinecraftEnchantmentRefPicker'
+    HybridMinecraftEnchantmentRefPicker = 'HybridMinecraftEnchantmentRefPicker',
+    // PandiO/knk-workspace#232: an ordered list of banner pattern layers (pattern key + dye colour), the shield
+    // banner on ItemBlueprint.ShieldBannerLayers. Renders BannerLayersField; the value is the layer array itself.
+    BannerLayers = 'BannerLayers'
 }
 
 export enum ValidationType {

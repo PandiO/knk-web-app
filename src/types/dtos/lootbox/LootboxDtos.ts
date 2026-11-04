@@ -1,3 +1,4 @@
+import { ItemBannerLayerDto } from '../itemBlueprint/ItemBlueprintDtos';
 // Mirrors knk-web-api's Dtos/LootboxDtos.cs, Dtos/LootboxRuntimeDtos.cs and Dtos/ItemInstanceDtos.cs
 // (docs/specs/lootboxes/DESIGN.md §3.2-§3.3). Every time is UTC (ISO string).
 
@@ -306,6 +307,11 @@ export interface ItemInstanceDto {
     isSoulbound: boolean;
     isGhosted: boolean;
     enchantments: ItemInstanceEnchantmentDto[];
+    // PandiO/knk-workspace#232: the look frozen at mint (shield banner, armour trim); null / empty when none.
+    shieldBannerBaseColor?: string | null;
+    shieldBannerLayers?: ItemBannerLayerDto[];
+    armorTrimPattern?: string | null;
+    armorTrimMaterial?: string | null;
 }
 
 // ===== Lootbox token items (IMPLEMENTATION_PLAN.md Phase 5) =====

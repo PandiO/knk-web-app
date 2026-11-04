@@ -20,6 +20,7 @@ import { ResolvedPickerFilters } from '../../utils/forms/pickerFilters';
 import { useSessionPinnedRows } from '../../hooks/useSessionPinnedRows';
 import { listItemKeys } from '../../utils/forms/listItemKeys';
 import { renderDisplayPanel, parseDisplayPanel } from './displayPanels';
+import { BannerLayersField } from './BannerLayersField';
 
 /**
  * The label shown for a selected related entity. A clan-sourced siege team has no name of its own,
@@ -272,6 +273,11 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                 />
             );
         }
+        case FieldType.BannerLayers:
+            // #232: a shield blueprint's banner pattern layers, bottom to top.
+            return withFeedback(
+                <BannerLayersField field={field} value={value} onChange={guardedOnChange} error={error} onBlur={guardedOnBlur} />
+            );
         default:
             return <div className="text-sm text-muted">Unsupported field type: {field.fieldType}</div>;
     }

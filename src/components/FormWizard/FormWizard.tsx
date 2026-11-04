@@ -64,6 +64,7 @@ import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { withManyToManyCarrierFields } from '../../utils/forms/manyToManyCarrierField';
 import { formValuesSnapshot } from '../../utils/forms/formValuesSnapshot';
 import { scannedItemDescription } from '../../utils/scannedItemDescription';
+import { describeShieldBanner, scannedArmorTrim, scannedShieldBanner, ScannedArmorTrim, ScannedShieldBanner } from '../../utils/scannedItemLook';
 
 interface FormWizardProps {
     entityName: string;
@@ -1317,6 +1318,11 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         const displayDescriptionField = resolveFieldName('DefaultDisplayDescription');
         const iconMaterialField = resolveFieldName('IconMaterialRefId');
         const maxStackSizeField = resolveFieldName('MaxStackSize');
+        // #232: a shield's banner and an armour piece's trim, when the form has the fields (same step).
+        const shieldBaseColorField = resolveFieldName('ShieldBannerBaseColor');
+        const shieldLayersField = resolveFieldName('ShieldBannerLayers');
+        const armorTrimPatternField = resolveFieldName('ArmorTrimPattern');
+        const armorTrimMaterialField = resolveFieldName('ArmorTrimMaterial');
         const genInfoStepIndex = currentStepIndex;
 
         // Snapshot BEFORE any await below - confirmed live (developer testing, 2026-09-23) that
@@ -1340,6 +1346,12 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         // for e.g. snowballs, 1 for tools/weapons/armor), so it has to come from the scan itself,
         // unlike DefaultQuantity which is a plain static "1" set on the live FormConfiguration.
         const scannedMaxStackSize = typeof output.maxStackSize === 'number' ? output.maxStackSize : undefined;
+        // #232: present only for a shield/banner with a pattern or trimmed armour (a plain item sends neither). A scan
+        // of a plain shield clears a pattern the form still holds - the item in hand is the truth - but asks first
+        // when the form has one, like every other filled field.
+        const scannedBanner: ScannedShieldBanner | null = scannedShieldBanner(output);
+        const scannedTrim: ScannedArmorTrim | null = scannedArmorTrim(output);
+        const hasLookFields = !!(shieldBaseColorField || shieldLayersField || armorTrimPatternField || armorTrimMaterialField);
 
         let scannedMaterialId: number | undefined;
         let scannedMaterialLabel = '';
@@ -1446,6 +1458,31 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             });
         }
 
+        if (hasLookFields) {
+            const currentLayers = shieldLayersField && Array.isArray(preScanGenInfoData[shieldLayersField])
+                ? preScanGenInfoData[shieldLayersField] as Array<{ patternKey: string; color: string }>
+                : [];
+            const currentBase = shieldBaseColorField ? preScanGenInfoData[shieldBaseColorField] : undefined;
+            if (isFilled(currentBase) || currentLayers.length > 0) {
+                conflicts.push({
+                    key: 'shieldBanner',
+                    label: 'Shield banner',
+                    currentValueLabel: describeShieldBanner(typeof currentBase === 'string' ? currentBase : null, currentLayers),
+                    scannedValueLabel: scannedBanner ? describeShieldBanner(scannedBanner.baseColor, scannedBanner.layers) : '(none)'
+                });
+            }
+            const currentPattern = armorTrimPatternField ? preScanGenInfoData[armorTrimPatternField] : undefined;
+            const currentMaterial = armorTrimMaterialField ? preScanGenInfoData[armorTrimMaterialField] : undefined;
+            if (isFilled(currentPattern) || isFilled(currentMaterial)) {
+                conflicts.push({
+                    key: 'armorTrim',
+                    label: 'Armour trim',
+                    currentValueLabel: `${describeValue(currentPattern)} / ${describeValue(currentMaterial)}`,
+                    scannedValueLabel: scannedTrim ? `${scannedTrim.pattern} / ${scannedTrim.material}` : '(none)'
+                });
+            }
+        }
+
         if (enchantmentStepIndex !== -1) {
             const currentEnchantments = Array.isArray(liveEnchantmentsData.DefaultEnchantments)
                 ? liveEnchantmentsData.DefaultEnchantments as Record<string, unknown>[]
@@ -1485,6 +1522,15 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             }
             if (maxStackSizeField && scannedMaxStackSize != null && shouldApplyScannedValue('maxStackSize')) {
                 patch[maxStackSizeField] = scannedMaxStackSize;
+            }
+            // #232: the scanned look replaces the form's (empty when the item has none).
+            if (shouldApplyScannedValue('shieldBanner')) {
+                if (shieldBaseColorField) patch[shieldBaseColorField] = scannedBanner?.baseColor ?? '';
+                if (shieldLayersField) patch[shieldLayersField] = scannedBanner?.layers ?? [];
+            }
+            if (shouldApplyScannedValue('armorTrim')) {
+                if (armorTrimPatternField) patch[armorTrimPatternField] = scannedTrim?.pattern ?? '';
+                if (armorTrimMaterialField) patch[armorTrimMaterialField] = scannedTrim?.material ?? '';
             }
             if (Object.keys(patch).length > 0) {
                 applyMultipleFieldChanges(patch);
@@ -1552,6 +1598,9 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             quantity: number;
             maxStackSize?: number;
             enchantments: Array<{ key: string; level: number }>;
+            /** #232: a shield's banner / an armour piece's trim, for the blueprint created from this item. */
+            shieldBanner: ScannedShieldBanner | null;
+            armorTrim: ScannedArmorTrim | null;
         };
         const toScannedItem = (raw: any): ScannedItem | null => {
             if (!raw || typeof raw !== 'object' || typeof raw.material !== 'string' || !raw.material) return null;
@@ -1562,6 +1611,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 description: scannedItemDescription(raw),
                 quantity: typeof raw.quantity === 'number' && raw.quantity > 0 ? raw.quantity : 1,
                 maxStackSize: typeof raw.maxStackSize === 'number' ? raw.maxStackSize : undefined,
+                shieldBanner: scannedShieldBanner(raw),
+                armorTrim: scannedArmorTrim(raw),
                 enchantments: [
                     ...(Array.isArray(raw.vanillaEnchantments) ? raw.vanillaEnchantments : []),
                     ...(Array.isArray(raw.customEnchantments) ? raw.customEnchantments : [])
@@ -1741,7 +1792,12 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         defaultDisplayDescription: item.description,
                         defaultQuantity: 1,
                         maxStackSize: item.maxStackSize,
-                        defaultEnchantments: defaultEnchantments as any
+                        defaultEnchantments: defaultEnchantments as any,
+                        // #232: the look of the scanned shield / armour piece.
+                        shieldBannerBaseColor: item.shieldBanner?.baseColor ?? null,
+                        shieldBannerLayers: item.shieldBanner?.layers ?? [],
+                        armorTrimPattern: item.armorTrim?.pattern ?? null,
+                        armorTrimMaterial: item.armorTrim?.material ?? null
                     });
                     if (created?.id != null) {
                         resolved = {
