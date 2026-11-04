@@ -46,6 +46,8 @@ import { OWNER_ANALYTICS_VIEW_NODE } from './types/dtos/analytics/WorldAnalytics
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from './types/dtos/telemetry/TelemetryDtos';
 import { PublicPlayerProfilePage } from './pages/players/PublicPlayerProfilePage';
 import { SiegeMatchPage } from './pages/siege/SiegeMatchPage';
+import { GuidesPage } from './pages/guides/GuidesPage';
+import { EnchantmentGuidePage } from './pages/guides/EnchantmentGuidePage';
 import React from 'react';
 import { RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage, InvitePage, JoinPage } from './pages/auth';
 import { LinkPage } from './pages/auth/LinkPage';
@@ -287,6 +289,9 @@ function AppContent() {
               <Route path="/players/:username" element={<PublicPlayerProfilePage />} />
               {/* Alpha run 1 (#174): a finished siege match, public; linked from the in-game result and /siege history. */}
               <Route path="/siege/matches/:id" element={<SiegeMatchPage />} />
+              {/* Guides (#221): player guides, public - the custom enchantment info page first. */}
+              <Route path="/guides" element={<GuidesPage />} />
+              <Route path="/guides/enchantments" element={<EnchantmentGuidePage />} />
               {/* KNG-80: orphaned Locations found by the weekly retention check, reviewed by hand. */}
               <Route path="/admin/locations/orphans" element={
                 <StaffRoute node={LOCATION_RETENTION_NODES.view}>
