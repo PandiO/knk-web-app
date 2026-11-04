@@ -15,7 +15,7 @@ import { RealtimeContext, RealtimeContextValue, RealtimeHandler } from '../../..
 
 jest.mock('../../../apiClients/worldTaskClient', () => ({
     worldTaskClient: {
-        create: jest.fn(), getById: jest.fn(), cancel: jest.fn(),
+        create: jest.fn(), getById: jest.fn(), cancel: jest.fn(), offer: jest.fn(),
         getMyPresence: jest.fn(), getActiveForMe: jest.fn(), getOnlineStaff: jest.fn(),
     }
 }));
@@ -187,5 +187,85 @@ describe('WorldBoundFieldRenderer over the web hub (#181)', () => {
             taskId: 41, status: 'InProgress', offerState: 'Accepted', claimedByMinecraftUsername: 'Steve', releaseCount: 1,
         });
         expect(merged).toEqual(expect.objectContaining({ status: 'InProgress', offerState: 'Accepted', claimedByMinecraftUsername: 'Steve', inputJson: '{"x":1}', linkCode: 'AB12CD', releaseCount: 1 }));
+    });
+});
+
+describe('Send again on a waiting task (#240) and the no-permission notice (#239)', () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    const handedBack = () => task({ offerState: 'Declined', targetUserId: 5, releaseCount: 1 });
+
+    it('offers the same task again to you, without creating a new one', async () => {
+        client.getMyPresence.mockResolvedValue({ online: true, serverId: 'survival-1', hasMinecraftAccount: true });
+        client.getActiveForMe.mockResolvedValue({ task: null, queued: 0 });
+        client.offer.mockResolvedValue(task({ offerState: 'Offered', targetUserId: 5 }));
+        renderPanel(true, { initialTask: handedBack() });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
+
+        await waitFor(() => expect(client.offer).toHaveBeenCalledWith(41, 'auto'));
+        expect(client.create).not.toHaveBeenCalled();
+        expect(await screen.findByText('📨 Sent to you in game…')).toBeInTheDocument();
+    });
+
+    it('not online in game: says so and sends nothing', async () => {
+        client.getMyPresence.mockResolvedValue({ online: false, hasMinecraftAccount: true });
+        client.getActiveForMe.mockResolvedValue({ task: null, queued: 0 });
+        renderPanel(true, { initialTask: handedBack() });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
+
+        expect(await screen.findByText(/You're not online in game/)).toBeInTheDocument();
+        expect(client.offer).not.toHaveBeenCalled();
+    });
+
+    it('busy: Queue sends the waiting task again with deliver queue', async () => {
+        client.getMyPresence.mockResolvedValue({ online: true, hasMinecraftAccount: true });
+        client.getActiveForMe.mockResolvedValue({ task: task({ id: 9, status: 'InProgress' }), queued: 0 });
+        client.offer.mockResolvedValue(task({ offerState: 'Queued', targetUserId: 5 }));
+        renderPanel(true, { initialTask: handedBack() });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
+        fireEvent.click(await screen.findByText('Queue'));
+
+        await waitFor(() => expect(client.offer).toHaveBeenCalledWith(41, 'queue'));
+        expect(client.create).not.toHaveBeenCalled();
+    });
+
+    it('"Hand off to…" on a waiting task hands the same task to the player picked', async () => {
+        client.getOnlineStaff.mockResolvedValue([{ userId: 9, username: 'Bob', serverId: 'survival-1', world: 'world' }]);
+        client.offer.mockResolvedValue(task({ offerState: 'Offered', targetUserId: 9, targetUsername: 'Bob' }));
+        renderPanel(true, { initialTask: handedBack() });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Hand off to…' }));
+        fireEvent.click(await screen.findByText('Bob'));
+
+        await waitFor(() => expect(client.offer).toHaveBeenCalledWith(41, { userId: 9 }));
+        expect(await screen.findByText(/Sent to Bob in game, waiting for Accept or Decline/)).toBeInTheDocument();
+    });
+
+    it('a refusal from the API is shown under the buttons', async () => {
+        client.getMyPresence.mockResolvedValue({ online: true, hasMinecraftAccount: true });
+        client.getActiveForMe.mockResolvedValue({ task: null, queued: 0 });
+        client.offer.mockRejectedValue(new Error('boom'));
+        renderPanel(true, { initialTask: handedBack() });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(/could not be sent again/);
+    });
+
+    it('no "Send again" without the hub, while offered, or for a closed task; the bare code block is gone', () => {
+        renderPanel(false, { initialTask: handedBack() });
+        expect(screen.queryByRole('button', { name: 'Send again' })).not.toBeInTheDocument();
+        expect(screen.queryByText('Task code:')).not.toBeInTheDocument();
+        expect(screen.getByText('/knk task AB12CD')).toBeInTheDocument();
+    });
+
+    it('NoPermission says why instead of "declined"', () => {
+        expect(offerNotice(task({ offerState: 'NoPermission', targetUserId: 9, targetUsername: 'Bob' })))
+            .toMatch(/Bob doesn't have world-task access in game \(knk\.tasks\)/);
+        expect(offerNotice(task({ offerState: 'NoPermission', targetUserId: 5 })))
+            .toMatch(/You don't have world-task access in game/);
     });
 });

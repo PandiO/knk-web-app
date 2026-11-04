@@ -14,6 +14,7 @@ import { Copy, Check, MapPin } from 'lucide-react';
 import { useEnrichedFormContext } from '../../hooks/useEnrichedFormContext';
 import { resolveWorldTaskDependencyValue } from '../../utils/forms/worldTaskDependency';
 import { keepLocationIdOnReplace } from '../../utils/forms/worldTaskFieldValue';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import {
     isClosedWorldTask,
     isOpenWorldTask,
@@ -64,6 +65,11 @@ export function offerNotice(task: WorldTaskReadDto): string | null {
             return handOff ? `No answer from ${who} in game. Use the task code.` : 'No answer from the game server. Use the task code.';
         case 'Busy':
             return 'You already had a task open in game when this one arrived. Finish that one, then use the task code (or Start again).';
+        case 'NoPermission':
+            // #239: the game server refused it: the player lacks knk.tasks in game.
+            return handOff
+                ? `${who} doesn't have world-task access in game (knk.tasks). Hand it to someone else or use the task code.`
+                : "You don't have world-task access in game (knk.tasks). Use the task code, or hand it off.";
         default:
             return null;
     }
@@ -523,6 +529,11 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const [staff, setStaff] = useState<OnlineStaffDto[] | null>(null);
     const [staffError, setStaffError] = useState<string | null>(null);
     const [codeExpanded, setCodeExpanded] = useState(false);
+    /** #240: why "Send again" didn't send (not online in game, or the API refused). */
+    const [resendError, setResendError] = useState<string | null>(null);
+    useEffect(() => {
+        setResendError(null);
+    }, [task?.id, task?.status, task?.offerState]);
     const taskRef = useRef<WorldTaskReadDto | null>(null);
     taskRef.current = task;
     const extractionSucceededRef = useRef(false);
@@ -841,6 +852,63 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         await handleCreateInMinecraft('auto');
     };
 
+    /** #240: whether the open task can be sent again: waiting with its code, not offered right now, hub connected. */
+    const canSendAgain = (): boolean => {
+        const current = task;
+        return !!current && !field.isReadOnly && realtime.connected && !!current.linkCode
+            && getNormalizedStatus(current.status) === 'pending' && current.offerState !== 'Offered'
+            && !isHeadlessTaskType(taskType, current.taskType);
+    };
+
+    /** #240: offers the waiting task again (POST {id}/offer) instead of creating a new one. */
+    const offerAgain = async (deliver: Exclude<WorldTaskDelivery, 'code'>) => {
+        if (!task || isReadOnlyRef.current) return;
+        setBusy(null);
+        setHandOffOpen(false);
+        setCodeExpanded(false);
+        setResendError(null);
+        setIsLoading(true);
+        try {
+            const updated = await worldTaskClient.offer(task.id, deliver);
+            setTask(updated);
+            reportTask(updated);
+        } catch (error) {
+            console.error(`Failed to send world task ${task.id} again:`, error);
+            setResendError(apiRefusalReason(error) ?? 'The task could not be sent again. Its task code still works.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    /** The busy panel and the hand-off picker: send the waiting task again (#240), else a new task (#181). */
+    const deliverTask = (deliver: Exclude<WorldTaskDelivery, 'code'>) =>
+        canSendAgain() ? offerAgain(deliver) : handleCreateInMinecraft(deliver);
+
+    /** #240 "Send again": the same busy check as "Send to Minecraft", for the waiting task. */
+    const handleSendAgain = async () => {
+        if (!task || isReadOnlyRef.current) return;
+        setResendError(null);
+        setIsLoading(true);
+        try {
+            const [me, active] = await Promise.all([worldTaskClient.getMyPresence(), worldTaskClient.getActiveForMe()]);
+            if (!me?.online) {
+                setResendError("You're not online in game. Join the server and press Send again, or use the task code.");
+                setIsLoading(false);
+                return;
+            }
+            if (active?.task && active.task.id !== task.id) {
+                setBusy(active);
+                setIsLoading(false);
+                return;
+            }
+        } catch (error) {
+            // The checks are a courtesy; the API checks again.
+            console.error('Busy check failed; sending anyway:', error);
+        }
+        setIsLoading(false);
+        await offerAgain('auto');
+    };
+
     /** #181: "Hand off to…": the online players with knk.tasks (Accept/Decline in game, 2 min). */
     const openHandOff = async () => {
         setHandOffOpen(true);
@@ -924,6 +992,8 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const notice = task && taskStatus === 'pending' && !isHeadless ? offerNotice(task) : null;
     const showTaskCode = !!task && taskStatus === 'pending' && !!task.linkCode && !isHeadless && (!offerPending || codeExpanded);
     const expiresAtLabel = task?.expiresAt ? formatClockTime(task.expiresAt) : null;
+    // #240: "Send again" / "Hand off to…" on a waiting task that fell back to its code.
+    const sendAgainVisible = showTaskCode && canSendAgain();
 
     const hasVisibleStatusBanner =
         (!!task && taskStatus === 'pending' && (!!task.linkCode || isHeadless)) ||
@@ -1009,26 +1079,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                                     The task was handed back in game; its task code works again.
                                 </p>
                             )}
-                            <div className="bg-white p-3 rounded-md border border-yellow-300 mb-3">
-                                <p className="text-sm text-gray-700 mb-1 font-medium">Task code:</p>
-                                <div className="flex items-center gap-2">
-                                    <code className="text-2xl font-mono font-bold text-yellow-900 tracking-wider">
-                                        {task.linkCode}
-                                    </code>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleCopyText(task.linkCode!)}
-                                        className="p-2 hover:bg-yellow-100 rounded transition-colors"
-                                        title="Copy task code"
-                                    >
-                                        {copiedText === task.linkCode ? (
-                                            <Check className="h-5 w-5 text-green-600" />
-                                        ) : (
-                                            <Copy className="h-5 w-5 text-gray-600 hover:text-gray-900" />
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
+                            {/* #240: only the full command; people copy that, not the bare code */}
                             <div className="bg-gray-800 p-3 rounded-md">
                                 <p className="text-xs text-muted mb-1">In Minecraft, type:</p>
                                 <div className="flex items-center justify-between gap-2">
@@ -1053,6 +1104,30 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                                 💡 This code links your web session to your in-game actions
                                 {expiresAtLabel && <> · expires at {expiresAtLabel} if nobody claims it</>}
                             </p>
+                            {sendAgainVisible && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleSendAgain()}
+                                        disabled={isLoading}
+                                        className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+                                        title="Send this task to you in game again"
+                                    >
+                                        {isLoading ? 'Sending…' : 'Send again'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => void openHandOff()}
+                                        disabled={isLoading}
+                                        className="text-xs px-2 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        Hand off to…
+                                    </button>
+                                </div>
+                            )}
+                            {resendError && (
+                                <p className="text-xs text-red-700 mt-2" role="alert">{resendError}</p>
+                            )}
                             {cancelTaskButton}
                         </div>
                     </div>
@@ -1193,7 +1268,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 </p>
             )}
             {/* #181 busy check: you already hold a task in game */}
-            {busy && !taskId && !field.isReadOnly && (
+            {busy && (!taskId || sendAgainVisible) && !field.isReadOnly && (
                 <div className="mb-3 p-3 bg-amber-50 border border-amber-300 rounded-md" role="alertdialog" aria-label="You already have a task in game">
                     <p className="text-sm font-medium text-amber-900">You already have a task open in game.</p>
                     <p className="text-xs text-amber-800 mt-1">
@@ -1202,7 +1277,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                         {busy.queued > 0 ? ` · ${busy.queued} more waiting in your queue` : ''}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                        <button type="button" className="btn btn-secondary text-xs px-2 py-1" onClick={() => void handleCreateInMinecraft('queue')}>
+                        <button type="button" className="btn btn-secondary text-xs px-2 py-1" onClick={() => void deliverTask('queue')}>
                             Queue
                         </button>
                         <button type="button" className="btn btn-secondary text-xs px-2 py-1" onClick={() => { setBusy(null); void openHandOff(); }}>
@@ -1211,7 +1286,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                         <button
                             type="button"
                             className="btn btn-secondary text-xs px-2 py-1"
-                            onClick={() => void handleCreateInMinecraft('replace')}
+                            onClick={() => void deliverTask('replace')}
                             title="The task you hold goes back with its task code; this one is sent to you"
                         >
                             Replace
@@ -1228,7 +1303,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             )}
 
             {/* #181 "Hand off to…": an online player gets Accept/Decline in game */}
-            {handOffOpen && !taskId && !field.isReadOnly && (
+            {handOffOpen && (!taskId || sendAgainVisible) && !field.isReadOnly && (
                 <div className="mb-3 p-3 bg-white border border-gray-300 rounded-md" aria-label="Hand off to">
                     <p className="text-sm font-medium text-gray-800">Hand off to an online player</p>
                     {staff === null && !staffError && <p className="text-xs text-gray-600 mt-1">Loading who is online…</p>}
@@ -1243,7 +1318,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                                     <button
                                         type="button"
                                         className="text-sm text-left w-full px-2 py-1 rounded hover:bg-gray-100"
-                                        onClick={() => void handleCreateInMinecraft({ userId: person.userId })}
+                                        onClick={() => void deliverTask({ userId: person.userId })}
                                     >
                                         {person.username}
                                         <span className="text-xs text-gray-500"> · {person.serverId}{person.world ? ` / ${person.world}` : ''}</span>

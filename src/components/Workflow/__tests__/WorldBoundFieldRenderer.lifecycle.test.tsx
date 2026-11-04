@@ -95,7 +95,7 @@ describe('WorldBoundFieldRenderer: task lifecycle (#180)', () => {
                 workflowSessionId={7} initialTask={task({})} onTaskChange={onTaskChange} />
         );
 
-        expect(screen.getByText('Task code:')).toBeInTheDocument();
+        expect(screen.queryByText('Task code:')).not.toBeInTheDocument(); // #240: only the command
         expect(screen.getByText('/knk task AB12CD')).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: 'Cancel task' }));

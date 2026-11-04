@@ -13,6 +13,7 @@ import {
   WorldTaskActiveForMeDto,
   PresenceMeDto,
   OnlineStaffDto,
+  WorldTaskDelivery,
 } from "../types/dtos/workflow/WorkflowDtos";
 
 export class WorldTaskClient extends ObjectManager {
@@ -74,6 +75,14 @@ export class WorldTaskClient extends ObjectManager {
   /** PandiO/knk-workspace#180: ends an open task (Capture again, Try again, leaving the form, "Cancel task"). */
   cancel(id: number, payload: CancelTaskDto = {}): Promise<WorldTaskReadDto> {
     return this.invokeServiceCall(payload, `${id}/cancel`, Controllers.WorldTasks, HttpMethod.Post);
+  }
+
+  /**
+   * PandiO/knk-workspace#240 "Send again": offers a waiting task again (auto to you, queue, replace, or a hand-off).
+   * 409 while it is offered, once it is no longer waiting, or for auto/replace while you are not online in game.
+   */
+  offer(id: number, deliver: Exclude<WorldTaskDelivery, 'code'>): Promise<WorldTaskReadDto> {
+    return this.invokeServiceCall({ deliver }, `${id}/offer`, Controllers.WorldTasks, HttpMethod.Post);
   }
 
   /** #180 (DESIGN §8.7): the completed result is in the draft now. */
