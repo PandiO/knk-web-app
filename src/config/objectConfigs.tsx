@@ -356,8 +356,9 @@ const locationConfig: ObjectConfig = {
     y: { name: 'y', label: 'Y', type: 'number', required: true },
     z: { name: 'z', label: 'Z', type: 'number', required: true },
     yaw: { name: 'yaw', label: 'Yaw', type: 'number', required: false, defaultValue: 0 },
-    pitch: { name: 'pitch', label: 'Pitch', type: 'number', required: false, defaultValue: 0 },
-    worldName: { name: 'WorldName', label: 'World Name', type: 'text', required: true, defaultValue: 'world' }
+    pitch: { name: 'pitch', label: 'Pitch', type: 'number', required: false, defaultValue: 0 }
+    // No world field (PandiO/knk-workspace#147): the old `worldName` ('WorldName', default 'world') matched no
+    // entity field (Location.World) and nothing read it.
   },
   showViewButton: false
 };

@@ -191,4 +191,25 @@ describe('ValidationRuleBuilder', () => {
       expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
     });
   });
+
+  describe('Config templates', () => {
+    it('fills ConditionalRequired with the condition clause the API reads (PandiO/knk-workspace#99)', async () => {
+      render(
+        <ValidationRuleBuilder
+          field={mockField}
+          availableFields={mockAvailableFields}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
+          onSave={mockOnSave}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      await userEvent.selectOptions(screen.getAllByRole('combobox')[0], 'ConditionalRequired');
+
+      const config = screen.getAllByRole('textbox').find(box => (box as HTMLTextAreaElement).value.includes('"condition"'));
+      expect(config).toBeDefined();
+      expect(JSON.parse((config as HTMLTextAreaElement).value)).toEqual({ condition: { op: 'equals', value: true } });
+    });
+  });
 });

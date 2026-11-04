@@ -30,7 +30,7 @@ const CONFIG_TEMPLATES: Record<string, { config: unknown; error: string; success
         success: 'Region is fully contained within parent.'
     },
     ConditionalRequired: {
-        config: { condition: { operator: 'equals', value: true } },
+        config: { condition: { op: 'equals', value: true } },
         error: 'This field is required when {dependencyFieldName} is set.',
         success: ''
     }
