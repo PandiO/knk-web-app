@@ -8,7 +8,11 @@ import {
   WorldTaskReadDto,
   ClaimTaskDto,
   CompleteTaskDto,
-  FailTaskDto
+  FailTaskDto,
+  CancelTaskDto,
+  WorldTaskActiveForMeDto,
+  PresenceMeDto,
+  OnlineStaffDto,
 } from "../types/dtos/workflow/WorkflowDtos";
 
 export class WorldTaskClient extends ObjectManager {
@@ -65,6 +69,36 @@ export class WorldTaskClient extends ObjectManager {
 
   fail(id: number, payload: FailTaskDto): Promise<WorldTaskReadDto> {
     return this.invokeServiceCall(payload, `${id}/fail`, Controllers.WorldTasks, HttpMethod.Post);
+  }
+
+  /** PandiO/knk-workspace#180: ends an open task (Capture again, Try again, leaving the form, "Cancel task"). */
+  cancel(id: number, payload: CancelTaskDto = {}): Promise<WorldTaskReadDto> {
+    return this.invokeServiceCall(payload, `${id}/cancel`, Controllers.WorldTasks, HttpMethod.Post);
+  }
+
+  /** #180 (DESIGN §8.7): the completed result is in the draft now. */
+  markApplied(id: number): Promise<WorldTaskReadDto> {
+    return this.invokeServiceCall({}, `${id}/applied`, Controllers.WorldTasks, HttpMethod.Post);
+  }
+
+  /** #180: the open tasks of a workflow session. */
+  getOpenBySession(sessionId: number): Promise<WorldTaskReadDto[]> {
+    return this.invokeServiceCall(null, `session/${sessionId}/open`, Controllers.WorldTasks, HttpMethod.Get);
+  }
+
+  /** #181 (DESIGN §8.3): the busy check: the task you hold in game, its form, and your queue. */
+  getActiveForMe(): Promise<WorldTaskActiveForMeDto> {
+    return this.invokeServiceCall(null, 'active-for-me', Controllers.WorldTasks, HttpMethod.Get);
+  }
+
+  /** #181: whether you are online in game now (presence from the game hub; false while realtime is off). */
+  getMyPresence(): Promise<PresenceMeDto> {
+    return this.invokeServiceCall(null, 'me', Controllers.Presence, HttpMethod.Get);
+  }
+
+  /** #181: online players who hold knk.tasks ("Hand off to…"). */
+  getOnlineStaff(): Promise<OnlineStaffDto[]> {
+    return this.invokeServiceCall(null, 'online-staff', Controllers.Presence, HttpMethod.Get);
   }
 
   delete(id: number): Promise<void> {

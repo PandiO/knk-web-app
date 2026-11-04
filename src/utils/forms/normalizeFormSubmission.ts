@@ -3,6 +3,7 @@ import { FieldType } from '../enums';
 import { EntityMetadataDto, FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { isHeadlessTaskType } from '../../components/Workflow/WorldBoundFieldRenderer';
 import { toBooleanFieldValue } from './booleanFieldValue';
+import { toBannerLayers } from '../../components/FormWizard/BannerLayersField';
 
 /**
  * Arguments for normalizing form submission data.
@@ -416,6 +417,13 @@ export function normalizeFormSubmission(args: NormalizeFormSubmissionArgs): Reco
             if (field.objectType && isUnsavedEntityValue(rawValue)) {
                 throw new UnsavedRelationshipValueError(field, 1, true);
             }
+            return;
+        }
+
+        // #232: a shield's banner layers go as the API's layer array ({ patternKey, color }, bottom to top);
+        // the untouched collection default (the metadata's sentinel string) is an empty list, a plain shield.
+        if (field.fieldType === FieldType.BannerLayers) {
+            normalized[fieldName] = toBannerLayers(rawValue);
             return;
         }
 
