@@ -135,13 +135,13 @@ export const FormStep1: React.FC<FormStep1Props> = ({
         />
         {/* Status indicator */}
         {isCheckingEmail && (
-          <div className="mt-2 text-xs text-gray-500">Checking availability...</div>
+          <div className="mt-2 text-xs text-muted">Checking availability...</div>
         )}
         {emailAvailable === true && !errors.email && (
-          <div className="mt-2 text-xs text-green-600">Email is available</div>
+          <div className="mt-2 text-xs text-success">Email is available</div>
         )}
         {errors.email && (
-          <p id="email-error" className="mt-1 text-sm text-red-600" role="alert">
+          <p id="email-error" className="field-error mt-1 text-sm" role="alert">
             {errors.email}
           </p>
         )}
@@ -173,7 +173,7 @@ export const FormStep1: React.FC<FormStep1Props> = ({
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-gray-700 transition-colors"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
             tabIndex={-1}
           >
@@ -185,7 +185,7 @@ export const FormStep1: React.FC<FormStep1Props> = ({
           </button>
         </div>
         {errors.password && (
-          <p id="password-error" className="mt-1 text-sm text-red-600" role="alert">
+          <p id="password-error" className="field-error mt-1 text-sm" role="alert">
             {errors.password}
           </p>
         )}
@@ -224,7 +224,7 @@ export const FormStep1: React.FC<FormStep1Props> = ({
           <button
             type="button"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-gray-700 transition-colors"
             aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
             tabIndex={-1}
           >
@@ -237,8 +237,7 @@ export const FormStep1: React.FC<FormStep1Props> = ({
         </div>
         {errors.confirmPassword && (
           <p
-            id="confirm-password-error"
-            className="mt-1 text-sm text-red-600"
+            id="confirm-password-error" className="field-error mt-1 text-sm"
             role="alert"
           >
             {errors.confirmPassword}
@@ -247,8 +246,8 @@ export const FormStep1: React.FC<FormStep1Props> = ({
       </div>
 
       {/* Info box */}
-      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <p className="text-sm text-blue-900">
+      <div className="p-4 bg-info-soft rounded-lg border border-info-line">
+        <p className="text-sm text-info-strong">
           <strong>Password tips:</strong> Use a mix of uppercase, lowercase, numbers, and symbols for a strong password. Length is more important than complexity.
         </p>
       </div>

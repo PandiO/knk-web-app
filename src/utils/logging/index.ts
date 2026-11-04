@@ -13,7 +13,9 @@ export class Logger  {
         'error': 5
     };
 
-    constructor(logManager: EventEmitter, module: string, minLevel: string)  {
+    // The configured level is not applied yet: every level is logged (minLevel 1). Underscored so the
+    // CI=true build accepts it (PandiO/knk-workspace#200); applying it would change what gets logged.
+    constructor(logManager: EventEmitter, module: string, _minLevel: string)  {
         this.logManager = logManager;
         this.module = module;
         this.minLevel = 1;

@@ -19,6 +19,9 @@ export interface EnchantmentDefinitionDto {
     cooldownSeconds?: number | null;
     effectDurationSeconds?: number | null;
     levelMultiplier?: number | null;
+    // PandiO/knk-workspace#201: Flash Chaos only: its Slowness level (1 = I) and its Nausea duration at level I.
+    effectLevel?: number | null;
+    secondaryEffectDurationSeconds?: number | null;
 }
 
 export interface EnchantmentDefinitionCreateDto {
@@ -37,6 +40,9 @@ export interface EnchantmentDefinitionCreateDto {
     cooldownSeconds?: number | null;
     effectDurationSeconds?: number | null;
     levelMultiplier?: number | null;
+    // PandiO/knk-workspace#201: Flash Chaos only: its Slowness level (1 = I) and its Nausea duration at level I.
+    effectLevel?: number | null;
+    secondaryEffectDurationSeconds?: number | null;
 }
 
 export interface EnchantmentDefinitionUpdateDto {
@@ -55,6 +61,9 @@ export interface EnchantmentDefinitionUpdateDto {
     cooldownSeconds?: number | null;
     effectDurationSeconds?: number | null;
     levelMultiplier?: number | null;
+    // PandiO/knk-workspace#201: Flash Chaos only: its Slowness level (1 = I) and its Nausea duration at level I.
+    effectLevel?: number | null;
+    secondaryEffectDurationSeconds?: number | null;
 }
 
 export interface EnchantmentDefinitionListDto {

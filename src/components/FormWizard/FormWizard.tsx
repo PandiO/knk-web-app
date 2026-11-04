@@ -63,6 +63,7 @@ import { WizardStepProgress, WizardStepTitle } from './WizardStepHeader';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { withManyToManyCarrierFields } from '../../utils/forms/manyToManyCarrierField';
 import { formValuesSnapshot } from '../../utils/forms/formValuesSnapshot';
+import { scannedItemDescription } from '../../utils/scannedItemDescription';
 
 interface FormWizardProps {
     entityName: string;
@@ -333,6 +334,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         return result;
     };
 
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const normalizeAllStepsData = (cfg: FormConfigurationDto, stepsData: AllStepsData): AllStepsData => {
         const normalized: AllStepsData = {};
         cfg.steps.forEach((step, idx) => {
@@ -1331,9 +1334,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         const preScanGenInfoData = { ...(allStepsDataRef.current[genInfoStepIndex] || {}) };
 
         const scannedDisplayName = typeof output.displayName === 'string' ? output.displayName : '';
-        const scannedDisplayDescription = Array.isArray(output.lore) && output.lore.length > 0
-            ? output.lore.join('\n')
-            : '';
+        // #40: the plugin's cleaned descriptionLore (no enchantment/grade/origin lines, wrap joined back), else the raw lore.
+        const scannedDisplayDescription = scannedItemDescription(output);
         // Per developer feedback (2026-09-23): MaxStackSize varies per material (64 for most, 16
         // for e.g. snowballs, 1 for tools/weapons/armor), so it has to come from the scan itself,
         // unlike DefaultQuantity which is a plain static "1" set on the live FormConfiguration.
@@ -1545,7 +1547,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         type ScannedItem = {
             material: string;
             displayName: string;
-            lore: string[];
+            /** #40: the Display description for a blueprint created from this item (scannedItemDescription). */
+            description: string;
             quantity: number;
             maxStackSize?: number;
             enchantments: Array<{ key: string; level: number }>;
@@ -1556,7 +1559,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             return {
                 material: raw.material,
                 displayName: typeof raw.displayName === 'string' ? raw.displayName : raw.material,
-                lore: Array.isArray(raw.lore) ? raw.lore.filter((line: unknown) => typeof line === 'string') : [],
+                description: scannedItemDescription(raw),
                 quantity: typeof raw.quantity === 'number' && raw.quantity > 0 ? raw.quantity : 1,
                 maxStackSize: typeof raw.maxStackSize === 'number' ? raw.maxStackSize : undefined,
                 enchantments: [
@@ -1735,7 +1738,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         description: '',
                         iconMaterialRefId,
                         defaultDisplayName: item.displayName,
-                        defaultDisplayDescription: item.lore.join('\n'),
+                        defaultDisplayDescription: item.description,
                         defaultQuantity: 1,
                         maxStackSize: item.maxStackSize,
                         defaultEnchantments: defaultEnchantments as any
@@ -2768,15 +2771,15 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
 
     return (
         // No overflow-hidden here: it would stop the footer from sticking to the bottom of the window (#109).
-        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg">
+        <div className="max-w-4xl mx-auto bg-surface rounded-lg shadow-lg">
             {/* Header Section: Progress Bar and Title (the buttons are in the footer, #109) */}
             <div className="rounded-t-lg px-6 md:px-8 pt-6 md:pt-8 pb-4 md:pb-6 bg-gradient-to-b from-gray-50 to-white border-b border-gray-100">
                 {/* added: error banner */}
                 {error && (
-                    <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4 flex items-start">
-                        <AlertCircle className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                    <div className="mb-4 bg-danger-soft border border-danger-line rounded-md p-4 flex items-start">
+                        <AlertCircle className="h-5 w-5 text-danger mr-2 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
-                            <p className="text-sm text-red-800">{error}</p>
+                            <p className="text-sm text-danger-strong">{error}</p>
                         </div>
                     </div>
                 )}
@@ -2874,8 +2877,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                             ?? undefined;
                         const hasFieldError = !!fieldError;
                         const fieldContainerClass = hasFieldError
-                            ? 'space-y-3 rounded-lg border border-red-200 bg-red-50/40 p-4 md:p-5'
-                            : 'space-y-3 rounded-lg border border-gray-200 bg-gray-50/60 p-4 md:p-5';
+                            ? 'space-y-3 rounded-lg border border-danger-line bg-danger-soft/40 p-4 md:p-5'
+                            : 'space-y-3 rounded-lg border border-line bg-surface-alt/60 p-4 md:p-5';
                         const fieldPlaceholders = fieldId ? preResolvedPlaceholders[fieldId] : undefined;
                         const fieldValidationRules = fieldId ? (validationRules[fieldId] || []) : [];
                         // Parent forms' values too: a world-bound field's rules may depend on one.
@@ -3026,7 +3029,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 onMouseDown={event => {
                     if ((event.target as HTMLElement).closest('button')) event.preventDefault();
                 }}
-                className="sticky bottom-0 z-20 rounded-b-lg border-t border-gray-200 bg-white/95 px-6 md:px-8 py-3 shadow-[0_-4px_8px_-6px_rgba(0,0,0,0.15)]"
+                className="sticky bottom-0 z-20 rounded-b-lg border-t border-line bg-surface/95 px-6 md:px-8 py-3 shadow-[0_-4px_8px_-6px_rgba(0,0,0,0.15)]"
             >
                 <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-between">
                     <div className="flex flex-col gap-2 md:flex-row md:items-center">

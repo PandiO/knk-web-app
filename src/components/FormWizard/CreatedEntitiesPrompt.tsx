@@ -89,14 +89,14 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
             <div
                 role="dialog"
                 aria-label={title}
-                className="w-full max-w-lg rounded-lg shadow-lg border border-yellow-100 bg-yellow-50 relative"
+                className="w-full max-w-lg rounded-lg shadow-lg border border-warning-muted bg-warning-soft relative"
                 onClick={e => e.stopPropagation()}
             >
                 <div className="flex items-start justify-between px-5 py-4">
                     <div className="flex items-start space-x-3">
-                        <AlertTriangle className="h-6 w-6 text-yellow-600 flex-shrink-0" />
+                        <AlertTriangle className="h-6 w-6 text-warning flex-shrink-0" />
                         <div>
-                            <h3 className="text-lg font-semibold text-yellow-800">{title}</h3>
+                            <h3 className="text-lg font-semibold text-warning-strong">{title}</h3>
                             {phase === 'report' ? (
                                 <>
                                     <p className="mt-1 text-sm text-gray-700">
@@ -116,14 +116,14 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
                                             <li key={`${record.entityTypeName}:${record.id}`}>{describeCreatedEntity(record)}</li>
                                         ))}
                                     </ul>
-                                    {note && <p className="mt-2 text-xs text-gray-500">{note}</p>}
+                                    {note && <p className="mt-2 text-xs text-muted">{note}</p>}
                                 </>
                             )}
-                            {error && <p className="mt-2 text-sm text-red-700" role="alert">{error}</p>}
+                            {error && <p className="mt-2 text-sm text-danger-strong" role="alert">{error}</p>}
                         </div>
                     </div>
                     {phase === 'choose' && (
-                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close dialog">
+                        <button onClick={onClose} className="text-muted hover:text-gray-600" aria-label="Close dialog">
                             <X className="h-5 w-5" />
                         </button>
                     )}
@@ -132,7 +132,7 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
                     {phase === 'report' ? (
                         <button
                             onClick={() => onDone(results)}
-                            className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-md"
+                            className="px-4 py-2 text-sm font-medium text-primary-fg bg-primary hover:bg-primary-dark rounded-md"
                         >
                             Done
                         </button>
@@ -141,7 +141,7 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
                             <button
                                 onClick={remove}
                                 disabled={phase === 'working'}
-                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-50"
+                                className="px-4 py-2 text-sm font-medium text-white bg-danger hover:bg-danger-strong rounded-md disabled:opacity-50"
                             >
                                 {deleteLabel}
                             </button>
@@ -149,7 +149,7 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
                                 onClick={keep}
                                 disabled={phase === 'working'}
                                 autoFocus
-                                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-md disabled:opacity-50 inline-flex items-center"
+                                className="px-4 py-2 text-sm font-medium text-primary-fg bg-primary hover:bg-primary-dark rounded-md disabled:opacity-50 inline-flex items-center"
                             >
                                 {phase === 'working' && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                                 {keepLabel}

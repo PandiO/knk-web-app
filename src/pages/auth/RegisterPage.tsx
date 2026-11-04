@@ -4,12 +4,14 @@ import { RegisterForm } from '../../components/auth/RegisterForm';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { useRegistrationMode } from '../../hooks/useOnboardingInfo';
+import { usePublicSurface } from '../../theme/surface';
 
 /** How long the "Done" step shows before the player lands on their account page. */
 const DONE_REDIRECT_MS = 3000;
 
 export const RegisterPage: React.FC = () => {
     usePageTitle('Create account');
+    usePublicSurface();
     const navigate = useNavigate();
     const { isLoggedIn, isLoading } = useAuth();
     const { inviteSignup } = useRegistrationMode();
@@ -34,10 +36,10 @@ export const RegisterPage: React.FC = () => {
     };
 
     return (
-        <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
-            <div className="w-full max-w-3xl bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
+        <main className="min-h-screen flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 bg-backdrop public-full-bleed">
+            <div className="w-full max-w-3xl bg-surface rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
                 <div className="mb-6 text-center">
-                    <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">
+                    <h1 className="text-3xl sm:text-4xl font-bold text-fg">
                         Create Your Account
                     </h1>
                     <p className="mt-2 text-base sm:text-lg text-gray-600">

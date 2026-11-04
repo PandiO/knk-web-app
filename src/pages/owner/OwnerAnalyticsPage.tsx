@@ -97,7 +97,7 @@ export const OwnerAnalyticsPage: React.FC = () => {
             <input aria-label="To" type="date" value={to} onChange={e => setTo(e.target.value)}
               className="rounded border border-gray-300 px-2 py-1 text-sm" />
           </label>
-          <button type="submit" className="rounded bg-primary px-3 py-1 text-sm font-medium text-white">Apply</button>
+          <button type="submit" className="rounded bg-primary px-3 py-1 text-sm font-medium text-primary-fg">Apply</button>
         </form>
       </div>
       <p className="text-xs text-gray-500">

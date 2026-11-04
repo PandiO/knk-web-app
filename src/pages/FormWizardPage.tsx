@@ -111,6 +111,10 @@ export const FormWizardPage: React.FC<Props> = ({
     const [wizardProgressId, setWizardProgressId] = useState<string | undefined>(undefined);
     const [workflowSessionId, setWorkflowSessionId] = useState<number | undefined>(undefined);
     const [autoOpenForm, setAutoOpenForm] = useState(false); // removed: old auto-open flag logic
+    // #177 follow-up: the type whose configurations and saved progress finished loading, so a
+    // configuration or draft named in the URL (?configId= / ?resume=) is opened only then.
+    const [configsLoadedFor, setConfigsLoadedFor] = useState<string | null>(null);
+    const handledUrlOpenRef = useRef<string | null>(null);
     const [columnDraft, setColumnDraft] = useState<string[]>([]);
     const [savingColumns, setSavingColumns] = useState(false);
     const [showDefaultColumns, setShowDefaultColumns] = useState(() => {
@@ -321,6 +325,8 @@ export const FormWizardPage: React.FC<Props> = ({
 
         // Use Case 2 or 4: Only entity name provided
         loadConfigurationsAndProgress(selectedTypeName);
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedTypeName, entityId, shouldAutoOpen, urlEntityId]);
 
     // added: Auto-open default form when configurations are loaded (Use Case 4)
@@ -353,7 +359,36 @@ export const FormWizardPage: React.FC<Props> = ({
             }
         };
         void tryOpen();
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [autoOpenForm, defaultConfig, loadingConfigs, wizardConfig, entityId, selectedTypeName]);
+
+    // #177 follow-up: the dashboard's "New with: {config}" (?configId=) and "Drafts (n)" (?resume=)
+    // open that configuration or draft here, once per request, after the lists loaded. An unknown
+    // configuration leaves the Entity setup page open with an error toast.
+    const urlConfigId = searchParams.get('configId');
+    const urlResumeId = searchParams.get('resume');
+    useEffect(() => {
+        if (entityId || showWizard || wizardConfig || !selectedTypeName) return;
+        if (configsLoadedFor?.toLowerCase() !== selectedTypeName.toLowerCase()) return;
+        const request = urlResumeId ? `resume:${urlResumeId}` : urlConfigId ? `config:${urlConfigId}` : null;
+        if (!request) return;
+        const key = `${selectedTypeName.toLowerCase()}|${request}`;
+        if (handledUrlOpenRef.current === key) return;
+        handledUrlOpenRef.current = key;
+        if (urlResumeId) {
+            void handleResumeProgress({ id: urlResumeId } as FormSubmissionProgressSummaryDto);
+            return;
+        }
+        const config = formConfigs.find(candidate => String(candidate.id) === urlConfigId);
+        if (config) {
+            void handleOpenConfiguration(config);
+        } else {
+            toast.error('That form configuration was not found. Pick one from the list below.');
+        }
+        // The handlers only read state and open the wizard; listing them would re-run this every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [configsLoadedFor, selectedTypeName, urlConfigId, urlResumeId, entityId, showWizard, wizardConfig, formConfigs]);
 
     useEffect(() => {
         if (!selectedTypeName) {
@@ -433,6 +468,7 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.FormConfiguration.LoadFailed');
         } finally {
             setLoadingConfigs(false);
+            setConfigsLoadedFor(entityTypeName);
         }
     };
 
@@ -1110,7 +1146,7 @@ export const FormWizardPage: React.FC<Props> = ({
                     </div>
 
                     {selectedTypeName && !showWizard && (
-                        <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-4">
+                        <div className="mb-6 bg-surface rounded-lg shadow-sm border border-line p-4 space-y-4">
                             <div className="flex items-center justify-between">
                                 <button
                                     type="button"
@@ -1120,11 +1156,11 @@ export const FormWizardPage: React.FC<Props> = ({
                                     aria-controls="default-table-columns-content"
                                 >
                                     {showDefaultColumns ? (
-                                        <ChevronDown className="h-5 w-5 shrink-0 text-gray-500" aria-hidden="true" />
+                                        <ChevronDown className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" />
                                     ) : (
-                                        <ChevronRight className="h-5 w-5 shrink-0 text-gray-500" aria-hidden="true" />
+                                        <ChevronRight className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" />
                                     )}
-                                    <h3 className="text-base font-semibold text-gray-900">Default Table Columns</h3>
+                                    <h3 className="text-base font-semibold text-fg">Default Table Columns</h3>
                                 </button>
                             </div>
 
@@ -1142,9 +1178,9 @@ export const FormWizardPage: React.FC<Props> = ({
                                     </div>
 
                                     <div>
-                                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Selected order</p>
+                                        <p className="text-xs font-medium text-muted uppercase tracking-wide mb-2">Selected order</p>
                                         {columnDraft.length === 0 ? (
-                                            <p className="text-sm text-gray-500">No columns selected: tables and pickers use their built-in columns.</p>
+                                            <p className="text-sm text-muted">No columns selected: tables and pickers use their built-in columns.</p>
                                         ) : (
                                             <DndContext
                                                 sensors={columnSensors}
@@ -1171,12 +1207,12 @@ export const FormWizardPage: React.FC<Props> = ({
                                     </div>
 
                                     <div>
-                                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Available columns</p>
+                                        <p className="text-xs font-medium text-muted uppercase tracking-wide mb-2">Available columns</p>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                             {availableColumns.map(option => {
                                                 const checked = columnDraft.some(key => key.toLowerCase() === option.key.toLowerCase());
                                                 return (
-                                                    <label key={option.key} className="flex items-center gap-2 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-700">
+                                                    <label key={option.key} className="flex items-center gap-2 border border-line rounded-md px-3 py-2 text-sm text-gray-700">
                                                         <input
                                                             type="checkbox"
                                                             checked={checked}
@@ -1197,11 +1233,11 @@ export const FormWizardPage: React.FC<Props> = ({
                     {/* Notification bar */}
                     {(showNoConfigs || showNoDefault || showTooManyDefaults) && (
                         <div className="mb-4">
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 flex items-center">
-                                <svg className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="bg-warning-soft border border-warning-line rounded-md p-4 flex items-center">
+                                <svg className="h-5 w-5 text-warning mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <span className="text-sm text-yellow-800">
+                                <span className="text-sm text-warning-strong">
                                     {newNeedsDefault
                                         ? `To create a new ${selectedEntityMetadata?.displayName || selectedObjectType?.label || selectedTypeName}, this type needs a default form configuration: ${showNoConfigs ? 'create one below and set it as default.' : 'set one below as default.'}`
                                         : showNoConfigs
@@ -1302,8 +1338,8 @@ export const FormWizardPage: React.FC<Props> = ({
                                         </>
                                     ) : (
                                         /* Use Case 3: No entity selected */
-                                        <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-                                            <p className="text-gray-500">
+                                        <div className="text-center py-12 bg-surface rounded-lg shadow-sm">
+                                            <p className="text-muted">
                                                 Select an entity from the sidebar to view available forms
                                             </p>
                                         </div>
@@ -1415,14 +1451,14 @@ function SortableColumnItem({ columnKey, label, onRemove }: SortableColumnItemPr
         <div
             ref={setNodeRef}
             style={style}
-            className="flex items-center justify-between border border-gray-200 rounded-md px-3 py-2 bg-gray-50"
+            className="flex items-center justify-between border border-line rounded-md px-3 py-2 bg-surface-alt"
         >
             <div className="flex items-center gap-2">
                 <button
                     type="button"
                     {...attributes}
                     {...listeners}
-                    className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
+                    className="cursor-grab active:cursor-grabbing text-muted hover:text-gray-600"
                     aria-label={`Reorder ${label}`}
                 >
                     <GripVertical className="h-4 w-4" />
@@ -1433,7 +1469,7 @@ function SortableColumnItem({ columnKey, label, onRemove }: SortableColumnItemPr
             <button
                 type="button"
                 onClick={onRemove}
-                className="p-1 text-gray-400 hover:text-red-600"
+                className="p-1 text-muted hover:text-danger"
                 aria-label={`Remove ${label}`}
             >
                 <Trash2 className="h-4 w-4" />

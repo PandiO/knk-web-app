@@ -65,7 +65,7 @@ function renderMinecraftIcon(data: Record<string, unknown>): React.ReactElement 
   const name = data.displayName || data.DisplayName || data.namespaceKey || data.NamespaceKey || 'Material';
 
   return (
-    <div className="flex items-center justify-center h-24 w-24 bg-gray-100 rounded-lg border border-gray-200 overflow-hidden p-2">
+    <div className="flex items-center justify-center h-24 w-24 bg-gray-100 rounded-lg border border-line overflow-hidden p-2">
       <MinecraftIcon src={iconUrl ? String(iconUrl) : null} alt={String(name)} size={80} />
     </div>
   );
@@ -89,7 +89,7 @@ function renderMinecraftIcon(data: Record<string, unknown>): React.ReactElement 
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="bg-surface rounded-lg shadow-md p-6">
       <div className="mb-4 pb-3 border-b border-gray-100">
         <div className="flex items-center gap-4">
           {/* Render icon for MinecraftMaterialRef/BlockRef sections */}

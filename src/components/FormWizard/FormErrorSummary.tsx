@@ -53,15 +53,15 @@ export const FormErrorSummary: React.FC<Props> = ({ items, focusKey }) => {
             tabIndex={-1}
             role="alert"
             aria-labelledby="wizard-error-summary-title"
-            className="rounded-md border border-red-200 bg-red-50 p-4 focus:outline-none focus:ring-2 focus:ring-red-400"
+            className="rounded-md border border-danger-line bg-danger-soft p-4 focus:outline-none focus:ring-2 focus:ring-red-400"
         >
             <div className="flex items-start">
-                <AlertCircle className="mr-2 mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" aria-hidden="true" />
+                <AlertCircle className="mr-2 mt-0.5 h-5 w-5 flex-shrink-0 text-danger" aria-hidden="true" />
                 <div>
-                    <h2 id="wizard-error-summary-title" className="text-sm font-semibold text-red-800">
+                    <h2 id="wizard-error-summary-title" className="text-sm font-semibold text-danger-strong">
                         {items.length === 1 ? 'Fix this field to continue' : `Fix these ${items.length} fields to continue`}
                     </h2>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-800">
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-danger-strong">
                         {items.map(item => (
                             <li key={item.fieldName}>
                                 <a

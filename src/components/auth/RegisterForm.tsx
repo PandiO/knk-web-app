@@ -277,22 +277,22 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
       {showLinkCodePath && <FormStepper steps={STEPS} currentStep={currentStep} />}
 
       <div className="mt-6 sm:mt-8 mb-6 sm:mb-8">
-        <h2 ref={stepHeadingRef} tabIndex={-1} className="text-xl font-semibold text-gray-900 mb-4 focus:outline-none">
+        <h2 ref={stepHeadingRef} tabIndex={-1} className="text-xl font-semibold text-fg mb-4 focus:outline-none">
           {currentStep === 0 && (showLinkCodePath ? 'Enter your link code' : 'Sign up with your invitation')}
           {currentStep === 1 && 'Choose your email and password'}
           {currentStep === 2 && 'You’re all set'}
         </h2>
 
         {errors.general && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4" role="alert">
-            <p className="text-sm font-medium text-red-800">{errors.general}</p>
+          <div className="mb-4 rounded-lg border border-danger-line bg-danger-soft p-4" role="alert">
+            <p className="text-sm font-medium text-danger-strong">{errors.general}</p>
           </div>
         )}
 
         {errors.invite && (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4" role="alert" data-testid="invite-required">
-            <p className="text-sm font-medium text-amber-900">{errors.invite}</p>
-            <p className="mt-1 text-sm text-amber-900">
+          <div className="mb-4 rounded-lg border border-warning-line bg-warning-soft p-4" role="alert" data-testid="invite-required">
+            <p className="text-sm font-medium text-warning-strong">{errors.invite}</p>
+            <p className="mt-1 text-sm text-warning-strong">
               Got an invitation code? <Link to="/join" className="font-medium underline">Sign up with it</Link>.
             </p>
           </div>
@@ -300,7 +300,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
 
         {currentStep === 0 && inviteSignup && !linkCodePathOpen && (
           <div className="space-y-4" data-testid="invite-mode">
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <div className="rounded-lg border border-warning-line bg-warning-soft p-4 text-sm text-warning-strong">
               <p className="font-medium">Knights &amp; Kings is invite-only right now.</p>
               <p className="mt-1">
                 Got an invitation <strong>link</strong> in your mail? Open it: it creates your account. Got an invitation{' '}
@@ -332,7 +332,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
                 aria-describedby={inviteEntryError ? 'invite-entry-error' : undefined}
               />
               {inviteEntryError && (
-                <p id="invite-entry-error" className="mt-1 text-sm text-red-600" role="alert">{inviteEntryError}</p>
+                <p id="invite-entry-error" className="field-error mt-1 text-sm" role="alert">{inviteEntryError}</p>
               )}
             </div>
             <button type="submit" disabled={isBusy} className="w-full btn-primary disabled:opacity-50">
@@ -389,12 +389,12 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
                 required
               />
               {errors.linkCode && (
-                <p id="link-code-error" className="mt-1 text-sm text-red-600" role="alert">
+                <p id="link-code-error" className="field-error mt-1 text-sm" role="alert">
                   {errors.linkCode}
                 </p>
               )}
               {claimCodeTyped && (
-                <p className="mt-2 text-sm text-amber-900" data-testid="claim-code-detected">
+                <p className="mt-2 text-sm text-warning-strong" data-testid="claim-code-detected">
                   That's the code from the server's disconnect screen, not an /account link code. Continue and it is
                   used to link your Minecraft account.
                 </p>
@@ -413,13 +413,13 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
         {currentStep === 1 && minecraftName && (
           <div className="space-y-6">
             <div
-              className={`rounded-lg border p-4 ${errors.account ? 'border-red-300 bg-red-50' : 'border-green-200 bg-green-50'}`}
+              className={`rounded-lg border p-4 ${errors.account ? 'border-danger bg-danger-soft' : 'border-success-line bg-success-soft'}`}
             >
               <p className="text-sm text-gray-800" data-testid="link-code-owner">
                 This code belongs to <strong>{minecraftName}</strong>.
               </p>
               {errors.account && (
-                <div id="account-error" className="mt-2 text-sm text-red-700" role="alert">
+                <div id="account-error" className="mt-2 text-sm text-danger-strong" role="alert">
                   <p>{errors.account}</p>
                   <p className="mt-1">
                     <Link to="/auth/login" className="font-medium underline">Log in</Link>
@@ -447,14 +447,14 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
         )}
 
         {currentStep === 2 && (
-          <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center" role="status">
+          <div className="rounded-lg border border-success-line bg-success-soft p-6 text-center" role="status">
             <CheckCircle2 className="mx-auto h-12 w-12 text-green-500" aria-hidden="true" />
             <p className="mt-3 text-base text-gray-800">
               Welcome, <strong>{minecraftName}</strong>! Your web account is ready and you're logged in.
             </p>
             <Link
               to="/account"
-              className="mt-4 inline-block rounded-lg bg-primary px-6 py-2 font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              className="mt-4 inline-block rounded-lg bg-primary px-6 py-2 font-medium text-primary-fg hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
             >
               Go to your account
             </Link>
@@ -480,7 +480,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onRegistering, onReg
           <button
             type="submit"
             disabled={isBusy}
-            className="flex items-center justify-center gap-2 px-6 py-2 text-base rounded-lg font-medium bg-primary text-white hover:bg-primary-dark shadow-md disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+            className="flex items-center justify-center gap-2 px-6 py-2 text-base rounded-lg font-medium bg-primary text-primary-fg hover:bg-primary-dark shadow-md disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
           >
             {isBusy && (
               <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" aria-hidden="true" />

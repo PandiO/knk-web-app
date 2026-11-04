@@ -1,5 +1,7 @@
 import {
   buildLoginRedirect,
+  newFormWithConfigPath,
+  resumeDraftPath,
   buildReturnTo,
   dashboardPath,
   displayPath,
@@ -111,5 +113,14 @@ describe('detail, setup and edit paths (#177 link 2)', () => {
     expect(entityEditPath('User', 12, '/dashboard/User')).toBe('/admin/users/12');
     expect(entityEditPath('user', 12)).toBe('/admin/users/12');
     expect(entityEditPath('Town', 4, '/dashboard/Town')).toBe('/forms/Town/edit/4?returnTo=%2Fdashboard%2FTown');
+  });
+});
+
+describe('New with a configuration and resume a draft (#177 follow-up)', () => {
+  it('builds the configuration and draft paths with a returnTo that keeps the table state', () => {
+    expect(newFormWithConfigPath('Town', 7, '/dashboard/Town?page=2&q=north'))
+      .toBe('/forms/Town?configId=7&returnTo=%2Fdashboard%2FTown%3Fpage%3D2%26q%3Dnorth');
+    expect(resumeDraftPath('Town', 'abc', '/dashboard/Town')).toBe('/forms/Town?resume=abc&returnTo=%2Fdashboard%2FTown');
+    expect(resumeDraftPath('Town', 5, 'https://evil.example')).toBe('/forms/Town?resume=5');
   });
 });

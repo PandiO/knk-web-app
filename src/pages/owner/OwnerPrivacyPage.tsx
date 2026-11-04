@@ -107,7 +107,7 @@ export const OwnerPrivacyPage: React.FC = () => {
           <input aria-label="Note" value={note} onChange={e => setNote(e.target.value)} maxLength={500}
             placeholder="Where the request came from (optional)" className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm" />
           <button type="button" disabled={busy || !userId} onClick={create}
-            className="rounded bg-primary px-3 py-1 text-sm font-medium text-white disabled:opacity-50">File request</button>
+            className="rounded bg-primary px-3 py-1 text-sm font-medium text-primary-fg disabled:opacity-50">File request</button>
         </div>
       </section>
 

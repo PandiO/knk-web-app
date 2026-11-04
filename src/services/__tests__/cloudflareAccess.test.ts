@@ -28,7 +28,7 @@ describe('missing Cloudflare Access session (2026-10-25)', () => {
   it('reads an opaque redirect as "Cloudflare is in the way"', async () => {
     const fetchMock = jest.fn(opaqueRedirect);
     expect(await probeCloudflareSession(fetchMock as unknown as typeof fetch)).toBe(true);
-    const [, init] = fetchMock.mock.calls[0];
+    const [, init] = fetchMock.mock.calls[0] as unknown as Parameters<typeof fetch>;
     expect(init).toMatchObject({ redirect: 'manual', credentials: 'include' });
   });
 

@@ -96,9 +96,38 @@ export const DisplayConfigBuilder: React.FC = () => {
         navigate(formsPagePath);
     };
 
+    // Load the reusable templates, and the config itself when editing (re-runs when the route id changes).
     useEffect(() => {
+        const loadData = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+
+                // Always load reusable templates
+                const [sectionsData, fieldsData] = await Promise.all([
+                    displayConfigClient.getAllReusableSections(),
+                    displayConfigClient.getAllReusableFields()
+                ]);
+
+                setReusableSections(sectionsData);
+                setReusableFields(fieldsData);
+
+                // Only load existing config if editing
+                if (isEditMode && configId && configId !== 'new') {
+                    const configData = await displayConfigClient.getById(parseInt(configId));
+                    setConfig(configData);
+                }
+            } catch (err) {
+                console.error('Failed to load data:', err);
+                setError('Failed to load display configuration');
+                logging.errorHandler.next('ErrorMessage.DisplayConfiguration.LoadFailed');
+            } finally {
+                setLoading(false);
+            }
+        };
+
         loadData();
-    }, [configId]);
+    }, [configId, isEditMode]);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -146,34 +175,6 @@ export const DisplayConfigBuilder: React.FC = () => {
             setConfig(prev => ({ ...prev, name: defaultName }));
         }
     }, [config.entityTypeName, config.name]);
-
-    const loadData = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-
-            // Always load reusable templates
-            const [sectionsData, fieldsData] = await Promise.all([
-                displayConfigClient.getAllReusableSections(),
-                displayConfigClient.getAllReusableFields()
-            ]);
-
-            setReusableSections(sectionsData);
-            setReusableFields(fieldsData);
-
-            // Only load existing config if editing
-            if (isEditMode && configId && configId !== 'new') {
-                const configData = await displayConfigClient.getById(parseInt(configId));
-                setConfig(configData);
-            }
-        } catch (err) {
-            console.error('Failed to load data:', err);
-            setError('Failed to load display configuration');
-            logging.errorHandler.next('ErrorMessage.DisplayConfiguration.LoadFailed');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const generateTempId = () => `temp-${Date.now()}-${Math.random()}`;
 
@@ -529,7 +530,7 @@ export const DisplayConfigBuilder: React.FC = () => {
                     </button>
                     <button
                         onClick={() => handleDeleteSection(key)}
-                        className="p-1 text-gray-400 hover:text-red-600"
+                        className="p-1 text-muted hover:text-red-600"
                         title="Delete section"
                     >
                         <Trash2 className="h-4 w-4" />

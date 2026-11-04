@@ -160,6 +160,8 @@ export const FieldEditor: React.FC<Props> = ({
             setProjectionClearOnNull(false);
             setProjectionMappings([]);
         }
+    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialField]);
 
     useEffect(() => {
@@ -852,7 +854,7 @@ export const FieldEditor: React.FC<Props> = ({
                     <h3 className="text-lg font-medium text-gray-900">
                         {field.id ? 'Edit Field' : 'New Field'}
                     </h3>
-                    <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={onCancel} className="text-muted hover:text-gray-600">
                         <X className="h-5 w-5" />
                     </button>
                 </div>

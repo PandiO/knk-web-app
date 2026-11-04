@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Copy, GripVertical, Trash2, Pencil, AlertTriangle, Link as LinkIcon, Copy as CopyIcon } from 'lucide-react';
 import { FormStepDto, FormFieldDto, FormConfigurationDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
@@ -116,6 +116,10 @@ export const StepEditor: React.FC<Props> = ({
         loadJoinEntityMeta();
     }, [step.joinEntityType]);
 
+    // Read by the effect below after its fetch; a ref so other step edits don't refetch.
+    const latestStep = useRef(step);
+    latestStep.current = step;
+
     useEffect(() => {
         const loadJoinConfigurations = async () => {
             if (!step.isManyToManyRelationship || !step.joinEntityType) {
@@ -131,7 +135,8 @@ export const StepEditor: React.FC<Props> = ({
                 setJoinEntityConfigurations(configs || []);
 
                 if (step.subConfigurationId && !(configs || []).some(cfg => cfg.id === step.subConfigurationId)) {
-                    onUpdate({ ...step, subConfigurationId: undefined });
+                    // The latest step, not the one from when the fetch started: keeps edits made meanwhile.
+                    onUpdate({ ...latestStep.current, subConfigurationId: undefined });
                 }
             } catch (err) {
                 console.error('Failed to load join entity form configurations:', err);
@@ -780,7 +785,7 @@ export const StepEditor: React.FC<Props> = ({
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            className="p-1 text-gray-400 hover:text-red-600"
+                                                            className="p-1 text-muted hover:text-red-600"
                                                             onClick={() => handleDeleteChildStep(childIdx)}
                                                             title="Remove child step"
                                                         >
@@ -1019,7 +1024,7 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({ field, onEdit, on
             }`}
         >
             <div {...attributes} {...listeners} className="mr-3 cursor-grab active:cursor-grabbing">
-                <GripVertical className="h-5 w-5 text-gray-400" />
+                <GripVertical className="h-5 w-5 text-muted" />
             </div>
             <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -1055,13 +1060,13 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({ field, onEdit, on
             <div className="flex space-x-2">
                 <button
                     onClick={onEdit}
-                    className="p-1 text-gray-400 hover:text-gray-600"
+                    className="p-1 text-muted hover:text-gray-600"
                 >
                     <Pencil className="h-4 w-4" />
                 </button>
                 <button
                     onClick={onDelete}
-                    className="p-1 text-gray-400 hover:text-red-600"
+                    className="p-1 text-muted hover:text-red-600"
                 >
                     <Trash2 className="h-4 w-4" />
                 </button>

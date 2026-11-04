@@ -210,7 +210,7 @@ export const CurrencyAlertsPage: React.FC = () => {
                                             <div className="flex flex-wrap items-center gap-2 text-sm">
                                                 <SeverityBadge severity={alert.severity} />
                                                 <span className="font-medium text-gray-900">{alert.rule} {alert.ruleName}</span>
-                                                <span className="text-gray-400">#{alert.id}</span>
+                                                <span className="text-muted">#{alert.id}</span>
                                                 <span className="text-gray-500">{formatWhen(alert.createdAt)}</span>
                                             </div>
                                             <p className="mt-1 text-sm text-gray-800 break-words">{alert.summary}</p>

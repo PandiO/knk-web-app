@@ -98,8 +98,6 @@ export function useEntityMetadata() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const logger = { info: console.log, error: console.error, warn: console.warn }; // Simple logger
-
   useEffect(() => {
     const listener = (bundle: MetadataBundle) => {
       setBaseMetadata(bundle.baseMetadata);

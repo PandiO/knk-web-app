@@ -344,7 +344,7 @@ export const LootboxTokensTab: React.FC = () => {
                                 <tr key={row.id} data-testid="token-row">
                                     <td className="px-3 py-2 whitespace-nowrap text-gray-600">
                                         {formatDateTime(row.issuedAt)}
-                                        <span className="block text-xs text-gray-400">
+                                        <span className="block text-xs text-muted">
                                             #{row.id} · {REASON_LABELS[row.reason] ?? row.reason}{row.sourceSpawnId != null ? ` (box #${row.sourceSpawnId})` : ''}{row.deliveredAt ? '' : ' · not handed over yet'}
                                         </span>
                                     </td>
@@ -357,13 +357,13 @@ export const LootboxTokensTab: React.FC = () => {
                                     </td>
                                     <td className="px-3 py-2 whitespace-nowrap">
                                         {row.lootboxTypeName} <span className="text-amber-600">{starLabel(row.boxStars)}</span>
-                                        <span className="block font-mono text-xs text-gray-400" title="The id in the item's knk_lootbox_token tag">{row.token}</span>
+                                        <span className="block font-mono text-xs text-muted" title="The id in the item's knk_lootbox_token tag">{row.token}</span>
                                     </td>
                                     <td className="px-3 py-2 whitespace-nowrap">
                                         {row.status === 'Redeemed' && (
                                             <span className="text-gray-700">
                                                 Opened by {row.redeemedByUsername ?? `user #${row.redeemedByUserId}`}
-                                                <span className="block text-xs text-gray-400">{formatDateTime(row.redeemedAt)}{row.claimId != null ? ` · claim #${row.claimId}` : ''}</span>
+                                                <span className="block text-xs text-muted">{formatDateTime(row.redeemedAt)}{row.claimId != null ? ` · claim #${row.claimId}` : ''}</span>
                                             </span>
                                         )}
                                         {row.status === 'Revoked' && <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-800">Revoked</span>}

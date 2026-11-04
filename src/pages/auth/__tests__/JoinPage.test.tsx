@@ -73,6 +73,20 @@ describe('JoinPage', () => {
     expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
   });
 
+  it('centres all the text of the code entry, the invalid notice included (#228)', async () => {
+    check.mockResolvedValue({ valid: false, error: 'InvalidInvite' });
+    render(<JoinPage />);
+
+    const entry = screen.getByTestId('invite-code-entry');
+    expect(entry).toHaveClass('text-center');
+    expect(entry).toContainElement(screen.getByText('Invitation code'));
+    expect(entry).toContainElement(screen.getByText(/adds the dashes itself/));
+
+    await userEvent.type(screen.getByLabelText('Invitation code'), 'knk-aaaaa-bbbbb');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(entry).toContainElement(await screen.findByTestId('invalid-invite'));
+  });
+
   it('shows a duplicate email on the email field', async () => {
     mockSearch = '?code=KNK-7QH4M-2XA9P';
     check.mockResolvedValue({ valid: true, kind: 'Shared' });

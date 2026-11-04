@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ChevronDown, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import {
@@ -86,7 +86,6 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
         logger.debug(`Loaded ${props.length} properties for entity ${selectedEntity}`);
         console.log('Raw property suggestions from API:', props);
         console.log('Selected Entity:', selectedEntity);
-        console.log('Disabled prop:', disabled);
         
         // Log first property to see structure
         if (props && props.length > 0) {
@@ -102,7 +101,7 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
           logger.warn(`No properties returned for entity ${selectedEntity}`);
           console.warn('Property dropdown will be DISABLED because suggestions.length === 0');
         } else {
-          console.log(`Property dropdown should be ${disabled ? 'DISABLED (parent disabled)' : 'ENABLED'} with ${props.length} options`);
+          console.log(`Property dropdown has ${props.length} options`);
         }
       } catch (err) {
         const reason = failureReason(err);
@@ -118,6 +117,11 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
 
     void loadSuggestions();
   }, [selectedEntity, logger]);
+
+  // The latest callback, read by the validation below: a parent passing an inline function must
+  // not re-run the (API) validation on every render.
+  const latestOnValidationStatusChange = useRef(onValidationStatusChange);
+  latestOnValidationStatusChange.current = onValidationStatusChange;
 
   // Validate path on change
   useEffect(() => {
@@ -146,7 +150,7 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
         
         setValidationStatus(isValid ? 'success' : 'error');
         setValidationResult(result);
-        onValidationStatusChange?.(result);
+        latestOnValidationStatusChange.current?.(result);
         
         if (!isValid) {
           logger.warn(`Invalid path: ${path}. Reason: ${errorMsg}`);
@@ -208,7 +212,6 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
   const containerClass = `space-y-4 ${className}`;
   const dropdownBaseClass = `w-full px-3 py-2 border rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 transition-colors`;
   const dropdownNormalClass = `${dropdownBaseClass} border-gray-300 focus:ring-blue-500 focus:border-blue-500 bg-white`;
-  const dropdownErrorClass = `${dropdownBaseClass} border-red-300 focus:ring-red-500 focus:border-red-500 bg-white`;
   const dropdownDisabledClass = `${dropdownBaseClass} border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed`;
 
   return (
@@ -244,7 +247,7 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
                 </option>
               ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
         </div>
       </div>
 
@@ -289,7 +292,7 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
                     );
                   })}
                 </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" style={{ zIndex: 5 }} />
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" style={{ zIndex: 5 }} />
               </>
             )}
           </div>
