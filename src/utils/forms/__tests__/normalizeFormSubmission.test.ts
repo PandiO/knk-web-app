@@ -610,3 +610,53 @@ describe('normalizeFormSubmission (KNG-195: hybrid catalog pickers)', () => {
         expect(normalize(materialField, { IconMaterialRefId: { id: 5, namespaceKey: 'minecraft:stone' } }).IconMaterialRefId).toBe(5);
     });
 });
+
+describe('normalizeFormSubmission (#232: shield banner layers)', () => {
+    const layersField: FormFieldDto = {
+        fieldName: 'ShieldBannerLayers',
+        label: 'Shield banner pattern',
+        fieldType: FieldType.BannerLayers,
+        isRequired: false,
+        isReadOnly: false,
+        order: 0,
+        isReusable: false,
+        isLinkedToSource: false,
+        hasCompatibilityIssues: false,
+        validations: []
+    };
+    const baseColorField: FormFieldDto = { ...layersField, fieldName: 'ShieldBannerBaseColor', label: 'Shield base colour', fieldType: FieldType.Enum, order: 1 };
+
+    const normalize = (rawFormValue: Record<string, unknown>) =>
+        normalizeFormSubmission({
+            entityTypeName: 'ItemBlueprint',
+            formConfiguration: {
+                entityTypeName: 'ItemBlueprint',
+                configurationName: 'ItemBlueprint',
+                isDefault: true,
+                steps: [{ stepName: 'Item in game', order: 0, fields: [baseColorField, layersField] } as FormStepDto]
+            },
+            rawFormValue,
+            entityMetadata: [
+                { fieldName: 'ShieldBannerLayers', fieldType: 'List', isNullable: false, isRelatedEntity: false, relatedEntityType: null, hasDefaultValue: true, defaultValue: 'new Collection()' } as FieldMetadataDto,
+                { fieldName: 'ShieldBannerBaseColor', fieldType: 'Enum', isNullable: true, isRelatedEntity: false, relatedEntityType: null, hasDefaultValue: false } as FieldMetadataDto
+            ]
+        });
+
+    it('sends the layers as the API array, bottom to top', () => {
+        const normalized = normalize({
+            ShieldBannerBaseColor: 'RED',
+            ShieldBannerLayers: [{ patternKey: 'minecraft:stripe_top', color: 'YELLOW' }, { patternKey: 'minecraft:border', color: 'BLACK' }]
+        });
+
+        expect(normalized.ShieldBannerLayers).toEqual([
+            { patternKey: 'minecraft:stripe_top', color: 'YELLOW' },
+            { patternKey: 'minecraft:border', color: 'BLACK' }
+        ]);
+        expect(normalized.ShieldBannerBaseColor).toBe('RED');
+    });
+
+    it('the untouched collection default is an empty list, not the metadata sentinel string', () => {
+        const normalized = normalize({ ShieldBannerLayers: 'new Collection()' });
+        expect(normalized.ShieldBannerLayers).toEqual([]);
+    });
+});

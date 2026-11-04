@@ -3,6 +3,7 @@ import { Loader2, X } from 'lucide-react';
 import { itemInstanceClient } from '../../apiClients/itemInstanceClient';
 import { ItemInstanceDto } from '../../types/dtos/lootbox/LootboxDtos';
 import { apiErrorMessage, formatDateTime, starLabel } from '../../utils/lootbox';
+import { describeShieldBanner } from '../../utils/scannedItemLook';
 
 /**
  * One minted item (docs/specs/lootboxes/DESIGN.md §3.2): the id is what an item carries in its
@@ -39,6 +40,13 @@ export const ItemInstanceDetail: React.FC<{ instanceId: number; onClose: () => v
         ['Minted', formatDateTime(instance.createdAt)],
         ['Owners so far', instance.ownerCount],
         ['Flags', [instance.isSoulbound && 'Soulbound', instance.isGhosted && 'Ghosted'].filter(Boolean).join(', ') || 'None'],
+        // #232: the look frozen at mint; only shown when the item has one.
+        ...((instance.shieldBannerBaseColor || (instance.shieldBannerLayers?.length ?? 0) > 0)
+            ? [['Shield banner', describeShieldBanner(instance.shieldBannerBaseColor, instance.shieldBannerLayers)] as [string, React.ReactNode]]
+            : []),
+        ...(instance.armorTrimPattern && instance.armorTrimMaterial
+            ? [['Armour trim', `${instance.armorTrimPattern.replace(/^minecraft:/, '')} / ${instance.armorTrimMaterial.replace(/^minecraft:/, '')}`] as [string, React.ReactNode]]
+            : []),
     ] : [];
 
     return (
