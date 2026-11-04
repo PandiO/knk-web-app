@@ -8,7 +8,7 @@ import { ConditionEvaluator } from '../../utils/conditionEvaluator';
 import { FormSubmissionStatus } from '../../utils/enums';
 import { FieldType } from '../../utils/enums';
 import { FieldRenderer } from './FieldRenderers';
-import { WorldBoundFieldRenderer } from '../Workflow/WorldBoundFieldRenderer';
+import { WorldBoundFieldRenderer, WorldTaskAnchor } from '../Workflow/WorldBoundFieldRenderer';
 import { logging } from '../../utils';
 import { getFetchByIdFunctionForEntity, getCreateFunctionForEntity, getUpdateFunctionForEntity } from '../../utils/entityApiMapping';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
@@ -30,7 +30,9 @@ import { ChildFormModal } from './ChildFormModal';
 import { ManyToManyRelationshipEditor } from './ManyToManyRelationshipEditor';
 import { JoinEntityFormModal } from './JoinEntityFormModal';
 import { workflowClient } from '../../apiClients/workflowClient';
-import { StepProgressReadDto } from '../../types/dtos/workflow/WorkflowDtos';
+import { StepProgressReadDto, WorldTaskReadDto } from '../../types/dtos/workflow/WorkflowDtos';
+import { worldTaskClient } from '../../apiClients/worldTaskClient';
+import { cancelOpenTasks, tasksByField } from '../../utils/forms/worldTaskLifecycle';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import { FieldValidationRuleDto, ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { buildPlaceholderContext } from '../../utils/placeholderExtraction';
@@ -157,6 +159,15 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     const [validationLoading, setValidationLoading] = useState<Record<number, boolean>>({});
     const [preResolvedPlaceholders, setPreResolvedPlaceholders] = useState<Record<number, Record<string, string>>>({});
     const [worldTaskStatusVisibility, setWorldTaskStatusVisibility] = useState<Record<string, boolean>>({});
+    // PandiO/knk-workspace#180 (DESIGN §8.7): the latest world task per field, from the draft on resume and from the
+    // panels during this visit, so a step change, a reload or a resume finds the task again.
+    const [fieldTasks, setFieldTasks] = useState<Record<string, WorldTaskReadDto>>({});
+    const fieldTasksRef = useRef(fieldTasks);
+    fieldTasksRef.current = fieldTasks;
+    // #180: completed results written into the form, waiting for the draft save that makes them "applied".
+    const [pendingAppliedTaskIds, setPendingAppliedTaskIds] = useState<number[]>([]);
+    const progressIdRef = useRef<string | undefined>(existingProgressId);
+    const draftSaveInFlightRef = useRef<Promise<FormSubmissionProgressDto | null> | null>(null);
     const validationTimersRef = useRef<Record<number, number>>({});
     const initialValuesAppliedRef = useRef(false);
     const fieldProvenanceRef = useRef<Record<string, 'manual' | 'projected'>>({});
@@ -2466,6 +2477,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 status: FormSubmissionStatus.InProgress,
                 updatedAt: new Date().toISOString(),
                 createdEntitiesJson: createdEntitiesProvenance.createdEntitiesJson(), // KNG-162
+                // #180: one workflow session per draft; resuming the draft reuses it.
+                workflowSessionId: workflowSessionId ?? undefined,
             };
         return progressData;
     };
@@ -2495,6 +2508,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             } else {
                 savedProgress = await formSubmissionClient.create(progressData);
                 setProgressId(savedProgress.id);
+                progressIdRef.current = savedProgress.id;
             }
             // Only surface modal feedback for explicit draft saves to avoid interrupting step navigation
             if (status === FormSubmissionStatus.Paused) {
@@ -2534,6 +2548,91 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             setSaving(false);
         }
     };
+
+    const saveProgressRef = useRef(saveProgress);
+    saveProgressRef.current = saveProgress;
+    progressIdRef.current = progressIdRef.current ?? progressId;
+
+    /**
+     * PandiO/knk-workspace#180 (DESIGN §8.7, Q19): where a field's new world task belongs. The first task of a form
+     * without a draft saves the draft silently first (InProgress, like the save behind Next: the "Leave this form?"
+     * question stays), so every task has a draft to be found again from.
+     */
+    const ensureWorldTaskAnchor = useCallback(async (): Promise<WorldTaskAnchor | null> => {
+        if (workflowSessionId == null) return null;
+        let id = progressIdRef.current;
+        if (!id) {
+            if (!draftSaveInFlightRef.current) {
+                draftSaveInFlightRef.current = saveProgressRef.current(FormSubmissionStatus.InProgress)
+                    .finally(() => { draftSaveInFlightRef.current = null; });
+            }
+            const saved = await draftSaveInFlightRef.current;
+            id = saved?.id ?? progressIdRef.current;
+        }
+        const numericId = id ? Number(id) : NaN;
+        return {
+            workflowSessionId,
+            formSubmissionProgressId: Number.isFinite(numericId) ? numericId : undefined,
+        };
+    }, [workflowSessionId]);
+
+    const updateFieldTask = useCallback((fieldName: string, task: WorldTaskReadDto | null) => {
+        setFieldTasks(prev => {
+            if (!task) {
+                if (!(fieldName in prev)) return prev;
+                const next = { ...prev };
+                delete next[fieldName];
+                return next;
+            }
+            return prev[fieldName] === task ? prev : { ...prev, [fieldName]: task };
+        });
+    }, []);
+
+    /** #180: a completed result is in the form now; the effect below saves the draft and marks it applied. */
+    const queueWorldTaskApplied = useCallback((task: WorldTaskReadDto) => {
+        setPendingAppliedTaskIds(prev => (prev.includes(task.id) ? prev : [...prev, task.id]));
+    }, []);
+
+    // #180: a resumed draft brings its fields' latest world tasks; the panels reattach to them.
+    useEffect(() => {
+        if (!existingProgressId) return;
+        let cancelled = false;
+        Promise.resolve()
+            .then(() => formSubmissionClient.getWorldTasks(existingProgressId))
+            .then(tasks => {
+                if (cancelled) return;
+                // What the panels reported meanwhile is newer than the draft's list.
+                setFieldTasks(prev => ({ ...tasksByField(tasks), ...prev }));
+            })
+            .catch(error => console.warn('Loading the draft\'s world tasks failed:', error));
+        return () => { cancelled = true; };
+    }, [existingProgressId]);
+
+    // #180: after the render that holds the applied values, save the draft and mark the tasks applied.
+    useEffect(() => {
+        if (pendingAppliedTaskIds.length === 0) return;
+        const ids = pendingAppliedTaskIds;
+        setPendingAppliedTaskIds([]);
+        if (!progressIdRef.current) return; // no draft to hold the result: it is applied again on reattach
+        void (async () => {
+            const saved = await saveProgressRef.current(FormSubmissionStatus.InProgress);
+            if (!saved) return;
+            for (const id of ids) {
+                try {
+                    const applied = await worldTaskClient.markApplied(id);
+                    if (applied?.fieldName) updateFieldTask(applied.fieldName, applied);
+                } catch (error) {
+                    console.error(`Marking world task ${id} as applied failed:`, error);
+                }
+            }
+        })();
+    }, [pendingAppliedTaskIds, updateFieldTask]);
+
+    // #180 (DESIGN §8.6 "web user leaves the form"): leaving the form cancels its open tasks. A reload doesn't run
+    // this, so the panels reattach through the draft instead.
+    useEffect(() => () => {
+        void cancelOpenTasks(Object.values(fieldTasksRef.current), 'Left the form in the web app.');
+    }, []);
 
     const setSubmitPending = (pending: boolean) => {
         setSubmitting(pending);
@@ -3029,6 +3128,16 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                                         showLabel={false}
                                         actionButtonId={worldTaskActionButtonId}
                                         hidePrimaryActionButton={field.fieldType === FieldType.Object || field.fieldType === FieldType.List}
+                                        // #180 (DESIGN §8.7): tasks anchored to the draft, reattached per field
+                                        initialTask={fieldTasks[field.fieldName] ?? null}
+                                        onTaskChange={task => updateFieldTask(field.fieldName, task)}
+                                        ensureTaskAnchor={ensureWorldTaskAnchor}
+                                        onResultApplied={task => {
+                                            // ItemScan/KitScan fan out asynchronously; they are queued once applied (below).
+                                            if (task.taskType !== 'ItemScan' && task.taskType !== 'KitScan') {
+                                                queueWorldTaskApplied(task);
+                                            }
+                                        }}
                                         onStatusBannerVisibilityChange={(visible: boolean) => {
                                             setWorldTaskStatusVisibility(prev => {
                                                 if (prev[worldTaskActionButtonId] === visible) {
@@ -3043,14 +3152,18 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                                         }}
                                         onTaskCompleted={(task: any) => {
                                             if (task?.taskType === 'ItemScan' && task?.outputJson) {
-                                                applyItemScanResult(task.outputJson).catch(error => {
-                                                    console.error('ItemScan: failed to apply scan result to form fields:', error);
-                                                });
+                                                applyItemScanResult(task.outputJson)
+                                                    .then(() => queueWorldTaskApplied(task))
+                                                    .catch(error => {
+                                                        console.error('ItemScan: failed to apply scan result to form fields:', error);
+                                                    });
                                             }
                                             if (task?.taskType === 'KitScan' && task?.outputJson) {
-                                                applyKitScanResult(task.outputJson).catch(error => {
-                                                    console.error('KitScan: failed to apply scan result to form fields:', error);
-                                                });
+                                                applyKitScanResult(task.outputJson)
+                                                    .then(() => queueWorldTaskApplied(task))
+                                                    .catch(error => {
+                                                        console.error('KitScan: failed to apply scan result to form fields:', error);
+                                                    });
                                             }
                                             if (fieldId) {
                                                 setValidationResults(prev => {
