@@ -144,7 +144,10 @@ describe('theme switcher (cogwheel) in the navigation (#95)', () => {
     const menu = screen.getByRole('menu');
     fireEvent.keyDown(menu, { key: 'ArrowDown' });
     expect(document.activeElement?.querySelector('.font-medium')?.textContent).toBe('Brand');
+    // The background toggle (#231) is the last item, under the themes.
     fireEvent.keyDown(menu, { key: 'End' });
+    expect(document.activeElement?.querySelector('.font-medium')?.textContent).toBe('Background image');
+    fireEvent.keyDown(menu, { key: 'ArrowUp' });
     expect(document.activeElement?.querySelector('.font-medium')?.textContent).toBe('Proposal');
     fireEvent.keyDown(menu, { key: 'Escape' });
     expect(screen.queryByRole('menu')).toBeNull();

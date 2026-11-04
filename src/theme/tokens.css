@@ -95,6 +95,14 @@
   --color-info: 37 99 235;           --color-info-strong: 30 64 175;
   --color-info-soft: 239 246 255;    --color-info-muted: 219 234 254;    --color-info-line: 191 219 254;
 
+  /* Page background (#231, only with data-page-bg="on", see pageBackground.css): how opaque each layer over
+     image 1 is, and the link/focus colour for text straight on the page backdrop. contrast.test.ts checks them over
+     the image's darkest and lightest pixel (black and white), so they hold wherever the text lands. */
+  --page-bg-canvas-alpha: 0.75;      /* the page backdrop: image 1 shows at 25 % */
+  --page-bg-surface-alpha: 0.92;     /* cards, panels, tables: slate-500 text on a card needs 0.91 */
+  --page-bg-backdrop-alpha: 0.75;    /* behind the auth cards */
+  --color-canvas-link: 23 60 150;    /* links, borders and focus rings on the page backdrop (blue-600 makes 2.5:1 there) */
+
   --font-body: 'Inter', sans-serif;  /* Inter was never loaded (the @import in index.css comes too late), so this renders the system sans; kept as is */
   --font-display: var(--font-body);
 }
@@ -161,6 +169,13 @@
   --color-info: 53 53 53;            --color-info-strong: 20 20 20;
   --color-info-soft: 245 245 245;    --color-info-muted: 232 232 232;    --color-info-line: 212 212 212;
 
+  /* Page background (#231): the black backdrop of the auth pages fills the window, so it sits straight on the
+     image (black at 75 %), and the cards on it stay solid (pageBackground.css). */
+  --page-bg-canvas-alpha: 0.75;
+  --page-bg-surface-alpha: 0.88;     /* gray-500 text on a card needs 0.85 */
+  --page-bg-backdrop-alpha: 0.75;    /* white text 10:1 over the lightest pixel */
+  --color-canvas-link: 105 53 0;     /* the dark orange text-primary makes 2.7:1 on the page backdrop */
+
   --font-body: 'Lato', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Enchanted Land', 'Lato', Georgia, serif;
 }
@@ -182,6 +197,7 @@
   --color-nav-action: 190 22 34;
   --color-nav-action-hover: 150 15 25;
   --color-nav-action-fg: 255 255 255;
+  --color-canvas-link: 135 15 25;    /* page background (#231): the red as text on the page backdrop */
 }
 
 /* ── proposal: "calm brand" ─────────────────────────────────────────────────────────────────────────
@@ -240,6 +256,12 @@
   --color-warning-soft: 255 251 235; --color-warning-muted: 254 243 199; --color-warning-line: 253 230 138;
   --color-info: 46 86 128;           --color-info-strong: 30 58 90;
   --color-info-soft: 240 245 250;    --color-info-muted: 220 230 242;    --color-info-line: 196 212 230;
+
+  /* Page background (#231): the charcoal backdrop fills the window like `brand`'s black one. */
+  --page-bg-canvas-alpha: 0.75;
+  --page-bg-surface-alpha: 0.85;     /* success text on a card needs 0.67 */
+  --page-bg-backdrop-alpha: 0.75;    /* white text 5.6:1 over the lightest pixel */
+  --color-canvas-link: 53 53 53;     /* the charcoal links pass as they are */
 
   --font-body: 'Lato', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Cinzel', 'Lato', Georgia, serif;

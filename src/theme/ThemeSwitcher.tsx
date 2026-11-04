@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, Cog } from 'lucide-react';
 import { THEMES, selectTheme, useActiveTheme } from './themes';
+import { selectPageBackground, usePageBackground } from './pageBackground';
 
 /**
  * The theme switcher: a cogwheel button with a menu of the themes (#95, developer request 2026-11-04).
@@ -9,6 +10,9 @@ import { THEMES, selectTheme, useActiveTheme } from './themes';
  * logged out (`variant="floating"`, mounted in App.tsx). Switching is instant and the menu stays open, so
  * the themes can be flipped through. WAI-ARIA menu button: Enter/Space/ArrowDown open it on the selected
  * theme, arrows/Home/End move, Escape closes (focus back on the button), Tab or an outside click closes.
+ *
+ * Under the themes, the "Background image" checkbox (#231): landing image 1 behind every page, with the page
+ * colours translucent over it (pageBackground.ts). Same visibility as the themes; on by default.
  */
 type Props = { variant: 'nav' | 'floating' };
 
@@ -27,6 +31,7 @@ const MENU_POSITION: Record<Props['variant'], string> = {
 export function ThemeSwitcher({ variant }: Props) {
   const [open, setOpen] = useState(false);
   const activeTheme = useActiveTheme();
+  const pageBackground = usePageBackground();
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -127,6 +132,22 @@ export function ThemeSwitcher({ variant }: Props) {
               </span>
             </button>
           ))}
+          {/* #231: `?bg=on|off` does the same for one tab. */}
+          <button
+            ref={el => { itemRefs.current[THEMES.length] = el; }}
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={pageBackground === 'on'}
+            tabIndex={-1}
+            onClick={() => selectPageBackground(pageBackground === 'on' ? 'off' : 'on')}
+            className="mt-1 flex w-full items-start border-t border-line px-4 py-2 text-left text-sm text-fg hover:bg-surface-alt focus:bg-canvas focus:outline-none"
+          >
+            <Check className={`mr-3 mt-0.5 h-4 w-4 flex-shrink-0 ${pageBackground === 'on' ? '' : 'invisible'}`} aria-hidden="true" />
+            <span>
+              <span className="block font-medium">Background image</span>
+              <span className="block text-xs text-muted">Landing image 1 behind every page, the page colours translucent over it</span>
+            </span>
+          </button>
         </div>
       )}
     </div>

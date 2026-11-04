@@ -58,6 +58,7 @@ import { RealtimeProvider } from './realtime/RealtimeProvider';
 import { useEntityMetadata } from './hooks/useEntityMetadata';
 import { ThemeSwitcher } from './theme/ThemeSwitcher';
 import { themePickerVisible } from './theme/themes';
+import { PageBackground } from './theme/PageBackground';
 
 function AppContent() {
   const objectTypes = Object.entries(objectConfigs).map(([type, config]) => ({
@@ -86,7 +87,10 @@ function AppContent() {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-100">
+      {/* #231: image 1 behind every page when the page background is on; `page-canvas` is the translucent
+          page backdrop over it (src/theme/pageBackground.css). On by default; off renders nothing. */}
+      <PageBackground />
+      <div className="page-canvas min-h-screen bg-gray-100">
         {isLoggedIn && <Navigation objectTypes={objectTypes} />}
         {/* Logged out there is no navigation bar: the theme switcher floats in the top-right corner (#95). */}
         {!isLoggedIn && themePickerVisible() && (
