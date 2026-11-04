@@ -48,19 +48,19 @@ beforeEach(() => {
 });
 
 describe('resolveInitialPageBackground (#231)', () => {
-  it('is off by default, so players see no change', () => {
-    expect(resolveInitialPageBackground('')).toBe('off');
-  });
-
-  it('can be turned on by default at build time (REACT_APP_PAGE_BACKGROUND=on)', () => {
-    expect(defaultPageBackground('on')).toBe('on');
-    expect(defaultPageBackground(undefined)).toBe('off');
-    expect(defaultPageBackground('yes')).toBe('off');
-  });
-
-  it('uses the saved choice', () => {
-    window.localStorage.setItem(PAGE_BACKGROUND_STORAGE_KEY, 'on');
+  it('is on by default (developer decision 2026-11-04)', () => {
     expect(resolveInitialPageBackground('')).toBe('on');
+  });
+
+  it('can be turned off by default at build time (REACT_APP_PAGE_BACKGROUND=off)', () => {
+    expect(defaultPageBackground('off')).toBe('off');
+    expect(defaultPageBackground(undefined)).toBe('on');
+    expect(defaultPageBackground('on')).toBe('on');
+  });
+
+  it("uses the visitor's own choice, so turning it off sticks", () => {
+    window.localStorage.setItem(PAGE_BACKGROUND_STORAGE_KEY, 'off');
+    expect(resolveInitialPageBackground('')).toBe('off');
   });
 
   it('lets ?bg= win for this tab only, and remembers it in the tab', () => {
@@ -73,17 +73,17 @@ describe('resolveInitialPageBackground (#231)', () => {
 
   it('ignores unknown values', () => {
     window.localStorage.setItem(PAGE_BACKGROUND_STORAGE_KEY, 'maybe');
-    expect(resolveInitialPageBackground('?bg=1')).toBe('off');
+    expect(resolveInitialPageBackground('?bg=1')).toBe('on');
   });
 
   it('still works when storage throws (blocked site data)', () => {
     const getItem = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('denied'); });
     const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('denied'); });
     try {
-      expect(resolveInitialPageBackground('?bg=on')).toBe('on');
-      expect(resolveInitialPageBackground('')).toBe('off');
-      expect(() => selectPageBackground('on')).not.toThrow();
-      expect(document.documentElement.getAttribute('data-page-bg')).toBe('on');
+      expect(resolveInitialPageBackground('?bg=off')).toBe('off');
+      expect(resolveInitialPageBackground('')).toBe('on');
+      expect(() => selectPageBackground('off')).not.toThrow();
+      expect(document.documentElement.getAttribute('data-page-bg')).toBe('off');
     } finally {
       getItem.mockRestore();
       setItem.mockRestore();
@@ -127,11 +127,12 @@ describe('PageBackground (#231)', () => {
 });
 
 describe('background toggle in the theme switcher (#231)', () => {
-  it('sits under the themes in the cogwheel menu, for every visitor, off by default', () => {
+  it('sits under the themes in the cogwheel menu, for every visitor, ticked by default', () => {
+    act(() => applyPageBackground(resolveInitialPageBackground('')));
     render(<ThemeSwitcher variant="floating" />);
     fireEvent.click(screen.getByRole('button', { name: 'Theme' }));
     const toggle = screen.getByRole('menuitemcheckbox', { name: /^Background image/ });
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
     const items = screen.getAllByRole('menu')[0].querySelectorAll('[role^="menuitem"]');
     expect(items[items.length - 1]).toBe(toggle);
   });

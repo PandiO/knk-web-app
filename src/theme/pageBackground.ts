@@ -1,15 +1,15 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * Landing image 1 behind every page (PandiO/knk-workspace#231), for a live comparison before the developer
- * decides. With it on, `data-page-bg="on"` on <html> turns the page backdrop, the cards and the auth backdrop
- * into translucent layers over the image (pageBackground.css; the alphas are per-theme tokens in tokens.css).
+ * Landing image 1 behind every page (PandiO/knk-workspace#231). With it on, `data-page-bg="on"` on <html>
+ * turns the page backdrop, the cards and the auth backdrop into translucent layers over the image (pageBackground.css; the alphas are per-theme tokens in tokens.css).
  *
- * Off by default, so players see no change. Which setting a tab uses, first match wins (like the theme):
+ * On by default (developer decision 2026-11-04, after the live comparison). Which setting a tab uses, first
+ * match wins (like the theme):
  *  1. `?bg=on` / `?bg=off` in the URL (any page): this tab only, kept in sessionStorage.
  *  2. The "Background image" item in the theme switcher's cogwheel menu (localStorage, every tab; shown
  *     to every visitor like the themes, hidden with them by REACT_APP_THEME_PICKER=off).
- *  3. REACT_APP_PAGE_BACKGROUND=on at build time turns it on by default; otherwise off.
+ *  3. The build default: on, unless REACT_APP_PAGE_BACKGROUND=off (then off for everyone who hasn't chosen).
  * Storage can be blocked (private windows, cleared site data): every access is wrapped in try/catch.
  */
 export type PageBackgroundSetting = 'on' | 'off';
@@ -25,7 +25,7 @@ export const PAGE_BACKGROUND_IMAGES = {
 };
 
 export function defaultPageBackground(flag: string | undefined = process.env.REACT_APP_PAGE_BACKGROUND): PageBackgroundSetting {
-  return flag === 'on' ? 'on' : 'off';
+  return flag === 'off' ? 'off' : 'on';
 }
 
 function isSetting(value: unknown): value is PageBackgroundSetting {
@@ -69,7 +69,7 @@ export function resolveInitialPageBackground(search: string = window.location.se
   return isSetting(saved) ? saved : defaultPageBackground();
 }
 
-let active: PageBackgroundSetting = 'off';
+let active: PageBackgroundSetting = defaultPageBackground();
 const listeners = new Set<() => void>();
 
 /** Sets the attribute that pageBackground.css switches on. */

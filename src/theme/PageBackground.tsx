@@ -6,8 +6,8 @@ import { PAGE_BACKGROUND_IMAGES, usePageBackground } from './pageBackground';
 const LOW_PRIORITY = { fetchpriority: 'low' } as React.ImgHTMLAttributes<HTMLImageElement>;
 
 /**
- * Image 1 fixed behind every page while the page background is on (#231). It is only rendered then, so with
- * the setting off (the default) the image is never downloaded. Not on the landing page: its slideshow starts
+ * Image 1 fixed behind every page while the page background is on (#231, the default). It is only rendered
+ * then, so with the setting off the image is never downloaded. Not on the landing page: its slideshow starts
  * with image 1 itself, so the landing loads the picture once (the slideshow's own file).
  *
  * A fixed layer instead of `background-attachment: fixed` (which iOS Safari ignores); `object-fit: cover`

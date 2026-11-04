@@ -88,7 +88,7 @@ function AppContent() {
   return (
     <>
       {/* #231: image 1 behind every page when the page background is on; `page-canvas` is the translucent
-          page backdrop over it (src/theme/pageBackground.css). Off by default: then nothing changes. */}
+          page backdrop over it (src/theme/pageBackground.css). On by default; off renders nothing. */}
       <PageBackground />
       <div className="page-canvas min-h-screen bg-gray-100">
         {isLoggedIn && <Navigation objectTypes={objectTypes} />}

@@ -12,7 +12,7 @@ import { selectPageBackground, usePageBackground } from './pageBackground';
  * theme, arrows/Home/End move, Escape closes (focus back on the button), Tab or an outside click closes.
  *
  * Under the themes, the "Background image" checkbox (#231): landing image 1 behind every page, with the page
- * colours translucent over it (pageBackground.ts). Same visibility as the themes; off by default.
+ * colours translucent over it (pageBackground.ts). Same visibility as the themes; on by default.
  */
 type Props = { variant: 'nav' | 'floating' };
 
