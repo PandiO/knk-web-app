@@ -6,7 +6,9 @@ import ObjectTypeExplorer, {
   DOCKED_MEDIA_QUERY,
   getCollapsedStorageKey,
   getExpandedStorageKey,
+  getFiltersStorageKey,
   getSortStorageKey,
+  ObjectTypeExplorerFilter,
   ObjectTypeExplorerGroup,
 } from '../ObjectTypeExplorer';
 import { EntityMetadataDto } from '../../../types/dtos/metadata/MetadataModels';
@@ -152,6 +154,143 @@ describe('ObjectTypeExplorer', () => {
       render(<ObjectTypeExplorer entityMetadata={metadata} />);
 
       expect(screen.getByRole('complementary', { name: 'Sidebar' })).toHaveClass('h-full', 'min-h-0');
+    });
+  });
+
+  describe('filters (PandiO/knk-workspace#226)', () => {
+    // Town and Street have a display configuration; Town, District and Gate a form configuration.
+    const filters = (formNames: ReadonlySet<string> | null = new Set(['town', 'district', 'gatestructure'])): ObjectTypeExplorerFilter[] => [
+      { id: 'displayConfiguration', label: 'Display configuration', entityNames: new Set(['town', 'street']) },
+      { id: 'formConfiguration', label: 'Form configuration', entityNames: formNames },
+    ];
+    const filterButton = () => screen.getByTestId('explorer-filter-button');
+    const choose = async (filter: string, option: 'Any' | 'Yes' | 'No') =>
+      userEvent.selectOptions(screen.getByRole('combobox', { name: filter }), option);
+
+    it('offers a filter button next to the sort toggle that opens Any / Yes / No per filter', async () => {
+      render(<ObjectTypeExplorer entityMetadata={metadata} filters={filters()} />);
+
+      expect(filterButton()).toHaveAccessibleName('Filter entity types');
+      expect(filterButton()).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.getByRole('button', { name: 'Sort Z to A' }).nextElementSibling).toBe(filterButton());
+
+      await userEvent.click(filterButton());
+      expect(filterButton()).toHaveAttribute('aria-expanded', 'true');
+      const panel = document.getElementById(filterButton().getAttribute('aria-controls')!);
+      expect(panel).toBeInTheDocument();
+      // Fix round: one labelled select per filter, Any / Yes / No.
+      const display = screen.getByRole('combobox', { name: 'Display configuration' });
+      expect(display).toHaveDisplayValue('Any');
+      expect(within(display).getAllByRole('option').map(option => option.textContent)).toEqual(['Any', 'Yes', 'No']);
+      expect(screen.getByRole('combobox', { name: 'Form configuration' })).toHaveDisplayValue('Any');
+      expect(within(panel!).queryByRole('radio')).not.toBeInTheDocument();
+    });
+
+    it('narrows the list by yes and no, combined with each other and the search', async () => {
+      render(<ObjectTypeExplorer entityMetadata={metadata} filters={filters()} />);
+      await userEvent.click(filterButton());
+
+      await choose('Display configuration', 'No');
+      expect(itemLabels()).toEqual(['category', 'District', 'Gate']);
+      expect(filterButton()).toHaveAccessibleName('Filter entity types (1 on)');
+
+      await choose('Form configuration', 'Yes');
+      expect(itemLabels()).toEqual(['District', 'Gate']);
+      expect(filterButton()).toHaveAccessibleName('Filter entity types (2 on)');
+
+      await userEvent.type(screen.getByRole('searchbox'), 'dis');
+      expect(itemLabels()).toEqual(['District']);
+
+      await userEvent.clear(screen.getByRole('searchbox'));
+      await choose('Display configuration', 'Yes');
+      expect(itemLabels()).toEqual(['Town']);
+
+      await choose('Display configuration', 'Any');
+      await choose('Form configuration', 'No');
+      expect(itemLabels()).toEqual(['category', 'Street']);
+    });
+
+    it('applies to favourites too and says when nothing matches, with a way to clear', async () => {
+      render(
+        <ObjectTypeExplorer
+          entityMetadata={metadata}
+          filters={filters(new Set())}
+          favourites={{ entityNames: new Set(['town']), onToggle: jest.fn() }}
+        />
+      );
+      await userEvent.click(filterButton());
+
+      await choose('Display configuration', 'No');
+      expect(screen.queryByRole('region', { name: 'Favourites' })).not.toBeInTheDocument();
+      await choose('Form configuration', 'Yes');
+      expect(screen.getByRole('status')).toHaveTextContent('No entity types match');
+
+      await userEvent.click(within(screen.getByRole('status')).getByRole('button', { name: 'Clear filters' }));
+      expect(itemLabels(screen.getByRole('region', { name: 'Favourites' }))).toEqual(['Town']);
+      expect(filterButton()).toHaveAccessibleName('Filter entity types');
+    });
+
+    it('closes the panel with Escape or Done and gives focus back to the button', async () => {
+      render(<ObjectTypeExplorer entityMetadata={metadata} filters={filters()} />);
+
+      await userEvent.click(filterButton());
+      await choose('Display configuration', 'Yes');
+      await userEvent.keyboard('{Escape}');
+      expect(screen.queryByRole('combobox', { name: 'Display configuration' })).not.toBeInTheDocument();
+      expect(filterButton()).toHaveFocus();
+      expect(itemLabels()).toEqual(['Street', 'Town']);
+
+      await userEvent.click(filterButton());
+      await userEvent.click(screen.getByRole('button', { name: 'Done' }));
+      expect(filterButton()).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('neither offers nor applies a filter whose data is unknown, and keeps its stored choice', async () => {
+      window.localStorage.setItem(getFiltersStorageKey('dashboard'), JSON.stringify({ formConfiguration: 'yes' }));
+      const { rerender } = render(<ObjectTypeExplorer entityMetadata={metadata} filters={filters(null)} storageKey="dashboard" />);
+
+      expect(itemLabels()).toHaveLength(5);
+      expect(filterButton()).toHaveAccessibleName('Filter entity types');
+      await userEvent.click(filterButton());
+      expect(screen.queryByRole('combobox', { name: 'Form configuration' })).not.toBeInTheDocument();
+
+      rerender(<ObjectTypeExplorer entityMetadata={metadata} filters={filters()} storageKey="dashboard" />);
+      expect(itemLabels()).toEqual(['District', 'Gate', 'Town']);
+    });
+
+    it('shows no filter button without filters, or when no filter has its data yet', () => {
+      const { unmount } = render(<ObjectTypeExplorer entityMetadata={metadata} />);
+      expect(screen.queryByTestId('explorer-filter-button')).not.toBeInTheDocument();
+      unmount();
+
+      render(
+        <ObjectTypeExplorer
+          entityMetadata={metadata}
+          filters={[{ id: 'displayConfiguration', label: 'Display configuration', entityNames: null }]}
+        />
+      );
+      expect(screen.queryByTestId('explorer-filter-button')).not.toBeInTheDocument();
+    });
+
+    it('remembers the choice per page like the sort, and ignores corrupt stored values', async () => {
+      const { unmount } = render(<ObjectTypeExplorer entityMetadata={metadata} filters={filters()} storageKey="dashboard" />);
+      await userEvent.click(filterButton());
+      await choose('Display configuration', 'No');
+      expect(JSON.parse(window.localStorage.getItem(getFiltersStorageKey('dashboard')) ?? '{}'))
+        .toEqual({ displayConfiguration: 'no' });
+      unmount();
+
+      const second = render(<ObjectTypeExplorer entityMetadata={metadata} filters={filters()} storageKey="dashboard" />);
+      expect(itemLabels()).toEqual(['category', 'District', 'Gate']);
+      second.unmount();
+
+      const forms = render(<ObjectTypeExplorer entityMetadata={metadata} filters={filters()} storageKey="forms" />);
+      expect(itemLabels()).toHaveLength(5);
+      forms.unmount();
+
+      window.localStorage.setItem(getFiltersStorageKey('dashboard'), '{"displayConfiguration":"maybe","x":1');
+      render(<ObjectTypeExplorer entityMetadata={metadata} filters={filters()} storageKey="dashboard" />);
+      expect(itemLabels()).toHaveLength(5);
     });
   });
 
