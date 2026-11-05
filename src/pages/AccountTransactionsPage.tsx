@@ -7,12 +7,9 @@ import { BalancesDto, LedgerLineDto, LedgerPageDto } from '../types/dtos/currenc
 import { usePageTitle } from '../hooks/usePageTitle';
 import { apiRefusalReason } from '../utils/apiRefusalReason';
 import { usePublicSurface } from '../theme/surface';
+import { formatDateTime, numberFormat } from '../utils/format';
 
 const PAGE_SIZE = 20;
-const numberFormat = new Intl.NumberFormat('en-US');
-
-/** The API sends UTC, sometimes without an offset. */
-const parseUtc = (value: string): Date => new Date(/[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`);
 
 const currencyLabel = (line: LedgerLineDto): string =>
   line.currency === 'Experience' ? 'XP' : line.currency.toLowerCase();
@@ -130,7 +127,8 @@ export const AccountTransactionsPage: React.FC = () => {
                     {ledger.items.map(line => (
                       <tr key={line.entryId} className="border-b last:border-b-0">
                         <td className="py-2 pr-4 whitespace-nowrap text-gray-700">
-                          {parseUtc(line.createdAt).toISOString().replace('T', ' ').slice(0, 16)}
+                          {/* #187 (X-10): the viewer's local time, was raw UTC text ("2026-11-05 20:52"). */}
+                          {formatDateTime(line.createdAt)}
                         </td>
                         <td className={`py-2 pr-4 text-right whitespace-nowrap font-semibold ${line.amount > 0 ? 'text-green-700' : line.amount < 0 ? 'text-red-700' : 'text-gray-600'}`}>
                           {line.amount > 0 ? '+' : ''}{numberFormat.format(line.amount)} {currencyLabel(line)}

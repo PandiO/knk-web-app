@@ -5,6 +5,7 @@ import { currencyClient } from '../../../apiClients/currencyClient';
 import { CurrencyPolicyDto } from '../../../types/dtos/currency/CurrencyDtos';
 import { usePageTitle } from '../../../hooks/usePageTitle';
 import { apiRefusalReason } from '../../../utils/apiRefusalReason';
+import { numberFormat } from '../../../utils/format';
 
 type NumberField = keyof Pick<CurrencyPolicyDto,
     'minTransfer' | 'maxTransfer' | 'dailySendCap' | 'dailyReceiveCap' | 'confirmThreshold' | 'confirmTtlSeconds'
@@ -27,7 +28,6 @@ const NUMBER_FIELDS: { key: NumberField; label: string; help: string }[] = [
     { key: 'signupGrant', label: 'Signup grant', help: 'Starting balance of a new account.' },
 ];
 
-const numberFormat = new Intl.NumberFormat('en-US');
 
 type Draft = Record<NumberField, string> & {
     transfersEnabled: boolean;

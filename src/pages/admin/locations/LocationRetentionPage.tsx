@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clipboard, History, Loader2, MapPinOff, RefreshCw, Settings2 } from 'lucide-react';
 import { locationRetentionClient } from '../../../apiClients/locationRetentionClient';
 import { FeedbackModal } from '../../../components/FeedbackModal';
-import { parseUtc } from '../../../components/currency/BalanceLedgerTable';
 import { usePermission } from '../../../hooks/useStaffAccess';
 import {
     LOCATION_RETENTION_NODES,
@@ -16,10 +15,10 @@ import {
     LocationRetentionStatusDto,
 } from '../../../types/dtos/locationRetention/LocationRetentionDtos';
 import { apiRefusalReason } from '../../../utils/apiRefusalReason';
+import { numberFormat, parseUtc } from '../../../utils/format';
 
 const PAGE_SIZE = 25;
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const numberFormat = new Intl.NumberFormat('en-US');
 
 const STATUS_STYLES: Record<LocationOrphanStatus, string> = {
     Open: 'bg-amber-50 text-amber-800 border-amber-200',
