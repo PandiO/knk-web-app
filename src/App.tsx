@@ -58,7 +58,7 @@ import { RealtimeProvider } from './realtime/RealtimeProvider';
 import { useEntityMetadata } from './hooks/useEntityMetadata';
 import { ThemeSwitcher } from './theme/ThemeSwitcher';
 import { themePickerVisible } from './theme/themes';
-import { PageBackground } from './theme/PageBackground';
+import { PageBackground } from './theme/PageBackgroundLayer';
 
 function AppContent() {
   const objectTypes = Object.entries(objectConfigs).map(([type, config]) => ({
