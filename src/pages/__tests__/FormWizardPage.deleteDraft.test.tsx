@@ -92,7 +92,7 @@ describe('FormWizardPage: delete a draft that recorded created entities (KNG-162
         renderPage();
         fireEvent.click((await deleteButtons())[0]);
 
-        const dialog = await screen.findByRole('dialog', { name: 'Delete this saved progress?' });
+        const dialog = await screen.findByRole('alertdialog', { name: 'Delete this saved progress?' });
         expect(within(dialog).getByText("District 'Oostwijk'")).toBeInTheDocument();
         expect(within(dialog).getByText("Street 'Gatestraat'")).toBeInTheDocument();
 
@@ -102,14 +102,14 @@ describe('FormWizardPage: delete a draft that recorded created entities (KNG-162
         expect(formSubmissionClient.delete).toHaveBeenCalledWith('9');
 
         fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
-        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete this saved progress?' })).not.toBeInTheDocument());
+        await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Delete this saved progress?' })).not.toBeInTheDocument());
         expect(await deleteButtons()).toHaveLength(1);
     });
 
     it('Keep deletes only the draft', async () => {
         renderPage();
         fireEvent.click((await deleteButtons())[0]);
-        const dialog = await screen.findByRole('dialog', { name: 'Delete this saved progress?' });
+        const dialog = await screen.findByRole('alertdialog', { name: 'Delete this saved progress?' });
 
         fireEvent.click(within(dialog).getByRole('button', { name: 'Delete draft, keep them' }));
 
@@ -121,12 +121,12 @@ describe('FormWizardPage: delete a draft that recorded created entities (KNG-162
     it('closing the prompt deletes nothing', async () => {
         renderPage();
         fireEvent.click((await deleteButtons())[0]);
-        const dialog = await screen.findByRole('dialog', { name: 'Delete this saved progress?' });
+        const dialog = await screen.findByRole('alertdialog', { name: 'Delete this saved progress?' });
 
         fireEvent.click(within(dialog).getByRole('button', { name: 'Close dialog' }));
 
         expect(formSubmissionClient.delete).not.toHaveBeenCalled();
-        expect(screen.queryByRole('dialog', { name: 'Delete this saved progress?' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('alertdialog', { name: 'Delete this saved progress?' })).not.toBeInTheDocument();
     });
 
     it('a draft without a record asks a plain confirm in a modal, not the browser', async () => {
@@ -134,7 +134,7 @@ describe('FormWizardPage: delete a draft that recorded created entities (KNG-162
         renderPage();
         fireEvent.click((await deleteButtons())[1]);
 
-        const dialog = await screen.findByRole('dialog', { name: 'Delete this saved progress?' });
+        const dialog = await screen.findByRole('alertdialog', { name: 'Delete this saved progress?' });
         expect(within(dialog).queryByText("District 'Oostwijk'")).not.toBeInTheDocument();
         fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
@@ -149,9 +149,9 @@ describe('FormWizardPage: delete a draft that recorded created entities (KNG-162
         );
         renderPage();
         fireEvent.click((await deleteButtons())[1]);
-        fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete this saved progress?' })).getByRole('button', { name: 'Delete' }));
+        fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Delete this saved progress?' })).getByRole('button', { name: 'Delete' }));
 
-        const failed = await screen.findByRole('dialog', { name: 'Delete failed' });
+        const failed = await screen.findByRole('alertdialog', { name: 'Delete failed' });
         expect(within(failed).getByText("This saved progress can't be deleted: it is still used by 1 form session.")).toBeInTheDocument();
         expect(within(failed).getAllByRole('button', { name: 'Close' })).toHaveLength(1);
     });
@@ -160,10 +160,10 @@ describe('FormWizardPage: delete a draft that recorded created entities (KNG-162
         renderPage();
         fireEvent.click((await deleteButtons())[1]);
 
-        const dialog = await screen.findByRole('dialog', { name: 'Delete this saved progress?' });
+        const dialog = await screen.findByRole('alertdialog', { name: 'Delete this saved progress?' });
         fireEvent.click(within(dialog).getByRole('button', { name: 'Close dialog' }));
 
-        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete this saved progress?' })).not.toBeInTheDocument());
+        await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Delete this saved progress?' })).not.toBeInTheDocument());
         expect(formSubmissionClient.delete).not.toHaveBeenCalled();
     });
 });
