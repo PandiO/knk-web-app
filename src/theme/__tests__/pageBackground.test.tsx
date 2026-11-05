@@ -9,7 +9,7 @@ import {
   resolveInitialPageBackground,
   selectPageBackground,
 } from '../pageBackground';
-import { PageBackground } from '../PageBackground';
+import { PageBackground } from '../PageBackgroundLayer';
 import { ThemeSwitcher } from '../ThemeSwitcher';
 import { Navigation } from '../../components/Navigation';
 import { usePermission, useStaffAccess } from '../../hooks/useStaffAccess';
