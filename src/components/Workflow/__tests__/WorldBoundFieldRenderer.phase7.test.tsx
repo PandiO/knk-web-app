@@ -203,7 +203,7 @@ describe('WorldBoundFieldRenderer - Phase 7 E2E Tests', () => {
             await waitFor(() => {
                 expect(writeText).toHaveBeenCalledWith('/knk task K953ET');
             });
-            expect(screen.getByTitle('Copy task code')).toBeVisible();
+            expect(screen.queryByTitle('Copy task code')).not.toBeInTheDocument(); // #240: only the command
         });
     });
 
