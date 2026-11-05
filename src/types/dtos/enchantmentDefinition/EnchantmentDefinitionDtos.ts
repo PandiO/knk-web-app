@@ -27,6 +27,12 @@ export interface EnchantmentDefinitionDto {
     gateDamage?: number | null;
     damageRadiusBlocks?: number | null;
     effectRadiusBlocks?: number | null;
+    // PandiO/knk-workspace#259: Cleaving only: gate bonus per level, charged strike at level I and per level, and the
+    // strike cooldown's change per level (its level-I cooldown is cooldownSeconds).
+    gateDamageBonusPerLevel?: number | null;
+    strikeMultiplier?: number | null;
+    strikeMultiplierPerLevel?: number | null;
+    cooldownPerLevelSeconds?: number | null;
 }
 
 export interface EnchantmentDefinitionCreateDto {
@@ -53,6 +59,12 @@ export interface EnchantmentDefinitionCreateDto {
     gateDamage?: number | null;
     damageRadiusBlocks?: number | null;
     effectRadiusBlocks?: number | null;
+    // PandiO/knk-workspace#259: Cleaving only: gate bonus per level, charged strike at level I and per level, and the
+    // strike cooldown's change per level (its level-I cooldown is cooldownSeconds).
+    gateDamageBonusPerLevel?: number | null;
+    strikeMultiplier?: number | null;
+    strikeMultiplierPerLevel?: number | null;
+    cooldownPerLevelSeconds?: number | null;
 }
 
 export interface EnchantmentDefinitionUpdateDto {
@@ -79,6 +91,12 @@ export interface EnchantmentDefinitionUpdateDto {
     gateDamage?: number | null;
     damageRadiusBlocks?: number | null;
     effectRadiusBlocks?: number | null;
+    // PandiO/knk-workspace#259: Cleaving only: gate bonus per level, charged strike at level I and per level, and the
+    // strike cooldown's change per level (its level-I cooldown is cooldownSeconds).
+    gateDamageBonusPerLevel?: number | null;
+    strikeMultiplier?: number | null;
+    strikeMultiplierPerLevel?: number | null;
+    cooldownPerLevelSeconds?: number | null;
 }
 
 export interface EnchantmentDefinitionListDto {
