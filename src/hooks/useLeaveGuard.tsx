@@ -23,14 +23,22 @@ export interface LeaveGuard {
  */
 const NoDataRouter = React.createContext<unknown>(null);
 
+/**
+ * Whether a data router (App.tsx's createBrowserRouter) is above: `useBlocker` throws without one (unit tests
+ * with a MemoryRouter), and tests that mock react-router-dom may not export the context at all. Shared with
+ * the SettingsPage shell (#187).
+ */
+export function useHasDataRouter(): boolean {
+    return useContext(UNSAFE_DataRouterContext ?? NoDataRouter) != null;
+}
+
 export function useLeaveGuard(when: boolean): LeaveGuard {
     const whenRef = useRef(when);
     whenRef.current = when;
     const bypassRef = useRef(false);
     const [pending, setPending] = useState<{ proceed: () => void; cancel: () => void } | null>(null);
-    // Without a data router (unit tests with a MemoryRouter) useBlocker throws, so it only runs inside
-    // one. Tests that mock react-router-dom may not export the context at all.
-    const hasDataRouter = useContext(UNSAFE_DataRouterContext ?? NoDataRouter) != null;
+    // Without a data router useBlocker throws, so it only runs inside one.
+    const hasDataRouter = useHasDataRouter();
 
     useEffect(() => {
         if (when) bypassRef.current = false;
@@ -105,7 +113,11 @@ export function useLeaveGuard(when: boolean): LeaveGuard {
     return { element, allowLeave, confirmLeave };
 }
 
-const NavigationBlocker: React.FC<{
+/**
+ * Blocks in-app navigations `shouldBlock` picks and hands the decision to `onBlocked`. Render it only when
+ * `useHasDataRouter()` is true. Also used by the SettingsPage shell (#187).
+ */
+export const NavigationBlocker: React.FC<{
     shouldBlock: BlockerFunction;
     onBlocked: (proceed: () => void, cancel: () => void) => void;
 }> = ({ shouldBlock, onBlocked }) => {
