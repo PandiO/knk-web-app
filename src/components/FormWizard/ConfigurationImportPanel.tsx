@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, Loader2, Upload, X } from 'lucide-react';
+import { CheckCircle2, Loader2, Upload } from 'lucide-react';
+import { Dialog } from '../Dialog';
 import { failureReason } from '../../utils/apiRefusalReason';
 
 /**
@@ -243,29 +244,18 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
     const fileReady = fileState?.result?.status === 'DryRunPassed' && fileState.checkedWith === current;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" onClick={() => !busy && onClose()}>
-            <div
-                role="dialog"
-                aria-label={adapter.title}
-                className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg bg-surface shadow-lg"
-                onClick={e => e.stopPropagation()}
-            >
-                <div className="flex items-start justify-between border-b border-line px-5 py-4">
-                    <div>
-                        <h3 className="text-lg font-semibold text-fg">{adapter.title}</h3>
-                        <p className="mt-1 text-sm text-gray-600">
-                            Every import is checked first (dry run, nothing written). Importing never changes an existing
-                            configuration: a file that was imported before is reported as already imported.
-                        </p>
-                    </div>
-                    <button onClick={onClose} disabled={!!busy} className="text-muted hover:text-gray-600" aria-label="Close dialog">
-                        <X className="h-5 w-5" />
-                    </button>
-                </div>
-
-                <div className="space-y-6 px-5 py-4">
+        <Dialog
+            open
+            onClose={onClose}
+            title={adapter.title}
+            description="Every import is checked first (dry run, nothing written). Importing never changes an existing configuration: a file that was imported before is reported as already imported."
+            size="3xl"
+            dismissible={!busy}
+            bodyClassName="px-6 py-4"
+        >
+                <div className="space-y-6">
                     <div className="space-y-3">
-                        <label className="flex items-start space-x-2 text-sm text-gray-700">
+                        <label className="flex items-start space-x-2 text-sm text-fg">
                             <input
                                 type="checkbox"
                                 className="mt-0.5"
@@ -281,7 +271,7 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                             </span>
                         </label>
                         {adapter.offersDraft && (
-                            <label className="flex items-start space-x-2 text-sm text-gray-700">
+                            <label className="flex items-start space-x-2 text-sm text-fg">
                                 <input
                                     type="checkbox"
                                     className="mt-0.5"
@@ -302,7 +292,7 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                     <section aria-label="Import a file">
                         <h4 className="text-sm font-semibold text-fg">Import a file</h4>
                         <p className="text-xs text-muted">{adapter.fileHint}</p>
-                        <label className="mt-2 inline-flex cursor-pointer items-center rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-surface-alt">
+                        <label className="mt-2 inline-flex cursor-pointer items-center rounded-md border border-gray-300 px-3 py-1.5 text-sm text-fg hover:bg-surface-alt">
                             <Upload className="mr-2 h-4 w-4" />
                             Choose file…
                             <input
@@ -314,7 +304,7 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                                 onChange={handleFileChosen}
                             />
                         </label>
-                        {fileState && <span className="ml-3 text-sm text-gray-600">{fileState.fileName}</span>}
+                        {fileState && <span className="ml-3 text-sm text-muted">{fileState.fileName}</span>}
                         {fileState?.readError && <p className="mt-2 text-sm text-danger-strong" role="alert">{fileState.readError}</p>}
                         {fileError && <p className="mt-2 text-sm text-danger-strong" role="alert">{fileError}</p>}
                         {busy === 'file' && <Loader2 className="ml-2 inline h-4 w-4 animate-spin text-muted" aria-label="Working" />}
@@ -345,7 +335,7 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                                 {entityTypeName && !showAllSeeds ? `No bundled seeds for ${entityTypeName}.` : 'No bundled seeds.'}
                             </p>
                         )}
-                        <ul className="mt-2 divide-y divide-gray-100">
+                        <ul className="mt-2 divide-y divide-line">
                             {visibleSeeds.map(seed => {
                                 const state = seedStates[seed.name];
                                 const ready = state?.result?.status === 'DryRunPassed' && state.checkedWith === current;
@@ -402,7 +392,6 @@ export function ConfigurationImportPanel<TFile extends { name?: string }, TResul
                         </ul>
                     </section>
                 </div>
-            </div>
-        </div>
+        </Dialog>
     );
 }

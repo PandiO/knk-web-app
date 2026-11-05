@@ -68,6 +68,7 @@ export const FormCancelAction: React.FC<Props> = ({ onLeave, disabled = false, d
                 onContinue={leave}
                 continueLabel="Leave form"
                 cancelLabel="Stay"
+                danger
             />
 
             <CreatedEntitiesPrompt

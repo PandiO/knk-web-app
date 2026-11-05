@@ -97,6 +97,7 @@ export function useLeaveGuard(when: boolean): LeaveGuard {
                 onContinue={leave}
                 continueLabel="Leave form"
                 cancelLabel="Stay"
+                danger
             />
         </>
     );

@@ -390,7 +390,7 @@ describe('RoadsAdminPage', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Delete Kardenna main street profile' }));
 
       // Confirmed in RoadProfilesCard's FeedbackModal, not the browser's confirm box (KNG-27, KNG-169).
-      const dialog = await screen.findByRole('dialog', { name: 'Delete road profile' });
+      const dialog = await screen.findByRole('alertdialog', { name: 'Delete road profile' });
       expect(dialog).toHaveTextContent('Kardenna main street');
       await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
       expect(confirmSpy).not.toHaveBeenCalled();

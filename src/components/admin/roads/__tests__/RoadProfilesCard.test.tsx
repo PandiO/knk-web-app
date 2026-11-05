@@ -53,14 +53,14 @@ describe('RoadProfilesCard delete', () => {
 
         expect(confirmSpy).not.toHaveBeenCalled();
         expect(deleteProfile).not.toHaveBeenCalled();
-        const dialog = screen.getByRole('dialog', { name: 'Delete road profile' });
+        const dialog = screen.getByRole('alertdialog', { name: 'Delete road profile' });
         expect(dialog).toHaveTextContent('Delete the road profile "Cinix rural road"?');
 
         fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
         await waitFor(() => expect(deleteProfile).toHaveBeenCalledWith(3));
         await waitFor(() => expect(onChanged).toHaveBeenCalled());
-        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     });
 
     it('does nothing when the modal is closed', () => {
@@ -69,7 +69,7 @@ describe('RoadProfilesCard delete', () => {
         fireEvent.click(screen.getByLabelText('Delete Cinix rural road profile'));
         fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
-        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
         expect(deleteProfile).not.toHaveBeenCalled();
     });
 
@@ -82,7 +82,7 @@ describe('RoadProfilesCard delete', () => {
         fireEvent.click(screen.getByLabelText('Delete Cinix rural road profile'));
         fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
-        const dialog = await screen.findByRole('dialog', { name: 'Delete failed' });
+        const dialog = await screen.findByRole('alertdialog', { name: 'Delete failed' });
         expect(dialog).toHaveTextContent('Profile is in use.');
         expect(onChanged).not.toHaveBeenCalled();
         (console.error as jest.Mock).mockRestore();

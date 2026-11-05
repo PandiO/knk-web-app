@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { AlertTriangle, Loader2, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
+import { Dialog } from '../Dialog';
 import { CreatedEntityRecord, describeCreatedEntity } from '../../utils/forms/createdEntities';
 import { CreatedEntityDeleteResult, describeDeleteResult } from '../../utils/forms/deleteCreatedEntities';
 import { failureReason } from '../../utils/apiRefusalReason';
 
 /**
  * KNG-162 (decision D2): "Created while filling out this form: ..." with Keep (the default) or
- * Delete. Used by the wizard's Cancel and by deleting a draft from Saved Progress. Styled like
- * FeedbackModal; after a Delete it shows what happened to each entity before closing.
+ * Delete. Used by the wizard's Cancel and by deleting a draft from Saved Progress. On the shared
+ * Dialog (#33); after a Delete it shows what happened to each entity before closing.
  */
 interface Props {
     open: boolean;
@@ -44,6 +45,8 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
     const [phase, setPhase] = useState<Phase>('choose');
     const [results, setResults] = useState<CreatedEntityDeleteResult[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const keepRef = useRef<HTMLButtonElement>(null);
+    const doneRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         if (open) {
@@ -52,6 +55,11 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
             setError(null);
         }
     }, [open]);
+
+    // The report replaces the buttons: focus moves to Done.
+    useEffect(() => {
+        if (phase === 'report') doneRef.current?.focus();
+    }, [phase]);
 
     if (!open) return null;
 
@@ -85,79 +93,60 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
     const deletedCount = results.filter(result => result.outcome === 'deleted').length;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" onClick={dismiss}>
-            <div
-                role="dialog"
-                aria-label={title}
-                className="w-full max-w-lg rounded-lg shadow-lg border border-warning-muted bg-warning-soft relative"
-                onClick={e => e.stopPropagation()}
-            >
-                <div className="flex items-start justify-between px-5 py-4">
-                    <div className="flex items-start space-x-3">
-                        <AlertTriangle className="h-6 w-6 text-warning flex-shrink-0" />
-                        <div>
-                            <h3 className="text-lg font-semibold text-warning-strong">{title}</h3>
-                            {phase === 'report' ? (
-                                <>
-                                    <p className="mt-1 text-sm text-gray-700">
-                                        Deleted {deletedCount} of {results.length}.
-                                    </p>
-                                    <ul className="mt-2 list-disc pl-5 text-sm text-gray-700" aria-label="Delete results">
-                                        {results.map(result => (
-                                            <li key={`${result.record.entityTypeName}:${result.record.id}`}>{describeDeleteResult(result)}</li>
-                                        ))}
-                                    </ul>
-                                </>
-                            ) : (
-                                <>
-                                    <p className="mt-1 text-sm text-gray-700">{intro}</p>
-                                    <ul className="mt-2 list-disc pl-5 text-sm text-gray-700" aria-label="Created entities">
-                                        {records.map(record => (
-                                            <li key={`${record.entityTypeName}:${record.id}`}>{describeCreatedEntity(record)}</li>
-                                        ))}
-                                    </ul>
-                                    {note && <p className="mt-2 text-xs text-muted">{note}</p>}
-                                </>
-                            )}
-                            {error && <p className="mt-2 text-sm text-danger-strong" role="alert">{error}</p>}
-                        </div>
-                    </div>
-                    {phase === 'choose' && (
-                        <button onClick={onClose} className="text-muted hover:text-gray-600" aria-label="Close dialog">
-                            <X className="h-5 w-5" />
-                        </button>
-                    )}
-                </div>
-                <div className="px-5 pb-4 flex justify-end space-x-3">
-                    {phase === 'report' ? (
-                        <button
-                            onClick={() => onDone(results)}
-                            className="px-4 py-2 text-sm font-medium text-primary-fg bg-primary hover:bg-primary-dark rounded-md"
-                        >
-                            Done
-                        </button>
-                    ) : (
-                        <>
-                            <button
-                                onClick={remove}
-                                disabled={phase === 'working'}
-                                className="px-4 py-2 text-sm font-medium text-white bg-danger hover:bg-danger-strong rounded-md disabled:opacity-50"
-                            >
-                                {deleteLabel}
-                            </button>
-                            <button
-                                onClick={keep}
-                                disabled={phase === 'working'}
-                                autoFocus
-                                className="px-4 py-2 text-sm font-medium text-primary-fg bg-primary hover:bg-primary-dark rounded-md disabled:opacity-50 inline-flex items-center"
-                            >
-                                {phase === 'working' && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                                {keepLabel}
-                            </button>
-                        </>
-                    )}
-                </div>
-            </div>
-        </div>
+        <Dialog
+            open
+            onClose={dismiss}
+            title={title}
+            icon={<AlertTriangle className="h-6 w-6 text-warning" />}
+            role="alertdialog"
+            size="lg"
+            closeOnBackdrop
+            dismissible={phase === 'choose'}
+            hideCloseButton={phase !== 'choose'}
+            initialFocusRef={phase === 'report' ? doneRef : keepRef}
+            panelClassName="border-t-4 border-t-warning"
+            headerClassName="pb-0"
+            bodyClassName="px-6 pb-2 pl-[3.75rem]"
+            footerClassName="pb-4"
+            footer={phase === 'report' ? (
+                <button ref={doneRef} type="button" onClick={() => onDone(results)} className="btn-primary">
+                    Done
+                </button>
+            ) : (
+                <>
+                    <button type="button" onClick={remove} disabled={phase === 'working'} className="btn-danger">
+                        {deleteLabel}
+                    </button>
+                    <button ref={keepRef} type="button" onClick={keep} disabled={phase === 'working'} className="btn-primary">
+                        {phase === 'working' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                        {keepLabel}
+                    </button>
+                </>
+            )}
+        >
+            {phase === 'report' ? (
+                <>
+                    <p className="text-sm text-fg">
+                        Deleted {deletedCount} of {results.length}.
+                    </p>
+                    <ul className="mt-2 list-disc pl-5 text-sm text-fg" aria-label="Delete results">
+                        {results.map(result => (
+                            <li key={`${result.record.entityTypeName}:${result.record.id}`}>{describeDeleteResult(result)}</li>
+                        ))}
+                    </ul>
+                </>
+            ) : (
+                <>
+                    <p className="text-sm text-fg">{intro}</p>
+                    <ul className="mt-2 list-disc pl-5 text-sm text-fg" aria-label="Created entities">
+                        {records.map(record => (
+                            <li key={`${record.entityTypeName}:${record.id}`}>{describeCreatedEntity(record)}</li>
+                        ))}
+                    </ul>
+                    {note && <p className="mt-2 text-xs text-muted">{note}</p>}
+                </>
+            )}
+            {error && <p className="mt-2 text-sm text-danger-strong" role="alert">{error}</p>}
+        </Dialog>
     );
 };

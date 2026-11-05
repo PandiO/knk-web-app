@@ -42,13 +42,13 @@ describe('useLeaveGuard (#109)', () => {
         const router = renderAt(true);
 
         fireEvent.click(screen.getByRole('link', { name: 'Dashboard' }));
-        const dialog = await screen.findByRole('dialog', { name: 'Leave this form?' });
+        const dialog = await screen.findByRole('alertdialog', { name: 'Leave this form?' });
         fireEvent.click(within(dialog).getByRole('button', { name: 'Stay' }));
         expect(screen.getByText('the form')).toBeInTheDocument();
         expect(router.state.location.pathname).toBe('/forms/town');
 
         fireEvent.click(screen.getByRole('link', { name: 'Dashboard' }));
-        fireEvent.click(within(await screen.findByRole('dialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Leave form' }));
+        fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Leave form' }));
         expect(await screen.findByText('dashboard page')).toBeInTheDocument();
     });
 
@@ -57,11 +57,11 @@ describe('useLeaveGuard (#109)', () => {
         renderAt(true, onClose);
 
         fireEvent.click(screen.getByRole('button', { name: 'Close form' }));
-        fireEvent.click(within(await screen.findByRole('dialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Stay' }));
+        fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Stay' }));
         expect(onClose).not.toHaveBeenCalled();
 
         fireEvent.click(screen.getByRole('button', { name: 'Close form' }));
-        fireEvent.click(within(await screen.findByRole('dialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Leave form' }));
+        fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Leave form' }));
         expect(onClose).toHaveBeenCalledTimes(1);
     });
 
@@ -70,7 +70,7 @@ describe('useLeaveGuard (#109)', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Submitted' }));
         fireEvent.click(screen.getByRole('link', { name: 'Dashboard' }));
         expect(await screen.findByText('dashboard page')).toBeInTheDocument();
-        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
 
     it('asks the browser before a reload or closing the tab only when something changed', () => {
