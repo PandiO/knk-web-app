@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { Dialog, DialogProps } from '../Dialog';
+import { SearchableDropdown } from '../SearchableDropdown';
 
 // PandiO/knk-workspace#33: the one accessible dialog. No jest-axe in the repo, so roles, names,
 // focus and keys are checked one by one.
@@ -168,4 +169,23 @@ describe('Dialog (#33)', () => {
         render(<Dialog open={false} onClose={() => undefined} title="Hidden" />);
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
+
+    it('leaves an Escape to an open list inside it (SearchableDropdown in a child form)', async () => {
+        render(
+            <Harness>
+                <SearchableDropdown label="District" instances={[{ id: 1, name: 'Old Town' }]} onSelect={() => undefined} />
+            </Harness>
+        );
+        await openIt();
+        await userEvent.click(screen.getByRole('button', { name: /Select District/ }));
+        expect(screen.getByText(/Old Town/)).toBeInTheDocument();
+
+        await userEvent.keyboard('{Escape}');
+        expect(screen.queryByText(/Old Town/)).not.toBeInTheDocument();
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+        await userEvent.keyboard('{Escape}');
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
 });
+

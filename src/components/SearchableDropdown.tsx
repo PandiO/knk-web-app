@@ -83,7 +83,11 @@ export function SearchableDropdown({
         setIsOpen(false);
         break;
       case 'Escape':
-        setIsOpen(false);
+        // An open list takes the Escape; the dialog around it (a child form, #33) stays open.
+        if (isOpen) {
+          e.preventDefault();
+          setIsOpen(false);
+        }
         break;
     }
   };
