@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes, BookOpen } from 'lucide-react';
+import { Home, Table2, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes, BookOpen } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { CONTENT_PERMISSION_NODE, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE, usePermission, useStaffAccess } from '../hooks/useStaffAccess';
 import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
@@ -20,8 +20,27 @@ type ObjectType = { id: string; label: string; icon: React.ReactNode; createRout
 type Props = { objectTypes: ObjectType[] };
 
 // staffOnly: knk.admin.user.manage (useStaffAccess); node: only for holders of that node (checked in nodeAccess).
+// activeAlso: other paths (and the pages under them) that light this link up too.
 // Players without any staff node only see Home; their own pages are in the account menu.
-type NavLink = { to: string; label: string; Icon: React.ComponentType<{ className?: string }>; exact?: boolean; staffOnly?: boolean; node?: string };
+type NavLink = {
+  to: string;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+  exact?: boolean;
+  staffOnly?: boolean;
+  node?: string;
+  activeAlso?: string[];
+};
+
+// PandiO/knk-workspace#197: the Entity setup page (route /forms, unchanged) has no link of its own any
+// more. It's opened from the dashboard's ⚙ per type (and its "Drafts" menu), or by URL; so it, the
+// form/display builders it opens and the detail pages count as Dashboard pages.
+export const DASHBOARD_ACTIVE_ALSO = ['/forms', '/admin/form-configurations', '/admin/display-configurations', '/display'];
+
+/** `pathname` is `path` itself or a page under it (`/forms/Town`, not `/formsX`). */
+export function isAtOrUnder(pathname: string, path: string): boolean {
+  return pathname === path || pathname.startsWith(`${path}/`);
+}
 
 // One list for every size: the inline bar (with labels, or icons only) and the menu
 // button's panel. Which one shows is decided by measuring - see pickNavLayout.
@@ -31,14 +50,12 @@ const NAV_LINKS: NavLink[] = [
   { to: '/leaderboards', label: 'Leaderboards', Icon: Trophy },
   // Player guides (PandiO/knk-workspace#221), public: the custom enchantment info page first.
   { to: '/guides', label: 'Guides', Icon: BookOpen },
-  // The content tools (dashboard, forms, displays, builders) need knk.admin.content, like their
-  // routes (alpha hardening WP9.1). The form and display builders have no link of their own:
-  // they're opened from the Entity setup page.
+  // The content tools (dashboard, Entity setup, displays, builders) need knk.admin.content, like
+  // their routes (alpha hardening WP9.1). Only the dashboard has a link: Entity setup (#177
+  // decision 4: form and display configurations, default columns, saved progress) is opened with
+  // the dashboard's ⚙ on one type (#197), and the builders from Entity setup.
   // Not exact: /dashboard/:entityName (#177 link 1) is the same page.
-  { to: '/dashboard', label: 'Dashboard', Icon: Table2, node: CONTENT_PERMISSION_NODE },
-  // #177 decision 4: the Forms page is "Entity setup" (form and display configurations, default
-  // columns, saved progress); the route stays /forms. The dashboard's ⚙ opens it on one type.
-  { to: '/forms', label: 'Entity setup', Icon: FileText, node: CONTENT_PERMISSION_NODE },
+  { to: '/dashboard', label: 'Dashboard', Icon: Table2, node: CONTENT_PERMISSION_NODE, activeAlso: DASHBOARD_ACTIVE_ALSO },
   { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings, node: SERVER_CONFIG_PERMISSION_NODE },
   // Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables. Both
   // settings pages need the node their API checks (#185), not the moderator node.
@@ -210,7 +227,8 @@ export function Navigation({ objectTypes }: Props) {
   };
 
   const isActive = (link: NavLink) =>
-    link.exact ? location.pathname === link.to : location.pathname.startsWith(link.to);
+    (link.exact ? location.pathname === link.to : location.pathname.startsWith(link.to))
+    || (link.activeAlso ?? []).some(path => isAtOrUnder(location.pathname, path));
 
   const handleLogout = async () => {
     try {
@@ -269,6 +287,7 @@ export function Navigation({ objectTypes }: Props) {
                         key={link.to}
                         to={link.to}
                         role="menuitem"
+                        aria-current={isActive(link) ? 'page' : undefined}
                         className={`flex items-center px-4 py-2.5 text-sm ${
                           isActive(link)
                             ? 'bg-slate-100 font-medium text-slate-900'
@@ -396,7 +415,7 @@ export function Navigation({ objectTypes }: Props) {
               )}
             </div>
 
-            {/* Creating objects goes through the forms: content staff only, like the Entity setup link.
+            {/* Creating objects goes through the forms: content staff only, like the Dashboard link.
                 The list comes from the entity metadata (#177 link 2). */}
             {canManageContent && <CreateNewMenu objectTypes={objectTypes} />}
           </div>

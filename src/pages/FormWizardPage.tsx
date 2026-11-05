@@ -66,7 +66,7 @@ export const FormWizardPage: React.FC<Props> = ({
     entityMetadataFromApp,
     autoOpenDefaultForm = false 
 }: Props) => {
-    // #177 decision 4: the nav calls this page "Entity setup" (route /forms unchanged).
+    // #177 decision 4: the page is "Entity setup" (route /forms unchanged); opened from the dashboard's ⚙ (#197).
     usePageTitle('Entity setup');
     const navigate = useNavigate();
     const { entityName, entityId: urlEntityId } = useParams<{ entityName: string; entityId?: string }>();
