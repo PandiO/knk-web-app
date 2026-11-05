@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, Loader2, ChevronLeft, ChevronRight, Check, PlusCircle } from 'lucide-react';
+import { Search, Check, PlusCircle } from 'lucide-react';
 import { PagedQueryDto, PagedResultDto } from '../../types/dtos/common/PagedQuery';
 import { getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { logging } from '../../utils';
@@ -8,6 +8,8 @@ import { useEntityMetadata } from '../../hooks/useEntityMetadata';
 import { buildPinnedSection, FilterScopes, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
 import { CategoryFilterSelect } from './CategoryFilterSelect';
 import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
+import { DataTable, DataTableColumn, DataTableSection, nextSort } from '../DataTable';
+import { Pager } from '../Pager';
 
 /** KNG-263: entities whose table offers a Category filter (a category includes its children). */
 const CATEGORY_FILTER_ENTITIES = new Set(['itemblueprint']);
@@ -212,17 +214,6 @@ const DEFAULT_QUERY: PagedQueryDto = {
     sortBy: undefined,
     sortDescending: false,
     filters: {},
-};
-
-/** A click that should open the link the browser's way (new tab/window) instead of in the app. */
-const isModifiedClick = (event: React.MouseEvent): boolean =>
-    event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
-
-/** The click started on a control inside the row (a row action, the link itself). */
-const isFromInteractiveElement = (event: React.MouseEvent): boolean => {
-    const target = event.target as HTMLElement | null;
-    const interactive = target?.closest?.('a, button, input, select, textarea, label');
-    return !!interactive && interactive !== event.currentTarget && event.currentTarget.contains(interactive);
 };
 
 /** True when a filter narrows the list (a value other than empty/null/undefined). */
@@ -439,28 +430,14 @@ export function PagedEntityTable<T extends Record<string, any>>({
         }
     }, [query, entityTypeName]);
 
+    // #187: the sort cycle (asc → desc → off) is DataTable's nextSort.
     const handleSort = (columnKey: string) => {
         setQuery(prev => {
-            if (prev.sortBy === columnKey) {
-                // Toggle sort direction or clear sort
-                return {
-                    ...prev,
-                    sortDescending: prev.sortDescending === false ? true : undefined,
-                    sortBy: prev.sortDescending === true ? undefined : columnKey
-                };
-            }
-            return { ...prev, sortBy: columnKey, sortDescending: false };
+            const next = nextSort(prev.sortBy ? { key: prev.sortBy, descending: prev.sortDescending === true } : null, columnKey);
+            return next
+                ? { ...prev, sortBy: next.key, sortDescending: next.descending }
+                : { ...prev, sortBy: undefined, sortDescending: undefined };
         });
-    };
-
-    const ariaSort = (columnKey: string): 'ascending' | 'descending' | 'none' => {
-        if (query.sortBy !== columnKey) return 'none';
-        return query.sortDescending ? 'descending' : 'ascending';
-    };
-
-    const getSortIcon = (columnKey: string) => {
-        if (query.sortBy !== columnKey) return <ArrowUpDown className="h-4 w-4" />;
-        return query.sortDescending ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />;
     };
 
     const getValueByKeyPath = (source: any, keyPath: string): any => {
@@ -608,98 +585,37 @@ export function PagedEntityTable<T extends Record<string, any>>({
 
     // added: determine if pagination should be shown
     const shouldShowPagination = !loading && data.items.length > 0 && data.totalCount > query.pageSize;
-    const totalPagesDerived = data.totalCount > 0
-        ? Math.ceil(data.totalCount / query.pageSize)
-        : 1;
-    const isOnFirstPage = query.page <= 1;
-    const isOnLastPage = query.page * query.pageSize >= data.totalCount || query.page >= totalPagesDerived;
 
-    const columnCount = effectiveColumns.length + (rowActions.length > 0 ? 1 : 0);
+    // #187: the table is DataTable (row links, aria-sort, sections); this component keeps the fetching,
+    // the query (own or the caller's), the selection and the pinned rows.
+    const selectable = selectionConfig.mode !== 'none';
+    const tableColumns = useMemo<DataTableColumn<T>[]>(() => effectiveColumns.map(column => ({
+        key: column.key,
+        header: column.label,
+        sortable: column.sortable,
+        cell: (row: T) => renderCellValue(row, column),
+    // renderCellValue is a plain function of the row and column.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    })), [effectiveColumns]);
 
-    // One table row. Keys are stable (id, namespaceKey, ...) instead of the array index (KNG-136).
-    const renderRow = (row: T, rowKey: string, sessionBadge?: string) => {
-        const selected = isRowSelected(row);
-        // #39 (CRUD-4): a row with an address is a link (first cell), only while rows aren't selectable.
-        const href = selectionConfig.mode === 'none' ? rowHref?.(row) : undefined;
-        const openInNewTab = () => {
-            if (href) window.open(href, '_blank', 'noopener');
-        };
-        return (
-            <tr
-                key={rowKey}
-                data-row-key={rowKey}
-                onClick={(event) => {
-                    if (selectionConfig.mode !== 'none') {
-                        handleRowSelection(row);
-                        return;
-                    }
-                    if (href && isFromInteractiveElement(event)) return;
-                    if (href && (event.metaKey || event.ctrlKey)) {
-                        openInNewTab();
-                        return;
-                    }
-                    onRowClick?.(row);
-                }}
-                onAuxClick={href ? (event) => {
-                    // Middle-click anywhere on the row opens it in a new tab, like the link does.
-                    if (event.button !== 1 || isFromInteractiveElement(event)) return;
-                    event.preventDefault();
-                    openInNewTab();
-                } : undefined}
-                className={`transition-all duration-150 ${
-                    selected
-                        ? 'bg-success-soft hover:bg-success-muted border-l-4 border-success'
-                        : 'hover:bg-surface-alt border-l-4 border-transparent'
-                } ${selectionConfig.mode !== 'none' || onRowClick ? 'cursor-pointer' : ''}`}
-            >
-                {effectiveColumns.map((column, colIndex) => (
-                    <td key={column.key} className={`px-6 py-4 whitespace-nowrap text-sm ${
-                        selected ? 'text-fg font-medium' : 'text-muted'
-                    }`}>
-                        {/* check icon in the first column if selected, plus the badge of a pinned row */}
-                        {colIndex === 0 ? (
-                            <div className="flex items-center space-x-2">
-                                {selected && selectionConfig.mode !== 'none' && (
-                                    <Check className="h-5 w-5 text-success flex-shrink-0" />
-                                )}
-                                {sessionBadge && <RowBadge label={sessionBadge} />}
-                                {href ? (
-                                    <a
-                                        href={href}
-                                        className="text-fg hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
-                                        onClick={(event) => {
-                                            event.stopPropagation();
-                                            // Ctrl/Cmd/Shift/middle click: the browser opens the address.
-                                            if (isModifiedClick(event)) return;
-                                            event.preventDefault();
-                                            onRowClick?.(row);
-                                        }}
-                                    >
-                                        {renderCellValue(row, column)}
-                                    </a>
-                                ) : (
-                                    <span>{renderCellValue(row, column)}</span>
-                                )}
-                            </div>
-                        ) : (
-                            renderCellValue(row, column)
-                        )}
-                    </td>
-                ))}
-                {rowActions.length > 0 && (
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
-                            {rowActions.map((action, actionIndex) => (
-                                <React.Fragment key={actionIndex}>
-                                    {action(row)}
-                                </React.Fragment>
-                            ))}
-                        </div>
-                    </td>
-                )}
-            </tr>
-        );
-    };
+    const pageKeys = uniqueRowKeys(section.pageItems.map((row, index) => tableRowKey(row, entityTypeName, index)));
+    const tableSections: DataTableSection<T>[] = [
+        {
+            key: 'pinned',
+            label: 'Created in this form',
+            tone: 'warning',
+            rows: section.pinned.map(pin => ({
+                key: `pinned:${pin.key}`,
+                row: pin.row,
+                leading: <RowBadge label={pin.badge ?? 'New'} />,
+            })),
+        },
+        {
+            key: 'page',
+            label: section.pinned.length > 0 ? 'Search results' : undefined,
+            rows: section.pageItems.map((row, index) => ({ key: pageKeys[index], row })),
+        },
+    ];
 
     return (
         <div className="w-full space-y-4">
@@ -764,133 +680,33 @@ export function PagedEntityTable<T extends Record<string, any>>({
             )}
 
             {/* Table */}
-            <div className="w-full overflow-x-auto panel bg-surface/95 backdrop-blur">
-                {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                    </div>
-                ) : (
-                    <table className="w-full min-w-full divide-y divide-line">
-                        <thead className="bg-surface-alt">
-                            <tr>
-                                {/* changed: removed checkbox column header since we show check icon in row */}
-                                {effectiveColumns.map(column => (
-                                    <th
-                                        key={column.key}
-                                        scope="col"
-                                        // #39: screen readers hear which column sorts the table, and how.
-                                        aria-sort={column.sortable ? ariaSort(column.key) : undefined}
-                                        className={`px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider ${
-                                            column.sortable ? 'cursor-pointer hover:bg-canvas transition-colors' : ''
-                                        }`}
-                                        onClick={() => column.sortable && handleSort(column.key)}
-                                    >
-                                        {column.sortable ? (
-                                            // A button, so Tab reaches the sort and Enter/Space work; its click bubbles to the th.
-                                            <button
-                                                type="button"
-                                                className="flex items-center space-x-1 uppercase tracking-wider focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
-                                            >
-                                                <span>{column.label}</span>
-                                                {getSortIcon(column.key)}
-                                            </button>
-                                        ) : (
-                                            <div className="flex items-center space-x-1">
-                                                <span>{column.label}</span>
-                                            </div>
-                                        )}
-                                    </th>
-                                ))}
-                                {rowActions.length > 0 && (
-                                    <th scope="col" className="relative px-6 py-3">
-                                        <span className="sr-only">Actions</span>
-                                    </th>
-                                )}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-line">
-                            {section.pinned.length > 0 && (
-                                <>
-                                    <tr className="bg-warning-soft/60">
-                                        <td colSpan={columnCount} className="px-6 py-2 text-xs font-semibold uppercase tracking-wider text-warning-strong">
-                                            Created in this form
-                                        </td>
-                                    </tr>
-                                    {section.pinned.map(pin => renderRow(pin.row, `pinned:${pin.key}`, pin.badge ?? 'New'))}
-                                    {section.pageItems.length > 0 && (
-                                        <tr className="bg-surface-alt">
-                                            <td colSpan={columnCount} className="px-6 py-2 text-xs font-semibold uppercase tracking-wider text-muted">
-                                                Search results
-                                            </td>
-                                        </tr>
-                                    )}
-                                </>
-                            )}
-                            {section.pinned.length === 0 && section.pageItems.length === 0 ? (
-                                <tr>
-                                    <td colSpan={columnCount} className="px-6 py-12 text-center text-muted">
-                                        {emptyState && !query.searchTerm && !hasActiveFilters(query.filters) ? emptyState : 'No results found'}
-                                    </td>
-                                </tr>
-                            ) : (
-                                uniqueRowKeys(section.pageItems.map((row, index) => tableRowKey(row, entityTypeName, index)))
-                                    .map((rowKey, index) => renderRow(section.pageItems[index], rowKey))
-                            )}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+            <DataTable<T>
+                columns={tableColumns}
+                sections={tableSections}
+                loading={loading}
+                sort={query.sortBy ? { key: query.sortBy, descending: query.sortDescending === true } : null}
+                onSortChange={handleSort}
+                // #39 (CRUD-4): a row with an address is a link (first cell), only while rows aren't selectable.
+                rowHref={selectable ? undefined : rowHref}
+                onRowClick={selectable ? (row => handleRowSelection(row)) : onRowClick}
+                isRowSelected={selectable ? isRowSelected : undefined}
+                rowLeading={selectable ? (row => isRowSelected(row)
+                    ? <><Check className="h-5 w-5 text-success flex-shrink-0" aria-hidden="true" /><span className="sr-only">Selected:</span></>
+                    : null) : undefined}
+                rowActions={rowActions.length > 0 ? (row => rowActions.map((action, actionIndex) => (
+                    <React.Fragment key={actionIndex}>{action(row)}</React.Fragment>
+                ))) : undefined}
+                empty={emptyState && !query.searchTerm && !hasActiveFilters(query.filters) ? emptyState : 'No results found'}
+            />
 
-            {/* Pagination - changed: conditionally render based on totalCount vs pageSize */}
+            {/* Pagination: only with more than one page */}
             {shouldShowPagination && (
-                <div className="flex items-center justify-between px-4 py-3 bg-surface border-t border-line sm:px-6">
-                    <div className="flex-1 flex justify-between sm:hidden">
-                        <button
-                            onClick={() => handlePageChange(query.page - 1)}
-                            disabled={isOnFirstPage}
-                            className="btn-secondary disabled:opacity-50"
-                        >
-                            Previous
-                        </button>
-                        <button
-                            onClick={() => handlePageChange(query.page + 1)}
-                            disabled={isOnLastPage}
-                            className="btn-secondary disabled:opacity-50"
-                        >
-                            Next
-                        </button>
-                    </div>
-                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                        <div>
-                            <p className="text-sm text-fg">
-                                Showing <span className="font-medium">{(query.page - 1) * query.pageSize + 1}</span> to{' '}
-                                <span className="font-medium">{Math.min(query.page * query.pageSize, data.totalCount)}</span> of{' '}
-                                <span className="font-medium">{data.totalCount}</span> results
-                            </p>
-                        </div>
-                        <div className="flex space-x-2">
-                            <button
-                                onClick={() => handlePageChange(query.page - 1)}
-                                disabled={isOnFirstPage}
-                                className="btn-secondary disabled:opacity-50 flex items-center"
-                            >
-                                <ChevronLeft className="h-4 w-4 mr-1" />
-                                Previous
-                            </button>
-                            <span className="inline-flex items-center px-4 py-2 text-sm font-medium text-fg">
-                                Page {query.page} of {totalPagesDerived}
-                            </span>
-                            <button
-                                onClick={() => handlePageChange(query.page + 1)}
-                                disabled={isOnLastPage}
-                                className="btn-secondary disabled:opacity-50 flex items-center"
-                            >
-                                Next
-                                <ChevronRight className="h-4 w-4 ml-1" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <Pager
+                    page={query.page}
+                    pageSize={query.pageSize}
+                    totalCount={data.totalCount}
+                    onPageChange={handlePageChange}
+                />
             )}
         </div>
     );

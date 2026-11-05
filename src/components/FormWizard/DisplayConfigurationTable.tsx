@@ -32,6 +32,12 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    // A menu item that opens a dialog (a confirm) closes the menu first: focus goes back to the ⋯ button,
+    // so the dialog can return it there (#33) instead of to the page.
+    const closeMenuToTrigger = (configId: string) => {
+        buttonRefs.current[configId]?.focus();
+        setActiveMenu(null);
+    };
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -45,9 +51,9 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
     }, []);
 
     const handleDeleteClick = (config: DisplayConfigurationDto) => {
-        // The page asks for confirmation (a FeedbackModal), so the menu only hands the config over.
+        // The page asks for confirmation (useConfirm), so the menu only hands the config over.
+        closeMenuToTrigger(config.id!);
         onDelete?.(config);
-        setActiveMenu(null);
     };
 
     const getMenuPosition = (configId: string) => {
@@ -210,8 +216,8 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                             {!config.isDefault && (
                                                                 <button
                                                                     onClick={() => {
+                                                                        closeMenuToTrigger(config.id!);
                                                                         onSetDefault(config);
-                                                                        setActiveMenu(null);
                                                                     }}
                                                                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                     role="menuitem"
@@ -223,8 +229,8 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                             {config.isDefault && (
                                                                 <button
                                                                     onClick={() => {
+                                                                        closeMenuToTrigger(config.id!);
                                                                         onRemoveDefault(config);
-                                                                        setActiveMenu(null);
                                                                     }}
                                                                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                     role="menuitem"
@@ -235,8 +241,8 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                             )}
                                                             <button
                                                                 onClick={() => {
+                                                                    closeMenuToTrigger(config.id!);
                                                                     onEdit(config);
-                                                                    setActiveMenu(null);
                                                                 }}
                                                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                 role="menuitem"
@@ -247,8 +253,8 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                             {onExport && (
                                                                 <button
                                                                     onClick={() => {
+                                                                        closeMenuToTrigger(config.id!);
                                                                         onExport(config);
-                                                                        setActiveMenu(null);
                                                                     }}
                                                                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                     role="menuitem"
@@ -260,8 +266,8 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                             {config.isDraft && onPublish && (
                                                                 <button
                                                                     onClick={() => {
+                                                                        closeMenuToTrigger(config.id!);
                                                                         onPublish(config);
-                                                                        setActiveMenu(null);
                                                                     }}
                                                                     className="w-full text-left px-4 py-2 text-sm text-primary hover:bg-info-soft flex items-center space-x-2"
                                                                     role="menuitem"

@@ -135,7 +135,6 @@ export const FormWizardPage: React.FC<Props> = ({
         message: string;
         status: 'success' | 'error' | 'info';
         onContinue?: () => void;
-        autoCloseMs?: number;
     };
     const [feedbackModal, setFeedbackModal] = useState<FeedbackState>({
         open: false,
@@ -143,7 +142,6 @@ export const FormWizardPage: React.FC<Props> = ({
         message: '',
         status: 'info',
         onContinue: undefined,
-        autoCloseMs: undefined,
     });
 
     // KNG-162: deleting a draft whose form created entities asks whether to keep or delete them.
@@ -161,7 +159,7 @@ export const FormWizardPage: React.FC<Props> = ({
         setWorldPrompt(null);
     };
 
-    // Confirmations use a FeedbackModal (useConfirm) instead of the browser's confirm box.
+    // Confirmations use the ConfirmDialog (useConfirm, #33) instead of the browser's confirm box.
     const [confirm, confirmModal] = useConfirm();
 
     const showFeedback = (payload: Omit<FeedbackState, 'open'>) => {
@@ -597,13 +595,7 @@ export const FormWizardPage: React.FC<Props> = ({
             await formSubmissionClient.delete(progress.id!);
             setSavedProgress(prev => prev.filter(p => p.id !== progress.id));
             if (announce) {
-                showFeedback({
-                    title: 'Progress deleted',
-                    message: 'The saved progress has been removed.',
-                    status: 'success',
-                    onContinue: undefined,
-                    autoCloseMs: 3000,
-                });
+                toast.success('The saved progress has been removed.');
             }
             return true;
         } catch (error) {
@@ -689,13 +681,7 @@ export const FormWizardPage: React.FC<Props> = ({
         try {
             await formConfigClient.delete(config.id!);
             setFormConfigs(prev => prev.filter(c => c.id !== config.id));
-            showFeedback({
-                title: 'Configuration deleted',
-                message: 'The form configuration has been removed.',
-                status: 'success',
-                onContinue: undefined,
-                autoCloseMs: 3000,
-            });
+            toast.success('The form configuration has been removed.');
         } catch (error) {
             console.error('Failed to delete configuration:', error);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.DeleteFailed');
@@ -786,13 +772,7 @@ export const FormWizardPage: React.FC<Props> = ({
         try {
             const published = await displayConfigClient.publish(idNumber);
             setDisplayConfigs(prev => prev.map(c => c.id === config.id ? published : c));
-            showFeedback({
-                title: 'Display configuration published',
-                message: `"${config.name}" is now live and available for use.`,
-                status: 'success',
-                onContinue: undefined,
-                autoCloseMs: 3000,
-            });
+            toast.success(`"${config.name}" is now live and available for use.`);
         } catch (error) {
             console.error('Failed to publish display configuration:', error);
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.PublishFailed');
@@ -801,7 +781,6 @@ export const FormWizardPage: React.FC<Props> = ({
                 message: apiRefusalReason(error) ?? 'Unable to publish the display configuration. Please try again.',
                 status: 'error',
                 onContinue: undefined,
-                autoCloseMs: 5000,
             });
         }
     };
@@ -821,13 +800,7 @@ export const FormWizardPage: React.FC<Props> = ({
         try {
             await displayConfigClient.delete(idNumber);
             setDisplayConfigs(prev => prev.filter(c => c.id !== config.id));
-            showFeedback({
-                title: 'Display configuration deleted',
-                message: 'The display configuration has been removed.',
-                status: 'success',
-                onContinue: undefined,
-                autoCloseMs: 3000,
-            });
+            toast.success('The display configuration has been removed.');
         } catch (error) {
             console.error('Failed to delete display configuration:', error);
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.DeleteFailed');
@@ -956,15 +929,9 @@ export const FormWizardPage: React.FC<Props> = ({
             }
 
             await refresh();
-            showFeedback({
-                title: 'Columns saved',
-                message: normalizedColumns.length === 0
+            toast.success(normalizedColumns.length === 0
                     ? 'Tables and pickers for this entity use their built-in columns again.'
-                    : 'Default table columns have been updated for this entity.',
-                status: 'success',
-                onContinue: undefined,
-                autoCloseMs: 3000,
-            });
+                    : 'Default table columns have been updated for this entity.');
         } catch (error) {
             console.error('Failed to save default table columns:', error);
             logging.errorHandler.next('ErrorMessage.EntityTypeConfiguration.SaveFailed');
@@ -1395,7 +1362,6 @@ export const FormWizardPage: React.FC<Props> = ({
                 status={feedbackModal.status}
                 onClose={closeFeedbackModal}
                 onContinue={feedbackModal.onContinue ? handleFeedbackContinue : undefined}
-                autoCloseMs={feedbackModal.autoCloseMs}
             />
         </>
     );

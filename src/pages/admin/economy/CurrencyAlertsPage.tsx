@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, Check, ChevronLeft, ChevronRight, Loader2, RefreshCw, ShieldAlert } from 'lucide-react';
 import { currencyClient } from '../../../apiClients/currencyClient';
 import { usePermission } from '../../../hooks/useStaffAccess';
-import { parseUtc } from '../../../components/currency/BalanceLedgerTable';
 import {
     CURRENCY_ALERT_RULES,
     CURRENCY_NODES,
@@ -15,6 +14,7 @@ import {
 } from '../../../types/dtos/currency/CurrencyDtos';
 import { usePageTitle } from '../../../hooks/usePageTitle';
 import { apiRefusalReason } from '../../../utils/apiRefusalReason';
+import { numberFormat, parseUtc } from '../../../utils/format';
 
 const PAGE_SIZE = 25;
 const SEVERITIES: CurrencyAlertSeverity[] = ['Critical', 'High', 'Medium', 'Low'];
@@ -26,7 +26,6 @@ const SEVERITY_STYLES: Record<CurrencyAlertSeverity, string> = {
     Low: 'bg-gray-100 text-gray-700 border-gray-200',
 };
 
-const numberFormat = new Intl.NumberFormat('en-US');
 
 const errorMessage = (err: unknown, fallback: string): string => apiRefusalReason(err) ?? fallback;
 

@@ -11,6 +11,7 @@ import { fieldValidationRuleClient } from '../../../apiClients/fieldValidationRu
 import { getFetchByIdFunctionForEntity } from '../../../utils/entityApiMapping';
 import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../../../types/dtos/forms/FormModels';
 import { FieldType } from '../../../utils/enums';
+import { toast } from '../../../utils/toast';
 
 // Jest 27 can't read react-router-dom v7's exports map; react-router has the same router and hooks.
 jest.mock('react-router-dom', () => jest.requireActual('react-router'), { virtual: true });
@@ -121,9 +122,9 @@ const renderForm = (entityId?: string) => {
 };
 
 const footer = () => screen.getByTestId('wizard-footer');
-const leaveDialog = () => screen.queryByRole('dialog', { name: 'Leave this form?' });
+const leaveDialog = () => screen.queryByRole('alertdialog', { name: 'Leave this form?' });
 const stay = async () =>
-    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Stay' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Stay' }));
 
 describe('FormWizard leave guard compares values (#109 fix round)', () => {
     beforeEach(() => {
@@ -194,8 +195,11 @@ describe('FormWizard leave guard compares values (#109 fix round)', () => {
         const motto = await screen.findByLabelText('Motto');
         fireEvent.change(motto, { target: { value: 'Onward' } });
 
+        const saved = jest.spyOn(toast, 'success');
         fireEvent.click(within(footer()).getByRole('button', { name: /save draft/i }));
-        await screen.findByText('Progress saved');
+        // #33: a toast, not a modal over the form.
+        await waitFor(() => expect(saved).toHaveBeenCalledWith('Your draft has been saved. You can continue later.'));
+        saved.mockRestore();
         expect(update).toHaveBeenCalled();
 
         fireEvent.change(motto, { target: { value: 'Onward!' } });

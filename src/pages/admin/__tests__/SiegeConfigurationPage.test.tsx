@@ -3,6 +3,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SiegeConfigurationPage } from '../SiegeConfigurationPage';
 import { siegeConfigurationClient } from '../../../apiClients/siegeConfigurationClient';
+import { toast } from '../../../utils/toast';
+
+// virtual: CRA's Jest resolver can't resolve react-router-dom's package exports. No data router here, so the
+// SettingsPage shell (#187) leaves its navigation blocker out.
+jest.mock('react-router-dom', () => ({}), { virtual: true });
 
 jest.mock('../../../apiClients/siegeConfigurationClient', () => ({
     siegeConfigurationClient: { get: jest.fn(), update: jest.fn() }
@@ -26,6 +31,12 @@ describe('SiegeConfigurationPage', () => {
         (siegeConfigurationClient.update as jest.Mock).mockImplementation(async (dto: object) => ({ ...DEFAULTS, ...dto }));
     });
 
+    let successToast: jest.SpyInstance;
+    beforeEach(() => {
+        successToast = jest.spyOn(toast, 'success').mockImplementation(() => undefined);
+    });
+    afterEach(() => successToast.mockRestore());
+
     it('sends only the changed values (partial PUT), parsing lists', async () => {
         render(<SiegeConfigurationPage />);
         await waitFor(() => expect(screen.getByDisplayValue('1.5')).toBeInTheDocument());
@@ -41,7 +52,9 @@ describe('SiegeConfigurationPage', () => {
             headshotMultiplier: 1,
             matchmakingAnnouncementMarks: [120, 60]
         }));
-        await waitFor(() => expect(screen.getByText('Saved 2 settings.')).toBeInTheDocument());
+        // #187: the shell's success toast; the header says nothing is left to save.
+        await waitFor(() => expect(successToast).toHaveBeenCalledWith('Saved 2 settings.'));
+        expect(screen.getByText('No unsaved changes.')).toBeInTheDocument();
     });
 
     it('blocks saving invalid input and shows the API reason on a rejected save', async () => {

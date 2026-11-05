@@ -1,9 +1,10 @@
 import React from 'react';
-import { Loader2, RefreshCcw, Save } from 'lucide-react';
 import { siegeConfigurationClient } from '../../apiClients/siegeConfigurationClient';
 import { SiegeConfigurationDto, UpdateSiegeConfigurationDto } from '../../types/dtos/siege/SiegeDtos';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { SettingsPage, SettingsSection } from '../../components/SettingsPage';
+import { Field } from '../../components/Field';
 
 /**
  * Siege Phase 3: the global SiegeConfiguration singleton (docs/specs/siege-minigame/DESIGN.md §3.8).
@@ -11,7 +12,7 @@ import { apiRefusalReason } from '../../utils/apiRefusalReason';
  * a singleton doesn't fit the FormWizard's create/edit-by-id model - so this is a small dedicated
  * page in the GameSettingsPage mould. GET seeds the legacy defaults on first use; Save sends only
  * the changed values (the PUT is partial). Range rules are enforced by the API, whose message is
- * shown on a 400.
+ * shown on a 400. #187: on the SettingsPage shell (leave/discard questions, toast on save).
  */
 
 type FieldKind = 'int' | 'decimal' | 'intList' | 'stringList' | 'gateView' | 'boolean';
@@ -139,8 +140,7 @@ export const SiegeConfigurationPage: React.FC = () => {
     const [config, setConfig] = React.useState<SiegeConfigurationDto | null>(null);
     const [drafts, setDrafts] = React.useState<Record<string, string>>({});
     const [loading, setLoading] = React.useState(true);
-    const [saving, setSaving] = React.useState(false);
-    const [message, setMessage] = React.useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+    const [loadError, setLoadError] = React.useState<string | null>(null);
 
     const allFields = React.useMemo(() => SECTIONS.flatMap(section => section.fields), []);
 
@@ -155,11 +155,11 @@ export const SiegeConfigurationPage: React.FC = () => {
 
     const load = React.useCallback(async () => {
         setLoading(true);
-        setMessage(null);
+        setLoadError(null);
         try {
             applyLoaded(await siegeConfigurationClient.get());
         } catch (err) {
-            setMessage({ tone: 'error', text: apiRefusalReason(err) ?? 'Could not load the siege configuration.' });
+            setLoadError(apiRefusalReason(err) ?? 'Could not load the siege configuration.');
         } finally {
             setLoading(false);
         }
@@ -187,82 +187,62 @@ export const SiegeConfigurationPage: React.FC = () => {
     const hasErrors = Object.values(parsed).some(p => p.error);
 
     const handleSave = async () => {
-        if (!config || changedKeys.length === 0 || hasErrors) return;
-        setSaving(true);
-        setMessage(null);
-        try {
-            const update: UpdateSiegeConfigurationDto = {};
-            changedKeys.forEach(key => {
-                (update as Record<string, unknown>)[key] = parsed[key].value;
-            });
-            applyLoaded(await siegeConfigurationClient.update(update));
-            setMessage({ tone: 'success', text: `Saved ${changedKeys.length} setting${changedKeys.length === 1 ? '' : 's'}.` });
-        } catch (err) {
-            setMessage({ tone: 'error', text: apiRefusalReason(err) ?? 'Could not save the siege configuration.' });
-        } finally {
-            setSaving(false);
-        }
+        if (!config) return;
+        const update: UpdateSiegeConfigurationDto = {};
+        changedKeys.forEach(key => {
+            (update as Record<string, unknown>)[key] = parsed[key].value;
+        });
+        applyLoaded(await siegeConfigurationClient.update(update));
+        return `Saved ${changedKeys.length} setting${changedKeys.length === 1 ? '' : 's'}.`;
     };
 
-    if (loading && !config) {
-        return (
-            <div className="flex items-center justify-center py-16 text-gray-500">
-                <Loader2 className="h-6 w-6 mr-2 animate-spin" /> Loading siege configuration…
-            </div>
-        );
-    }
-
     return (
-        <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Siege configuration</h1>
-                    <p className="text-sm text-gray-600 mt-1">
-                        Global tunables for every siege lobby. Scenarios and lobbies are edited in their own forms.
-                        {config?.updatedAt && <> Last saved {new Date(config.updatedAt).toLocaleString()}.</>}
-                    </p>
-                </div>
-                <div className="flex gap-2">
-                    <button type="button" onClick={() => void load()} disabled={loading || saving} className="btn-secondary inline-flex items-center gap-1 disabled:opacity-50">
-                        <RefreshCcw className="h-4 w-4" /> Reload
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => void handleSave()}
-                        disabled={saving || changedKeys.length === 0 || hasErrors}
-                        className="btn-primary inline-flex items-center gap-1 disabled:opacity-50"
-                    >
-                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                        Save{changedKeys.length > 0 ? ` (${changedKeys.length})` : ''}
-                    </button>
-                </div>
-            </div>
-
-            {message && (
-                <div className={`rounded-md border p-3 text-sm ${message.tone === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-700'}`}>
-                    {message.text}
-                </div>
-            )}
-
+        <SettingsPage
+            title="Siege configuration"
+            description="Global tunables for every siege lobby. Scenarios and lobbies are edited in their own forms."
+            lastSaved={{ at: config?.updatedAt }}
+            dirtyCount={changedKeys.length}
+            canSave={!hasErrors}
+            onSave={handleSave}
+            onDiscard={() => config && applyLoaded(config)}
+            onReload={load}
+            saveErrorMessage={err => apiRefusalReason(err) ?? 'Could not save the siege configuration.'}
+            loading={loading && !config}
+            loadingLabel="Loading siege configuration…"
+            loadError={!config && loadError ? 'Siege configuration could not be loaded' : undefined}
+            onRetry={() => void load()}
+        >
             {config && SECTIONS.map(section => (
-                <section key={section.title} className="bg-white rounded-lg shadow p-4 md:p-6 space-y-4">
-                    <div>
-                        <h2 className="text-lg font-semibold text-gray-900">{section.title}</h2>
-                        <p className="text-xs text-gray-500">{section.description}</p>
-                    </div>
+                <SettingsSection
+                    key={section.title}
+                    title={section.title}
+                    description={section.description}
+                    changed={section.fields.some(field => parsed[field.key]?.changed)}
+                >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {section.fields.map(field => {
                             const state = parsed[field.key];
                             const text = drafts[field.key] ?? '';
-                            const inputClass = `block w-full rounded-md shadow-sm sm:text-sm ${state?.error ? 'border-red-300' : state?.changed ? 'border-amber-400' : 'border-gray-300'}`;
+                            // Siege's pattern (SET-4): a changed field has a warning border, an invalid one a danger border.
+                            const inputClass = `input px-3 py-2 ${state?.error ? 'border-danger' : state?.changed ? 'border-warning' : ''}`;
                             const onChange = (value: string) => setDrafts(prev => ({ ...prev, [field.key]: value }));
+                            const wide = field.kind === 'stringList' ? 'md:col-span-2' : '';
+                            if (field.kind === 'boolean') {
+                                return (
+                                    <Field key={field.key} label={field.label} hint={field.help} error={state?.error} inline className={wide}>
+                                        <input
+                                            type="checkbox"
+                                            checked={text === 'true'}
+                                            onChange={e => onChange(e.target.checked ? 'true' : 'false')}
+                                            className="h-4 w-4 rounded border-field text-primary focus:ring-primary"
+                                        />
+                                    </Field>
+                                );
+                            }
                             return (
-                                <label key={field.key} className={`block ${field.kind === 'stringList' ? 'md:col-span-2' : ''}`}>
-                                    <span className="block text-sm font-medium text-gray-700 mb-1">{field.label}</span>
+                                <Field key={field.key} label={field.label} hint={field.help} error={state?.error} className={wide}>
                                     {field.kind === 'stringList' ? (
                                         <textarea rows={4} value={text} onChange={e => onChange(e.target.value)} className={inputClass} />
-                                    ) : field.kind === 'boolean' ? (
-                                        <input type="checkbox" checked={text === 'true'} onChange={e => onChange(e.target.checked ? 'true' : 'false')} className="h-4 w-4 rounded border-gray-300" />
                                     ) : field.kind === 'gateView' ? (
                                         <select value={text} onChange={e => onChange(e.target.value)} className={inputClass}>
                                             <option value="PreLockdownView">Pre-lockdown view (default)</option>
@@ -271,15 +251,13 @@ export const SiegeConfigurationPage: React.FC = () => {
                                     ) : (
                                         <input type="text" inputMode="decimal" value={text} onChange={e => onChange(e.target.value)} className={inputClass} />
                                     )}
-                                    {field.help && <span className="block text-xs text-gray-500 mt-1">{field.help}</span>}
-                                    {state?.error && <span className="block text-xs text-red-600 mt-1">{state.error}</span>}
-                                </label>
+                                </Field>
                             );
                         })}
                     </div>
-                </section>
+                </SettingsSection>
             ))}
-        </div>
+        </SettingsPage>
     );
 };
 
