@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Loader2, Search, Users, Clock, TrendingDown, List, ChevronLeft, ChevronRight, Coins, SlidersHorizontal, ShieldAlert, MapPinOff, Ticket } from 'lucide-react';
+import { Loader2, Search, Users, Clock, TrendingDown, List, Coins, SlidersHorizontal, ShieldAlert, MapPinOff, Ticket } from 'lucide-react';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { userClient } from '../../apiClients/userClient';
@@ -14,6 +14,10 @@ import { CURRENCY_NODES } from '../../types/dtos/currency/CurrencyDtos';
 import { INVITATION_NODES } from '../../types/dtos/invitations/InvitationDtos';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { LOCATION_RETENTION_NODES } from '../../types/dtos/locationRetention/LocationRetentionDtos';
+import { DataTable, DataTableColumn } from '../../components/DataTable';
+import { Pager } from '../../components/Pager';
+import { Field } from '../../components/Field';
+import { formatDateTime, formatNumber } from '../../utils/format';
 
 // docs/specs/user-management/DESIGN.md §5, IMPLEMENTATION_PLAN.md Phase 3 - a moderation-oriented
 // list separate from the generic ObjectDashboard/PagedEntityTable system, since "users in group
@@ -26,25 +30,19 @@ type Tab = 'all' | 'group' | 'expiring' | 'demoted';
 const TAB_KEYS: readonly Tab[] = ['all', 'group', 'expiring', 'demoted'];
 
 /**
- * PandiO/knk-workspace#39 (CRUD-4): the player's name is a real link to the profile, so middle-click,
- * Ctrl/Cmd-click and the keyboard work; a click anywhere else on the row still opens it.
+ * #39 (CRUD-4), #187: every list is a DataTable whose rows open the player's profile. The name is a real link
+ * (middle-click, Ctrl/Cmd-click, keyboard); a click anywhere else on the row opens it too.
  */
-const ProfileLink: React.FC<{ userId: number | string | null | undefined; children: React.ReactNode }> = ({ userId, children }) =>
-    userId == null ? <>{children}</> : (
-        <Link
-            to={`/admin/users/${userId}`}
-            onClick={(event) => event.stopPropagation()}
-            className="hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
-        >
-            {children}
-        </Link>
-    );
+const profilePath = (userId: number | string | null | undefined): string | undefined =>
+    userId == null ? undefined : `/admin/users/${userId}`;
 
-const formatDate = (iso?: string | null): string => {
-    if (!iso) return '-';
-    const date = new Date(iso);
-    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
-};
+const onlineBadge = (isOnline?: boolean) => isOnline ? (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success-muted text-success-strong">Online</span>
+) : (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-alt text-muted">Offline</span>
+);
+
+const filterClass = 'input min-w-[220px]';
 
 export const UserModerationPage: React.FC = () => {
     usePageTitle('Moderation');
@@ -114,7 +112,33 @@ export const UserModerationPage: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tab, allResults, allLoading]);
 
-    const allTotalPages = Math.max(1, Math.ceil(allTotalCount / ALL_PAGE_SIZE));
+    const openProfile = (userId: number | string | null | undefined) => {
+        const path = profilePath(userId);
+        if (path) navigate(path);
+    };
+
+    const allColumns: DataTableColumn<UserListDto>[] = [
+        { key: 'username', header: 'Username', className: 'font-medium' },
+        { key: 'email', header: 'Email' },
+        { key: 'status', header: 'Status', cell: u => onlineBadge(u.isOnline) },
+        { key: 'coins', header: 'Coins', align: 'right', cell: u => formatNumber(u.coins) },
+        { key: 'experiencePoints', header: 'XP', align: 'right', cell: u => formatNumber(u.experiencePoints) },
+    ];
+    const groupColumns: DataTableColumn<UserListDto>[] = [
+        { key: 'username', header: 'Username', className: 'font-medium' },
+        { key: 'status', header: 'Status', cell: u => onlineBadge(u.isOnline) },
+        { key: 'lastSeenAt', header: 'Last seen', cell: u => formatDateTime(u.lastSeenAt) },
+    ];
+    const expiringColumns: DataTableColumn<ExpiringMembershipDto>[] = [
+        { key: 'username', header: 'Username', className: 'font-medium' },
+        { key: 'expiresAt', header: 'Expires', cell: m => formatDateTime(m.expiresAt) },
+    ];
+    const demotedColumns: DataTableColumn<AuditLogEntryDto>[] = [
+        { key: 'player', header: 'Player', className: 'font-medium', cell: e => e.targetUsername ?? `#${e.targetUserId}` },
+        { key: 'timestamp', header: 'When', cell: e => formatDateTime(e.timestamp) },
+        { key: 'details', header: 'Details', className: 'font-mono text-xs' },
+    ];
+    const tableProps = { density: 'compact' as const, className: 'border border-line rounded-md' };
 
     // ----- "By group" tab (also covers "currently online", combined with a group filter -
     // there is no server-wide online list, only GET /api/Users/search?groupId=&onlineOnly=) -----
@@ -197,12 +221,12 @@ export const UserModerationPage: React.FC = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Player moderation</h1>
-                        <p className="mt-1 text-sm text-gray-500">
+                        <h1 className="text-2xl font-bold text-fg">Player moderation</h1>
+                        <p className="mt-1 text-sm text-muted">
                             Browse every player, or search for moderation tasks — group membership, expiring
                             premium tiers, and recent title demotions. Click any row to open that player&apos;s profile.
                         </p>
@@ -242,16 +266,16 @@ export const UserModerationPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-                    <div className="border-b border-gray-200 flex flex-wrap">
+                <div className="panel">
+                    <div className="border-b border-line flex flex-wrap">
                         {tabs.map((t) => (
                             <button
                                 key={t.key}
                                 onClick={() => setTab(t.key)}
                                 className={`inline-flex items-center px-4 py-3 text-sm font-medium border-b-2 -mb-px ${
                                     tab === t.key
-                                        ? 'border-primary text-gray-900'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        ? 'border-primary text-fg'
+                                        : 'border-transparent text-muted hover:text-fg'
                                 }`}
                             >
                                 {t.icon}
@@ -264,17 +288,16 @@ export const UserModerationPage: React.FC = () => {
                         {tab === 'all' && (
                             <div className="space-y-4">
                                 <div className="flex flex-wrap items-end gap-3">
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">Search username / email / UUID</label>
+                                    <Field label="Search username / email / UUID" labelClassName="block text-xs font-medium text-muted mb-1">
                                         <input
                                             type="text"
-                                            className="border border-gray-300 rounded-md px-3 py-2 text-sm min-w-[240px]"
+                                            className={filterClass}
                                             value={allSearchTerm}
                                             onChange={(e) => setAllSearchTerm(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === 'Enter') void runAllSearch(1, allSearchTerm); }}
                                             placeholder="Leave blank to list everyone"
                                         />
-                                    </div>
+                                    </Field>
                                     <button
                                         className="btn-primary text-sm inline-flex items-center"
                                         disabled={allLoading}
@@ -284,67 +307,31 @@ export const UserModerationPage: React.FC = () => {
                                         Search
                                     </button>
                                 </div>
-                                {allError && <p className="text-sm text-red-600">{allError}</p>}
+                                {allError && <p className="text-sm field-error" role="alert">{allError}</p>}
                                 {allResults && (
-                                    allResults.length === 0 ? (
-                                        <p className="text-sm text-gray-500">No matching players.</p>
-                                    ) : (
-                                        <>
-                                            <table className="min-w-full text-sm">
-                                                <thead>
-                                                    <tr className="text-left text-gray-500 border-b border-gray-200">
-                                                        <th className="py-2 pr-4">Username</th>
-                                                        <th className="py-2 pr-4">Email</th>
-                                                        <th className="py-2 pr-4">Status</th>
-                                                        <th className="py-2 pr-4">Coins</th>
-                                                        <th className="py-2 pr-4">XP</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {allResults.map((u) => (
-                                                        <tr
-                                                            key={u.id}
-                                                            className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                                                            onClick={() => u.id != null && navigate(`/admin/users/${u.id}`)}
-                                                        >
-                                                            <td className="py-2 pr-4 font-medium text-gray-900"><ProfileLink userId={u.id}>{u.username}</ProfileLink></td>
-                                                            <td className="py-2 pr-4 text-gray-500">{u.email ?? '-'}</td>
-                                                            <td className="py-2 pr-4">
-                                                                {u.isOnline ? (
-                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Online</span>
-                                                                ) : (
-                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Offline</span>
-                                                                )}
-                                                            </td>
-                                                            <td className="py-2 pr-4 text-gray-500">{u.coins}</td>
-                                                            <td className="py-2 pr-4 text-gray-500">{u.experiencePoints}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                            <div className="flex items-center justify-between pt-2">
-                                                <p className="text-xs text-gray-500">
-                                                    Page {allPage} of {allTotalPages} ({allTotalCount} total)
-                                                </p>
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        className="btn-secondary text-xs inline-flex items-center px-2 py-1"
-                                                        disabled={allLoading || allPage <= 1}
-                                                        onClick={() => void runAllSearch(allPage - 1, allSearchTerm)}
-                                                    >
-                                                        <ChevronLeft className="h-3.5 w-3.5" />
-                                                    </button>
-                                                    <button
-                                                        className="btn-secondary text-xs inline-flex items-center px-2 py-1"
-                                                        disabled={allLoading || allPage >= allTotalPages}
-                                                        onClick={() => void runAllSearch(allPage + 1, allSearchTerm)}
-                                                    >
-                                                        <ChevronRight className="h-3.5 w-3.5" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </>
-                                    )
+                                    <div>
+                                        <DataTable
+                                            {...tableProps}
+                                            caption="All players"
+                                            columns={allColumns}
+                                            rows={allResults}
+                                            rowKey={u => String(u.id)}
+                                            rowHref={u => profilePath(u.id)}
+                                            onRowClick={u => openProfile(u.id)}
+                                            empty="No matching players."
+                                        />
+                                        {allResults.length > 0 && (
+                                            <Pager
+                                                label="All players pages"
+                                                noun="players"
+                                                page={allPage}
+                                                pageSize={ALL_PAGE_SIZE}
+                                                totalCount={allTotalCount}
+                                                disabled={allLoading}
+                                                onPageChange={page => void runAllSearch(page, allSearchTerm)}
+                                            />
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -352,10 +339,9 @@ export const UserModerationPage: React.FC = () => {
                         {tab === 'group' && (
                             <div className="space-y-4">
                                 <div className="flex flex-wrap items-end gap-3">
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">Permission group</label>
+                                    <Field label="Permission group" labelClassName="block text-xs font-medium text-muted mb-1">
                                         <select
-                                            className="border border-gray-300 rounded-md px-3 py-2 text-sm min-w-[220px]"
+                                            className={filterClass}
                                             value={selectedGroupId}
                                             onChange={(e) => setSelectedGroupId(e.target.value)}
                                             disabled={groupsLoading}
@@ -365,15 +351,15 @@ export const UserModerationPage: React.FC = () => {
                                                 <option key={g.id} value={g.id ?? ''}>{g.name}</option>
                                             ))}
                                         </select>
-                                    </div>
-                                    <label className="inline-flex items-center gap-2 text-sm text-gray-700 pb-2">
+                                    </Field>
+                                    <Field label="Currently online only" inline className="pb-2">
                                         <input
                                             type="checkbox"
                                             checked={onlineOnly}
                                             onChange={(e) => setOnlineOnly(e.target.checked)}
+                                            className="rounded border-field text-primary focus:ring-primary"
                                         />
-                                        Currently online only
-                                    </label>
+                                    </Field>
                                     <button
                                         className="btn-primary text-sm inline-flex items-center"
                                         disabled={!selectedGroupId || groupLoading}
@@ -383,40 +369,18 @@ export const UserModerationPage: React.FC = () => {
                                         Search
                                     </button>
                                 </div>
-                                {groupError && <p className="text-sm text-red-600">{groupError}</p>}
+                                {groupError && <p className="text-sm field-error" role="alert">{groupError}</p>}
                                 {groupResults && (
-                                    groupResults.length === 0 ? (
-                                        <p className="text-sm text-gray-500">No matching players.</p>
-                                    ) : (
-                                        <table className="min-w-full text-sm">
-                                            <thead>
-                                                <tr className="text-left text-gray-500 border-b border-gray-200">
-                                                    <th className="py-2 pr-4">Username</th>
-                                                    <th className="py-2 pr-4">Status</th>
-                                                    <th className="py-2 pr-4">Last seen</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {groupResults.map((u) => (
-                                                    <tr
-                                                        key={u.id}
-                                                        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                                                        onClick={() => u.id != null && navigate(`/admin/users/${u.id}`)}
-                                                    >
-                                                        <td className="py-2 pr-4 font-medium text-gray-900"><ProfileLink userId={u.id}>{u.username}</ProfileLink></td>
-                                                        <td className="py-2 pr-4">
-                                                            {u.isOnline ? (
-                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Online</span>
-                                                            ) : (
-                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Offline</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="py-2 pr-4 text-gray-500">{formatDate(u.lastSeenAt)}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    )
+                                    <DataTable
+                                        {...tableProps}
+                                        caption="Players in the group"
+                                        columns={groupColumns}
+                                        rows={groupResults}
+                                        rowKey={u => String(u.id)}
+                                        rowHref={u => profilePath(u.id)}
+                                        onRowClick={u => openProfile(u.id)}
+                                        empty="No matching players."
+                                    />
                                 )}
                             </div>
                         )}
@@ -424,10 +388,9 @@ export const UserModerationPage: React.FC = () => {
                         {tab === 'expiring' && (
                             <div className="space-y-4">
                                 <div className="flex flex-wrap items-end gap-3">
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">Premium group</label>
+                                    <Field label="Premium group" labelClassName="block text-xs font-medium text-muted mb-1">
                                         <select
-                                            className="border border-gray-300 rounded-md px-3 py-2 text-sm min-w-[220px]"
+                                            className={filterClass}
                                             value={expiringGroupId}
                                             onChange={(e) => setExpiringGroupId(e.target.value)}
                                             disabled={groupsLoading}
@@ -437,17 +400,16 @@ export const UserModerationPage: React.FC = () => {
                                                 <option key={g.id} value={g.id ?? ''}>{g.name}</option>
                                             ))}
                                         </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">Within (days)</label>
+                                    </Field>
+                                    <Field label="Within (days)" labelClassName="block text-xs font-medium text-muted mb-1">
                                         <input
                                             type="number"
                                             min={1}
-                                            className="border border-gray-300 rounded-md px-3 py-2 text-sm w-24"
+                                            className="input w-24"
                                             value={withinDays}
                                             onChange={(e) => setWithinDays(Number(e.target.value))}
                                         />
-                                    </div>
+                                    </Field>
                                     <button
                                         className="btn-primary text-sm inline-flex items-center"
                                         disabled={!expiringGroupId || withinDays <= 0 || expiringLoading}
@@ -458,34 +420,20 @@ export const UserModerationPage: React.FC = () => {
                                     </button>
                                 </div>
                                 {premiumGroups.length === 0 && !groupsLoading && (
-                                    <p className="text-sm text-gray-500">No premium-tier groups are configured.</p>
+                                    <p className="text-sm text-muted">No premium-tier groups are configured.</p>
                                 )}
-                                {expiringError && <p className="text-sm text-red-600">{expiringError}</p>}
+                                {expiringError && <p className="text-sm field-error" role="alert">{expiringError}</p>}
                                 {expiringResults && (
-                                    expiringResults.length === 0 ? (
-                                        <p className="text-sm text-gray-500">No memberships expiring in this window.</p>
-                                    ) : (
-                                        <table className="min-w-full text-sm">
-                                            <thead>
-                                                <tr className="text-left text-gray-500 border-b border-gray-200">
-                                                    <th className="py-2 pr-4">Username</th>
-                                                    <th className="py-2 pr-4">Expires</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {expiringResults.map((m) => (
-                                                    <tr
-                                                        key={m.userId}
-                                                        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                                                        onClick={() => navigate(`/admin/users/${m.userId}`)}
-                                                    >
-                                                        <td className="py-2 pr-4 font-medium text-gray-900"><ProfileLink userId={m.userId}>{m.username}</ProfileLink></td>
-                                                        <td className="py-2 pr-4 text-gray-500">{formatDate(m.expiresAt)}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    )
+                                    <DataTable
+                                        {...tableProps}
+                                        caption="Memberships expiring soon"
+                                        columns={expiringColumns}
+                                        rows={expiringResults}
+                                        rowKey={m => String(m.userId)}
+                                        rowHref={m => profilePath(m.userId)}
+                                        onRowClick={m => openProfile(m.userId)}
+                                        empty="No memberships expiring in this window."
+                                    />
                                 )}
                             </div>
                         )}
@@ -502,34 +450,18 @@ export const UserModerationPage: React.FC = () => {
                                         Refresh
                                     </button>
                                 </div>
-                                {demotedError && <p className="text-sm text-red-600">{demotedError}</p>}
+                                {demotedError && <p className="text-sm field-error" role="alert">{demotedError}</p>}
                                 {demotedResults && (
-                                    demotedResults.length === 0 ? (
-                                        <p className="text-sm text-gray-500">No recent demotions.</p>
-                                    ) : (
-                                        <table className="min-w-full text-sm">
-                                            <thead>
-                                                <tr className="text-left text-gray-500 border-b border-gray-200">
-                                                    <th className="py-2 pr-4">Player</th>
-                                                    <th className="py-2 pr-4">When</th>
-                                                    <th className="py-2 pr-4">Details</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {demotedResults.map((entry) => (
-                                                    <tr
-                                                        key={entry.id}
-                                                        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                                                        onClick={() => navigate(`/admin/users/${entry.targetUserId}`)}
-                                                    >
-                                                        <td className="py-2 pr-4 font-medium text-gray-900"><ProfileLink userId={entry.targetUserId}>{entry.targetUsername ?? `#${entry.targetUserId}`}</ProfileLink></td>
-                                                        <td className="py-2 pr-4 text-gray-500">{formatDate(entry.timestamp)}</td>
-                                                        <td className="py-2 pr-4 text-gray-500 font-mono text-xs">{entry.details}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    )
+                                    <DataTable
+                                        {...tableProps}
+                                        caption="Recently demoted players"
+                                        columns={demotedColumns}
+                                        rows={demotedResults}
+                                        rowKey={e => String(e.id)}
+                                        rowHref={e => profilePath(e.targetUserId)}
+                                        onRowClick={e => openProfile(e.targetUserId)}
+                                        empty="No recent demotions."
+                                    />
                                 )}
                             </div>
                         )}
