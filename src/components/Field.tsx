@@ -8,7 +8,7 @@ import React, { useId } from 'react';
  * The control is the only child element, and the props are added to it:
  *
  *     <Field label="Search username / email / UUID" hint="Leave blank to list everyone">
- *       <input type="text" className="input" value={term} onChange={…} />
+ *       <input type="text" className="input px-3 py-2" value={term} onChange={…} />
  *     </Field>
  *
  * or a function that spreads them where they belong (a control inside a wrapper, a custom component):

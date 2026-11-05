@@ -224,7 +224,7 @@ export const SiegeConfigurationPage: React.FC = () => {
                             const state = parsed[field.key];
                             const text = drafts[field.key] ?? '';
                             // Siege's pattern (SET-4): a changed field has a warning border, an invalid one a danger border.
-                            const inputClass = `input ${state?.error ? 'border-danger' : state?.changed ? 'border-warning' : ''}`;
+                            const inputClass = `input px-3 py-2 ${state?.error ? 'border-danger' : state?.changed ? 'border-warning' : ''}`;
                             const onChange = (value: string) => setDrafts(prev => ({ ...prev, [field.key]: value }));
                             const wide = field.kind === 'stringList' ? 'md:col-span-2' : '';
                             if (field.kind === 'boolean') {

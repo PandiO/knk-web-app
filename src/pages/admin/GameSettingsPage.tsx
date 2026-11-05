@@ -345,7 +345,7 @@ export const GameSettingsPage: React.FC = () => {
                                     value={settings.joinAnnouncement}
                                     onChange={e => updateSettings(prev => ({ ...prev, joinAnnouncement: e.target.value }))}
                                     rows={3}
-                                    className="input"
+                                    className="input px-3 py-2"
                                 />
                             </Field>
                             <div className="mt-2 rounded-md border border-line bg-surface-alt p-2">
@@ -359,7 +359,7 @@ export const GameSettingsPage: React.FC = () => {
                                     value={settings.leaveAnnouncement}
                                     onChange={e => updateSettings(prev => ({ ...prev, leaveAnnouncement: e.target.value }))}
                                     rows={3}
-                                    className="input"
+                                    className="input px-3 py-2"
                                 />
                             </Field>
                             <div className="mt-2 rounded-md border border-line bg-surface-alt p-2">
@@ -384,7 +384,7 @@ export const GameSettingsPage: React.FC = () => {
                             value={settings.motd || ''}
                             onChange={e => updateSettings(prev => ({ ...prev, motd: e.target.value.split('\n').slice(0, 2).join('\n') }))}
                             rows={2}
-                            className="input font-mono"
+                            className="input px-3 py-2 font-mono"
                         />
                     </Field>
                     <div className="rounded-md border border-line bg-surface-alt p-2">
@@ -406,7 +406,7 @@ export const GameSettingsPage: React.FC = () => {
                             <select
                                 value={settings.joinSpawnMode}
                                 onChange={e => updateSettings(prev => ({ ...prev, joinSpawnMode: e.target.value as JoinSpawnMode }))}
-                                className="input"
+                                className="input px-3 py-2"
                             >
                                 {JOIN_SPAWN_MODES.map(mode => (
                                     <option key={mode} value={mode}>{JOIN_SPAWN_MODE_LABELS[mode]}</option>
@@ -465,7 +465,7 @@ export const GameSettingsPage: React.FC = () => {
                                             ...current,
                                             weather: { ...current.weather, [key]: Math.max(0, Number(e.target.value) || 0) },
                                         }))}
-                                        className="input"
+                                        className="input px-3 py-2"
                                     />
                                 </Field>
                             );
@@ -481,7 +481,7 @@ export const GameSettingsPage: React.FC = () => {
                                             <select
                                                 value={world.defaultGameMode}
                                                 onChange={e => updateWorldSetting(world.worldName, current => ({ ...current, defaultGameMode: e.target.value }))}
-                                                className="input"
+                                                className="input px-3 py-2"
                                             >
                                                 {GAMEMODES.map(mode => (
                                                     <option key={mode} value={mode}>{mode}</option>
@@ -504,7 +504,7 @@ export const GameSettingsPage: React.FC = () => {
                                                 type="number"
                                                 value={world.lockedTime}
                                                 onChange={e => updateWorldSetting(world.worldName, current => ({ ...current, lockedTime: Number(e.target.value) || 0 }))}
-                                                className="input"
+                                                className="input px-3 py-2"
                                             />
                                         </Field>
                                     </div>
@@ -517,7 +517,7 @@ export const GameSettingsPage: React.FC = () => {
                                                     ...current,
                                                     weather: { ...current.weather, mode: e.target.value as WeatherMode },
                                                 }))}
-                                                className="input"
+                                                className="input px-3 py-2"
                                             >
                                                 {WEATHER_MODES.map(mode => (
                                                     <option key={mode} value={mode}>{mode}</option>
@@ -532,7 +532,7 @@ export const GameSettingsPage: React.FC = () => {
                                                         ...current,
                                                         weather: { ...current.weather, forcedWeather: e.target.value as WeatherType },
                                                     }))}
-                                                    className="input"
+                                                    className="input px-3 py-2"
                                                 >
                                                     {WEATHER_TYPES.map(type => (
                                                         <option key={type} value={type}>{type}</option>

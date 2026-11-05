@@ -42,7 +42,7 @@ const onlineBadge = (isOnline?: boolean) => isOnline ? (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-alt text-muted">Offline</span>
 );
 
-const filterClass = 'input min-w-[220px]';
+const filterClass = 'input px-3 py-2 min-w-[220px]';
 
 export const UserModerationPage: React.FC = () => {
     usePageTitle('Moderation');
@@ -232,7 +232,7 @@ export const UserModerationPage: React.FC = () => {
                         </p>
                     </div>
                     {/* Currency ledger Phases 4-5 (KNG-23): shown only to holders of the pages' nodes. */}
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         {canReadLedger && (
                             <Link to="/admin/users/balance-log" className="btn-secondary text-sm whitespace-nowrap">
                                 <Coins className="h-4 w-4 mr-2" />
@@ -405,7 +405,7 @@ export const UserModerationPage: React.FC = () => {
                                         <input
                                             type="number"
                                             min={1}
-                                            className="input w-24"
+                                            className="input px-3 py-2 w-24"
                                             value={withinDays}
                                             onChange={(e) => setWithinDays(Number(e.target.value))}
                                         />

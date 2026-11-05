@@ -189,8 +189,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             >
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div className="min-w-0">
-                        <h1 id={titleId} className="text-2xl font-bold text-fg">{title}</h1>
-                        {description && <div className="mt-1 text-sm text-muted">{description}</div>}
+                        <h1 id={titleId} className="text-xl sm:text-2xl font-bold text-fg">{title}</h1>
+                        {/* On a phone the sticky header stays small: no description there. */}
+                        {description && <div className="mt-1 hidden sm:block text-sm text-muted">{description}</div>}
                         <p className="mt-1 text-xs text-muted">
                             {lastSavedText}
                             {lastSavedText && ' '}
@@ -199,23 +200,23 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                             </span>
                         </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 md:flex-nowrap md:justify-end">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 md:justify-end">
                         {headerActions}
                         {onReload && (
                             <button
                                 type="button"
                                 onClick={() => void handleReload()}
                                 disabled={loading || saving}
-                                className="btn-secondary text-sm disabled:opacity-50"
+                                className="btn-secondary text-sm whitespace-nowrap disabled:opacity-50"
                             >
-                                <RefreshCcw className="h-4 w-4" aria-hidden="true" /> Reload
+                                <RefreshCcw className="h-4 w-4" aria-hidden="true" /> <span className="sr-only sm:not-sr-only">Reload</span>
                             </button>
                         )}
                         <button
                             type="button"
                             onClick={() => void handleDiscard()}
                             disabled={!dirty || saving}
-                            className="btn-secondary text-sm disabled:opacity-50"
+                            className="btn-secondary text-sm whitespace-nowrap disabled:opacity-50"
                         >
                             <RotateCcw className="h-4 w-4" aria-hidden="true" /> Discard
                         </button>
@@ -224,7 +225,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                             onClick={() => void handleSave()}
                             disabled={!dirty || !canSave || saving || loading}
                             aria-busy={saving || undefined}
-                            className="btn-primary text-sm disabled:opacity-50"
+                            className="btn-primary text-sm whitespace-nowrap disabled:opacity-50"
                         >
                             {saving
                                 ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
