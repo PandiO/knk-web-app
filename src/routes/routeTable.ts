@@ -276,7 +276,9 @@ export function trailFor(route: RouteMeta | null | undefined): Breadcrumb[] {
   const [self, ...parents] = lineageOf(route);
   return [
     ...groupCrumb(route),
-    ...parents.reverse().map(parent => ({ label: parent.title ?? parent.id, to: parent.path })),
+    // A parent with the page's own title is the same page under another URL (/dashboard for /dashboard/Town).
+    ...parents.reverse().filter(parent => parent.title !== self.title)
+      .map(parent => ({ label: parent.title ?? parent.id, to: parent.path })),
     { label: self.title ?? self.id },
   ];
 }

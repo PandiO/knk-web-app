@@ -102,6 +102,8 @@ describe('route-meta table', () => {
     ]);
     expect(trailFor(ROUTES.gameSettings)).toEqual([{ label: 'Settings', to: adminGroupHref('settings') }, { label: 'Game settings' }]);
     expect(trailFor(ROUTES.formBuilderNew).map(crumb => crumb.label)).toEqual(['Content', 'Dashboard', 'Entity setup', 'Form builder']);
+    // The typed dashboard URL is the dashboard itself: no second "Dashboard".
+    expect(trailFor(ROUTES.dashboardType).map(crumb => crumb.label)).toEqual(['Content', 'Dashboard']);
     // Not in the admin console: no trail.
     expect(trailFor(ROUTES.leaderboards)).toEqual([]);
     expect(trailFor(ROUTES.adminHome)).toEqual([]);

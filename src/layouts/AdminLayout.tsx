@@ -23,7 +23,9 @@ import { RouteTitle } from './RouteTitle';
  */
 export const AdminLayout: React.FC = () => {
   const route = useRouteMeta();
-  const nav = useAdminNav();
+  const adminNav = useAdminNav();
+  // The /admin overview is the sidebar as a page: no sidebar or menu next to it.
+  const nav = route?.id === 'adminHome' ? { ...adminNav, any: false } : adminNav;
   const trail = route?.breadcrumbs === 'page' ? [] : trailFor(route);
   const prefix = React.useMemo(() => groupCrumb(route), [route]);
   const chromeRef = useRef<HTMLDivElement>(null);
@@ -69,9 +71,12 @@ export const AdminLayout: React.FC = () => {
         )}
         <div className="min-w-0 flex-1" style={{ '--admin-chrome': `${chromeHeight}px` } as React.CSSProperties}>
           {showChrome && (
-            <div ref={chromeRef} className={`mb-4 flex items-start gap-3 ${trail.length > 0 ? '' : 'xl:hidden'}`}>
+            <div
+              ref={chromeRef}
+              className={`mb-4 flex flex-col items-start gap-2 sm:flex-row sm:gap-3 ${trail.length > 0 ? '' : 'xl:hidden'}`}
+            >
               {nav.any && <AdminMenu nav={nav} route={route} />}
-              {trail.length > 0 && <Breadcrumbs trail={trail} className="min-w-0 py-1.5" />}
+              {trail.length > 0 && <Breadcrumbs trail={trail} className="min-w-0 sm:py-1.5" />}
             </div>
           )}
           <BreadcrumbPrefixContext.Provider value={prefix}>

@@ -145,6 +145,9 @@ describe('admin overview (/admin)', () => {
     expect(screen.getByRole('region', { name: 'Owner' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Content' })).not.toBeInTheDocument();
     expect(document.title).toBe('Admin · Knights & Kings');
+    // The overview is the sidebar as a page: no sidebar or "Admin pages" menu next to it.
+    expect(screen.queryByRole('navigation', { name: 'Admin' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Admin pages' })).not.toBeInTheDocument();
   });
 
   it('says so when no admin page is allowed', () => {
