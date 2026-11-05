@@ -12,7 +12,6 @@ import {
     MIN_STAFF_NOTE_LENGTH,
     ReversalResultDto,
 } from '../../../types/dtos/currency/CurrencyDtos';
-import { usePageTitle } from '../../../hooks/usePageTitle';
 import { apiRefusalReason } from '../../../utils/apiRefusalReason';
 import { numberFormat, parseUtc } from '../../../utils/format';
 
@@ -62,7 +61,6 @@ const AlreadyReversedNotice: React.FC<{ info: AlreadyReversedDetailsDto }> = ({ 
  * form; so does a Reverse refused with 409 AlreadyReversed (someone else was first).
  */
 export const TransactionDetailPage: React.FC = () => {
-    usePageTitle('Transaction');
     const { publicId = '' } = useParams<{ publicId: string }>();
     const { allowed: canReverse } = usePermission(CURRENCY_NODES.reverse);
 

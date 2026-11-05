@@ -12,7 +12,6 @@ import { usePermission } from '../../hooks/useStaffAccess';
 import { useTabParam } from '../../hooks/useTabParam';
 import { CURRENCY_NODES } from '../../types/dtos/currency/CurrencyDtos';
 import { INVITATION_NODES } from '../../types/dtos/invitations/InvitationDtos';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { LOCATION_RETENTION_NODES } from '../../types/dtos/locationRetention/LocationRetentionDtos';
 import { DataTable, DataTableColumn } from '../../components/DataTable';
 import { Pager } from '../../components/Pager';
@@ -45,7 +44,6 @@ const onlineBadge = (isOnline?: boolean) => isOnline ? (
 const filterClass = 'input px-3 py-2 min-w-[220px]';
 
 export const UserModerationPage: React.FC = () => {
-    usePageTitle('Moderation');
     const navigate = useNavigate();
     // #39: the tab is in the URL (?tab=group), so Back from a player's profile comes back to it.
     const [tab, setTab] = useTabParam(TAB_KEYS, 'all');

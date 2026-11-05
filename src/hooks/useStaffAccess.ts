@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { userManagementClient } from '../apiClients/userManagementClient';
 import { EXACT_GRANT_OWNER_NODES } from '../types/dtos/telemetry/TelemetryDtos';
@@ -122,4 +122,43 @@ export function usePermission(node: string): PermissionState {
 export function useStaffAccess(): { isStaff: boolean; isChecking: boolean; status: PermissionStatus } {
   const { allowed, isChecking, status } = usePermission(STAFF_PERMISSION_NODE);
   return { isStaff: allowed, isChecking, status };
+}
+
+/**
+ * The status of several nodes at once (the admin sidebar, the /admin overview and the bar's Admin link,
+ * PandiO/knk-workspace#30): one entry per node, `checking` until its answer is in. Shares the per-login cache
+ * with usePermission, so the sidebar and the route guard ask the API once per node.
+ */
+export function usePermissions(nodes: readonly string[]): Record<string, PermissionStatus> {
+  const { user } = useAuth();
+  const userId = user?.id;
+  const nodesKey = nodes.join('\n');
+  const forKey = userId === undefined ? undefined : `${userId}\n${nodesKey}`;
+  const [state, setState] = useState<{ key?: string; statuses: Record<string, PermissionStatus> }>({ statuses: {} });
+
+  useEffect(() => {
+    if (userId === undefined) return;
+    const key = `${userId}\n${nodesKey}`;
+    let cancelled = false;
+    setState({ key, statuses: {} });
+    nodesKey.split('\n').filter(Boolean).forEach(node => {
+      checkPermission(userId, node).then(status => {
+        if (cancelled) return;
+        setState(previous => previous.key === key
+          ? { key, statuses: { ...previous.statuses, [node]: status } }
+          : previous);
+      });
+    });
+    return () => { cancelled = true; };
+  }, [userId, nodesKey]);
+
+  return useMemo(() => {
+    const result: Record<string, PermissionStatus> = {};
+    nodesKey.split('\n').filter(Boolean).forEach(node => {
+      result[node] = forKey === undefined
+        ? 'unauthenticated'
+        : state.key === forKey ? (state.statuses[node] ?? 'checking') : 'checking';
+    });
+    return result;
+  }, [nodesKey, forKey, state]);
 }

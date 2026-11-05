@@ -26,7 +26,6 @@ import {
     WeatherType,
     WorldGameSettingsDto,
 } from '../../types/dtos/gameSettings/GameSettingsModels';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { SettingsPage, SettingsSection } from '../../components/SettingsPage';
 import { Field } from '../../components/Field';
 import { DataTable } from '../../components/DataTable';
@@ -165,7 +164,6 @@ export const changedGameSettings = (saved: GameSettingsDto | null, current: Game
 };
 
 export const GameSettingsPage: React.FC = () => {
-    usePageTitle('Game settings');
     const navigate = useNavigate();
     const [settings, setSettings] = React.useState<GameSettingsDto | null>(null);
     /** #187: the settings as last loaded or saved; Discard goes back to them, changes are counted against them. */
@@ -283,7 +281,7 @@ export const GameSettingsPage: React.FC = () => {
 
     return (
         <SettingsPage
-            title="Game Manager Settings"
+            title="Game settings"
             description="Configure global gameplay behavior, per-world defaults, and announcements."
             width="max-w-7xl"
             lastSaved={{ at: saved?.updatedAt }}

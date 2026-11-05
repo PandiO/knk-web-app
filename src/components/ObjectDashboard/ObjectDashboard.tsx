@@ -8,7 +8,6 @@ import './ObjectDashboard.css';
 import { getColumnDefinitions } from '../../config/objectConfigs';
 import { FeedbackModal } from '../FeedbackModal';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
@@ -58,7 +57,6 @@ const findName = (names: string[], wanted: string | null | undefined): string | 
 };
 
 const ObjectDashboard = ({ objectTypes }: Props) => {
-    usePageTitle('Dashboard');
     const navigate = useNavigate();
     const location = useLocation();
     // #177 link 1 (#58): the type is in the URL (/dashboard/:entityName), so Back, a refresh and a

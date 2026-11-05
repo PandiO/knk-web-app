@@ -29,7 +29,6 @@ import {
 } from '../../types/dtos/userManagement/UserProfileSummaryDtos';
 import { PermissionGroupDto } from '../../types/dtos/userManagement/PermissionGroupDto';
 import { KitAvailabilityDto } from '../../types/dtos/kit/KitDtos';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 // docs/specs/user-management/DESIGN.md §2 - a read-first composite dashboard for one player,
@@ -63,7 +62,6 @@ const formatDate = (iso?: string | null): string => {
 };
 
 export const PlayerProfilePage: React.FC = () => {
-    usePageTitle('Player profile');
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const userId = Number(id);

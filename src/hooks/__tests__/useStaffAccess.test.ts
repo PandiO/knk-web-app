@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { usePermission, useStaffAccess, STAFF_PERMISSION_NODE, classifyPermissionError } from '../useStaffAccess';
+import { usePermission, usePermissions, useStaffAccess, STAFF_PERMISSION_NODE, classifyPermissionError } from '../useStaffAccess';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { useAuth } from '../../contexts/AuthContext';
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from '../../types/dtos/telemetry/TelemetryDtos';
@@ -115,5 +115,30 @@ describe('usePermission', () => {
     expect(classifyPermissionError({ status: 403 })).toBe('denied');
     expect(classifyPermissionError({ status: 401 })).toBe('unauthenticated');
     expect(classifyPermissionError(new Error('promise timeout'))).toBe('error');
+  });
+});
+
+// #30: the admin sidebar asks for every admin page's node at once.
+describe('usePermissions', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('reports each node, checking until its answer is in, and shares the cache with usePermission', async () => {
+    mockedUseAuth.mockReturnValue({ user: { id: 301 } });
+    mockedCheck.mockImplementation((_id: number, node: string) => Promise.resolve({ allowed: node === 'knk.a' }));
+
+    const { result } = renderHook(() => usePermissions(['knk.a', 'knk.b']));
+    expect(result.current).toEqual({ 'knk.a': 'checking', 'knk.b': 'checking' });
+    await waitFor(() => expect(result.current).toEqual({ 'knk.a': 'allowed', 'knk.b': 'denied' }));
+
+    const single = renderHook(() => usePermission('knk.a'));
+    await waitFor(() => expect(single.result.current.status).toBe('allowed'));
+    expect(mockedCheck).toHaveBeenCalledTimes(2);
+  });
+
+  it('is unauthenticated without a login', () => {
+    mockedUseAuth.mockReturnValue({ user: undefined });
+    const { result } = renderHook(() => usePermissions(['knk.a']));
+    expect(result.current).toEqual({ 'knk.a': 'unauthenticated' });
+    expect(mockedCheck).not.toHaveBeenCalled();
   });
 });

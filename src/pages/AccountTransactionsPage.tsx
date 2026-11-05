@@ -4,7 +4,6 @@ import { ArrowLeft, History } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { currencyClient, LedgerFilter } from '../apiClients/currencyClient';
 import { BalancesDto, LedgerLineDto, LedgerPageDto } from '../types/dtos/currency/CurrencyDtos';
-import { usePageTitle } from '../hooks/usePageTitle';
 import { apiRefusalReason } from '../utils/apiRefusalReason';
 import { usePublicSurface } from '../theme/surface';
 import { formatDateTime, numberFormat } from '../utils/format';
@@ -29,7 +28,6 @@ const describe = (line: LedgerLineDto): string => {
  * payments between players are made in-game with /pay (currency DESIGN.md §5 Q4).
  */
 export const AccountTransactionsPage: React.FC = () => {
-  usePageTitle('Transactions');
   usePublicSurface();
   const { user } = useAuth();
   const userId = user?.id;

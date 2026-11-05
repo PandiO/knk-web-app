@@ -75,7 +75,7 @@ describe('GameSettingsPage on the SettingsPage shell (#187, SET-4)', () => {
     const join = await screen.findByLabelText('Join Announcement');
     expect(screen.getByText('No unsaved changes.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Save/ })).toBeDisabled();
-    expect(screen.getByRole('heading', { level: 1, name: 'Game Manager Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Game settings' })).toBeInTheDocument();
 
     await userEvent.type(join, '!');
     expect(screen.getByText('1 unsaved change.')).toBeInTheDocument();

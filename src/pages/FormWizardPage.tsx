@@ -44,7 +44,7 @@ import { dashboardPath, entitySetupPath, readReturnTo } from '../utils/returnTo'
 import { toast } from '../utils/toast';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { useLeaveGuard } from '../hooks/useLeaveGuard';
-import { formTrail } from '../utils/breadcrumbs';
+import { entitySetupTrail, formTrail } from '../utils/breadcrumbs';
 import { typeLabelFor } from '../utils/entityLabel';
 import { useEntityLabel } from '../hooks/useEntityLabel';
 
@@ -219,6 +219,11 @@ export const FormWizardPage: React.FC<Props> = ({
             null
         );
     }, [allMergedMetadata, resolvedBaseMetadata, selectedTypeName]);
+    // #30 (LW1-2): the setup lists' way back to the dashboard ("Dashboard › Town › Entity setup").
+    const listTrail = useMemo(
+        () => entitySetupTrail(selectedEntityMetadata?.entityName ?? selectedTypeName, typeLabelFor(resolvedBaseMetadata)),
+        [selectedEntityMetadata, selectedTypeName, resolvedBaseMetadata],
+    );
 
     const configuredColumns = useMemo(() => {
         return selectedEntityMetadata?.defaultTableColumns ?? [];
@@ -1110,6 +1115,7 @@ export const FormWizardPage: React.FC<Props> = ({
                     )}
                     {/* #227: the type overview (fields list) belongs to the setup lists; above an open
                         form it read like debug output, so the breadcrumb sits right above the form. */}
+                    {!showWizard && <Breadcrumbs trail={listTrail} className="mb-3" />}
                     {!showWizard && (
                         <div className="mb-4">
                             <EntityMetadataNavigator metadata={selectedEntityMetadata} />

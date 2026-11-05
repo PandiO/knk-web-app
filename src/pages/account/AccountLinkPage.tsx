@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Link as LinkIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { useNoReferrer } from '../../hooks/useNoReferrer';
 import { appConfig } from '../../config/appConfig';
 import { authService } from '../../services/authService';
@@ -31,7 +30,6 @@ import { usePublicSurface } from '../../theme/surface';
  * authService stores it before the user is reloaded.
  */
 export const AccountLinkPage: React.FC = () => {
-  usePageTitle('Link your Minecraft account');
   usePublicSurface();
   useNoReferrer();
   const navigate = useNavigate();

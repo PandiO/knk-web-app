@@ -13,12 +13,10 @@ import { SortableSectionItem } from './SortableSectionItem';
 import { FeedbackModal } from '../FeedbackModal';
 import { toast } from '../../utils/toast';
 import { ReusableSectionSelector } from './ReusableSectionSelector';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { useConfirm } from '../../hooks/useConfirm';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 export const DisplayConfigBuilder: React.FC = () => {
-    usePageTitle('Display builder');
     const { id } = useParams<{ id?: string }>();
     const navigate = useNavigate();
     const configId = id || 'new';

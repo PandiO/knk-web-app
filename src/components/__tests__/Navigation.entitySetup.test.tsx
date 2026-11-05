@@ -1,8 +1,9 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { isAtOrUnder, Navigation } from '../Navigation';
-import { usePermission, useStaffAccess } from '../../hooks/useStaffAccess';
+import { Navigation } from '../Navigation';
+import { usePermission, usePermissions, useStaffAccess } from '../../hooks/useStaffAccess';
+import { mockHeldNodes } from '../../test-utils/permissions';
 
 // Jest 27 can't read react-router-dom v7's exports map; react-router has the same components.
 jest.mock('react-router-dom', () => jest.requireActual('react-router'), { virtual: true });
@@ -12,20 +13,15 @@ jest.mock('../../contexts/AuthContext', () => ({
 jest.mock('../../hooks/useStaffAccess', () => ({
   ...jest.requireActual('../../hooks/useStaffAccess'),
   usePermission: jest.fn(),
+  usePermissions: jest.fn(),
   useStaffAccess: jest.fn(),
 }));
 
-const mockedPermission = usePermission as jest.Mock;
-const mockedStaff = useStaffAccess as jest.Mock;
-
-/** Content staff: knk.admin.content only. */
-function holdsContentNode() {
-  mockedPermission.mockImplementation((node: string) => {
-    const allowed = node === 'knk.admin.content';
-    return { allowed, isChecking: false, status: allowed ? 'allowed' : 'denied', retry: jest.fn() };
-  });
-  mockedStaff.mockReturnValue({ isStaff: false, isChecking: false, status: 'denied' });
-}
+const mocks = {
+  usePermission: usePermission as jest.Mock,
+  usePermissions: usePermissions as jest.Mock,
+  useStaffAccess: useStaffAccess as jest.Mock,
+};
 
 /** jsdom measures every width as 0, so the links live in the menu button's panel: open it. */
 function renderNavAt(path: string) {
@@ -39,18 +35,20 @@ function renderNavAt(path: string) {
 }
 
 // PandiO/knk-workspace#197: Entity setup is opened from the dashboard's ⚙ (and by URL), not the nav.
-describe('Navigation without the Entity setup link (#197)', () => {
+// #30: the content tools are in the admin sidebar; the bar has one Admin link, current on all of them.
+describe('Navigation without the Entity setup link (#197, #30)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    holdsContentNode();
+    mockHeldNodes(mocks, ['knk.admin.content']);
   });
 
-  it('has no Entity setup link for content staff, but keeps the Dashboard link', () => {
+  it('has no Entity setup or Dashboard link for content staff, but an Admin link', () => {
     const { container } = renderNavAt('/');
 
     expect(screen.queryByRole('menuitem', { name: /entity setup/i })).not.toBeInTheDocument();
     expect(container.querySelector('a[href^="/forms"]')).toBeNull();
-    expect(screen.getByRole('menuitem', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard');
+    expect(container.querySelector('a[href="/dashboard"]')).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Admin' })).toHaveAttribute('href', '/admin');
   });
 
   it.each([
@@ -61,25 +59,25 @@ describe('Navigation without the Entity setup link (#197)', () => {
     '/admin/display-configurations/edit/3',
     '/display/Town/4',
     '/dashboard/Town',
-  ])('marks Dashboard as the current page on %s', (path) => {
+  ])('marks Admin as the current page on %s', (path) => {
     renderNavAt(path);
 
-    expect(screen.getByRole('menuitem', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('menuitem', { name: 'Admin' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('does not mark Dashboard on other pages', () => {
+  it('does not mark Admin on other pages', () => {
     renderNavAt('/leaderboards');
 
-    expect(screen.getByRole('menuitem', { name: 'Dashboard' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('menuitem', { name: 'Admin' })).not.toHaveAttribute('aria-current');
     expect(screen.getByRole('menuitem', { name: 'Leaderboards' })).toHaveAttribute('aria-current', 'page');
   });
-});
 
-describe('isAtOrUnder', () => {
-  it('matches the path itself and the pages under it only', () => {
-    expect(isAtOrUnder('/forms', '/forms')).toBe(true);
-    expect(isAtOrUnder('/forms/Town', '/forms')).toBe(true);
-    expect(isAtOrUnder('/formsX', '/forms')).toBe(false);
-    expect(isAtOrUnder('/', '/forms')).toBe(false);
+  it('marks Leaderboards on a public player profile and Guides on a guide (breadcrumb parents)', () => {
+    const { unmount } = renderNavAt('/players/Steve');
+    expect(screen.getByRole('menuitem', { name: 'Leaderboards' })).toHaveAttribute('aria-current', 'page');
+    unmount();
+    renderNavAt('/guides/enchantments');
+    expect(screen.getByRole('menuitem', { name: 'Guides' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('menuitem', { name: 'Home' })).not.toHaveAttribute('aria-current');
   });
 });

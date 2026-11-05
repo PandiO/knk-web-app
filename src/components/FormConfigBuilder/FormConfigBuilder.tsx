@@ -16,12 +16,10 @@ import { toast } from '../../utils/toast';
 import { ReusableStepSelector } from './ReusableStepSelector';
 import { ConfigurationHealthPanel } from './ConfigurationHealthPanel';
 import { detectProjectionCycles } from '../../utils/forms/valueProjection';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { useConfirm } from '../../hooks/useConfirm';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 export const FormConfigBuilder: React.FC = () => {
-    usePageTitle('Form builder');
     const { id } = useParams<{ id?: string }>();
     const navigate = useNavigate();
     const configId = id || 'new';

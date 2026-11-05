@@ -1,7 +1,6 @@
 import React from 'react';
 import { siegeConfigurationClient } from '../../apiClients/siegeConfigurationClient';
 import { SiegeConfigurationDto, UpdateSiegeConfigurationDto } from '../../types/dtos/siege/SiegeDtos';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { SettingsPage, SettingsSection } from '../../components/SettingsPage';
 import { Field } from '../../components/Field';
@@ -136,7 +135,6 @@ const parseText = (text: string, kind: FieldKind): { value?: unknown; error?: st
 };
 
 export const SiegeConfigurationPage: React.FC = () => {
-    usePageTitle('Siege settings');
     const [config, setConfig] = React.useState<SiegeConfigurationDto | null>(null);
     const [drafts, setDrafts] = React.useState<Record<string, string>>({});
     const [loading, setLoading] = React.useState(true);
@@ -198,7 +196,7 @@ export const SiegeConfigurationPage: React.FC = () => {
 
     return (
         <SettingsPage
-            title="Siege configuration"
+            title="Siege settings"
             description="Global tunables for every siege lobby. Scenarios and lobbies are edited in their own forms."
             lastSaved={{ at: config?.updatedAt }}
             dirtyCount={changedKeys.length}
