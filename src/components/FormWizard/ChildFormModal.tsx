@@ -4,6 +4,7 @@ import { formConfigClient } from '../../apiClients/formConfigClient';
 import { resolveWorkflowSessionId } from '../../utils/forms/worldTaskLifecycle';
 import { FormWizard } from './FormWizard';
 import { FeedbackModal } from '../FeedbackModal';
+import { Dialog } from '../Dialog';
 import { findParentLinkField } from '../../utils/forms/findParentLinkField';
 import { buildChildEditSeedValues } from '../../utils/forms/childEditSeed';
 import { apiRefusalReason, failureReason } from '../../utils/apiRefusalReason';
@@ -216,66 +217,51 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
 
     return (
         <>
-            <div className="fixed inset-0 z-40 bg-black bg-opacity-50" onClick={onClose} />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div className="w-full max-h-[90vh] overflow-y-auto bg-surface rounded-lg shadow-2xl">
-                    <div className="sticky top-0 bg-surface border-b border-line px-6 py-4 flex items-center justify-between">
-                        <div>
-                            <h2 className="text-xl font-bold text-fg">
-                                {showsEditTitle ? `Edit ${entityTypeName}` : isResuming ? `Continue draft ${entityTypeName}` : `Create New ${entityTypeName}`}
-                            </h2>
-                            <p className="text-sm text-gray-600 mt-1">
-                                {isEditingHeldValue
-                                    ? `Update the ${entityTypeName} details (not saved yet)`
-                                    : isEditMode
-                                    ? `Update the ${entityTypeName} details`
-                                    : isResuming
-                                        ? `Resume where this draft was left off`
-                                        : `Fill in the form to create a new ${entityTypeName}`}
-                            </p>
+            <Dialog
+                open
+                onClose={onClose}
+                title={showsEditTitle ? `Edit ${entityTypeName}` : isResuming ? `Continue draft ${entityTypeName}` : `Create New ${entityTypeName}`}
+                description={isEditingHeldValue
+                    ? `Update the ${entityTypeName} details (not saved yet)`
+                    : isEditMode
+                    ? `Update the ${entityTypeName} details`
+                    : isResuming
+                        ? `Resume where this draft was left off`
+                        : `Fill in the form to create a new ${entityTypeName}`}
+                size="full"
+                dismissible={!completing}
+                closeLabel={completing ? 'Saving…' : 'Close'}
+                bodyClassName="p-6"
+                data-testid="child-form-modal"
+            >
+                {loading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <div className="text-center" role="status">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" aria-hidden="true"></div>
+                            <p className="mt-4 text-muted">Loading form...</p>
                         </div>
-                        <button
-                            onClick={onClose}
-                            disabled={completing}
-                            className="text-muted hover:text-gray-700 text-2xl disabled:opacity-40 disabled:cursor-not-allowed"
-                            aria-label="Close"
-                            title={completing ? 'Saving…' : 'Close'}
-                        >
-                            ×
-                        </button>
                     </div>
-
-                    <div className="p-6">
-                        {loading ? (
-                            <div className="flex items-center justify-center py-12">
-                                <div className="text-center">
-                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                                    <p className="mt-4 text-gray-600">Loading form...</p>
-                                </div>
-                            </div>
-                        ) : defaultConfig ? (
-                            <FormWizard
-                                entityName={entityTypeName}
-                                entityId={entityId}
-                                existingProgressId={existingProgressId}
-                                onComplete={handleChildComplete}
-                                parentProgressId={parentProgressId}
-                                fieldName={fieldName}
-                                currentStepIndex={currentStepIndex}
-                                workflowSessionId={effectiveWorkflowSessionId}
-                                worldTaskHint={worldTaskHint}
-                                initialFieldValues={initialFieldValues}
-                                overlayFieldValues={overlayFieldValues}
-                                parentContext={parentContext}
-                            />
-                        ) : (
-                            <div className="text-center py-12">
-                                <p className="text-gray-600">Unable to load form configuration</p>
-                            </div>
-                        )}
+                ) : defaultConfig ? (
+                    <FormWizard
+                        entityName={entityTypeName}
+                        entityId={entityId}
+                        existingProgressId={existingProgressId}
+                        onComplete={handleChildComplete}
+                        parentProgressId={parentProgressId}
+                        fieldName={fieldName}
+                        currentStepIndex={currentStepIndex}
+                        workflowSessionId={effectiveWorkflowSessionId}
+                        worldTaskHint={worldTaskHint}
+                        initialFieldValues={initialFieldValues}
+                        overlayFieldValues={overlayFieldValues}
+                        parentContext={parentContext}
+                    />
+                ) : (
+                    <div className="text-center py-12">
+                        <p className="text-muted">Unable to load form configuration</p>
                     </div>
-                </div>
-            </div>
+                )}
+            </Dialog>
 
             <FeedbackModal
                 open={showErrorFeedback}

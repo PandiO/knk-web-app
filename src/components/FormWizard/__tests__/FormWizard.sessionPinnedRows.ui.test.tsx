@@ -120,7 +120,7 @@ const CONFIGS: Record<string, unknown> = {
 };
 
 const modalFor = (title: string): HTMLElement =>
-    screen.getAllByText(title)[0].closest('.overflow-y-auto') as HTMLElement;
+    screen.getAllByText(title)[0].closest('[role="dialog"]') as HTMLElement;
 
 const fieldBlock = (container: HTMLElement, label: string): HTMLElement =>
     within(container).getByText(label).closest('div') as HTMLElement;
