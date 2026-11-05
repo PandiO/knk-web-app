@@ -17,6 +17,7 @@ import { DataTable, DataTableColumn } from '../../components/DataTable';
 import { Pager } from '../../components/Pager';
 import { Field } from '../../components/Field';
 import { formatDateTime, formatNumber } from '../../utils/format';
+import { PresenceChangedPayload, usePresenceChanges } from '../../realtime/liveUpdates';
 
 // docs/specs/user-management/DESIGN.md §5, IMPLEMENTATION_PLAN.md Phase 3 - a moderation-oriented
 // list separate from the generic ObjectDashboard/PagedEntityTable system, since "users in group
@@ -42,6 +43,17 @@ const onlineBadge = (isOnline?: boolean) => isOnline ? (
 );
 
 const filterClass = 'input px-3 py-2 min-w-[220px]';
+
+/** #183: one player's new online state on the rows that show them (other rows unchanged). */
+export const applyPresence = <T extends Pick<UserListDto, 'id' | 'isOnline' | 'lastSeenAt'>>(
+    rows: T[] | null,
+    change: PresenceChangedPayload,
+): T[] | null => {
+    if (!rows || change.userId == null || !rows.some(row => row.id === change.userId)) return rows;
+    return rows.map(row => row.id === change.userId
+        ? { ...row, isOnline: change.online === true, lastSeenAt: change.lastSeenAt ?? row.lastSeenAt }
+        : row);
+};
 
 export const UserModerationPage: React.FC = () => {
     const navigate = useNavigate();
@@ -75,9 +87,14 @@ export const UserModerationPage: React.FC = () => {
     const [allLoading, setAllLoading] = React.useState(false);
     const [allError, setAllError] = React.useState<string | null>(null);
 
-    const runAllSearch = React.useCallback(async (page: number, searchTerm: string) => {
-        setAllLoading(true);
-        setAllError(null);
+    // The term of the last search run (the box may have changed since), for a live re-read (#183).
+    const allTermRef = React.useRef('');
+    const runAllSearch = React.useCallback(async (page: number, searchTerm: string, quiet = false) => {
+        if (!quiet) {
+            setAllLoading(true);
+            setAllError(null);
+        }
+        allTermRef.current = searchTerm;
         try {
             // The backend's PagedQueryDto only binds a "pageNumber" JSON field, not "page" - a
             // bare { page, ... } body silently pins the server at its default page (1) no matter
@@ -95,9 +112,9 @@ export const UserModerationPage: React.FC = () => {
             setAllPage(page);
         } catch (err) {
             console.error('Failed to load all players:', err);
-            setAllError('Could not load players.');
+            if (!quiet) setAllError('Could not load players.');
         } finally {
-            setAllLoading(false);
+            if (!quiet) setAllLoading(false);
         }
     }, []);
 
@@ -146,20 +163,42 @@ export const UserModerationPage: React.FC = () => {
     const [groupLoading, setGroupLoading] = React.useState(false);
     const [groupError, setGroupError] = React.useState<string | null>(null);
 
-    const runGroupSearch = React.useCallback(async () => {
-        if (!selectedGroupId) return;
-        setGroupLoading(true);
-        setGroupError(null);
+    // The filter of the shown results (the pickers may have changed since), for a live re-read (#183).
+    const groupQueryRef = React.useRef<{ groupId: number; onlineOnly: boolean } | null>(null);
+    const loadGroup = React.useCallback(async (groupId: number, online: boolean, quiet: boolean) => {
+        if (!quiet) {
+            setGroupLoading(true);
+            setGroupError(null);
+        }
         try {
-            const result = await userManagementClient.searchByGroup(Number(selectedGroupId), onlineOnly || undefined);
+            const result = await userManagementClient.searchByGroup(groupId, online || undefined);
+            groupQueryRef.current = { groupId, onlineOnly: online };
             setGroupResults(result);
         } catch (err) {
             console.error('Failed to search users by group:', err);
-            setGroupError('Could not load users for this group.');
+            if (!quiet) setGroupError('Could not load users for this group.');
         } finally {
-            setGroupLoading(false);
+            if (!quiet) setGroupLoading(false);
         }
-    }, [selectedGroupId, onlineOnly]);
+    }, []);
+    const runGroupSearch = React.useCallback(async () => {
+        if (!selectedGroupId) return;
+        await loadGroup(Number(selectedGroupId), onlineOnly, false);
+    }, [selectedGroupId, onlineOnly, loadGroup]);
+
+    // #183 (Realtime S4): the Online/Offline badges follow the game while the web hub is connected.
+    // One player: their rows change in place (rows are never added or removed under the cursor; Search
+    // re-runs the filter). Many at once, or after a hub reconnect: the shown lists are read again quietly.
+    usePresenceChanges(change => {
+        if (change?.userId != null) {
+            setAllResults(rows => applyPresence(rows, change));
+            setGroupResults(rows => applyPresence(rows, change));
+            return;
+        }
+        if (allResults !== null) void runAllSearch(allPage, allTermRef.current, true);
+        const shownGroup = groupQueryRef.current;
+        if (groupResults !== null && shownGroup) void loadGroup(shownGroup.groupId, shownGroup.onlineOnly, true);
+    });
 
     // ----- "Expiring premium" tab -----
     const premiumGroups = groups.filter((g) => g.isPremiumTier);

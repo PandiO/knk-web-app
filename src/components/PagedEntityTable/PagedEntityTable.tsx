@@ -174,6 +174,13 @@ export interface PagedEntityTableProps<T> {
     refreshKey?: string | number;
 
     /**
+     * PandiO/knk-workspace#183: changing this value refetches the current page *quietly*: the rows
+     * stay on screen (no spinner) and are replaced when the answer arrives. For live updates
+     * (another admin's change), where a spinner would make the table jump.
+     */
+    liveRefreshKey?: string | number;
+
+    /**
      * KNG-136: rows created in this form session (useSessionPinnedRows), shown above the page
      * results in a "Created in this form" section with a New badge. They obey the search term and
      * the query's filters (client-side, see utils/forms/sessionPinnedRows.ts) and a row the page
@@ -233,6 +240,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
     showSearchBar = true,
     showSelectionBanner = true,
     refreshKey,
+    liveRefreshKey,
     pinnedRows,
     emptyState,
     query: controlledQuery,
@@ -396,6 +404,16 @@ export function PagedEntityTable<T extends Record<string, any>>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query, entityTypeName, refreshKey]);
 
+    // #183: a live update refetches quietly (only when the key changes, not on mount).
+    const lastLiveRefreshKey = useRef(liveRefreshKey);
+    useEffect(() => {
+        if (lastLiveRefreshKey.current === liveRefreshKey) return;
+        lastLiveRefreshKey.current = liveRefreshKey;
+        void fetchData(true);
+    // Only the key: fetchData is the current render's (same query and type).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [liveRefreshKey]);
+
     // Sync internal selection with prop changes (only if actually different). Id-less items only
     // match themselves (KNG-136), so two unsaved items no longer count as the same selection.
     useEffect(() => {
@@ -409,11 +427,12 @@ export function PagedEntityTable<T extends Record<string, any>>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedItems, entityTypeName]);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (quiet = false) => {
         const seq = ++requestSeq.current;
         const isLatest = () => seq === requestSeq.current;
         try {
-            setLoading(true);
+            // #183: a quiet refresh keeps the rows; the latest request still ends any spinner.
+            if (!quiet) setLoading(true);
             setError(null);
 
             const searchFn = getSearchFunctionForEntity(entityTypeName);

@@ -30,6 +30,8 @@ import {
 import { PermissionGroupDto } from '../../types/dtos/userManagement/PermissionGroupDto';
 import { KitAvailabilityDto } from '../../types/dtos/kit/KitDtos';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { usePresenceChanges } from '../../realtime/liveUpdates';
+import { formatDateTime } from '../../utils/format';
 
 // docs/specs/user-management/DESIGN.md §2 - a read-first composite dashboard for one player,
 // distinct from the generic /forms/user edit screen. Phase 2 (docs/specs/user-management/
@@ -136,6 +138,22 @@ export const PlayerProfilePage: React.FC = () => {
             setLoading(false);
         }
     }, [userId]);
+
+    // #183 (Realtime S4): the online badge follows the game while the web hub is connected. One
+    // player's change is applied at once; many at once or a hub reconnect re-reads only the presence.
+    usePresenceChanges(change => {
+        if (change?.userId != null) {
+            if (change.userId !== userId) return;
+            setSummary(previous => previous
+                ? { ...previous, presence: { online: change.online === true, lastSeenAt: change.lastSeenAt ?? previous.presence?.lastSeenAt ?? null } }
+                : previous);
+            return;
+        }
+        if (!Number.isFinite(userId) || userId <= 0) return;
+        userManagementClient.getProfileSummary(userId)
+            .then(result => setSummary(previous => previous ? { ...previous, presence: result.presence ?? previous.presence } : previous))
+            .catch(err => console.error('Failed to re-read the online state:', err));
+    });
 
     const loadActivity = React.useCallback(async () => {
         if (!Number.isFinite(userId) || userId <= 0) return;
@@ -374,7 +392,20 @@ export const PlayerProfilePage: React.FC = () => {
                                 {account.email && <span> &middot; {account.email}</span>}
                             </p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            {account.uuid && summary.presence && (
+                                <span
+                                    data-testid="profile-presence"
+                                    title={!summary.presence.online && summary.presence.lastSeenAt ? `Last seen ${formatDateTime(summary.presence.lastSeenAt)}` : undefined}
+                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${summary.presence.online
+                                        ? 'bg-success-muted text-success-strong'
+                                        : 'bg-surface-alt text-muted border border-line'}`}
+                                >
+                                    {summary.presence.online
+                                        ? 'Online'
+                                        : summary.presence.lastSeenAt ? `Offline · last seen ${formatDateTime(summary.presence.lastSeenAt)}` : 'Offline'}
+                                </span>
+                            )}
                             {account.activeMode !== 'None' && (
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-warning-muted text-warning-strong">
                                     <EyeOff className="h-3.5 w-3.5 mr-1" />

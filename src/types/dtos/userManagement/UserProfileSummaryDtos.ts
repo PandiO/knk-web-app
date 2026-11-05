@@ -87,6 +87,14 @@ export interface UserProfileSummaryDto {
   groups: UserPermissionGroupDto[];
   title: TitleResolutionDto;
   salary: SalaryStateDto;
+  /** #183: online in game (User.IsOnline, as on the moderation list); absent from an older API. */
+  presence?: ProfilePresenceDto | null;
+}
+
+/** #183: the profile's online badge; kept live by the web hub's PresenceChanged. */
+export interface ProfilePresenceDto {
+  online: boolean;
+  lastSeenAt?: string | null;
 }
 
 // docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 2.
