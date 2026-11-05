@@ -1,6 +1,7 @@
 import { logging, Controllers, HttpMethod, EnchantmentDefinitionOperation } from "../utils";
 import { PagedQueryDto } from "../types/dtos/common/PagedQuery";
 import { EnchantmentDefinitionDto } from "../types/dtos/enchantmentDefinition/EnchantmentDefinitionDtos";
+import { EnchantmentInfoDto } from "../types/dtos/enchantmentInfo/EnchantmentInfoDtos";
 import { ObjectManager } from "./objectManager";
 
 export class EnchantmentDefinitionClient extends ObjectManager {
@@ -12,6 +13,11 @@ export class EnchantmentDefinitionClient extends ObjectManager {
             EnchantmentDefinitionClient.instance.logger = logging.getLogger('EnchantmentDefinitionClient');
         }
         return EnchantmentDefinitionClient.instance;
+    }
+
+    /** PandiO/knk-workspace#221: the public info sheets of the custom enchantments (anonymous). */
+    getPublicInfo(): Promise<EnchantmentInfoDto[]> {
+        return this.invokeServiceCall(null, 'public/info', Controllers.EnchantmentDefinitions, HttpMethod.Get);
     }
 
     getAll(): Promise<EnchantmentDefinitionDto[]> {

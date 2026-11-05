@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes } from 'lucide-react';
+import { Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes, BookOpen } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { CONTENT_PERMISSION_NODE, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE, usePermission, useStaffAccess } from '../hooks/useStaffAccess';
 import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
@@ -29,6 +29,8 @@ const NAV_LINKS: NavLink[] = [
   { to: '/', label: 'Home', Icon: Home, exact: true },
   // Player statistics (KNG-34): public leaderboards.
   { to: '/leaderboards', label: 'Leaderboards', Icon: Trophy },
+  // Player guides (PandiO/knk-workspace#221), public: the custom enchantment info page first.
+  { to: '/guides', label: 'Guides', Icon: BookOpen },
   // The content tools (dashboard, forms, displays, builders) need knk.admin.content, like their
   // routes (alpha hardening WP9.1). The form and display builders have no link of their own:
   // they're opened from the Entity setup page.
