@@ -6,6 +6,12 @@ import { CreatedEntitiesPrompt } from './CreatedEntitiesPrompt';
 import { CreatedEntityRecord, toCreatedEntityRecords } from '../../utils/forms/createdEntities';
 import { DeleteCreatedEntitiesDeps, deleteCreatedEntities } from '../../utils/forms/deleteCreatedEntities';
 import { createdEntityDeleteDeps } from '../../utils/forms/createdEntityDeleteDeps';
+import {
+    LEAVE_FORM_CONTINUE_LABEL,
+    LEAVE_FORM_MESSAGE,
+    LEAVE_FORM_STAY_LABEL,
+    LEAVE_FORM_TITLE
+} from '../../utils/forms/leaveFormQuestion';
 
 /**
  * KNG-162: the explicit cancel of a root form (decision D2). Rendered by FormWizardPage in the
@@ -61,13 +67,13 @@ export const FormCancelAction: React.FC<Props> = ({ onLeave, disabled = false, d
 
             <FeedbackModal
                 open={records !== null && records.length === 0}
-                title="Leave this form?"
-                message="Changes you haven't saved are lost. A saved draft stays in Saved Progress."
+                title={LEAVE_FORM_TITLE}
+                message={LEAVE_FORM_MESSAGE}
                 status="info"
                 onClose={close}
                 onContinue={leave}
-                continueLabel="Leave form"
-                cancelLabel="Stay"
+                continueLabel={LEAVE_FORM_CONTINUE_LABEL}
+                cancelLabel={LEAVE_FORM_STAY_LABEL}
                 danger
             />
 

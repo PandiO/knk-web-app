@@ -3,8 +3,14 @@ import { UNSAFE_DataRouterContext, useBlocker } from 'react-router-dom';
 import type { BlockerFunction } from 'react-router-dom';
 import { FeedbackModal } from '../components/FeedbackModal';
 
-export const LEAVE_FORM_TITLE = 'Leave this form?';
-export const LEAVE_FORM_MESSAGE = "Changes you haven't saved are lost. A saved draft stays in Saved Progress.";
+import {
+    LEAVE_FORM_CONTINUE_LABEL,
+    LEAVE_FORM_MESSAGE,
+    LEAVE_FORM_STAY_LABEL,
+    LEAVE_FORM_TITLE
+} from '../utils/forms/leaveFormQuestion';
+
+export { LEAVE_FORM_MESSAGE, LEAVE_FORM_TITLE };
 
 export interface LeaveGuard {
     /** Render once; holds the "Leave this form?" dialog. */
@@ -95,8 +101,8 @@ export function useLeaveGuard(when: boolean): LeaveGuard {
                 status="info"
                 onClose={close}
                 onContinue={leave}
-                continueLabel="Leave form"
-                cancelLabel="Stay"
+                continueLabel={LEAVE_FORM_CONTINUE_LABEL}
+                cancelLabel={LEAVE_FORM_STAY_LABEL}
                 danger
             />
         </>
