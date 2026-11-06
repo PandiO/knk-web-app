@@ -6,7 +6,7 @@ import { DisplayFieldDto } from '../../../types/dtos/displayConfig/DisplayModels
 import { formatDateTime } from '../../../utils/format';
 
 // PandiO/knk-workspace#187 (X-10): the detail page showed API dates as raw ISO text. Values go through
-// utils/format.ts: dates as the viewer's date and time (zone-less API dates are UTC), numbers in en-US.
+// utils/format.ts: dates as the viewer's date and time (zone-less API dates are UTC), numbers in the viewer's locale (en-US in tests, pinned in setupTests).
 
 const field = (overrides: Partial<DisplayFieldDto>): DisplayFieldDto => ({
     label: 'Value',
@@ -42,7 +42,7 @@ describe('DisplayField formatting (#187)', () => {
         expect(screen.getByText(`Since ${formatDateTime('2026-11-05T20:52:02')}`)).toBeInTheDocument();
     });
 
-    it('formats numbers in en-US and leaves other text alone', () => {
+    it('formats numbers in the viewer locale (en-US pinned) and leaves other text alone', () => {
         expect(formatValue(1234567, 'Integer')).toBe('1,234,567');
         expect(formatValue(1234.5, 'Decimal')).toBe('1,234.5');
         expect(formatValue('abc', 'Integer')).toBe('abc');

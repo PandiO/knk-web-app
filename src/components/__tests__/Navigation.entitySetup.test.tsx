@@ -35,41 +35,72 @@ function renderNavAt(path: string) {
 }
 
 // PandiO/knk-workspace#197: Entity setup is opened from the dashboard's ⚙ (and by URL), not the nav.
-// #30: the content tools are in the admin sidebar; the bar has one Admin link, current on all of them.
-describe('Navigation without the Entity setup link (#197, #30)', () => {
+// #30: the admin pages are in the admin sidebar; the bar has an Admin link. LW4-1 (developer's decision
+// 2026-11-06): Dashboard stays in the bar for holders of its node, current on the dashboard, Entity setup,
+// the builders and the detail pages; Admin is current on the other admin pages.
+describe('Navigation: Dashboard and Admin in the bar, no Entity setup link (#197, #30, LW4-1)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockHeldNodes(mocks, ['knk.admin.content']);
   });
 
-  it('has no Entity setup or Dashboard link for content staff, but an Admin link', () => {
+  it('has Dashboard and Admin but no Entity setup link for content staff', () => {
     const { container } = renderNavAt('/');
 
     expect(screen.queryByRole('menuitem', { name: /entity setup/i })).not.toBeInTheDocument();
     expect(container.querySelector('a[href^="/forms"]')).toBeNull();
-    expect(container.querySelector('a[href="/dashboard"]')).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard');
     expect(screen.getByRole('menuitem', { name: 'Admin' })).toHaveAttribute('href', '/admin');
+    expect(screen.getAllByRole('menuitem').map(item => item.textContent))
+      .toEqual(['Home', 'Leaderboards', 'Guides', 'Dashboard', 'Admin']);
   });
 
   it.each([
+    '/dashboard',
+    '/dashboard/Town',
     '/forms',
     '/forms/Town',
     '/forms/Town/edit/4',
     '/admin/form-configurations/new',
+    '/admin/form-configurations/edit/2',
+    '/admin/display-configurations/new',
     '/admin/display-configurations/edit/3',
     '/display/Town/4',
-    '/dashboard/Town',
-  ])('marks Admin as the current page on %s', (path) => {
+  ])('marks Dashboard (not Admin) as the current page on %s', (path) => {
+    renderNavAt(path);
+
+    expect(screen.getByRole('menuitem', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('menuitem', { name: 'Admin' })).not.toHaveAttribute('aria-current');
+  });
+
+  it.each([
+    '/admin',
+    '/admin/minecraft-catalog',
+    '/admin/users',
+    '/admin/game-settings',
+    '/owner/telemetry',
+  ])('marks Admin (not Dashboard) as the current page on %s', (path) => {
     renderNavAt(path);
 
     expect(screen.getByRole('menuitem', { name: 'Admin' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('menuitem', { name: 'Dashboard' })).not.toHaveAttribute('aria-current');
   });
 
-  it('does not mark Admin on other pages', () => {
+  it('does not mark Dashboard or Admin on other pages', () => {
     renderNavAt('/leaderboards');
 
     expect(screen.getByRole('menuitem', { name: 'Admin' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('menuitem', { name: 'Dashboard' })).not.toHaveAttribute('aria-current');
     expect(screen.getByRole('menuitem', { name: 'Leaderboards' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('without the content node: no Dashboard link, Admin current on a dashboard URL ("Staff only" inside the layout)', () => {
+    mockHeldNodes(mocks, ['knk.admin.user.manage']);
+    const { container } = renderNavAt('/dashboard/Town');
+
+    expect(screen.queryByRole('menuitem', { name: 'Dashboard' })).not.toBeInTheDocument();
+    expect(container.querySelector('a[href="/dashboard"]')).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Admin' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('marks Leaderboards on a public player profile and Guides on a guide (breadcrumb parents)', () => {

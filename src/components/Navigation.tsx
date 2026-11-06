@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { LogOut, UserCircle2, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { CONTENT_PERMISSION_NODE, usePermission } from '../hooks/useStaffAccess';
-import { isWithin, RouteMeta, TOP_NAV_ROUTES } from '../routes/routeTable';
+import { CONTENT_PERMISSION_NODE, usePermission, usePermissions } from '../hooks/useStaffAccess';
+import { ADMIN_HOME_ID, isWithin, nodeOf, RouteMeta, TOP_NAV_NODES, TOP_NAV_ROUTES } from '../routes/routeTable';
 import { useRouteMeta } from '../routes/useRouteMeta';
 import { useAdminNav } from '../routes/useAdminNav';
 import { NavLayout, pickNavLayout } from './navLayout';
@@ -15,12 +15,14 @@ import { ThemeSwitcher } from '../theme/ThemeSwitcher';
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
 
-// The bar's links come from the route-meta table (PandiO/knk-workspace#30): Home, Leaderboards, Guides and,
-// for anyone holding the node of at least one admin page, Admin. The admin pages themselves are in the
-// admin layout's grouped sidebar (and on /admin), each shown only with its own node; that also fixed #262
+// The bar's links come from the route-meta table (PandiO/knk-workspace#30): Home, Leaderboards, Guides,
+// Dashboard for holders of its node (the dashboard route's gate; LW4-1, developer's decision 2026-11-06) and,
+// for anyone holding the node of at least one admin page, Admin. The other admin pages are in the admin
+// layout's grouped sidebar (and on /admin), each shown only with its own node; that also fixed #262
 // (the Invitations link never showed: its node was missing from the bar's hand-kept node map).
-// A link is the current one on its page and on the pages below it in the table (`parent`); Admin on every
-// page of the admin console. That replaces #197's DASHBOARD_ACTIVE_ALSO list.
+// A link is the current one on its page and on the pages below it in the table (`parent`): Dashboard on the
+// dashboard, Entity setup, the builders and the detail pages; Admin on every other page of the admin console.
+// That replaces #197's DASHBOARD_ACTIVE_ALSO list.
 type NavLink = {
   id: string;
   to: string;
@@ -56,8 +58,13 @@ export function Navigation({ objectTypes }: Props) {
   const canManageContent = usePermission(CONTENT_PERMISSION_NODE).allowed;
   const currentRoute = useRouteMeta();
   const adminNav = useAdminNav();
+  const topNavStatuses = usePermissions(TOP_NAV_NODES);
   const navLinks = TOP_NAV_ROUTES
-    .filter(route => route.layout !== 'admin' || adminNav.any)
+    .filter(route => {
+      if (route.id === ADMIN_HOME_ID) return adminNav.any;
+      const node = nodeOf(route.access);
+      return !node || topNavStatuses[node] === 'allowed';
+    })
     .map(toNavLink);
   // #95: the theme switcher (cogwheel) for everyone, unless REACT_APP_THEME_PICKER=off.
   const showThemePicker = themePickerVisible();
@@ -173,8 +180,10 @@ export function Navigation({ objectTypes }: Props) {
     }
   };
 
-  const isActive = (link: NavLink) => link.to === '/admin'
+  // Admin: an admin page that no other bar link covers (not the dashboard's pages, LW4-1).
+  const isActive = (link: NavLink) => link.id === ADMIN_HOME_ID
     ? currentRoute?.layout === 'admin'
+      && !navLinks.some(other => other.id !== ADMIN_HOME_ID && isWithin(currentRoute, other.id))
     : isWithin(currentRoute, link.id);
 
   const handleLogout = async () => {

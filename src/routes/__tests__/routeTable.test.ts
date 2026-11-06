@@ -1,6 +1,6 @@
 import {
   ADMIN_GROUPS, ADMIN_NODES, adminGroupHref, isWithin, lineageOf, matchRoute, nodeOf, REDIRECTS, ROUTE_LIST, ROUTES,
-  SIDEBAR_ROUTES, TOP_NAV_ROUTES, trailFor,
+  SIDEBAR_ROUTES, TOP_NAV_NODES, TOP_NAV_ROUTES, trailFor,
 } from '../routeTable';
 
 // Jest 27 can't read react-router-dom v7's exports map; react-router has the same functions.
@@ -118,7 +118,10 @@ describe('route-meta table', () => {
     expect(new Set(ADMIN_NODES).size).toBe(ADMIN_NODES.length);
   });
 
-  it('lists the bar links: Home, Leaderboards, Guides, Admin', () => {
-    expect(TOP_NAV_ROUTES.map(route => route.id)).toEqual(['home', 'leaderboards', 'guides', 'adminHome']);
+  it('lists the bar links: Home, Leaderboards, Guides, Dashboard, Admin last (LW4-1)', () => {
+    expect(TOP_NAV_ROUTES.map(route => route.id)).toEqual(['home', 'leaderboards', 'guides', 'dashboard', 'adminHome']);
+    // The Dashboard link has the dashboard route's gate.
+    expect(ROUTES.dashboard.access).toEqual({ kind: 'staff', node: 'knk.admin.content' });
+    expect(TOP_NAV_NODES).toEqual(['knk.admin.content']);
   });
 });
