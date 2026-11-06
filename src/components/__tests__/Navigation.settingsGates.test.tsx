@@ -37,8 +37,9 @@ function renderNav(...nodes: string[]) {
 
 const barLinks = () => screen.getAllByRole('menuitem').map(item => item.textContent);
 
-// #30: the bar keeps the public links and one Admin link; the admin pages (with #185's gates, the node
-// each page's API checks) are in the admin sidebar, see layouts/__tests__/AdminLayout.test.tsx.
+// #30: the bar keeps the public links, Dashboard (LW4-1, knk.admin.content only) and one Admin link; the other
+// admin pages (with #185's gates, the node each page's API checks) are in the admin sidebar, see
+// layouts/__tests__/AdminLayout.test.tsx.
 describe('Navigation bar links (#30, #185)', () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -59,7 +60,18 @@ describe('Navigation bar links (#30, #185)', () => {
     expect(barLinks()).toEqual(['Home', 'Leaderboards', 'Guides', 'Admin']);
   });
 
-  it('has no admin page links in the bar any more', () => {
+  it('adds Dashboard and Admin for a holder of knk.admin.content (LW4-1)', () => {
+    renderNav('knk.admin.content');
+    expect(barLinks()).toEqual(['Home', 'Leaderboards', 'Guides', 'Dashboard', 'Admin']);
+  });
+
+  it('asks for the Dashboard link\'s node, the dashboard route\'s gate', () => {
+    renderNav();
+    const asked = mocks.usePermissions.mock.calls.flatMap(([nodes]) => nodes);
+    expect(asked).toContain('knk.admin.content');
+  });
+
+  it('has no other admin page links in the bar', () => {
     const { container } = renderNav('knk.admin.user.manage', 'knk.admin.config', 'knk.siege.admin.manage');
     for (const href of ['/admin/game-settings', '/admin/siege-configuration', '/admin/users', '/admin/invitations']) {
       expect(container.querySelectorAll(`a[href="${href}"]`)).toHaveLength(0);

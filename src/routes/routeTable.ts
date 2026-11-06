@@ -62,7 +62,7 @@ type RouteDef = {
   group?: AdminGroupId;
   /** Listed in the admin sidebar and on the /admin overview (in table order). */
   sidebar?: { icon: LucideIcon; description: string };
-  /** A link in the top bar (in table order). */
+  /** A link in the top bar (in table order, the Admin overview last); with a node only for its holders. */
   topNav?: { icon: LucideIcon; label?: string };
   /** The breadcrumb parent: an id of this table (a route without parameters). Lights up its links too. */
   parent?: string;
@@ -117,9 +117,11 @@ export const ROUTES = defineRoutes({
   adminHome: { path: '/admin', layout: 'admin', access: LOGIN, title: 'Admin', topNav: { icon: LayoutGrid } },
 
   // Content (alpha hardening WP9.1: knk.admin.content, which the API enforces on the writes too).
+  // LW4-1 (developer's decision 2026-11-06): also in the bar, for holders of its node; current on its children.
   dashboard: {
     path: '/dashboard', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Dashboard', group: 'content',
     sidebar: { icon: Table2, description: 'Browse, create and edit the world and content entities.' },
+    topNav: { icon: Table2 },
   },
   // #177 link 1 (#58): the selected type in the URL; bare /dashboard reopens the last one.
   dashboardType: { path: '/dashboard/:entityName', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Dashboard', group: 'content', parent: 'dashboard' },
@@ -297,5 +299,19 @@ export const ADMIN_NODES: string[] = Array.from(new Set(
   SIDEBAR_ROUTES.map(route => nodeOf(route.access)).filter((node): node is string => !!node),
 ));
 
-/** The links of the top bar, in table order. */
-export const TOP_NAV_ROUTES: RouteMeta[] = ROUTE_LIST.filter(route => route.topNav);
+/** The id of the /admin overview: its bar link is current on the admin pages no other bar link covers. */
+export const ADMIN_HOME_ID = 'adminHome';
+
+/**
+ * The links of the top bar, in table order with the Admin overview last: Home, Leaderboards, Guides,
+ * Dashboard (LW4-1, only with its node), Admin.
+ */
+export const TOP_NAV_ROUTES: RouteMeta[] = [
+  ...ROUTE_LIST.filter(route => route.topNav && route.id !== ADMIN_HOME_ID),
+  ...ROUTE_LIST.filter(route => route.topNav && route.id === ADMIN_HOME_ID),
+];
+
+/** The nodes the bar's own links need (the Dashboard's); the Admin link follows the sidebar's nodes. */
+export const TOP_NAV_NODES: string[] = Array.from(new Set(
+  TOP_NAV_ROUTES.map(route => nodeOf(route.access)).filter((node): node is string => !!node),
+));
