@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { FormConfigurationDto, FormSubmissionProgressDto } from '../../types/dtos/forms/FormModels';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { resolveWorkflowSessionId } from '../../utils/forms/worldTaskLifecycle';
@@ -8,6 +8,8 @@ import { Dialog } from '../Dialog';
 import { findParentLinkField } from '../../utils/forms/findParentLinkField';
 import { buildChildEditSeedValues } from '../../utils/forms/childEditSeed';
 import { apiRefusalReason, failureReason } from '../../utils/apiRefusalReason';
+import { useConfirm } from '../../hooks/useConfirm';
+import { LEAVE_FORM_CONFIRM } from '../../utils/forms/leaveFormQuestion';
 
 interface ChildFormModalProps {
     open: boolean;
@@ -213,13 +215,41 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
     const overlayFieldValues = isEditMode && overlayInitialValues ? editSeedValues : undefined;
     const showsEditTitle = isEditMode || isEditingHeldValue;
 
+    // #33 (LW2-2, developer's decision 2026-11-06): Escape and the × ask "Leave this form?" first when
+    // the child form has unsaved changes, like the parent form's leave guard; without changes they
+    // close at once. "Unsaved" is the wizard's own value snapshot (formValuesSnapshot, onDirtyChange).
+    const [childDirty, setChildDirty] = useState(false);
+    const childDirtyRef = useRef(false);
+    childDirtyRef.current = childDirty;
+    const [confirm, confirmModal] = useConfirm();
+    const askingRef = useRef(false);
+
+    useEffect(() => {
+        if (!open) setChildDirty(false);
+    }, [open]);
+
+    const requestClose = useCallback(async () => {
+        if (!childDirtyRef.current) {
+            onClose();
+            return;
+        }
+        if (askingRef.current) return;
+        askingRef.current = true;
+        try {
+            const leave = await confirm(LEAVE_FORM_CONFIRM);
+            if (leave) onClose();
+        } finally {
+            askingRef.current = false;
+        }
+    }, [confirm, onClose]);
+
     if (!open) return null;
 
     return (
         <>
             <Dialog
                 open
-                onClose={onClose}
+                onClose={() => { void requestClose(); }}
                 title={showsEditTitle ? `Edit ${entityTypeName}` : isResuming ? `Continue draft ${entityTypeName}` : `Create New ${entityTypeName}`}
                 description={isEditingHeldValue
                     ? `Update the ${entityTypeName} details (not saved yet)`
@@ -255,6 +285,7 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                         initialFieldValues={initialFieldValues}
                         overlayFieldValues={overlayFieldValues}
                         parentContext={parentContext}
+                        onDirtyChange={setChildDirty}
                     />
                 ) : (
                     <div className="text-center py-12">
@@ -281,6 +312,8 @@ export const ChildFormModal: React.FC<ChildFormModalProps> = ({
                 status="error"
                 onClose={() => setSaveError(null)}
             />
+
+            {confirmModal}
         </>
     );
 };

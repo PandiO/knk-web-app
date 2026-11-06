@@ -1,9 +1,10 @@
 /**
  * PandiO/knk-workspace#187 (X-10): one place for how dates, times and numbers look in the web app.
  *
- * **Locale policy**
- * - Numbers use `NUMBER_LOCALE` (`en-US`: `1,234,567`, `0.5`), like the game's chat (currency DESIGN §4 D6) and the
- *   English UI, so a number reads the same on every machine.
+ * **Locale policy** (LW3-1, developer's decision 2026-11-06: numbers follow the viewer's language, like dates)
+ * - Numbers use the viewer's browser locale (`NUMBER_LOCALE` undefined = the browser's): `12,345` and `0.5` in an
+ *   English browser, `12.345` and `0,5` in a Dutch one. Tests pin it with `setNumberLocale` (`setupTests.ts` pins
+ *   `en-US`, so a test's expected text doesn't depend on the machine).
  * - Dates and times use the viewer's own locale and time zone (`DATE_LOCALE` undefined = the browser's), as most
  *   pages already did.
  * - API dates without a zone (`2026-11-05T20:52:02`, how the API sends a MySQL DATETIME) are **UTC**, so they are
@@ -13,13 +14,31 @@
  *
  *     formatDateTime(user.lastSeenAt)        // "5-11-2026, 21:52" (nl-NL) / "11/5/2026, 9:52 PM" (en-US)
  *     formatDate(entry.createdAt)            // the date only
- *     formatNumber(1234567)                  // "1,234,567"
+ *     formatNumber(1234567)                  // "1.234.567" (nl-NL) / "1,234,567" (en-US)
  *     formatNumber(0.4, { maximumFractionDigits: 2 })
- *     formatPercent(0.125)                   // "12.5%"
+ *     formatPercent(0.125)                   // "12,5%" (nl-NL) / "12.5%" (en-US)
  */
 
-/** Locale for numbers (see the policy above). */
-export const NUMBER_LOCALE = 'en-US';
+/** Locale for numbers; undefined = the viewer's browser locale (see the policy above). */
+export const NUMBER_LOCALE: string | undefined = undefined;
+
+let numberLocale: string | undefined = NUMBER_LOCALE;
+let defaultNumberFormat: Intl.NumberFormat | null = null;
+
+/**
+ * Pins the locale numbers are formatted in; `undefined` goes back to the browser's. For tests (a fixed
+ * expected text, or a check in another language); the app itself never calls it.
+ */
+export const setNumberLocale = (locale: string | undefined): void => {
+    numberLocale = locale;
+    defaultNumberFormat = null;
+};
+
+const numberFormatter = (options?: Intl.NumberFormatOptions): Intl.NumberFormat => {
+    if (options) return new Intl.NumberFormat(numberLocale, options);
+    if (!defaultNumberFormat) defaultNumberFormat = new Intl.NumberFormat(numberLocale);
+    return defaultNumberFormat;
+};
 
 /** Locale for dates and times; undefined = the viewer's browser locale. */
 export const DATE_LOCALE: string | undefined = undefined;
@@ -84,8 +103,10 @@ export const formatDate = (value: DateInput, options?: Intl.DateTimeFormatOption
 export const formatTime = (value: DateInput, options?: Intl.DateTimeFormatOptions, fallback = EMPTY_VALUE): string =>
     formatWith(value, options ?? TIME_DEFAULT, fallback);
 
-/** One shared formatter for whole numbers and plain amounts (`1,234,567`). */
-export const numberFormat = new Intl.NumberFormat(NUMBER_LOCALE);
+/** One shared formatter for whole numbers and plain amounts (`1,234,567` / `1.234.567`), in the viewer's locale. */
+export const numberFormat: { format: (value: number | bigint) => string } = {
+    format: (value: number | bigint): string => numberFormatter().format(value),
+};
 
 const toNumber = (value: number | string | null | undefined): number | null => {
     if (value === null || value === undefined || value === '') return null;
@@ -93,7 +114,7 @@ const toNumber = (value: number | string | null | undefined): number | null => {
     return Number.isFinite(n) ? n : null;
 };
 
-/** A number in `NUMBER_LOCALE` (grouping on, up to 3 fraction digits unless `options` say otherwise). */
+/** A number in the viewer's locale (grouping on, up to 3 fraction digits unless `options` say otherwise). */
 export const formatNumber = (
     value: number | string | null | undefined,
     options?: Intl.NumberFormatOptions,
@@ -101,7 +122,7 @@ export const formatNumber = (
 ): string => {
     const n = toNumber(value);
     if (n === null) return fallback;
-    return options ? new Intl.NumberFormat(NUMBER_LOCALE, options).format(n) : numberFormat.format(n);
+    return numberFormatter(options).format(n);
 };
 
 /** A fraction as a percentage: `0.125` → `12.5%` (up to `maximumFractionDigits`, default 1). */
