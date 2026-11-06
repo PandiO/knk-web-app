@@ -9,6 +9,7 @@ import {
     numberFormat,
     parseApiDate,
     parseUtc,
+    setNumberLocale,
 } from '../format';
 
 // PandiO/knk-workspace#187 (X-10). Jest runs in UTC; the expected strings are built with the same
@@ -74,7 +75,7 @@ describe('format.ts: dates and times in the viewer\'s locale', () => {
     });
 });
 
-describe('format.ts: numbers in en-US', () => {
+describe('format.ts: numbers (pinned to en-US in setupTests)', () => {
     it('groups thousands with commas and uses a point for decimals', () => {
         expect(formatNumber(1234567)).toBe('1,234,567');
         expect(formatNumber(-1234.5)).toBe('-1,234.5');
@@ -98,5 +99,29 @@ describe('format.ts: numbers in en-US', () => {
         expect(formatPercent(0.125)).toBe('12.5%');
         expect(formatPercent(0.12345, 2)).toBe('12.35%');
         expect(formatPercent(null)).toBe(EMPTY_VALUE);
+    });
+});
+
+describe('format.ts: numbers follow the viewer\'s language (LW3-1)', () => {
+    afterEach(() => setNumberLocale('en-US'));
+
+    it('a Dutch browser gets points for thousands and a comma for decimals', () => {
+        setNumberLocale('nl-NL');
+        expect(formatNumber(12345)).toBe('12.345');
+        expect(formatNumber(-1234.5)).toBe('-1.234,5');
+        expect(numberFormat.format(1000)).toBe('1.000');
+        expect(formatNumber(0.4, { minimumFractionDigits: 2 })).toBe('0,40');
+        expect(formatPercent(0.125)).toBe(`12,5${new Intl.NumberFormat('nl-NL', { style: 'percent' }).format(0).slice(1)}`);
+    });
+
+    it('an English browser gets commas for thousands', () => {
+        setNumberLocale('en-GB');
+        expect(formatNumber(12345)).toBe('12,345');
+    });
+
+    it('without a pin it uses the browser\'s own locale', () => {
+        setNumberLocale(undefined);
+        expect(formatNumber(12345)).toBe(new Intl.NumberFormat().format(12345));
+        expect(numberFormat.format(12345)).toBe((12345).toLocaleString());
     });
 });
