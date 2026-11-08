@@ -201,7 +201,7 @@ describe('RoadsAdminPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Select Street/ }));
     await userEvent.click(screen.getByText('Harbour Road (6)'));
     expect(screen.getByLabelText('Continue along the road')).toBeChecked();
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Save stretch #/ }));
 
     await waitFor(() => expect(client.updateEdge).toHaveBeenCalledWith(11, { streetId: 6, propagate: true }));
     expect(await screen.findByText('Stretch #11 saved; "Harbour Road" continued along the road onto 2 more stretches.')).toBeInTheDocument();
@@ -228,7 +228,7 @@ describe('RoadsAdminPage', () => {
     await userEvent.type(cost, '1.5');
     await userEvent.click(screen.getByLabelText('Stretch 10 NoGps'));
     await userEvent.selectOptions(screen.getByLabelText('Stretch 10 profile'), '2');
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Save stretch #/ }));
 
     await waitFor(() => expect(client.updateEdge).toHaveBeenCalledWith(10, { costMultiplier: 1.5, flags: ['NoGps'], profileId: 2 }));
     expect(await screen.findByText('Stretch #10 saved.')).toBeInTheDocument();
@@ -244,7 +244,7 @@ describe('RoadsAdminPage', () => {
     // The picker shows the current street; its X clears it.
     const picker = await screen.findByText('Market Street (5)');
     await userEvent.click(within(picker.parentElement as HTMLElement).getByRole('button'));
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Save stretch #/ }));
 
     await waitFor(() => expect(client.updateEdge).toHaveBeenCalledWith(10, { clearStreet: true }));
   });
@@ -257,7 +257,7 @@ describe('RoadsAdminPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Edit stretch 11' }));
     await userEvent.click(await screen.findByRole('button', { name: /Select Street/ }));
     await userEvent.click(screen.getByText('Harbour Road (6)'));
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Save stretch #/ }));
 
     expect(await screen.findByText('Street 6 does not exist.')).toBeInTheDocument();
     expect(screen.getByLabelText('Stretch 11 cost multiplier')).toBeInTheDocument();
@@ -271,7 +271,7 @@ describe('RoadsAdminPage', () => {
     const cost = screen.getByLabelText('Stretch 10 cost multiplier');
     await userEvent.clear(cost);
     await userEvent.type(cost, '0');
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Save stretch #/ }));
 
     expect(await screen.findByText('Cost multiplier must be greater than 0.')).toBeInTheDocument();
     expect(client.updateEdge).not.toHaveBeenCalled();
@@ -291,7 +291,7 @@ describe('RoadsAdminPage', () => {
 
     await waitFor(() => expect(streets.create).toHaveBeenCalledWith({ name: 'Mill Lane' }));
     expect(await screen.findByText('Mill Lane (9)')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Save stretch #/ }));
     await waitFor(() => expect(client.updateEdge).toHaveBeenCalledWith(11, { streetId: 9, propagate: true }));
   });
 

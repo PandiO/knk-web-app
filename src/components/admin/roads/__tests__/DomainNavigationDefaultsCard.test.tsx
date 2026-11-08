@@ -1,19 +1,14 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { roadClient } from '../../../../apiClients/roadClient';
-import { DomainNavigationDefaultsCard } from '../DomainNavigationDefaultsCard';
+import {
+    DomainNavigationDefaultsCard, NavigationDefaultDraft, navigationDefaultChanges, toNavigationDefaultDrafts,
+} from '../DomainNavigationDefaultsCard';
 import { DomainNavigationDefaultDto } from '../../../../types/dtos/road/RoadDtos';
 
 // KNG-73: where /navigate <domain> leads without spawn/region, per domain type; rev. 7 Part C (KNG-92):
-// whether each type's entry rule keeps routes off its roads.
-
-jest.mock('../../../../apiClients/roadClient', () => ({
-    roadClient: { getDomainNavigationDefaults: jest.fn(), updateDomainNavigationDefault: jest.fn() },
-}));
-
-const getDefaults = roadClient.getDomainNavigationDefaults as jest.Mock;
-const updateDefault = roadClient.updateDomainNavigationDefault as jest.Mock;
+// whether each type's entry rule keeps routes off its roads. #26: a choice is a draft the page saves with its
+// header (RoadsAdminPage.settings.test.tsx).
 
 const defaults: DomainNavigationDefaultDto[] = [
     { domainType: 'Town', defaultMode: 'Spawn', overrideCount: 0, roadAccess: 'Applies', roadAccessOverrideCount: 0 },
@@ -22,76 +17,62 @@ const defaults: DomainNavigationDefaultDto[] = [
     { domainType: 'GateStructure', defaultMode: 'Region', overrideCount: 0, roadAccess: 'Applies', roadAccessOverrideCount: 0 },
 ];
 
+const Harness: React.FC = () => {
+    const [drafts, setDrafts] = React.useState<Record<string, NavigationDefaultDraft>>(() => toNavigationDefaultDrafts(defaults));
+    return (
+        <DomainNavigationDefaultsCard
+            saved={defaults}
+            drafts={drafts}
+            onEdit={(type, change) => setDrafts(current => ({ ...current, [type]: { ...current[type], ...change } }))}
+        />
+    );
+};
+
 describe('DomainNavigationDefaultsCard', () => {
-    beforeEach(() => {
-        getDefaults.mockReset();
-        updateDefault.mockReset();
-    });
-
-    it('lists every domain type with its default and override count', async () => {
-        getDefaults.mockResolvedValue(defaults);
-        render(<DomainNavigationDefaultsCard />);
-
-        expect(await screen.findByLabelText('Towns navigation default')).toHaveValue('Spawn');
+    it('lists every domain type with its default and override count', () => {
+        render(<Harness />);
+        expect(screen.getByLabelText('Towns navigation default')).toHaveValue('Spawn');
         expect(screen.getByLabelText('Gates navigation default')).toHaveValue('Region');
         expect(screen.getByText('Districts').closest('tr')).toHaveTextContent('2');
     });
 
-    it('saves a changed default for that type', async () => {
-        getDefaults.mockResolvedValue(defaults);
-        updateDefault.mockResolvedValue({ ...defaults[1], defaultMode: 'Region' });
-        render(<DomainNavigationDefaultsCard />);
-
-        fireEvent.change(await screen.findByLabelText('Districts navigation default'), { target: { value: 'Region' } });
-
-        expect(updateDefault).toHaveBeenCalledWith('District', { defaultMode: 'Region' });
-        await waitFor(() => expect(screen.getByLabelText('Districts navigation default')).toHaveValue('Region'));
-    });
-
-    it('lists each type\'s entry rule on roads and its override count', async () => {
-        getDefaults.mockResolvedValue(defaults);
-        render(<DomainNavigationDefaultsCard />);
-
-        expect(await screen.findByLabelText('Structures entry rule on roads')).toHaveValue('Ignored');
+    it('lists each type\'s entry rule on roads and its override count', () => {
+        render(<Harness />);
+        expect(screen.getByLabelText('Structures entry rule on roads')).toHaveValue('Ignored');
         expect(screen.getByLabelText('Towns entry rule on roads')).toHaveValue('Applies');
         expect(screen.getByText('Structures').closest('tr')).toHaveTextContent('3');
     });
 
-    it('saves only the entry rule when that changes', async () => {
-        getDefaults.mockResolvedValue(defaults);
-        updateDefault.mockResolvedValue({ ...defaults[0], roadAccess: 'Ignored' });
-        render(<DomainNavigationDefaultsCard />);
-
-        fireEvent.change(await screen.findByLabelText('Towns entry rule on roads'), { target: { value: 'Ignored' } });
-
-        expect(updateDefault).toHaveBeenCalledWith('Town', { roadAccess: 'Ignored' });
-        await waitFor(() => expect(screen.getByLabelText('Towns entry rule on roads')).toHaveValue('Ignored'));
-        expect(screen.getByLabelText('Towns navigation default')).toHaveValue('Spawn');
+    it('keeps a changed choice as a draft, marked, with its explanation', () => {
+        render(<Harness />);
+        const select = screen.getByLabelText('Districts navigation default');
+        fireEvent.change(select, { target: { value: 'Region' } });
+        expect(select).toHaveValue('Region');
+        expect(select).toHaveClass('border-warning');
+        expect(screen.getByText('Districts').closest('tr')).toHaveTextContent(/nearest edge of its region/);
+        expect(screen.getByLabelText('Towns navigation default')).not.toHaveClass('border-warning');
     });
 
-    it('explains both override counts with an (i)', async () => {
-        getDefaults.mockResolvedValue(defaults);
-        render(<DomainNavigationDefaultsCard />);
-
-        expect(await screen.findByLabelText(/own "Navigation Default Override"/)).toHaveAttribute('title');
+    it('explains both override counts with an (i)', () => {
+        render(<Harness />);
+        expect(screen.getByLabelText(/own "Navigation Default Override"/)).toHaveAttribute('title');
         expect(screen.getByLabelText(/own "Road Access Override"/)).toHaveAttribute('title');
     });
 
-    it('shows the API message when a save is refused', async () => {
-        getDefaults.mockResolvedValue(defaults);
-        updateDefault.mockRejectedValue(Object.assign(new Error('You may not change road settings.'), { status: 403 }));
-        render(<DomainNavigationDefaultsCard />);
-
-        fireEvent.change(await screen.findByLabelText('Towns navigation default'), { target: { value: 'Region' } });
-
-        expect(await screen.findByText('Towns: You may not change road settings.')).toBeInTheDocument();
-        expect(screen.getByLabelText('Towns navigation default')).toHaveValue('Spawn');
+    it('says so when the defaults cannot be loaded', () => {
+        render(<DomainNavigationDefaultsCard saved={null} drafts={{}} loadError="Could not load the navigation defaults." onEdit={jest.fn()} />);
+        expect(screen.getByRole('alert')).toHaveTextContent('Could not load the navigation defaults.');
     });
 
-    it('says so when the defaults cannot be loaded', async () => {
-        getDefaults.mockRejectedValue(new Error('down'));
-        render(<DomainNavigationDefaultsCard />);
-
-        expect(await screen.findByText('Could not load the navigation defaults.')).toBeInTheDocument();
+    it('sends only the changed field of each changed type', () => {
+        const drafts = toNavigationDefaultDrafts(defaults);
+        expect(navigationDefaultChanges(defaults, drafts)).toEqual([]);
+        drafts.Town = { ...drafts.Town, roadAccess: 'Ignored' };
+        drafts.District = { defaultMode: 'Region', roadAccess: 'Ignored' };
+        expect(navigationDefaultChanges(defaults, drafts)).toEqual([
+            { domainType: 'Town', update: { roadAccess: 'Ignored' }, count: 1 },
+            { domainType: 'District', update: { defaultMode: 'Region', roadAccess: 'Ignored' }, count: 2 },
+        ]);
+        expect(navigationDefaultChanges(null, drafts)).toEqual([]);
     });
 });
