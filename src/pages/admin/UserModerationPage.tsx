@@ -1,6 +1,6 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Loader2, Search, Users, Clock, TrendingDown, List, Coins, SlidersHorizontal, ShieldAlert, MapPinOff, Ticket } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Loader2, Search, Users, Clock, TrendingDown, List, Coins, SlidersHorizontal, ShieldAlert, MapPinOff, Ticket, History, X } from 'lucide-react';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { userClient } from '../../apiClients/userClient';
@@ -13,11 +13,14 @@ import { useTabParam } from '../../hooks/useTabParam';
 import { CURRENCY_NODES } from '../../types/dtos/currency/CurrencyDtos';
 import { INVITATION_NODES } from '../../types/dtos/invitations/InvitationDtos';
 import { LOCATION_RETENTION_NODES } from '../../types/dtos/locationRetention/LocationRetentionDtos';
-import { DataTable, DataTableColumn } from '../../components/DataTable';
+import { DataTable, DataTableColumn, DataTableSort, nextSort } from '../../components/DataTable';
 import { Pager } from '../../components/Pager';
 import { Field } from '../../components/Field';
 import { formatDateTime, formatNumber } from '../../utils/format';
 import { PresenceChangedPayload, usePresenceChanges } from '../../realtime/liveUpdates';
+import { useAuth } from '../../contexts/AuthContext';
+import { describePlayerSearchTerm, normalizePlayerSearchTerm, parsePlayerSort, PLAYER_SORT_KEYS } from '../../utils/playerSearch';
+import { clearRecentPlayers, readRecentPlayers, RecentPlayer } from '../../utils/recentPlayers';
 
 // docs/specs/user-management/DESIGN.md §5, IMPLEMENTATION_PLAN.md Phase 3 - a moderation-oriented
 // list separate from the generic ObjectDashboard/PagedEntityTable system, since "users in group
@@ -79,9 +82,14 @@ export const UserModerationPage: React.FC = () => {
     // reuses the existing generic POST /api/Users/search (PagedQueryDto), same endpoint the
     // ObjectDashboard/PagedEntityTable system uses elsewhere, since a flat "every user" list
     // doesn't need any of this page's cross-entity moderation logic. -----
+    // #119 (MOD-5): the search term, page and sort are in the URL (?q=&page=&sort=coins&dir=desc), so Back from
+    // a profile returns to the same results; a whole UUID without dashes finds the player (playerSearch.ts).
     const ALL_PAGE_SIZE = 20;
-    const [allSearchTerm, setAllSearchTerm] = React.useState('');
-    const [allPage, setAllPage] = React.useState(1);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const initialPage = Math.max(1, Number(searchParams.get('page')) || 1);
+    const [allSearchTerm, setAllSearchTerm] = React.useState(() => searchParams.get('q') ?? '');
+    const [allPage, setAllPage] = React.useState(initialPage);
+    const [allSort, setAllSort] = React.useState<DataTableSort | null>(() => parsePlayerSort(searchParams.get('sort'), searchParams.get('dir')));
     const [allResults, setAllResults] = React.useState<UserListDto[] | null>(null);
     const [allTotalCount, setAllTotalCount] = React.useState(0);
     const [allLoading, setAllLoading] = React.useState(false);
@@ -89,19 +97,27 @@ export const UserModerationPage: React.FC = () => {
 
     // The term of the last search run (the box may have changed since), for a live re-read (#183).
     const allTermRef = React.useRef('');
-    const runAllSearch = React.useCallback(async (page: number, searchTerm: string, quiet = false) => {
+    const allSortRef = React.useRef<DataTableSort | null>(allSort);
+    const runAllSearch = React.useCallback(async (page: number, searchTerm: string, quiet = false, sort: DataTableSort | null = allSortRef.current) => {
         if (!quiet) {
             setAllLoading(true);
             setAllError(null);
         }
         allTermRef.current = searchTerm;
+        allSortRef.current = sort;
+        const term = normalizePlayerSearchTerm(searchTerm);
         try {
             // The backend's PagedQueryDto only binds a "pageNumber" JSON field, not "page" - a
             // bare { page, ... } body silently pins the server at its default page (1) no matter
             // what's requested. toApiPagedQuery is the same page->pageNumber translation
             // entityApiMapping.ts's generic search wrapper already applies; this call site talks
             // to userClient directly so it has to apply it too.
-            const result = await userClient.searchPaged(toApiPagedQuery({ page, pageSize: ALL_PAGE_SIZE, searchTerm: searchTerm || undefined }));
+            const result = await userClient.searchPaged(toApiPagedQuery({
+                page,
+                pageSize: ALL_PAGE_SIZE,
+                searchTerm: term || undefined,
+                ...(sort ? { sortBy: PLAYER_SORT_KEYS[sort.key], sortDescending: sort.descending } : {}),
+            }));
             setAllResults(result.items);
             setAllTotalCount(result.totalCount);
             // Backend's raw PagedResult wire shape is {pageNumber, pageSize, totalCount}, not
@@ -110,6 +126,7 @@ export const UserModerationPage: React.FC = () => {
             // response, unlike entityApiMapping.ts's normalizePagedResult which remaps it.
             // Trusting the page we requested rather than an unreliable response field.
             setAllPage(page);
+            setAllSort(sort);
         } catch (err) {
             console.error('Failed to load all players:', err);
             if (!quiet) setAllError('Could not load players.');
@@ -119,13 +136,38 @@ export const UserModerationPage: React.FC = () => {
     }, []);
 
     // Auto-run on first visit, like "recently demoted" - no filter selection needed to see a
-    // useful result.
+    // useful result. Starts from the URL's page.
     React.useEffect(() => {
         if (tab === 'all' && allResults === null && !allLoading) {
-            void runAllSearch(1, allSearchTerm);
+            void runAllSearch(initialPage, allSearchTerm);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tab, allResults, allLoading]);
+
+    /** A search, page or sort the user asked for: run it and write it to the URL (replacing the entry). */
+    const searchAll = (page: number, term: string, sort: DataTableSort | null = allSortRef.current) => {
+        setSearchParams(previous => {
+            const params = new URLSearchParams(previous);
+            const q = term.trim();
+            if (q) params.set('q', q); else params.delete('q');
+            if (page > 1) params.set('page', String(page)); else params.delete('page');
+            if (sort) {
+                params.set('sort', sort.key);
+                params.set('dir', sort.descending ? 'desc' : 'asc');
+            } else {
+                params.delete('sort');
+                params.delete('dir');
+            }
+            return params;
+        }, { replace: true });
+        void runAllSearch(page, term, false, sort);
+    };
+
+    // MOD-5 "recent players": the profiles this staff member opened last (this browser only).
+    const { user: viewer } = useAuth();
+    const [recentPlayers, setRecentPlayers] = React.useState<RecentPlayer[]>(() => readRecentPlayers(viewer?.id));
+    React.useEffect(() => setRecentPlayers(readRecentPlayers(viewer?.id)), [viewer?.id]);
+    const termKind = describePlayerSearchTerm(allSearchTerm);
 
     const openProfile = (userId: number | string | null | undefined) => {
         const path = profilePath(userId);
@@ -133,10 +175,11 @@ export const UserModerationPage: React.FC = () => {
     };
 
     const allColumns: DataTableColumn<UserListDto>[] = [
-        { key: 'username', header: 'Username', className: 'font-medium' },
-        { key: 'email', header: 'Email' },
+        { key: 'username', header: 'Username', className: 'font-medium', sortable: true },
+        { key: 'email', header: 'Email', sortable: true },
         { key: 'status', header: 'Status', cell: u => onlineBadge(u.isOnline) },
-        { key: 'coins', header: 'Coins', align: 'right', cell: u => formatNumber(u.coins) },
+        { key: 'lastSeenAt', header: 'Last seen', cell: u => (u.isOnline ? 'Now' : formatDateTime(u.lastSeenAt)) },
+        { key: 'coins', header: 'Coins', align: 'right', sortable: true, cell: u => formatNumber(u.coins) },
         { key: 'experiencePoints', header: 'XP', align: 'right', cell: u => formatNumber(u.experiencePoints) },
     ];
     const groupColumns: DataTableColumn<UserListDto>[] = [
@@ -325,25 +368,58 @@ export const UserModerationPage: React.FC = () => {
                         {tab === 'all' && (
                             <div className="space-y-4">
                                 <div className="flex flex-wrap items-end gap-3">
-                                    <Field label="Search username / email / UUID" labelClassName="block text-xs font-medium text-muted mb-1">
+                                    <Field
+                                        label="Search username / email / UUID"
+                                        labelClassName="block text-xs font-medium text-muted mb-1"
+                                        hint={termKind === 'uuid' ? 'Searching by UUID.' : termKind === 'email' ? 'Searching by email.' : undefined}
+                                    >
                                         <input
                                             type="text"
                                             className={filterClass}
                                             value={allSearchTerm}
                                             onChange={(e) => setAllSearchTerm(e.target.value)}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') void runAllSearch(1, allSearchTerm); }}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') searchAll(1, allSearchTerm); }}
                                             placeholder="Leave blank to list everyone"
                                         />
                                     </Field>
                                     <button
                                         className="btn-primary text-sm inline-flex items-center"
                                         disabled={allLoading}
-                                        onClick={() => void runAllSearch(1, allSearchTerm)}
+                                        onClick={() => searchAll(1, allSearchTerm)}
                                     >
                                         {allLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
                                         Search
                                     </button>
                                 </div>
+                                {recentPlayers.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="recent-players">
+                                        <span className="inline-flex items-center text-muted">
+                                            <History className="h-4 w-4 mr-1" aria-hidden="true" />
+                                            Recently opened:
+                                        </span>
+                                        <ul className="flex flex-wrap gap-2" aria-label="Recently opened players">
+                                            {recentPlayers.map(p => (
+                                                <li key={p.id}>
+                                                    <Link
+                                                        to={profilePath(p.id)!}
+                                                        className="inline-flex items-center rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-fg hover:bg-surface-alt"
+                                                        title={`Opened ${formatDateTime(p.openedAt)}`}
+                                                    >
+                                                        {p.username}
+                                                    </Link>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        <button
+                                            type="button"
+                                            className="btn-tertiary px-2 py-1 text-xs"
+                                            onClick={() => { clearRecentPlayers(viewer?.id); setRecentPlayers([]); }}
+                                        >
+                                            <X className="h-3.5 w-3.5" aria-hidden="true" />
+                                            Clear
+                                        </button>
+                                    </div>
+                                )}
                                 {allError && <p className="text-sm field-error" role="alert">{allError}</p>}
                                 {allResults && (
                                     <div>
@@ -355,6 +431,8 @@ export const UserModerationPage: React.FC = () => {
                                             rowKey={u => String(u.id)}
                                             rowHref={u => profilePath(u.id)}
                                             onRowClick={u => openProfile(u.id)}
+                                            sort={allSort}
+                                            onSortChange={key => searchAll(1, allTermRef.current, nextSort(allSort, key))}
                                             empty="No matching players."
                                         />
                                         {allResults.length > 0 && (
@@ -365,7 +443,7 @@ export const UserModerationPage: React.FC = () => {
                                                 pageSize={ALL_PAGE_SIZE}
                                                 totalCount={allTotalCount}
                                                 disabled={allLoading}
-                                                onPageChange={page => void runAllSearch(page, allSearchTerm)}
+                                                onPageChange={page => searchAll(page, allTermRef.current)}
                                             />
                                         )}
                                     </div>

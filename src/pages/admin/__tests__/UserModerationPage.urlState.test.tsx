@@ -29,6 +29,9 @@ jest.mock('react-router-dom', () => {
     };
 }, { virtual: true });
 
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 1, username: 'Staff' } }),
+}));
 jest.mock('../../../apiClients/userClient', () => ({
     userClient: { searchPaged: jest.fn() },
 }));
