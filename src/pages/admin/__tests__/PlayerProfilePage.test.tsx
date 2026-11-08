@@ -18,8 +18,15 @@ jest.mock('../../../apiClients/userManagementClient', () => ({
   userManagementClient: {
     getProfileSummary: jest.fn(),
     getAuditLog: jest.fn(),
+    getFreezeState: jest.fn(),
+    freeze: jest.fn(),
+    unfreeze: jest.fn(),
   },
 }));
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 1, username: 'Staff' } }),
+}));
+
 jest.mock('../../../apiClients/permissionGroupClient', () => ({
   permissionGroupClient: { getAll: () => Promise.resolve([]) },
 }));
@@ -27,7 +34,7 @@ jest.mock('../../../apiClients/kitClient', () => ({
   KitClient: { getInstance: () => ({ getAvailableForUser: () => Promise.resolve([]) }) },
 }));
 jest.mock('../../../apiClients/currencyClient', () => ({
-  currencyClient: { getTransferLock: () => Promise.resolve(null) },
+  currencyClient: { getTransferLock: () => Promise.resolve(null), getLedger: () => Promise.resolve({ items: [], totalCount: 0 }) },
 }));
 jest.mock('../../../hooks/useStaffAccess', () => ({
   usePermission: () => ({ allowed: false, isChecking: false }),
@@ -65,6 +72,7 @@ jest.mock('../../../components/currency/AdjustBalanceCard', () => ({
 
 const mockedSummary = userManagementClient.getProfileSummary as jest.Mock;
 const mockedAuditLog = userManagementClient.getAuditLog as jest.Mock;
+const mockedFreezeState = userManagementClient.getFreezeState as jest.Mock;
 
 const summaryFor = (id: number): UserProfileSummaryDto => ({
   account: {
@@ -115,21 +123,24 @@ describe('PlayerProfilePage (KNG-39)', () => {
     mockLive.privateMessages = 0;
     mockedSummary.mockImplementation((id: number) => Promise.resolve(summaryFor(id)));
     mockedAuditLog.mockResolvedValue({ items: [], totalCount: 0, pageNumber: 1, pageSize: 20 });
+    mockedFreezeState.mockResolvedValue({ isFrozen: false, frozenReason: null });
   });
 
-  it('keeps one Discoveries and one Private messages panel when moving between profiles', async () => {
+  // #119: Discoveries is on the Activity tab, Private messages on the Privacy tab (only the open tab is mounted).
+  it.each([
+    ['activity', 'discoveries-panel', 'Discoveries of', { discoveries: 1, privateMessages: 0 }],
+    ['privacy', 'pm-panel', 'Private messages of', { discoveries: 0, privateMessages: 1 }],
+  ])('keeps one panel on the %s tab when moving between profiles', async (tab, testId, text, live) => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     try {
-      renderAt('/admin/users/3');
-      expect(await screen.findByText('Discoveries of 3')).toBeInTheDocument();
+      renderAt(`/admin/users/3?tab=${tab}`);
+      expect(await screen.findByText(`${text} 3`)).toBeInTheDocument();
 
       for (const id of [5, 3, 5, 3]) {
-        await act(async () => navigateTo(`/admin/users/${id}`));
-        expect(await screen.findByText(`Discoveries of ${id}`)).toBeInTheDocument();
-        expect(screen.getAllByTestId('discoveries-panel')).toHaveLength(1);
-        expect(screen.getAllByTestId('pm-panel')).toHaveLength(1);
-        expect(screen.getByText(`Private messages of ${id}`)).toBeInTheDocument();
-        expect(mockLive).toEqual({ discoveries: 1, privateMessages: 1 });
+        await act(async () => navigateTo(`/admin/users/${id}?tab=${tab}`));
+        expect(await screen.findByText(`${text} ${id}`)).toBeInTheDocument();
+        expect(screen.getAllByTestId(testId)).toHaveLength(1);
+        expect(mockLive).toEqual(live);
       }
 
       const duplicateKeyWarnings = consoleError.mock.calls.filter((args) =>
@@ -152,6 +163,7 @@ describe('PlayerProfilePage online badge (#183)', () => {
   beforeEach(() => {
     mockedSummary.mockReset();
     mockedAuditLog.mockResolvedValue({ items: [], totalCount: 0, pageNumber: 1, pageSize: 20 });
+    mockedFreezeState.mockResolvedValue({ isFrozen: false, frozenReason: null });
   });
 
   const renderLive = (hub: ReturnType<typeof fakeRealtime>) => render(
