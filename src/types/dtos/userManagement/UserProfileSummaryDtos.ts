@@ -97,6 +97,12 @@ export interface ProfilePresenceDto {
   lastSeenAt?: string | null;
 }
 
+/** #119: whether the player is frozen (GET api/Users/{id}: isFrozen, frozenReason). */
+export interface PlayerFreezeStateDto {
+  isFrozen: boolean;
+  frozenReason?: string | null;
+}
+
 // docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 2.
 
 export interface AssignGroupRequest {
