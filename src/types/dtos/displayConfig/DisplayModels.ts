@@ -103,6 +103,8 @@ export interface DisplayWizardProps {
    * default heading, which shows the display configuration's name.
    */
   renderHeader?: (entity: Record<string, unknown>) => import('react').ReactNode;
+  /** #183: changing it re-reads the entity quietly (another admin changed it); not on mount. */
+  liveRefreshKey?: number;
 }
 
 export interface DisplayAction {

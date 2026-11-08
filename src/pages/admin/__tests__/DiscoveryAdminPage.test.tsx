@@ -201,14 +201,14 @@ describe('DiscoveryAdminPage', () => {
 
       await turnOffStructure();
 
-      const dialog = screen.getByRole('dialog', { name: 'Also turn discovery off for Gate structures?' });
+      const dialog = screen.getByRole('alertdialog', { name: 'Also turn discovery off for Gate structures?' });
       expect(within(dialog).getByRole('button', { name: 'Also apply to Gate structures' })).toBeInTheDocument();
       expect(within(dialog).getByRole('button', { name: 'Only Structure' })).toBeInTheDocument();
       expect(client.updateRule).not.toHaveBeenCalled();
 
       // Closing goes back to editing without saving.
       await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
       expect(screen.getByLabelText('Structure enabled')).not.toBeChecked();
       expect(client.updateRule).not.toHaveBeenCalled();
     });
@@ -231,7 +231,7 @@ describe('DiscoveryAdminPage', () => {
       });
       await waitFor(() => expect(within(ruleRow('Gate')).getByText('No', { selector: 'span' })).toBeInTheDocument());
       expect(within(ruleRow('Structure')).getByText('No', { selector: 'span' })).toBeInTheDocument();
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
 
     it('saves only Structure when asked to', async () => {
@@ -272,7 +272,7 @@ describe('DiscoveryAdminPage', () => {
 
       await waitFor(() => expect(client.updateRule).toHaveBeenCalledTimes(1));
       expect(client.updateRule).toHaveBeenCalledWith('Structure', expect.objectContaining({ isEnabled: false }));
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
 
     it('does not ask for Town, whose districts are not a kind of town', async () => {
@@ -285,7 +285,7 @@ describe('DiscoveryAdminPage', () => {
 
       await waitFor(() => expect(client.updateRule).toHaveBeenCalledTimes(1));
       expect(client.updateRule).toHaveBeenCalledWith('Town', expect.objectContaining({ isEnabled: false }));
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
   });
 
@@ -339,7 +339,7 @@ describe('DiscoveryAdminPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Remove Kaer Morhen override' }));
 
     // KNG-169: asked in a modal (useConfirm), not the browser's confirm box.
-    const dialog = await screen.findByRole('dialog', { name: 'Remove this discovery override?' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove this discovery override?' });
     expect(dialog).toHaveTextContent('Kaer Morhen');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
     expect(confirmSpy).not.toHaveBeenCalled();

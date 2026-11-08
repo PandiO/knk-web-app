@@ -331,7 +331,7 @@ export const WorldTaskResultDetails: React.FC<{ details: WorldTaskResultDetail[]
     if (details.length === 0) return null;
 
     return (
-        <div className="mt-3 border-t border-green-200 pt-3">
+        <div className="mt-3 border-t border-success-line pt-3">
             <div className="mb-2 flex items-center gap-2 text-sm font-medium text-green-900">
                 <MapPin className="h-4 w-4" aria-hidden="true" />
                 <span>Minecraft result</span>
@@ -339,7 +339,7 @@ export const WorldTaskResultDetails: React.FC<{ details: WorldTaskResultDetail[]
             <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs">
                 {details.map(detail => (
                     <React.Fragment key={detail.label}>
-                        <dt className="font-medium text-green-700">{detail.label}</dt>
+                        <dt className="font-medium text-success">{detail.label}</dt>
                         <dd className="min-w-0 break-words font-mono text-green-950">{detail.value}</dd>
                     </React.Fragment>
                 ))}
@@ -1013,7 +1013,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             type="button"
             onClick={handleCancelTask}
             disabled={cancelling}
-            className="mt-2 text-xs px-2 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-100 disabled:opacity-50"
+            className="mt-2 text-xs px-2 py-1 border border-gray-300 bg-surface text-gray-700 rounded hover:bg-gray-100 disabled:opacity-50"
         >
             {cancelling ? 'Cancelling…' : 'Cancel task'}
         </button>
@@ -1024,7 +1024,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             type="button"
             onClick={() => void resetPanel('Started again in the web app.')}
             className={tone === 'red'
-                ? 'mt-2 text-xs px-2 py-1 bg-red-200 text-red-800 rounded hover:bg-red-300'
+                ? 'mt-2 text-xs px-2 py-1 bg-danger-line text-danger-strong rounded hover:bg-red-300'
                 : 'mt-2 text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300'}
         >
             {label}
@@ -1044,18 +1044,18 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             {notice && (
                 <div
                     className={offerPending
-                        ? 'mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md'
-                        : 'mb-3 p-3 bg-gray-50 border border-gray-300 rounded-md'}
+                        ? 'mb-3 p-3 bg-info-soft border border-info-line rounded-md'
+                        : 'mb-3 p-3 bg-surface-alt border border-gray-300 rounded-md'}
                     role="status"
                 >
-                    <p className={offerPending ? 'text-sm font-medium text-blue-800' : 'text-sm text-gray-800'}>
+                    <p className={offerPending ? 'text-sm font-medium text-info-strong' : 'text-sm text-gray-800'}>
                         {offerPending ? '📨 ' : ''}{notice}
                     </p>
                     {offerPending && task?.linkCode && (
                         <button
                             type="button"
                             onClick={() => setCodeExpanded(open => !open)}
-                            className="mt-2 text-xs text-blue-700 underline hover:text-blue-900"
+                            className="mt-2 text-xs text-primary-dark underline hover:text-info-strong"
                             aria-expanded={codeExpanded}
                         >
                             {codeExpanded ? 'Hide the task code' : `Or use task code ${task.linkCode}`}
@@ -1067,15 +1067,15 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
             {/* Prominent task code display for Pending tasks (player-driven only) */}
             {showTaskCode && task && (
-                <div className="mb-4 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg shadow-sm">
+                <div className="mb-4 p-4 bg-warning-soft border-2 border-yellow-400 rounded-lg shadow-sm">
                     <div className="flex items-start">
                         <span className="text-3xl mr-3">🎮</span>
                         <div className="flex-1">
-                            <p className="text-lg font-bold text-yellow-900 mb-2">
+                            <p className="text-lg font-bold text-warning-strong mb-2">
                                 Ready for Minecraft!
                             </p>
                             {(task.releaseCount ?? 0) > 0 && (
-                                <p className="text-xs text-yellow-800 mb-2">
+                                <p className="text-xs text-warning-strong mb-2">
                                     The task was handed back in game; its task code works again.
                                 </p>
                             )}
@@ -1100,7 +1100,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                                     </button>
                                 </div>
                             </div>
-                            <p className="text-xs text-yellow-700 mt-2">
+                            <p className="text-xs text-warning mt-2">
                                 💡 This code links your web session to your in-game actions
                                 {expiresAtLabel && <> · expires at {expiresAtLabel} if nobody claims it</>}
                             </p>
@@ -1110,7 +1110,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                                         type="button"
                                         onClick={() => void handleSendAgain()}
                                         disabled={isLoading}
-                                        className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+                                        className="text-xs px-2 py-1 bg-success text-success-fg rounded hover:bg-success-strong disabled:bg-gray-400"
                                         title="Send this task to you in game again"
                                     >
                                         {isLoading ? 'Sending…' : 'Send again'}
@@ -1119,14 +1119,14 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                                         type="button"
                                         onClick={() => void openHandOff()}
                                         disabled={isLoading}
-                                        className="text-xs px-2 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
+                                        className="text-xs px-2 py-1 border border-gray-300 bg-surface text-gray-700 rounded hover:bg-surface-alt disabled:opacity-50"
                                     >
                                         Hand off to…
                                     </button>
                                 </div>
                             )}
                             {resendError && (
-                                <p className="text-xs text-red-700 mt-2" role="alert">{resendError}</p>
+                                <p className="text-xs text-danger-strong mt-2" role="alert">{resendError}</p>
                             )}
                             {cancelTaskButton}
                         </div>
@@ -1136,12 +1136,12 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
             {/* Progress indicator for headless (no-player) tasks, e.g. GateBlockScan */}
             {task && taskStatus === 'pending' && isHeadless && (
-                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="mb-3 p-3 bg-info-soft border border-info-line rounded-md">
                     <div className="flex items-center gap-2">
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" aria-hidden="true" />
-                        <p className="text-sm font-medium text-blue-800">Scanning in progress on the server…</p>
+                        <p className="text-sm font-medium text-info-strong">Scanning in progress on the server…</p>
                     </div>
-                    <p className="text-xs text-blue-600 mt-1">
+                    <p className="text-xs text-primary mt-1">
                         No in-game action is needed; this runs automatically and may take a moment for large areas.
                     </p>
                 </div>
@@ -1149,17 +1149,17 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
             {/* Task in-progress state with claim info */}
             {task && (taskStatus === 'inprogress' || taskStatus === 'accepted') && (
-                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                    <p className="text-sm text-blue-800">
+                <div className="mb-3 p-3 bg-info-soft border border-info-line rounded-md">
+                    <p className="text-sm text-info-strong">
                         Task Status: <strong>{task.status}</strong>
                     </p>
                     {task.claimedByMinecraftUsername && (
-                        <p className="text-xs text-blue-700 mt-1">
+                        <p className="text-xs text-primary-dark mt-1">
                             Claimed by: <strong>{task.claimedByMinecraftUsername}</strong>
                             {task.claimedByServerId && ` on ${task.claimedByServerId}`}
                         </p>
                     )}
-                    <p className="text-xs text-blue-600 mt-2">
+                    <p className="text-xs text-primary mt-2">
                         Waiting for task to complete in Minecraft...
                     </p>
                     {cancelTaskButton}
@@ -1168,8 +1168,8 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
             {/* Task completion in progress state */}
             {task && taskStatus === 'completed' && !extractionSucceeded && !extractionError && (
-                <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                    <p className="text-sm text-yellow-800">
+                <div className="mb-3 p-3 bg-warning-soft border border-warning-line rounded-md">
+                    <p className="text-sm text-warning-strong">
                         ⏳ Processing task result...
                     </p>
                 </div>
@@ -1177,13 +1177,13 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
             {/* Task completion success state */}
             {task && taskStatus === 'completed' && extractionSucceeded && (
-                <div className="mb-3 p-3 bg-green-50 border border-green-300 rounded-md">
-                    <p className="text-sm font-medium text-green-800">
+                <div className="mb-3 p-3 bg-success-soft border border-success-line rounded-md">
+                    <p className="text-sm font-medium text-success-strong">
                         ✅ Task completed! Field has been auto-populated with the result.
                     </p>
                     {showResultDetails && <WorldTaskResultDetails details={resultDetails} />}
                     {scanWarnings.length > 0 && (
-                        <ul className="mt-2 list-disc pl-5 text-xs text-yellow-800">
+                        <ul className="mt-2 list-disc pl-5 text-xs text-warning-strong">
                             {scanWarnings.map((warning, index) => (
                                 <li key={index}>{warning}</li>
                             ))}
@@ -1193,7 +1193,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                         <button
                             type="button"
                             onClick={handleRunAgain}
-                            className="mt-2 text-xs px-2 py-1 bg-green-200 text-green-800 rounded hover:bg-green-300"
+                            className="mt-2 text-xs px-2 py-1 bg-success-line text-success-strong rounded hover:bg-green-300"
                         >
                             Capture again
                         </button>
@@ -1203,11 +1203,11 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
             {/* Extraction error state */}
             {extractionError && (
-                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-sm font-medium text-red-800">
+                <div className="mb-3 p-3 bg-danger-soft border border-danger-line rounded-md">
+                    <p className="text-sm font-medium text-danger-strong">
                         ⚠️ Result Processing Error
                     </p>
-                    <p className="text-xs text-red-700 mt-1">
+                    <p className="text-xs text-danger-strong mt-1">
                         {extractionError}
                     </p>
                 </div>
@@ -1215,22 +1215,22 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
             {/* KNG-268: the API refused to start the task, with its reason */}
             {createError && !task && (
-                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-sm font-medium text-red-800">
+                <div className="mb-3 p-3 bg-danger-soft border border-danger-line rounded-md">
+                    <p className="text-sm font-medium text-danger-strong">
                         ❌ Couldn't start
                     </p>
-                    <p className="text-xs text-red-700 mt-1">{createError}</p>
+                    <p className="text-xs text-danger-strong mt-1">{createError}</p>
                 </div>
             )}
 
             {/* Task failure display */}
             {task && taskStatus === 'failed' && (
-                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-sm font-medium text-red-800">
+                <div className="mb-3 p-3 bg-danger-soft border border-danger-line rounded-md">
+                    <p className="text-sm font-medium text-danger-strong">
                         ❌ Task Failed
                     </p>
                     {task.errorMessage && (
-                        <p className="text-xs text-red-700 mt-1">{task.errorMessage}</p>
+                        <p className="text-xs text-danger-strong mt-1">{task.errorMessage}</p>
                     )}
                     {startAgainButton('Try Again', 'red')}
                 </div>
@@ -1238,7 +1238,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
             {/* #180: the task ended without a result */}
             {task && (taskStatus === 'cancelled' || taskStatus === 'expired') && (
-                <div className="mb-3 p-3 bg-gray-50 border border-gray-300 rounded-md">
+                <div className="mb-3 p-3 bg-surface-alt border border-gray-300 rounded-md">
                     <p className="text-sm font-medium text-gray-800">
                         {taskStatus === 'expired' ? '⌛ Task expired' : '✖ Task cancelled'}
                     </p>
@@ -1254,7 +1254,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
             {/* Cached scan summary from a previous run (survives saved/resumed drafts) */}
             {!task && !taskId && GATE_BLOCK_SCAN_TASK_TYPES.includes(taskType) && value?.status && (
-                <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                <div className="mb-3 p-3 bg-surface-alt border border-line rounded-md">
                     <p className="text-sm text-gray-700">
                         Previously scanned: <strong>{value.blockCount ?? 0} blocks</strong> ({value.status})
                     </p>
@@ -1263,15 +1263,15 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
             {/* Button to create in Minecraft */}
             {gateScanBlocked && !field.isReadOnly && !taskId && (
-                <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2">
+                <p className="text-xs text-warning bg-warning-soft border border-warning-line rounded-md px-3 py-2">
                     Save the gate first; scanning needs an existing gate ID.
                 </p>
             )}
             {/* #181 busy check: you already hold a task in game */}
             {busy && (!taskId || sendAgainVisible) && !field.isReadOnly && (
-                <div className="mb-3 p-3 bg-amber-50 border border-amber-300 rounded-md" role="alertdialog" aria-label="You already have a task in game">
-                    <p className="text-sm font-medium text-amber-900">You already have a task open in game.</p>
-                    <p className="text-xs text-amber-800 mt-1">
+                <div className="mb-3 p-3 bg-warning-soft border border-amber-300 rounded-md" role="alertdialog" aria-label="You already have a task in game">
+                    <p className="text-sm font-medium text-warning-strong">You already have a task open in game.</p>
+                    <p className="text-xs text-warning-strong mt-1">
                         {busy.task?.fieldName ? `${busy.task.fieldName}` : 'A task'}
                         {busy.formName ? ` of “${busy.formName}”` : ''}
                         {busy.queued > 0 ? ` · ${busy.queued} more waiting in your queue` : ''}
@@ -1295,7 +1295,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                             Cancel
                         </button>
                     </div>
-                    <p className="text-xs text-amber-700 mt-2">
+                    <p className="text-xs text-warning mt-2">
                         Queue: sent to you when that task ends. Replace: {busy.formName ? `“${busy.formName}”` : 'the other form'} loses
                         the task in game; its task code keeps working.
                     </p>
@@ -1304,10 +1304,10 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
 
             {/* #181 "Hand off to…": an online player gets Accept/Decline in game */}
             {handOffOpen && (!taskId || sendAgainVisible) && !field.isReadOnly && (
-                <div className="mb-3 p-3 bg-white border border-gray-300 rounded-md" aria-label="Hand off to">
+                <div className="mb-3 p-3 bg-surface border border-gray-300 rounded-md" aria-label="Hand off to">
                     <p className="text-sm font-medium text-gray-800">Hand off to an online player</p>
                     {staff === null && !staffError && <p className="text-xs text-gray-600 mt-1">Loading who is online…</p>}
-                    {staffError && <p className="text-xs text-red-700 mt-1">{staffError}</p>}
+                    {staffError && <p className="text-xs text-danger-strong mt-1">{staffError}</p>}
                     {staff && staff.length === 0 && (
                         <p className="text-xs text-gray-600 mt-1">Nobody else with world-task access is online in game.</p>
                     )}
@@ -1321,7 +1321,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                                         onClick={() => void deliverTask({ userId: person.userId })}
                                     >
                                         {person.username}
-                                        <span className="text-xs text-gray-500"> · {person.serverId}{person.world ? ` / ${person.world}` : ''}</span>
+                                        <span className="text-xs text-muted"> · {person.serverId}{person.world ? ` / ${person.world}` : ''}</span>
                                     </button>
                                 </li>
                             ))}
@@ -1339,7 +1339,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     id={actionButtonId}
                     onClick={() => void handleSendToMinecraft()}
                     disabled={isLoading}
-                    className={hidePrimaryActionButton ? 'hidden' : 'px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400'}
+                    className={hidePrimaryActionButton ? 'hidden' : 'px-4 py-2 bg-success text-success-fg rounded-md hover:bg-success-strong disabled:bg-gray-400'}
                 >
                     {isHeadlessTaskType(taskType)
                         ? (isLoading ? 'Starting scan...' : (value ? 'Re-scan' : 'Start scan'))
@@ -1352,7 +1352,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     type="button"
                     onClick={() => void openHandOff()}
                     disabled={isLoading}
-                    className="ml-2 px-3 py-2 border border-gray-300 bg-white text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                    className="ml-2 px-3 py-2 border border-gray-300 bg-surface text-gray-700 rounded-md hover:bg-surface-alt disabled:opacity-50"
                 >
                     Hand off to…
                 </button>

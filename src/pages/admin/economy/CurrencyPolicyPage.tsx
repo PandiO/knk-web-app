@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, SlidersHorizontal } from 'lucide-react';
 import { currencyClient } from '../../../apiClients/currencyClient';
 import { CurrencyPolicyDto } from '../../../types/dtos/currency/CurrencyDtos';
-import { usePageTitle } from '../../../hooks/usePageTitle';
 import { apiRefusalReason } from '../../../utils/apiRefusalReason';
+import { numberFormat } from '../../../utils/format';
 
 type NumberField = keyof Pick<CurrencyPolicyDto,
     'minTransfer' | 'maxTransfer' | 'dailySendCap' | 'dailyReceiveCap' | 'confirmThreshold' | 'confirmTtlSeconds'
@@ -27,7 +27,6 @@ const NUMBER_FIELDS: { key: NumberField; label: string; help: string }[] = [
     { key: 'signupGrant', label: 'Signup grant', help: 'Starting balance of a new account.' },
 ];
 
-const numberFormat = new Intl.NumberFormat('en-US');
 
 type Draft = Record<NumberField, string> & {
     transfersEnabled: boolean;
@@ -51,7 +50,6 @@ const isWhole = (value: string): boolean => /^\d+$/.test(value.trim());
  * knk.admin.currency.policy (StaffRoute node); the API checks it too.
  */
 export const CurrencyPolicyPage: React.FC = () => {
-    usePageTitle('Currency policy');
     const [policies, setPolicies] = React.useState<CurrencyPolicyDto[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);

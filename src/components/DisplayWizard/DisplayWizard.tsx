@@ -1,5 +1,5 @@
 // DisplayWizard Component - Main container for displaying entity data
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDisplayConfig } from './hooks/useDisplayConfig';
 import { useEntityData } from './hooks/useEntityData';
@@ -15,7 +15,8 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
   entityId,
   configurationId,
   onActionClick,
-  renderHeader
+  renderHeader,
+  liveRefreshKey
 }) => {
   const navigate = useNavigate();
   const { config, loading: configLoading, error: configError } = useDisplayConfig(
@@ -27,6 +28,14 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
     entityTypeName,
     entityId
   );
+
+  // #183: a live update re-reads the entity without the loading screen.
+  const lastLiveRefreshKey = useRef(liveRefreshKey);
+  useEffect(() => {
+    if (lastLiveRefreshKey.current === liveRefreshKey) return;
+    lastLiveRefreshKey.current = liveRefreshKey;
+    void refetchEntityData(true);
+  }, [liveRefreshKey, refetchEntityData]);
 
   const [, setIsSaving] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
