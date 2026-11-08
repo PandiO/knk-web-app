@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, AlertTriangle, Search, X } from 'lucide-react';
+import { Activity, AlertTriangle, Search } from 'lucide-react';
 import { telemetryClient } from '../../apiClients/telemetryClient';
 import { OwnerOnlyNotice } from '../../components/OwnerRoute';
+import { Dialog } from '../../components/Dialog';
 import {
   EnhancedTargetDto,
   OWNER_TELEMETRY_MANAGE_NODE,
@@ -319,37 +320,35 @@ const EventDrawer: React.FC<{
     ['Source', `${e.source} · ${e.serverName} #${e.serverSeq} · ${e.appVersion}`],
     ['Level', e.level],
   ];
-  // Smoke test 2026-10-10: above the fixed nav (z-50), which hid the drawer's top and its close
-  // button; a click on the backdrop or Escape closes it too.
-  React.useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Smoke test 2026-10-10: above the fixed nav, which hid the drawer's top and its close button; a click
+  // on the backdrop or Escape closes it too (the shared Dialog since #33).
   return (
-    <div className="fixed inset-0 z-[60]">
-      <div className="absolute inset-0 bg-black/20" onClick={onClose} data-testid="event-drawer-backdrop" />
-    <aside role="dialog" aria-label="Event detail"
-      className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto bg-white shadow-xl border-l border-gray-200 p-5">
-      <div className="flex items-start justify-between">
-        <h2 className="font-mono text-lg text-gray-900">{e.name}</h2>
-        <button type="button" onClick={onClose} aria-label="Close"><X className="h-5 w-5 text-gray-500" /></button>
-      </div>
-      <dl className="mt-4 grid grid-cols-3 gap-y-1 text-sm">
+    <Dialog
+      open
+      onClose={onClose}
+      title={<span className="font-mono">{e.name}</span>}
+      placement="right"
+      size="md"
+      closeOnBackdrop
+      closeLabel="Close"
+      data-testid="event-drawer"
+      bodyClassName="px-6 py-4"
+    >
+      <dl className="grid grid-cols-3 gap-y-1 text-sm">
         {rows.map(([label, value]) => (
           <React.Fragment key={label}>
-            <dt className="text-gray-500">{label}</dt>
-            <dd className="col-span-2 text-gray-900 break-all">{value}</dd>
+            <dt className="text-muted">{label}</dt>
+            <dd className="col-span-2 text-fg break-all">{value}</dd>
           </React.Fragment>
         ))}
       </dl>
       {e.payload && Object.keys(e.payload).length > 0 && (
         <div className="mt-4">
-          <h3 className="text-xs font-semibold uppercase text-gray-500">Details</h3>
+          <h3 className="text-xs font-semibold uppercase text-muted">Details</h3>
           <dl className="mt-1 grid grid-cols-3 gap-y-1 text-sm">
             {Object.entries(e.payload).map(([k, v]) => (
               <React.Fragment key={k}>
-                <dt className="text-gray-500">{k}</dt>
+                <dt className="text-muted">{k}</dt>
                 <dd className="col-span-2 font-mono">{String(v)}</dd>
               </React.Fragment>
             ))}
@@ -357,7 +356,7 @@ const EventDrawer: React.FC<{
         </div>
       )}
       <div className="mt-4 space-y-1 text-sm">
-        <h3 className="text-xs font-semibold uppercase text-gray-500">Links</h3>
+        <h3 className="text-xs font-semibold uppercase text-muted">Links</h3>
         {detail.links.siegeMatchId && <p>Siege match #{detail.links.siegeMatchId}</p>}
         {detail.links.ledgerTransactionPublicIds.map(id => (
           <p key={id}><Link to={`/admin/economy/transactions/${id}`} className="text-primary hover:underline">Ledger {id}</Link></p>
@@ -368,19 +367,18 @@ const EventDrawer: React.FC<{
           </button>
         )}
         {!detail.links.siegeMatchId && detail.links.ledgerTransactionPublicIds.length === 0 && !e.correlationId && (
-          <p className="text-gray-500">No linked records.</p>
+          <p className="text-muted">No linked records.</p>
         )}
       </div>
       {detail.related.length > 0 && (
         <div className="mt-4">
-          <h3 className="text-xs font-semibold uppercase text-gray-500">Same action ({detail.related.length})</h3>
-          <ul className="mt-1 divide-y divide-gray-100">
+          <h3 className="text-xs font-semibold uppercase text-muted">Same action ({detail.related.length})</h3>
+          <ul className="mt-1 divide-y divide-line">
             {detail.related.map(r => <EventRow key={r.id} event={r} onOpen={onOpen} />)}
           </ul>
         </div>
       )}
-    </aside>
-    </div>
+    </Dialog>
   );
 };
 

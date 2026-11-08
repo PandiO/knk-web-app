@@ -4,7 +4,6 @@ import { ArrowLeft, Coins, Settings, ShieldAlert } from 'lucide-react';
 import { BalanceLedgerTable } from '../../components/currency/BalanceLedgerTable';
 import { usePermission } from '../../hooks/useStaffAccess';
 import { CURRENCY_NODES } from '../../types/dtos/currency/CurrencyDtos';
-import { usePageTitle } from '../../hooks/usePageTitle';
 
 /**
  * Moderation → Balance event log (KNG-23, currency-payments Phase 4): every change to any
@@ -13,7 +12,6 @@ import { usePageTitle } from '../../hooks/usePageTitle';
  * detail page.
  */
 export const BalanceLogPage: React.FC = () => {
-    usePageTitle('Balance log');
     const { allowed: canEditPolicy } = usePermission(CURRENCY_NODES.policy);
     const { allowed: canSeeAlerts } = usePermission(CURRENCY_NODES.alerts);
 

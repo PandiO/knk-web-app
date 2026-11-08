@@ -8,7 +8,6 @@ import { LootboxOddsTab } from '../../components/lootbox/LootboxOddsTab';
 import { LootboxActiveTab } from '../../components/lootbox/LootboxActiveTab';
 import { LootboxDropLogTab } from '../../components/lootbox/LootboxDropLogTab';
 import { LootboxTokensTab } from '../../components/lootbox/LootboxTokensTab';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { useTabParam } from '../../hooks/useTabParam';
 
 /**
@@ -35,7 +34,6 @@ const TABS: { key: TabKey; label: string }[] = [
 const TAB_KEYS: readonly TabKey[] = TABS.map(t => t.key);
 
 export const LootboxesPage: React.FC<{ initialTab?: TabKey }> = ({ initialTab = 'types' }) => {
-    usePageTitle('Lootboxes');
     // PandiO/knk-workspace#39: the tab is in the URL (?tab=odds); `initialTab` is the one without it.
     const [tab, setTab] = useTabParam(TAB_KEYS, initialTab);
     const [oddsTypeId, setOddsTypeId] = React.useState<number | null>(null);
