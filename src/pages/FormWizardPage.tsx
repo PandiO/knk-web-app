@@ -1143,7 +1143,8 @@ export const FormWizardPage: React.FC<Props> = ({
 
                             {showDefaultColumns && (
                                 <div id="default-table-columns-content" className="space-y-4">
-                                    <div className="flex items-center justify-between gap-4">
+                                    {/* #266: below sm the button goes under the text instead of squeezing it. */}
+                                    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                                         <p className="text-sm text-gray-600">Configure which columns are shown first in entity tables and related pickers.</p>
                                         <button
                                             onClick={handleSaveDefaultColumns}

@@ -34,4 +34,7 @@
   height: 100%;
   overflow-y: auto;
   padding-right: 1rem;
+  /* #266: the containing block of absolutely positioned descendants (sr-only labels, badges) that have no
+     positioned parent of their own, so the column clips them instead of the page growing sideways. */
+  position: relative;
 }

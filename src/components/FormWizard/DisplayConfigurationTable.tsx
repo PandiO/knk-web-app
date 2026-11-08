@@ -70,9 +70,11 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
 
     return (
         <div className="bg-surface rounded-lg shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+            {/* #266: below sm the title and the buttons stack and the buttons wrap, so the row never grows wider
+                than the card (at 390 px the buttons used to be cut off and the page scrolled sideways). */}
+            <div className="px-6 py-4 border-b border-line flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-lg font-medium text-fg">Display Configurations</h2>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <button
                         onClick={onCreate}
                         className="btn-primary text-sm"
@@ -102,7 +104,10 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                     <p className="text-muted">No display configurations found for this entity.</p>
                 </div>
             ) : (
-                <div className="overflow-x-auto">
+                <div className="relative overflow-x-auto">
+                    {/* #266: `relative` makes this box the containing block of the head's absolutely positioned
+                        sr-only "Actions" label, so the box clips it; without it the label sat at the table's right
+                        edge in page coordinates and made the whole page 785 px wide at 390 px. */}
                     <table className="min-w-full table-fixed divide-y divide-line">
                     <thead className="bg-surface-alt">
                         <tr>
