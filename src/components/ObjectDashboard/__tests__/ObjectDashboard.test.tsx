@@ -7,6 +7,9 @@ import { formConfigClient } from '../../../apiClients/formConfigClient';
 import { formSubmissionClient } from '../../../apiClients/formSubmissionClient';
 import { DisplayConfigurationDto } from '../../../types/dtos/displayConfig/DisplayModels';
 import { logging } from '../../../utils';
+import { fakeRealtime } from '../../../test-utils/fakeRealtime';
+import { LIVE_REFRESH_DEBOUNCE_MS } from '../../../realtime/liveUpdates';
+import { act } from '@testing-library/react';
 
 // virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
 const mockNavigate = jest.fn();
@@ -669,3 +672,63 @@ describe('ObjectDashboard "Drafts (n)" and "New with" (#177 follow-up)', () => {
     });
 });
 
+// PandiO/knk-workspace#183 (Realtime S4): another admin's save of the shown type refreshes the table quietly.
+describe('ObjectDashboard live updates', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        window.localStorage.clear();
+        mockMetadata = { baseMetadata: loadedMetadata, loading: false };
+        mockParams = { entityName: 'Town' };
+        mockLocation = { pathname: '/dashboard/Town', search: '' };
+        getAll.mockResolvedValue([config('Town', true, false)]);
+    });
+    afterEach(() => jest.useRealTimers());
+
+    it("bumps the table's live key once per burst for the shown type, with who changed it", async () => {
+        const hub = fakeRealtime({ userId: 1 });
+        render(<hub.Provider><ObjectDashboard objectTypes={[]} /></hub.Provider>);
+        expect(await screen.findByTestId('table')).toHaveTextContent('Town');
+        const before = mockTableProps.liveRefreshKey;
+        jest.useFakeTimers();
+
+        act(() => {
+            hub.emit('EntityChanged', { type: 'Street', id: 1, op: 'Updated', actorUserId: 7, actorName: 'alice' }, 7);
+            hub.emit('EntityChanged', { type: 'Town', id: 4, op: 'Created', actorUserId: 7, actorName: 'alice' }, 7);
+            hub.emit('EntityChanged', { type: 'Town', id: 5, op: 'Updated', actorUserId: 8, actorName: 'bob' }, 8);
+        });
+        expect(mockTableProps.liveRefreshKey).toBe(before);
+        act(() => { jest.advanceTimersByTime(LIVE_REFRESH_DEBOUNCE_MS); });
+
+        expect(mockTableProps.liveRefreshKey).toBe(before + 1);
+        expect(mockTableProps.refreshKey).toBe(0); // not the spinner refresh
+        expect(screen.getByTestId('dashboard-live-notice')).toHaveTextContent(/^Updated by alice and bob at /);
+    });
+
+    it('ignores your own saves and other types; a reconnect re-reads without a notice', async () => {
+        const hub = fakeRealtime({ userId: 7 });
+        render(<hub.Provider><ObjectDashboard objectTypes={[]} /></hub.Provider>);
+        await screen.findByTestId('table');
+        const before = mockTableProps.liveRefreshKey;
+        jest.useFakeTimers();
+
+        act(() => {
+            hub.emit('EntityChanged', { type: 'Town', id: 4, op: 'Updated', actorUserId: 7, actorName: 'me' }, 7);
+            hub.emit('EntityChanged', { type: 'District', id: 2, op: 'Updated', actorUserId: 8, actorName: 'bob' }, 8);
+            jest.advanceTimersByTime(LIVE_REFRESH_DEBOUNCE_MS);
+        });
+        expect(mockTableProps.liveRefreshKey).toBe(before);
+
+        act(() => {
+            hub.reconnect();
+            jest.advanceTimersByTime(LIVE_REFRESH_DEBOUNCE_MS);
+        });
+        expect(mockTableProps.liveRefreshKey).toBe(before + 1);
+        expect(screen.getByTestId('dashboard-live-notice')).toHaveTextContent('');
+    });
+
+    it('without the hub the table is never bumped', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        expect(mockTableProps.liveRefreshKey).toBe(0);
+    });
+});

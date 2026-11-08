@@ -97,3 +97,14 @@ export function detailTrail(options: {
         : [DASHBOARD, { label: labelFor(entityTypeName), to: dashboardPath(entityTypeName) }];
     return [...lead, { label: entityLabel }];
 }
+
+/**
+ * The trail of the Entity setup lists (no form open; PandiO/knk-workspace#30, LW1-2): "Dashboard › Town ›
+ * Entity setup", or "Dashboard › Entity setup" before a type is picked. The admin layout puts the group
+ * ("Content") in front.
+ */
+export function entitySetupTrail(entityTypeName: string | null | undefined, labelFor: TypeLabelFor): Breadcrumb[] {
+    const current: Breadcrumb = { label: ENTITY_SETUP.label };
+    if (!entityTypeName) return [DASHBOARD, current];
+    return [DASHBOARD, { label: labelFor(entityTypeName), to: dashboardPath(entityTypeName) }, current];
+}

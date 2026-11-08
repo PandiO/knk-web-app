@@ -8,7 +8,6 @@ import './ObjectDashboard.css';
 import { getColumnDefinitions } from '../../config/objectConfigs';
 import { FeedbackModal } from '../FeedbackModal';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
@@ -22,6 +21,8 @@ import { DashboardHeaderMenu } from './DashboardHeaderMenu';
 import { FormSubmissionStatus } from '../../utils/enums';
 import { readLastDashboardType, writeLastDashboardType } from '../../utils/lastDashboardType';
 import { readDashboardFavourites, toggleFavourite, writeDashboardFavourites } from '../../utils/dashboardFavourites';
+import { describeActors, useLiveEntityChanges } from '../../realtime/liveUpdates';
+import { formatTime } from '../../utils/format';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
@@ -58,7 +59,6 @@ const findName = (names: string[], wanted: string | null | undefined): string | 
 };
 
 const ObjectDashboard = ({ objectTypes }: Props) => {
-    usePageTitle('Dashboard');
     const navigate = useNavigate();
     const location = useLocation();
     // #177 link 1 (#58): the type is in the URL (/dashboard/:entityName), so Back, a refresh and a
@@ -239,6 +239,18 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     const selectedIsKnown = hasMetadata
         ? findName(baseMetadata.map(metadata => metadata.entityName), selectedType) !== null
         : findName(objectTypes.map(objectType => objectType.id), selectedType) !== null;
+
+    // #183 (Realtime S4): another admin's save of this type refreshes the table quietly (debounced),
+    // with a short "Updated by …" line; after a hub reconnect it re-reads too. Without the hub: as before.
+    const [liveRefreshKey, setLiveRefreshKey] = useState(0);
+    const [liveNotice, setLiveNotice] = useState<string | null>(null);
+    useEffect(() => setLiveNotice(null), [selectedType]);
+    useLiveEntityChanges(selectedType && selectedIsKnown ? selectedType : null, change => {
+        setLiveRefreshKey(previous => previous + 1);
+        if (change.reconnect && change.actors.length === 0) return;
+        const time = formatTime(new Date(), { hour: '2-digit', minute: '2-digit' });
+        setLiveNotice(`${describeActors(change.actors)} at ${time}`);
+    });
 
     // Where a form opened from here comes back to (#58): this type, with whatever the URL holds
     // (page, search and sort included, #39).
@@ -442,6 +454,10 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                         secondaryLabel={modalSecondaryLabel}
                         onClose={() => setModalOpen(false)}
                     />
+                    <p role="status" aria-live="polite" data-testid="dashboard-live-notice"
+                        className={liveNotice ? 'mb-2 text-xs text-muted' : 'sr-only'}>
+                        {liveNotice ?? ''}
+                    </p>
                     {selectedType && selectedIsKnown && (
                         <PagedEntityTable
                             entityTypeName={selectedType}
@@ -455,6 +471,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                 ? (row) => (row?.id != null ? displayPath(selectedType, row.id, returnTo()) : undefined)
                                 : undefined}
                             refreshKey={refreshKey}
+                            liveRefreshKey={liveRefreshKey}
                             emptyState={(
                                 <div className="flex flex-col items-center gap-3">
                                     <span>No {typeLabel} yet.</span>

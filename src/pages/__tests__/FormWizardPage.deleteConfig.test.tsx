@@ -5,6 +5,7 @@ import { FormWizardPage } from '../FormWizardPage';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { formSubmissionClient } from '../../apiClients/formSubmissionClient';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
+import { toast } from '../../utils/toast';
 
 /**
  * KNG-172: the delete confirm of a form configuration says how many saved drafts go with it,
@@ -73,7 +74,7 @@ describe('FormWizardPage: delete a form configuration (KNG-172)', () => {
     const askToDelete = async () => {
         fireEvent.click(await screen.findByRole('button', { name: 'More actions for GateStructure - Default' }));
         fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
-        return screen.findByRole('dialog', { name: 'Delete this form configuration?' });
+        return screen.findByRole('alertdialog', { name: 'Delete this form configuration?' });
     };
 
     it('says the saved drafts are deleted too', async () => {
@@ -85,8 +86,13 @@ describe('FormWizardPage: delete a form configuration (KNG-172)', () => {
         expect(within(dialog).getByText('Are you sure you want to delete "GateStructure - Default"? Its 2 saved drafts are deleted too.'))
             .toBeInTheDocument();
 
+        const deleted = jest.spyOn(toast, 'success');
         fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
         await waitFor(() => expect(formConfigClient.delete).toHaveBeenCalledWith('20'));
+        // #33: the success is a toast, no modal that closes itself after 3 s.
+        await waitFor(() => expect(deleted).toHaveBeenCalledWith('The form configuration has been removed.'));
+        expect(screen.queryByRole('dialog', { name: 'Configuration deleted' })).not.toBeInTheDocument();
+        deleted.mockRestore();
     });
 
     it('asks without the sentence when there are no drafts or they cannot be counted', async () => {
@@ -97,7 +103,7 @@ describe('FormWizardPage: delete a form configuration (KNG-172)', () => {
         expect(within(dialog).getByText('Are you sure you want to delete "GateStructure - Default"?')).toBeInTheDocument();
 
         fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete this form configuration?' })).not.toBeInTheDocument());
+        await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Delete this form configuration?' })).not.toBeInTheDocument());
         expect(formConfigClient.delete).not.toHaveBeenCalled();
     });
 });

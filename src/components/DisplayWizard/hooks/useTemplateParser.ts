@@ -1,5 +1,6 @@
 // Hook for parsing template text with ${...} variables
 import { useMemo } from 'react';
+import { formatDateTime, isIsoDateTimeString } from '../../../utils/format';
 
 export function useTemplateParser() {
   const parseTemplate = useMemo(() => {
@@ -18,7 +19,9 @@ export function useTemplateParser() {
 
           // Simple property access
           const value = getNestedValue(data, trimmed);
-          return value !== null && value !== undefined ? String(value) : '';
+          if (value === null || value === undefined) return '';
+          // #187: "Created ${createdAt}" shows a date and time, not raw ISO text.
+          return isIsoDateTimeString(value) ? formatDateTime(value) : String(value);
         } catch (error) {
           console.warn(`Failed to parse template variable: ${expression}`, error);
           return match; // Return original ${...} on error

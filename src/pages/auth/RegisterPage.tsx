@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { RegisterForm } from '../../components/auth/RegisterForm';
 import { useAuth } from '../../contexts/AuthContext';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { useRegistrationMode } from '../../hooks/useOnboardingInfo';
 import { usePublicSurface } from '../../theme/surface';
 
@@ -10,7 +9,6 @@ import { usePublicSurface } from '../../theme/surface';
 const DONE_REDIRECT_MS = 3000;
 
 export const RegisterPage: React.FC = () => {
-    usePageTitle('Create account');
     usePublicSurface();
     const navigate = useNavigate();
     const { isLoggedIn, isLoading } = useAuth();

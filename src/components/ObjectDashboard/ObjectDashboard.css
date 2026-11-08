@@ -5,8 +5,9 @@
 
   /* Make the dashboard area a fixed-height viewport slice so inner column can scroll.
      Calc accounts for the top padding/nav and bottom padding from your App.tsx wrapper.
-     Adjust the 6rem value if your nav/padding heights differ. */
-  height: calc(100vh - 6rem);
+     Adjust the 6rem value if your nav/padding heights differ. --admin-chrome is the row the admin layout
+     puts above the page (menu button, breadcrumbs; PandiO/knk-workspace#30, src/layouts/AdminLayout.tsx). */
+  height: calc(100vh - 6rem - var(--admin-chrome, 0px));
   gap: 1rem;
 }
 

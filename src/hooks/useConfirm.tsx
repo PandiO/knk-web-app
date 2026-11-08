@@ -1,66 +1,67 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FeedbackModal } from '../components/FeedbackModal';
+import { ConfirmDialog, ConfirmOptions, ConfirmReasonOptions } from '../components/ConfirmDialog';
 
-export interface ConfirmOptions {
-    title: string;
-    /** One or two plain sentences: what happens, and what goes with it. */
-    message: string;
-    /** The action button, e.g. "Delete" (default "Continue"). */
-    confirmLabel?: string;
-    /** The button that answers no (default "Cancel"). */
-    cancelLabel?: string;
-    /** A destructive action (a delete): the action button is red. */
-    danger?: boolean;
-}
+export type { ConfirmOptions, ConfirmReasonOptions };
 
 export type ConfirmFn = (options: ConfirmOptions) => Promise<boolean>;
 
+/** Resolves the trimmed reason when the action button is pressed, null on Cancel. */
+export type ConfirmWithReasonFn = (options: ConfirmOptions & { reason?: ConfirmReasonOptions }) => Promise<string | null>;
+
+interface Pending {
+    options: ConfirmOptions;
+    resolve: (confirmed: boolean, reason?: string) => void;
+}
+
 /**
- * KNG-169: asks a question in a FeedbackModal instead of the browser's confirm box. Returns
- * `confirm(options)`, which resolves true when the action button is pressed and false on Cancel,
- * the X or a click outside, plus the modal element to render once in the component.
+ * KNG-169, #33: asks a question in the accessible ConfirmDialog instead of the browser's confirm box.
+ * Returns `confirm(options)`, which resolves true when the action button is pressed and false on Cancel,
+ * the ×, Escape or a click outside; the dialog element to render once in the component; and
+ * `confirmWithReason(options)`, which also asks for a reason (required unless `reason.required` is false)
+ * and resolves it, or null when the answer is no (MOD-2: the reason goes into the audit log).
  *
- *     const [confirm, confirmModal] = useConfirm();
+ *     const [confirm, confirmModal, confirmWithReason] = useConfirm();
  *     if (!(await confirm({ title: 'Delete this rule?', message: '…', confirmLabel: 'Delete', danger: true }))) return;
+ *     const reason = await confirmWithReason({ title: 'Freeze Steve?', message: '…', confirmLabel: 'Freeze',
+ *                                             danger: true, reason: { hint: 'Saved in the audit log.' } });
+ *     if (reason === null) return;
  *     …
  *     return <>{…}{confirmModal}</>;
  */
-export function useConfirm(): [ConfirmFn, React.ReactElement] {
-    const [options, setOptions] = useState<ConfirmOptions | null>(null);
-    const resolver = useRef<((confirmed: boolean) => void) | null>(null);
+export function useConfirm(): [ConfirmFn, React.ReactElement, ConfirmWithReasonFn] {
+    const [pending, setPending] = useState<Pending | null>(null);
+    const current = useRef<Pending | null>(null);
 
-    const answer = useCallback((confirmed: boolean) => {
-        const resolve = resolver.current;
-        resolver.current = null;
-        setOptions(null);
-        resolve?.(confirmed);
-    }, []);
-
-    const confirm = useCallback<ConfirmFn>(next => {
+    const ask = useCallback((options: ConfirmOptions, resolve: Pending['resolve']) => {
         // A second question replaces an unanswered one, which counts as no.
-        resolver.current?.(false);
-        return new Promise<boolean>(resolve => {
-            resolver.current = resolve;
-            setOptions(next);
-        });
+        current.current?.resolve(false);
+        const next = { options, resolve };
+        current.current = next;
+        setPending(next);
     }, []);
 
-    // Unmounting with a question open answers no, so an awaiting handler doesn't hang.
-    useEffect(() => () => resolver.current?.(false), []);
+    const answer = useCallback((confirmed: boolean, reason?: string) => {
+        const open = current.current;
+        current.current = null;
+        setPending(null);
+        open?.resolve(confirmed, reason);
+    }, []);
 
-    const modal = (
-        <FeedbackModal
-            open={options !== null}
-            title={options?.title ?? ''}
-            message={options?.message ?? ''}
-            status="info"
-            onClose={() => answer(false)}
-            onContinue={() => answer(true)}
-            continueLabel={options?.confirmLabel ?? 'Continue'}
-            cancelLabel={options?.cancelLabel ?? 'Cancel'}
-            danger={options?.danger}
-        />
+    const confirm = useCallback<ConfirmFn>(
+        options => new Promise<boolean>(resolve => ask(options, confirmed => resolve(confirmed))),
+        [ask]
     );
 
-    return [confirm, modal];
+    const confirmWithReason = useCallback<ConfirmWithReasonFn>(
+        options => new Promise<string | null>(resolve =>
+            ask({ ...options, reason: options.reason ?? {} }, (confirmed, reason) => resolve(confirmed ? reason ?? '' : null))),
+        [ask]
+    );
+
+    // Unmounting with a question open answers no, so an awaiting handler doesn't hang.
+    useEffect(() => () => current.current?.resolve(false), []);
+
+    const modal = <ConfirmDialog open={pending !== null} options={pending?.options ?? null} onAnswer={answer} />;
+
+    return [confirm, modal, confirmWithReason];
 }

@@ -10,6 +10,7 @@ import { FieldType } from '../../utils/enums';
 import { FieldRenderer } from './FieldRenderers';
 import { WorldBoundFieldRenderer, WorldTaskAnchor } from '../Workflow/WorldBoundFieldRenderer';
 import { logging } from '../../utils';
+import { toast } from '../../utils/toast';
 import { getFetchByIdFunctionForEntity, getCreateFunctionForEntity, getUpdateFunctionForEntity } from '../../utils/entityApiMapping';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
 import { resolveObjectFieldValueForEdit } from '../../utils/forms/objectFieldEditValue';
@@ -203,7 +204,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         message: '',
         status: 'info'
     });
-    const autoCloseRef = useRef<number | undefined>(undefined);
 
     // added: state for child form modal
     type ChildFormState = {
@@ -273,21 +273,10 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         initialFieldValues: undefined
     });
 
-    const clearAutoClose = () => {
-        if (autoCloseRef.current) {
-            window.clearTimeout(autoCloseRef.current);
-            autoCloseRef.current = undefined;
-        }
-    };
-
     const closeSaveModal = () => {
-        clearAutoClose();
         setSaveFeedback(prev => ({ ...prev, open: false }));
     };
 
-    useEffect(() => {
-        return () => clearAutoClose();
-    }, []);
 
     const getOrderedFields = (step?: FormStepDto): FormFieldDto[] => {
         if (!step) return [];
@@ -2515,16 +2504,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 // #109: an explicit Save Draft holds everything typed so far. The automatic save
                 // behind Next (InProgress) does not: leaving after it still asks (link 5 fix round).
                 setDirtyBaseline(savedValues);
-                setSaveFeedback({
-                    open: true,
-                    title: 'Progress saved',
-                    message: 'Your draft has been saved. You can continue later.',
-                    status: 'success'
-                });
-                clearAutoClose();
-                autoCloseRef.current = window.setTimeout(() => {
-                    closeSaveModal();
-                }, 3000);
+                // #33: a toast, not a modal that closes itself after 3 s.
+                toast.success('Your draft has been saved. You can continue later.');
             }
 
             return savedProgress;
@@ -2541,7 +2522,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                     message: errorMessage,
                     status: 'error'
                 });
-                clearAutoClose();
             }
             return null;
         } finally {
@@ -3264,7 +3244,6 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 message={saveFeedback.message}
                 status={saveFeedback.status}
                 onClose={closeSaveModal}
-                onContinue={closeSaveModal}
             />
 
             {/* added: child form modal for creating objects on-the-fly */}

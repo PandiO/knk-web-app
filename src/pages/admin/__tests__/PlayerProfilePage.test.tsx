@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { PlayerProfilePage } from '../PlayerProfilePage';
 import { userManagementClient } from '../../../apiClients/userManagementClient';
 import { UserProfileSummaryDto } from '../../../types/dtos/userManagement/UserProfileSummaryDtos';
+import { fakeRealtime } from '../../../test-utils/fakeRealtime';
 
 // KNG-39: moving between moderation profiles left stale "Discoveries" panels mounted, with
 // "Encountered two children with the same key" from PlayerProfilePage. The panels are stubbed:
@@ -137,5 +138,64 @@ describe('PlayerProfilePage (KNG-39)', () => {
     } finally {
       consoleError.mockRestore();
     }
+  });
+});
+
+// PandiO/knk-workspace#183 (Realtime S4): the online badge, live while the web hub is connected.
+describe('PlayerProfilePage online badge (#183)', () => {
+  const withPresence = (id: number, online: boolean, lastSeenAt: string | null = null) => ({
+    ...summaryFor(id),
+    account: { ...summaryFor(id).account, uuid: '00000000-0000-0000-0000-00000000000' + id },
+    presence: { online, lastSeenAt },
+  }) as UserProfileSummaryDto;
+
+  beforeEach(() => {
+    mockedSummary.mockReset();
+    mockedAuditLog.mockResolvedValue({ items: [], totalCount: 0, pageNumber: 1, pageSize: 20 });
+  });
+
+  const renderLive = (hub: ReturnType<typeof fakeRealtime>) => render(
+    <hub.Provider>
+      <MemoryRouter initialEntries={['/admin/users/3']}>
+        <Routes>
+          <Route path="/admin/users/:id" element={<PlayerProfilePage />} />
+        </Routes>
+      </MemoryRouter>
+    </hub.Provider>,
+  );
+
+  it('shows the state from the summary and follows PresenceChanged for this player only', async () => {
+    mockedSummary.mockResolvedValue(withPresence(3, false, '2026-11-05T19:00:00Z'));
+    const hub = fakeRealtime();
+    renderLive(hub);
+
+    const badge = await screen.findByTestId('profile-presence');
+    expect(badge).toHaveTextContent(/^Offline · last seen /);
+
+    act(() => hub.emit('PresenceChanged', { userId: 4, online: true }));
+    expect(screen.getByTestId('profile-presence')).toHaveTextContent(/^Offline/);
+
+    act(() => hub.emit('PresenceChanged', { userId: 3, online: true, serverId: 'survival' }));
+    expect(screen.getByTestId('profile-presence')).toHaveTextContent(/^Online$/);
+    expect(mockedSummary).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-reads only the presence after a reconnect', async () => {
+    mockedSummary.mockResolvedValueOnce(withPresence(3, false));
+    const hub = fakeRealtime();
+    renderLive(hub);
+    await screen.findByTestId('profile-presence');
+
+    mockedSummary.mockResolvedValueOnce(withPresence(3, true));
+    act(() => hub.reconnect());
+    expect(await screen.findByText('Online')).toBeInTheDocument();
+    expect(mockedSummary).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows no badge for an account without Minecraft, or from an older API', async () => {
+    mockedSummary.mockResolvedValue({ ...summaryFor(3), presence: { online: true } } as UserProfileSummaryDto);
+    renderAt('/admin/users/3');
+    expect(await screen.findByText('Player3')).toBeInTheDocument();
+    expect(screen.queryByTestId('profile-presence')).not.toBeInTheDocument();
   });
 });

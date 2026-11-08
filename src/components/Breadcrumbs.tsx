@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { createContext, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import type { Breadcrumb } from '../utils/breadcrumbs';
@@ -11,12 +11,21 @@ type Props = {
 };
 
 /**
+ * Crumbs put in front of every trail drawn inside (PandiO/knk-workspace#30): the admin layout provides the
+ * page's sidebar group ("Content"), so the trails pages draw themselves (open form, detail page) start with it
+ * like the layout's own. Empty elsewhere.
+ */
+export const BreadcrumbPrefixContext = createContext<Breadcrumb[]>([]);
+
+/**
  * Renders a breadcrumb trail (#177 link 2). Crumbs are real links (middle-click opens a tab); a
  * plain click navigates inside the app. The last crumb is the current page.
  */
 export const Breadcrumbs: React.FC<Props> = ({ trail, onNavigate, className = '' }) => {
     const navigate = useNavigate();
+    const prefix = useContext(BreadcrumbPrefixContext);
     if (trail.length === 0) return null;
+    const crumbs = [...prefix, ...trail];
 
     const follow = (event: React.MouseEvent<HTMLAnchorElement>, to: string) => {
         // Let the browser handle new-tab clicks.
@@ -29,8 +38,8 @@ export const Breadcrumbs: React.FC<Props> = ({ trail, onNavigate, className = ''
     return (
         <nav aria-label="Breadcrumb" className={className}>
             <ol className="flex flex-wrap items-center gap-1 text-sm text-muted">
-                {trail.map((crumb, index) => {
-                    const last = index === trail.length - 1;
+                {crumbs.map((crumb, index) => {
+                    const last = index === crumbs.length - 1;
                     return (
                         <li key={`${index}:${crumb.label}`} className="flex min-w-0 items-center gap-1">
                             {index > 0 && <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted" aria-hidden="true" />}

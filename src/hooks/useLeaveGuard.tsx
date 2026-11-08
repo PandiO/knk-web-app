@@ -3,8 +3,14 @@ import { UNSAFE_DataRouterContext, useBlocker } from 'react-router-dom';
 import type { BlockerFunction } from 'react-router-dom';
 import { FeedbackModal } from '../components/FeedbackModal';
 
-export const LEAVE_FORM_TITLE = 'Leave this form?';
-export const LEAVE_FORM_MESSAGE = "Changes you haven't saved are lost. A saved draft stays in Saved Progress.";
+import {
+    LEAVE_FORM_CONTINUE_LABEL,
+    LEAVE_FORM_MESSAGE,
+    LEAVE_FORM_STAY_LABEL,
+    LEAVE_FORM_TITLE
+} from '../utils/forms/leaveFormQuestion';
+
+export { LEAVE_FORM_MESSAGE, LEAVE_FORM_TITLE };
 
 export interface LeaveGuard {
     /** Render once; holds the "Leave this form?" dialog. */
@@ -23,14 +29,22 @@ export interface LeaveGuard {
  */
 const NoDataRouter = React.createContext<unknown>(null);
 
+/**
+ * Whether a data router (App.tsx's createBrowserRouter) is above: `useBlocker` throws without one (unit tests
+ * with a MemoryRouter), and tests that mock react-router-dom may not export the context at all. Shared with
+ * the SettingsPage shell (#187).
+ */
+export function useHasDataRouter(): boolean {
+    return useContext(UNSAFE_DataRouterContext ?? NoDataRouter) != null;
+}
+
 export function useLeaveGuard(when: boolean): LeaveGuard {
     const whenRef = useRef(when);
     whenRef.current = when;
     const bypassRef = useRef(false);
     const [pending, setPending] = useState<{ proceed: () => void; cancel: () => void } | null>(null);
-    // Without a data router (unit tests with a MemoryRouter) useBlocker throws, so it only runs inside
-    // one. Tests that mock react-router-dom may not export the context at all.
-    const hasDataRouter = useContext(UNSAFE_DataRouterContext ?? NoDataRouter) != null;
+    // Without a data router useBlocker throws, so it only runs inside one.
+    const hasDataRouter = useHasDataRouter();
 
     useEffect(() => {
         if (when) bypassRef.current = false;
@@ -95,8 +109,9 @@ export function useLeaveGuard(when: boolean): LeaveGuard {
                 status="info"
                 onClose={close}
                 onContinue={leave}
-                continueLabel="Leave form"
-                cancelLabel="Stay"
+                continueLabel={LEAVE_FORM_CONTINUE_LABEL}
+                cancelLabel={LEAVE_FORM_STAY_LABEL}
+                danger
             />
         </>
     );
@@ -104,7 +119,11 @@ export function useLeaveGuard(when: boolean): LeaveGuard {
     return { element, allowLeave, confirmLeave };
 }
 
-const NavigationBlocker: React.FC<{
+/**
+ * Blocks in-app navigations `shouldBlock` picks and hands the decision to `onBlocked`. Render it only when
+ * `useHasDataRouter()` is true. Also used by the SettingsPage shell (#187).
+ */
+export const NavigationBlocker: React.FC<{
     shouldBlock: BlockerFunction;
     onBlocked: (proceed: () => void, cancel: () => void) => void;
 }> = ({ shouldBlock, onBlocked }) => {

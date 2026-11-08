@@ -137,7 +137,7 @@ const byName = <T,>(map: Record<string, T>, name: string): T | undefined =>
 const modalFor = (title: string): HTMLElement => {
     // The modal header comes first; an edit-mode wizard repeats the same title below it.
     const heading = screen.getAllByText(title)[0];
-    return heading.closest('.overflow-y-auto') as HTMLElement;
+    return heading.closest('[role="dialog"]') as HTMLElement;
 };
 
 describe('Siege authoring: Scenario -> Team -> Spawnpoint owned nesting', () => {

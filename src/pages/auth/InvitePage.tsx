@@ -4,7 +4,6 @@ import { MailCheck } from 'lucide-react';
 import { invitationClient } from '../../apiClients/invitationClient';
 import { InviteSignupForm } from '../../components/auth/InviteSignupForm';
 import { useAuth } from '../../contexts/AuthContext';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { useNoReferrer } from '../../hooks/useNoReferrer';
 import { CheckInvitationResponseDto } from '../../types/dtos/invitations/InvitationDtos';
 import { clearPendingInvite, loadPendingInvite, savePendingInvite } from '../../utils/pendingInvite';
@@ -25,7 +24,6 @@ type CheckState = { status: 'checking' } | { status: 'invalid' } | { status: 'va
  * point back here (2026-10-25: a tester clicked Log in here and lost the invitation).
  */
 export const InvitePage: React.FC = () => {
-  usePageTitle('Accept your invitation');
   usePublicSurface();
   useNoReferrer();
   const params = useParams<{ token?: string }>();
