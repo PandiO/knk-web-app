@@ -68,4 +68,24 @@ describe('Field (#187)', () => {
         expect(row.firstElementChild).toBe(box);
         expect(row.lastElementChild?.tagName).toBe('LABEL');
     });
+
+    it('shows a unit next to the control and reads it with it (#26)', () => {
+        render(
+            <Field label="Respawn delay" unit="ticks" hint="= 1 s">
+                <input type="text" />
+            </Field>
+        );
+        const input = screen.getByLabelText('Respawn delay');
+        expect(screen.getByText('ticks')).toBeInTheDocument();
+        expect(input).toHaveAccessibleDescription('ticks = 1 s');
+    });
+
+    it('leaves the unit out of inline fields', () => {
+        render(
+            <Field label="On" unit="ticks" inline>
+                <input type="checkbox" />
+            </Field>
+        );
+        expect(screen.queryByText('ticks')).not.toBeInTheDocument();
+    });
 });

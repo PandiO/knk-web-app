@@ -187,3 +187,72 @@ describe('SettingsPage (#187)', () => {
         expect(screen.queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
     });
 });
+
+describe('SettingsPage confirmSave and embedded (#26)', () => {
+    let success: jest.SpyInstance;
+    beforeEach(() => {
+        success = jest.spyOn(toast, 'success').mockImplementation(() => undefined);
+    });
+    afterEach(() => success.mockRestore());
+
+    /** A switch the page asks about before saving; `embedded` as inside a tab. */
+    const Risky: React.FC<{ onSave: () => Promise<void>; embedded?: boolean }> = ({ onSave, embedded }) => {
+        const [saved, setSaved] = React.useState(true);
+        const [on, setOn] = React.useState(true);
+        return (
+            <div>
+                {embedded && <h1>Outer page</h1>}
+                <SettingsPage
+                    title="Risky settings"
+                    embedded={embedded}
+                    dirtyCount={on === saved ? 0 : 1}
+                    onSave={async () => { await onSave(); setSaved(on); }}
+                    onDiscard={() => setOn(saved)}
+                    confirmSave={() => (saved && !on ? { title: 'Switch it off?', message: 'Everything stops.', confirmLabel: 'Switch off' } : null)}
+                >
+                    <label><input type="checkbox" checked={on} onChange={e => setOn(e.target.checked)} /> Switch</label>
+                    <Link to="/elsewhere">Elsewhere</Link>
+                </SettingsPage>
+            </div>
+        );
+    };
+
+    const renderRisky = (props: { onSave: () => Promise<void>; embedded?: boolean }) => {
+        const router = createMemoryRouter([
+            { path: '/settings', element: <Risky {...props} /> },
+            { path: '/elsewhere', element: <p>elsewhere page</p> },
+        ], { initialEntries: ['/settings'] });
+        render(<RouterProvider router={router} />);
+    };
+
+    it('asks the question before saving; No saves nothing and keeps the change, Yes saves', async () => {
+        const onSave = jest.fn().mockResolvedValue(undefined);
+        renderRisky({ onSave });
+        fireEvent.click(screen.getByLabelText('Switch'));
+        fireEvent.click(screen.getByRole('button', { name: 'Save (1)' }));
+
+        let dialog = await screen.findByRole('alertdialog', { name: 'Switch it off?' });
+        expect(within(dialog).getByRole('button', { name: 'Switch off' })).toHaveClass('btn-danger');
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+        expect(onSave).not.toHaveBeenCalled();
+        expect(screen.getByText('1 unsaved change.')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Save (1)' }));
+        dialog = await screen.findByRole('alertdialog', { name: 'Switch it off?' });
+        await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Switch off' })); });
+        expect(onSave).toHaveBeenCalledTimes(1);
+        await waitFor(() => expect(success).toHaveBeenCalledWith('Saved 1 change.'));
+    });
+
+    it('embedded: the title is an h2 and leaving names the section', async () => {
+        renderRisky({ onSave: jest.fn(), embedded: true });
+        const header = screen.getByRole('banner', { name: 'Risky settings' });
+        expect(within(header).getByRole('heading', { level: 2, name: 'Risky settings' })).toBeInTheDocument();
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+        fireEvent.click(screen.getByLabelText('Switch'));
+        fireEvent.click(screen.getByRole('link', { name: 'Elsewhere' }));
+        const dialog = await screen.findByRole('alertdialog', { name: LEAVE_SETTINGS_TITLE });
+        expect(dialog).toHaveTextContent('1 unsaved change in Risky settings will be lost.');
+    });
+});

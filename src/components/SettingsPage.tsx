@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { BlockerFunction } from 'react-router-dom';
 import { Loader2, RefreshCcw, RotateCcw, Save } from 'lucide-react';
-import { useConfirm } from '../hooks/useConfirm';
+import { ConfirmOptions, useConfirm } from '../hooks/useConfirm';
 import { NavigationBlocker, useHasDataRouter } from '../hooks/useLeaveGuard';
 import { apiRefusalReason } from '../utils/apiRefusalReason';
 import { DateInput, formatDateTime } from '../utils/format';
@@ -17,6 +17,11 @@ import { toast } from '../utils/toast';
  * Save runs `onSave`; success is a toast (its message, or "Saved n changes."), a refusal stays in the header
  * (`role="alert"`) until the next save. The page keeps its own values and counts its changes (`dirtyCount`);
  * Siege's pattern (mark changed fields, send only those) is the model (SET-4).
+ *
+ * #26: `confirmSave` asks a danger question before a save that switches something risky (the payments kill
+ * switch, lootboxes off); No keeps the changes and saves nothing. `embedded` puts the shell inside a tab of a
+ * page that has its own h1 (Lootboxes → Settings): the title is an h2 and the column is the tab's. A tab
+ * switch changes the URL (`?tab=`), so with changes it asks "Leave without saving?" like any other navigation.
  *
  *     <SettingsPage title="Siege configuration" lastSaved={{ at: config.updatedAt }}
  *                   dirtyCount={changed.length} canSave={!hasErrors}
@@ -52,6 +57,13 @@ export interface SettingsPageProps {
     headerActions?: React.ReactNode;
     /** Width of the page column; default `max-w-4xl`. */
     width?: 'max-w-4xl' | 'max-w-5xl' | 'max-w-7xl';
+    /**
+     * A question to ask before saving, or null to save at once (#26: risky switches). Called with the changes
+     * as they are; No keeps them and saves nothing.
+     */
+    confirmSave?: () => ConfirmOptions | null | undefined;
+    /** Inside a tab of a page with its own h1: the title is an h2 and the shell fills the tab (#26). */
+    embedded?: boolean;
     children?: React.ReactNode;
 }
 
@@ -76,6 +88,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     onRetry,
     headerActions,
     width = 'max-w-4xl',
+    confirmSave,
+    embedded = false,
     children,
 }) => {
     const [confirm, confirmModal] = useConfirm();
@@ -104,11 +118,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
     const askToLeave = useCallback((count: number) => confirm({
         title: LEAVE_SETTINGS_TITLE,
-        message: `${changesText(count)} on this page will be lost.`,
+        message: embedded
+            ? `${changesText(count)} in ${title} will be lost.`
+            : `${changesText(count)} on this page will be lost.`,
         confirmLabel: 'Leave',
         cancelLabel: 'Stay',
         danger: true,
-    }), [confirm]);
+    }), [confirm, embedded, title]);
 
     const countRef = useRef(dirtyCount);
     countRef.current = dirtyCount;
@@ -118,6 +134,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
     const handleSave = async () => {
         if (saving || !dirty || !canSave) return;
+        const question = confirmSave?.();
+        if (question && !(await confirm({ danger: true, ...question }))) return;
         setSaving(true);
         setSaveError(null);
         const count = dirtyCount;
@@ -181,7 +199,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         : null;
 
     return (
-        <div className={`${width} mx-auto space-y-6`}>
+        <div className={embedded ? 'space-y-6' : `${width} mx-auto space-y-6`}>
             {hasDataRouter && <NavigationBlocker shouldBlock={shouldBlock} onBlocked={onBlocked} />}
             <header
                 aria-labelledby={titleId}
@@ -189,7 +207,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             >
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div className="min-w-0">
-                        <h1 id={titleId} className="text-xl sm:text-2xl font-bold text-fg">{title}</h1>
+                        {embedded
+                            ? <h2 id={titleId} className="text-lg sm:text-xl font-semibold text-fg">{title}</h2>
+                            : <h1 id={titleId} className="text-xl sm:text-2xl font-bold text-fg">{title}</h1>}
                         {/* On a phone the sticky header stays small: no description there. */}
                         {description && <div className="mt-1 hidden sm:block text-sm text-muted">{description}</div>}
                         <p className="mt-1 text-xs text-muted">

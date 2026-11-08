@@ -18,6 +18,13 @@ import React, { useId } from 'react';
  *     </Field>
  *
  * A checkbox or radio goes with `inline`: the control first, the label after it on the same line.
+ *
+ * #26 (SET-5): `unit` puts the unit right of the control (`ticks`, `s`, `‰`, `bp`; utils/settingsUnits.ts has
+ * the spellings), read with it through `aria-describedby`:
+ *
+ *     <Field label="Respawn delay" unit={UNIT.ticks} hint={joinHint('Before the picker opens.', describeTicks(v))}>
+ *       <input type="text" inputMode="numeric" className="input px-3 py-2" value={v} onChange={…} />
+ *     </Field>
  */
 export interface FieldControlProps {
     id: string;
@@ -39,6 +46,8 @@ export interface FieldProps {
     id?: string;
     /** Control first, then the label on the same line (checkboxes, radios). */
     inline?: boolean;
+    /** A unit shown right of the control and read with it (#26); not with `inline`. */
+    unit?: React.ReactNode;
     /** Classes on the wrapper. */
     className?: string;
     labelClassName?: string;
@@ -57,6 +66,7 @@ export const Field: React.FC<FieldProps> = ({
     required = false,
     id,
     inline = false,
+    unit,
     className = '',
     labelClassName,
 }) => {
@@ -64,10 +74,11 @@ export const Field: React.FC<FieldProps> = ({
     const controlId = id ?? `field-${generated.replace(/:/g, '')}`;
     const hintId = hint ? `${controlId}-hint` : undefined;
     const errorId = error ? `${controlId}-error` : undefined;
+    const unitId = unit && !inline ? `${controlId}-unit` : undefined;
 
     const control: FieldControlProps = {
         id: controlId,
-        'aria-describedby': joinIds(hintId, errorId),
+        'aria-describedby': joinIds(unitId, hintId, errorId),
         ...(error ? { 'aria-invalid': true as const } : {}),
         ...(required ? { required: true } : {}),
     };
@@ -80,7 +91,7 @@ export const Field: React.FC<FieldProps> = ({
         rendered = React.cloneElement(children, {
             ...control,
             id: (own.id as string | undefined) ?? controlId,
-            'aria-describedby': joinIds(own['aria-describedby'] as string | undefined, hintId, errorId),
+            'aria-describedby': joinIds(own['aria-describedby'] as string | undefined, unitId, hintId, errorId),
         } as Partial<unknown>);
     }
     const ownId = typeof children !== 'function' ? (children.props as { id?: string }).id : undefined;
@@ -115,7 +126,17 @@ export const Field: React.FC<FieldProps> = ({
     return (
         <div className={className}>
             {labelElement}
-            {rendered}
+            {unitId ? (
+                <div className="flex items-stretch">
+                    <div className="min-w-0 flex-1">{rendered}</div>
+                    <span
+                        id={unitId}
+                        className="ml-1 inline-flex items-center rounded-md border border-field bg-surface-alt px-2 text-xs text-muted whitespace-nowrap"
+                    >
+                        {unit}
+                    </span>
+                </div>
+            ) : rendered}
             {hintElement}
             {errorElement}
         </div>
