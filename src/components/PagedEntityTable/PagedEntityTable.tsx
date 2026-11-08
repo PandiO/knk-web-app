@@ -10,6 +10,7 @@ import { CategoryFilterSelect } from './CategoryFilterSelect';
 import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
 import { DataTable, DataTableColumn, DataTableSection, nextSort } from '../DataTable';
 import { Pager } from '../Pager';
+import { renderCellValue } from '../../utils/tableCells';
 
 /** KNG-263: entities whose table offers a Category filter (a category includes its children). */
 const CATEGORY_FILTER_ENTITIES = new Set(['itemblueprint']);
@@ -212,6 +213,34 @@ export interface PagedEntityTableProps<T> {
      * (on the link or the row) still calls `onRowClick`. Ignored while rows are selectable.
      */
     rowHref?: (row: T) => string | undefined;
+
+    /**
+     * PandiO/knk-workspace#205: how rows are selected with `selectionConfig.mode` 'multiple'.
+     * - `row` (default, the wizard pickers): a click on the row selects it; rows aren't links then.
+     * - `checkbox` (the dashboard): a checkbox column selects, while `rowHref` and `onRowClick` keep working, and
+     *   the header box selects or clears the rows shown.
+     */
+    selectionStyle?: 'row' | 'checkbox';
+
+    /**
+     * PandiO/knk-workspace#205: a bar between the toolbar and the table (the dashboard's bulk bar: "n selected",
+     * Export CSV), given the selection and what the table shows: its columns in table order, the current query
+     * and the search's total.
+     */
+    renderSelectionBar?: (state: SelectionBarState<T>) => React.ReactNode;
+}
+
+/** What `renderSelectionBar` gets (#205). */
+export interface SelectionBarState<T> {
+    selected: T[];
+    clearSelection: () => void;
+    /** The table's columns, in table order (metadata's default columns or the given ones). */
+    columns: ColumnDefinition<T>[];
+    /** The current page, search, sort and filters. */
+    query: PagedQueryDto;
+    /** Rows of the current search across all pages. */
+    totalCount: number;
+    loading: boolean;
 }
 
 const DEFAULT_QUERY: PagedQueryDto = {
@@ -245,7 +274,9 @@ export function PagedEntityTable<T extends Record<string, any>>({
     emptyState,
     query: controlledQuery,
     onQueryChange,
-    rowHref
+    rowHref,
+    selectionStyle = 'row',
+    renderSelectionBar
 }: PagedEntityTableProps<T>) {
     const { baseMetadata, allMergedMetadata } = useEntityMetadata();
 
@@ -459,88 +490,6 @@ export function PagedEntityTable<T extends Record<string, any>>({
         });
     };
 
-    const getValueByKeyPath = (source: any, keyPath: string): any => {
-        if (!source || !keyPath) {
-            return undefined;
-        }
-
-        const segments = keyPath.split('.').filter(Boolean);
-        let current: any = source;
-
-        for (const segment of segments) {
-            if (current == null || typeof current !== 'object') {
-                return undefined;
-            }
-
-            if (Object.prototype.hasOwnProperty.call(current, segment)) {
-                current = current[segment];
-                continue;
-            }
-
-            const matchedKey = Object.keys(current).find(
-                key => key.toLowerCase() === segment.toLowerCase()
-            );
-
-            if (!matchedKey) {
-                return undefined;
-            }
-
-            current = current[matchedKey];
-        }
-
-        return current;
-    };
-
-    const renderCellValue = (row: T, column: ColumnDefinition<T>) => {
-        if (column.render) {
-            return column.render(row);
-        }
-
-        const value = getValueByKeyPath(row, column.key);
-
-        if (value === null || value === undefined) {
-            return <span className="text-muted">-</span>;
-        }
-
-        if (typeof value === 'boolean') {
-            return (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    value ? 'bg-success-muted text-success-strong' : 'bg-danger-muted text-danger-strong'
-                }`}>
-                    {value ? 'Yes' : 'No'}
-                </span>
-            );
-        }
-
-        if (value instanceof Date) {
-            return value.toLocaleDateString();
-        }
-
-        // Handle objects - try common property names for display
-        if (typeof value === 'object') {
-            // Try various common property names (case-insensitive)
-            if ('name' in value && value.name) {
-                return String(value.name);
-            }
-            if ('Name' in value && value.Name) {
-                return String(value.Name);
-            }
-            if ('title' in value && value.title) {
-                return String(value.title);
-            }
-            if ('label' in value && value.label) {
-                return String(value.label);
-            }
-            if ('id' in value) {
-                return String(value.id);
-            }
-            // Fallback: don't render the object, show a placeholder
-            return <span className="text-muted">-</span>;
-        }
-
-        return String(value);
-    };
-
     // #39: a page past the end (a shared link, rows deleted meanwhile) moves to the last page.
     useEffect(() => {
         if (loading || error || data.items.length > 0 || data.totalCount <= 0) return;
@@ -608,6 +557,9 @@ export function PagedEntityTable<T extends Record<string, any>>({
     // #187: the table is DataTable (row links, aria-sort, sections); this component keeps the fetching,
     // the query (own or the caller's), the selection and the pinned rows.
     const selectable = selectionConfig.mode !== 'none';
+    // #205: with checkboxes the row keeps its link and click; only the checkbox column selects.
+    const checkboxSelection = selectable && selectionStyle === 'checkbox' && selectionConfig.mode === 'multiple';
+    const rowClickSelects = selectable && !checkboxSelection;
     const tableColumns = useMemo<DataTableColumn<T>[]>(() => effectiveColumns.map(column => ({
         key: column.key,
         header: column.label,
@@ -616,6 +568,35 @@ export function PagedEntityTable<T extends Record<string, any>>({
     // renderCellValue is a plain function of the row and column.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     })), [effectiveColumns]);
+
+    /** The header box: select every row shown (up to `max`), or clear them when all are selected. */
+    const toggleShownRows = () => {
+        const shown = [...section.pinned.map(pin => pin.row), ...section.pageItems];
+        const allSelected = shown.length > 0 && shown.every(isRowSelected);
+        let next: T[];
+        if (allSelected) {
+            next = internalSelection.filter(item => !shown.some(row => isSameSelection(item, row, entityTypeName)));
+            if (selectionConfig.min && next.length < selectionConfig.min) return;
+        } else {
+            next = [...internalSelection];
+            for (const row of shown) {
+                if (selectionConfig.max && next.length >= selectionConfig.max) break;
+                if (!next.some(item => isSameSelection(item, row, entityTypeName))) next.push(row);
+            }
+        }
+        setInternalSelection(next);
+        onSelectionChange?.(next);
+    };
+
+    const clearSelection = () => {
+        setInternalSelection([]);
+        onSelectionChange?.([]);
+    };
+
+    const rowSelectLabel = (row: T): string => {
+        const name = (row as any)?.name ?? (row as any)?.displayName ?? (row as any)?.label;
+        return name ? `Select ${name}` : (row as any)?.id != null ? `Select ID ${(row as any).id}` : 'Select row';
+    };
 
     const pageKeys = uniqueRowKeys(section.pageItems.map((row, index) => tableRowKey(row, entityTypeName, index)));
     const tableSections: DataTableSection<T>[] = [
@@ -669,6 +650,15 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 </div>
             )}
 
+            {renderSelectionBar?.({
+                selected: internalSelection,
+                clearSelection,
+                columns: effectiveColumns,
+                query,
+                totalCount: data.totalCount,
+                loading,
+            })}
+
             {/* Selection Info Banner - changed: conditionally render based on showSelectionBanner prop */}
             {showSelectionBanner && selectionConfig.mode !== 'none' && internalSelection.length > 0 && (
                 <div className="bg-info-soft border border-info-line rounded-md px-4 py-2 flex items-center justify-between">
@@ -679,10 +669,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                     </span>
                     {selectionConfig.mode === 'multiple' && (!selectionConfig.min || selectionConfig.min === 0) && (
                         <button
-                            onClick={() => {
-                                setInternalSelection([]);
-                                onSelectionChange?.([]);
-                            }}
+                            onClick={clearSelection}
                             className="text-sm text-primary hover:text-info-strong underline"
                         >
                             Clear selection
@@ -705,11 +692,18 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 loading={loading}
                 sort={query.sortBy ? { key: query.sortBy, descending: query.sortDescending === true } : null}
                 onSortChange={handleSort}
-                // #39 (CRUD-4): a row with an address is a link (first cell), only while rows aren't selectable.
-                rowHref={selectable ? undefined : rowHref}
-                onRowClick={selectable ? (row => handleRowSelection(row)) : onRowClick}
+                // #39 (CRUD-4): a row with an address is a link (first cell), unless a row click selects (#205:
+                // with checkboxes it stays a link).
+                rowHref={rowClickSelects ? undefined : rowHref}
+                onRowClick={rowClickSelects ? (row => handleRowSelection(row)) : onRowClick}
                 isRowSelected={selectable ? isRowSelected : undefined}
-                rowLeading={selectable ? (row => isRowSelected(row)
+                selection={checkboxSelection ? {
+                    isSelected: isRowSelected,
+                    onToggle: row => handleRowSelection(row),
+                    onToggleAll: toggleShownRows,
+                    rowLabel: rowSelectLabel,
+                } : undefined}
+                rowLeading={rowClickSelects ? (row => isRowSelected(row)
                     ? <><Check className="h-5 w-5 text-success flex-shrink-0" aria-hidden="true" /><span className="sr-only">Selected:</span></>
                     : null) : undefined}
                 rowActions={rowActions.length > 0 ? (row => rowActions.map((action, actionIndex) => (

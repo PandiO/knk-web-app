@@ -178,3 +178,81 @@ describe('Pager (#187)', () => {
         expect(totalPagesOf(10, 0)).toBe(10);
     });
 });
+
+describe('DataTable checkbox column (#205)', () => {
+    const Selectable: React.FC<{ onRowClick?: jest.Mock; rowHref?: (p: Player) => string; initial?: number[] }> = ({ onRowClick, rowHref, initial = [] }) => {
+        const [ids, setIds] = React.useState<number[]>(initial);
+        return (
+            <DataTable
+                columns={columns}
+                rows={players}
+                rowKey={p => String(p.id)}
+                rowHref={rowHref}
+                onRowClick={onRowClick}
+                selection={{
+                    isSelected: p => ids.includes(p.id),
+                    onToggle: p => setIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]),
+                    onToggleAll: () => setIds(prev => prev.length === players.length ? [] : players.map(p => p.id)),
+                    rowLabel: p => `Select ${p.name}`,
+                }}
+            />
+        );
+    };
+
+    it('puts a checkbox column first; ticking a row never opens it', () => {
+        const onRowClick = jest.fn();
+        render(<Selectable onRowClick={onRowClick} rowHref={p => `/display/player/${p.id}`} />);
+        expect(screen.getAllByRole('columnheader')).toHaveLength(4);
+        const box = screen.getByRole('checkbox', { name: 'Select Pandi' });
+        fireEvent.click(box);
+        expect(box).toBeChecked();
+        // A click on the cell around the box doesn't open the row either.
+        fireEvent.click(box.closest('td')!);
+        expect(onRowClick).not.toHaveBeenCalled();
+        fireEvent.click(box);
+        expect(box).not.toBeChecked();
+        expect(onRowClick).not.toHaveBeenCalled();
+        // The selected row is highlighted.
+        fireEvent.click(box);
+        expect(bodyRows()[0].className).toContain('bg-success-soft');
+    });
+
+    it('keeps the row link and the row click working beside the checkboxes', () => {
+        const onRowClick = jest.fn();
+        render(<Selectable onRowClick={onRowClick} rowHref={p => `/display/player/${p.id}`} />);
+        const link = screen.getByRole('link', { name: 'Pandi' });
+        expect(link).toHaveAttribute('href', '/display/player/1');
+        fireEvent.click(link);
+        expect(onRowClick).toHaveBeenCalledWith(players[0]);
+        fireEvent.click(within(bodyRows()[1]).getByText('5'));
+        expect(onRowClick).toHaveBeenLastCalledWith(players[1]);
+        expect(screen.getByRole('checkbox', { name: 'Select Steve' })).not.toBeChecked();
+    });
+
+    it('middle-click on the checkbox cell does not open the row in a new tab', () => {
+        const open = jest.spyOn(window, 'open').mockImplementation(() => null);
+        render(<Selectable onRowClick={jest.fn()} rowHref={p => `/display/player/${p.id}`} />);
+        fireEvent(screen.getByRole('checkbox', { name: 'Select Pandi' }).closest('td')!, new MouseEvent('auxclick', { bubbles: true, button: 1 }));
+        expect(open).not.toHaveBeenCalled();
+        open.mockRestore();
+    });
+
+    it('the header box selects the shown rows, shows mixed for some and clears all', () => {
+        render(<Selectable initial={[2]} />);
+        const all = screen.getByRole('checkbox', { name: 'Select all rows on this page' }) as HTMLInputElement;
+        expect(all.indeterminate).toBe(true);
+        expect(all).not.toBeChecked();
+        fireEvent.click(all);
+        expect(all).toBeChecked();
+        expect(all.indeterminate).toBe(false);
+        expect(screen.getAllByTestId('row-select').every(box => (box as HTMLInputElement).checked)).toBe(true);
+        fireEvent.click(all);
+        expect(screen.getAllByTestId('row-select').some(box => (box as HTMLInputElement).checked)).toBe(false);
+    });
+
+    it('spans the empty state over the checkbox column too', () => {
+        render(<DataTable columns={columns} rows={[]} selection={{ isSelected: () => false, onToggle: jest.fn(), onToggleAll: jest.fn() }} empty="Nothing" />);
+        expect(screen.getByText('Nothing')).toHaveAttribute('colspan', '4');
+        expect(screen.getByRole('checkbox', { name: 'Select all rows on this page' })).toBeDisabled();
+    });
+});

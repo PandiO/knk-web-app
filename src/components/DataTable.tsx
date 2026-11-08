@@ -14,6 +14,9 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from 'lucide-react';
  *   and screen readers hear the column and direction. `nextSort` gives the usual asc → desc → off cycle.
  * - Optional row sections with a heading row (the wizard pickers' "Created in this form"), a leading element
  *   per row (check mark, badge), selection styling, an actions column and an empty state.
+ * - **Checkbox column (#205):** with `selection` the first column holds a checkbox per row and one in the header
+ *   for the rows shown. A click anywhere in that cell toggles the row and never opens it, so the row links and the
+ *   row click keep working beside it (the dashboard's bulk selection).
  *
  *     <DataTable
  *       caption="Players"
@@ -59,6 +62,18 @@ export interface DataTableSection<T> {
     rows: DataTableRow<T>[];
 }
 
+/** A checkbox column in front of the others (#205). */
+export interface DataTableSelection<T> {
+    isSelected: (row: T) => boolean;
+    onToggle: (row: T) => void;
+    /** The header checkbox: checked when every shown row is, mixed when some are. Without it, no header box. */
+    onToggleAll?: () => void;
+    /** The accessible name of a row's checkbox, e.g. "Select Northwatch"; default "Select row". */
+    rowLabel?: (row: T) => string;
+    /** The accessible name of the header checkbox; default "Select all rows on this page". */
+    allLabel?: string;
+}
+
 export interface DataTableProps<T> {
     columns: DataTableColumn<T>[];
     /** The rows, with `rowKey`; or `sections` instead. */
@@ -76,6 +91,8 @@ export interface DataTableProps<T> {
     /** Which column holds the row link and `leading`; default the first. */
     linkColumn?: string;
     isRowSelected?: (row: T) => boolean;
+    /** A checkbox column for selecting rows next to the row links (#205); selected rows are highlighted. */
+    selection?: DataTableSelection<T>;
     /** Shown before every row's content in the link column (after `leading`), e.g. a check mark. */
     rowLeading?: (row: T) => React.ReactNode;
     /** Buttons in a last, unlabelled "Actions" column. */
@@ -131,6 +148,7 @@ export function DataTable<T>({
     onRowClick,
     linkColumn,
     isRowSelected,
+    selection,
     rowLeading,
     rowActions,
     empty,
@@ -144,7 +162,10 @@ export function DataTable<T>({
     }];
     const rowCount = allSections.reduce((count, section) => count + section.rows.length, 0);
     const linkKey = linkColumn ?? columns[0]?.key;
-    const columnCount = columns.length + (rowActions ? 1 : 0);
+    const columnCount = columns.length + (rowActions ? 1 : 0) + (selection ? 1 : 0);
+    const allRows = allSections.flatMap(section => section.rows.map(entry => entry.row));
+    const selectedShown = selection ? allRows.filter(row => selection.isSelected(row)).length : 0;
+    const allShownSelected = allRows.length > 0 && selectedShown === allRows.length;
     const compact = density === 'compact';
     const cellPad = compact ? 'px-3 py-2' : 'px-6 py-4';
     const headPad = compact ? 'px-3 py-2' : 'px-6 py-3';
@@ -160,7 +181,7 @@ export function DataTable<T>({
     };
 
     const renderRow = ({ key, row, leading }: DataTableRow<T>) => {
-        const selected = isRowSelected?.(row) ?? false;
+        const selected = isRowSelected?.(row) ?? selection?.isSelected(row) ?? false;
         const href = rowHref?.(row);
         const clickable = !!onRowClick || !!href;
         const openInNewTab = () => {
@@ -192,6 +213,25 @@ export function DataTable<T>({
                         : `${compact ? '' : 'border-l-4 border-transparent'} hover:bg-surface-alt`
                 } ${clickable ? 'cursor-pointer' : ''}`}
             >
+                {selection && (
+                    // The whole cell toggles the box; its clicks never reach the row (no navigation).
+                    <td
+                        className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} w-px whitespace-nowrap align-middle`}
+                        onClick={(event) => event.stopPropagation()}
+                        onAuxClick={(event) => event.stopPropagation()}
+                    >
+                        <label className="-m-2 flex cursor-pointer items-center justify-center p-2">
+                            <input
+                                type="checkbox"
+                                className="h-4 w-4 cursor-pointer accent-primary"
+                                checked={selection.isSelected(row)}
+                                onChange={() => selection.onToggle(row)}
+                                aria-label={selection.rowLabel?.(row) ?? 'Select row'}
+                                data-testid="row-select"
+                            />
+                        </label>
+                    </td>
+                )}
                 {columns.map(column => {
                     const content = column.cell ? column.cell(row) : defaultCell(row, column.key);
                     const isLinkCell = column.key === linkKey;
@@ -253,6 +293,26 @@ export function DataTable<T>({
                     {caption && <caption className="sr-only">{caption}</caption>}
                     <thead className="bg-surface-alt">
                         <tr>
+                            {selection && (
+                                <th scope="col" className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} w-px py-3 text-left align-middle`}>
+                                    {selection.onToggleAll ? (
+                                        <input
+                                            type="checkbox"
+                                            className="h-4 w-4 cursor-pointer accent-primary"
+                                            checked={allShownSelected}
+                                            ref={(input) => {
+                                                if (input) input.indeterminate = selectedShown > 0 && !allShownSelected;
+                                            }}
+                                            onChange={() => selection.onToggleAll?.()}
+                                            disabled={allRows.length === 0}
+                                            aria-label={selection.allLabel ?? 'Select all rows on this page'}
+                                            data-testid="select-all"
+                                        />
+                                    ) : (
+                                        <span className="sr-only">Select</span>
+                                    )}
+                                </th>
+                            )}
                             {columns.map(column => (
                                 <th
                                     key={column.key}
