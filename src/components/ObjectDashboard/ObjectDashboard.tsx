@@ -18,6 +18,7 @@ import { readTableQuery, toSearch, writeTableQuery } from '../../utils/tableQuer
 import { PagedQueryDto } from '../../types/dtos/common/PagedQuery';
 import { useDashboardFormOptions } from '../../hooks/useDashboardFormOptions';
 import { DashboardHeaderMenu } from './DashboardHeaderMenu';
+import { DashboardSelectionBar } from './DashboardSelectionBar';
 import { FormSubmissionStatus } from '../../utils/enums';
 import { readLastDashboardType, writeLastDashboardType } from '../../utils/lastDashboardType';
 import { readDashboardFavourites, toggleFavourite, writeDashboardFavourites } from '../../utils/dashboardFavourites';
@@ -296,6 +297,11 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     const [modalSecondaryLabel, setModalSecondaryLabel] = useState<string | undefined>(undefined);
     const [refreshKey, setRefreshKey] = useState<number>(0);
 
+    // #205: rows ticked in the checkbox column, kept across pages and searches of this type (cleared when the
+    // type changes). The bar above the table exports them, or the whole search when none are ticked.
+    const [selectedRows, setSelectedRows] = useState<any[]>([]);
+    useEffect(() => setSelectedRows([]), [selectedType]);
+
     const handleDelete = (entityTypeName: string, item: any) => {
         const name = item?.name || item?.label || `ID ${item?.id}`;
         setModalTitle('Confirm Deletion');
@@ -318,6 +324,8 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                 setModalSecondaryLabel(undefined);
                 setSelectedType((prev) => prev);
                 setRefreshKey((prev) => prev + 1);
+                // #205: a deleted row leaves the selection.
+                setSelectedRows(previous => previous.filter(row => String(row?.id) !== String(item?.id)));
             } catch (err) {
                 setModalTitle('Delete Failed');
                 setModalMessage(apiRefusalReason(err) ?? 'An error occurred while deleting.');
@@ -472,6 +480,19 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                 : undefined}
                             refreshKey={refreshKey}
                             liveRefreshKey={liveRefreshKey}
+                            // #205: a checkbox column selects rows for the bulk bar; rows stay links.
+                            selectionConfig={{ mode: 'multiple' }}
+                            selectionStyle="checkbox"
+                            selectedItems={selectedRows}
+                            onSelectionChange={setSelectedRows}
+                            showSelectionBanner={false}
+                            renderSelectionBar={(state) => (
+                                <DashboardSelectionBar
+                                    state={state}
+                                    entityTypeName={selectedType}
+                                    typeLabel={typeLabel}
+                                />
+                            )}
                             emptyState={(
                                 <div className="flex flex-col items-center gap-3">
                                     <span>No {typeLabel} yet.</span>

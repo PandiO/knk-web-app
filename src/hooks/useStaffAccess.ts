@@ -31,6 +31,13 @@ export const SERVER_CONFIG_PERMISSION_NODE = 'knk.admin.config';
 export const SIEGE_ADMIN_PERMISSION_NODE = 'knk.siege.admin.manage';
 
 /**
+ * Export rows of a dashboard type as CSV (PandiO/knk-workspace#205, #280 DESIGN § 4.8): knk-web-api
+ * StaffPermissions.Export from link AM1. Until the API knows the node, only `*` and `knk.admin.*` match it
+ * (the owner and Admin); the AM1 migration also grants it to the area-node holders.
+ */
+export const EXPORT_PERMISSION_NODE = 'knk.admin.export';
+
+/**
  * The outcome of a permission check:
  * - `allowed` / `denied`: the API answered (a 403 counts as denied);
  * - `unauthenticated`: 401 - not logged in, or the session expired and couldn't be refreshed;

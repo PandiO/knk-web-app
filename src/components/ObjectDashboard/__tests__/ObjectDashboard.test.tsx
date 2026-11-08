@@ -32,6 +32,13 @@ jest.mock('../../../apiClients/formSubmissionClient', () => ({
     formSubmissionClient: { getByEntityTypeName: jest.fn() },
 }));
 
+// #205: the single-row Delete (FeedbackModal) also takes the row out of the bulk selection.
+const mockDeleteRow = jest.fn();
+jest.mock('../../../utils/entityApiMapping', () => ({
+    ...jest.requireActual('../../../utils/entityApiMapping'),
+    getDeleteFunctionForEntity: () => mockDeleteRow,
+}));
+
 const loadedMetadata = [
     { entityName: 'Town', displayName: 'Town', fields: [] },
     { entityName: 'Street', displayName: 'Street', fields: [] },
@@ -730,5 +737,60 @@ describe('ObjectDashboard live updates', () => {
         render(<ObjectDashboard objectTypes={[]} />);
         await screen.findByTestId('table');
         expect(mockTableProps.liveRefreshKey).toBe(0);
+    });
+});
+
+describe('ObjectDashboard checkbox selection and bulk bar (PandiO/knk-workspace#205)', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        window.localStorage.clear();
+        mockMetadata = { baseMetadata: loadedMetadata, loading: false };
+        mockParams = { entityName: 'Street' };
+        mockLocation = { pathname: '/dashboard/Street', search: '' };
+        getAll.mockResolvedValue([config('Street', true, false), config('District', true, false)]);
+    });
+
+    it('selects with a checkbox column and keeps the row links and the row click', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        await waitFor(() => expect(mockTableProps.rowHref).toBeDefined());
+        expect(mockTableProps.selectionConfig).toEqual({ mode: 'multiple' });
+        expect(mockTableProps.selectionStyle).toBe('checkbox');
+        expect(mockTableProps.showSelectionBanner).toBe(false);
+        expect(mockTableProps.onRowClick).toBeDefined();
+        expect(mockTableProps.selectedItems).toEqual([]);
+    });
+
+    it('renders the bulk bar for the type with the table state', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        const state = { selected: [], clearSelection: jest.fn(), columns: [], query: { page: 1, pageSize: 10 }, totalCount: 0, loading: false };
+        const bar = mockTableProps.renderSelectionBar(state);
+        expect(bar.props).toMatchObject({ state, entityTypeName: 'Street', typeLabel: 'Street' });
+    });
+
+    it('takes a deleted row out of the selection', async () => {
+        mockDeleteRow.mockResolvedValue(undefined);
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        act(() => mockTableProps.onSelectionChange([{ id: 7, name: 'Row seven' }, { id: 8 }]));
+        fireEvent.click(screen.getByTitle('Delete'));
+        const dialog = await screen.findByRole('alertdialog');
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+        await waitFor(() => expect(mockDeleteRow).toHaveBeenCalledWith(7));
+        await waitFor(() => expect(mockTableProps.selectedItems).toEqual([{ id: 8 }]));
+    });
+
+    it('keeps the selection for the type and clears it when the type changes', async () => {
+        const { rerender } = render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        act(() => mockTableProps.onSelectionChange([{ id: 7, name: 'Row seven' }, { id: 8 }]));
+        expect(mockTableProps.selectedItems).toEqual([{ id: 7, name: 'Row seven' }, { id: 8 }]);
+
+        mockParams = { entityName: 'District' };
+        mockLocation = { pathname: '/dashboard/District', search: '' };
+        rerender(<ObjectDashboard objectTypes={[]} />);
+        await waitFor(() => expect(mockTableProps.entityTypeName).toBe('District'));
+        expect(mockTableProps.selectedItems).toEqual([]);
     });
 });
