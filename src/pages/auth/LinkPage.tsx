@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, KeyRound } from 'lucide-react';
 import { admissionClient } from '../../apiClients/admissionClient';
 import { useAuth } from '../../contexts/AuthContext';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { useNoReferrer } from '../../hooks/useNoReferrer';
 import { authService } from '../../services/authService';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
@@ -37,7 +36,6 @@ const INVALID_CODE = `This code is invalid or has expired. ${CLAIM_CODE_STAYS_VA
  * link-code field) fills the code in and checks it at once; the code leaves the address bar.
  */
 export const LinkPage: React.FC = () => {
-  usePageTitle('Link your Minecraft account');
   usePublicSurface();
   useNoReferrer();
   const navigate = useNavigate();

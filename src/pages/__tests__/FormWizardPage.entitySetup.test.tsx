@@ -141,14 +141,16 @@ describe('FormWizardPage as Entity setup (#177 link 2)', () => {
         expect(screen.queryByText('wizard')).not.toBeInTheDocument();
     });
 
-    it('keeps the explorer on the configuration lists', async () => {
+    it('keeps the explorer on the configuration lists, with the way back to the dashboard (#30, LW1-2)', async () => {
         mockParams = { entityName: 'category' };
         mockSearch = '';
         render(<FormWizardPage entityTypeName="" objectTypes={[]} />);
 
         await waitFor(() => expect(formConfigClient.getByEntityTypeName).toHaveBeenCalled());
         expect(screen.getByTestId('explorer')).toBeInTheDocument();
-        expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+        expect(crumbs()).toEqual(['Dashboard', 'Category', 'Entity setup']);
+        expect(within(breadcrumb()).getByRole('link', { name: 'Category' })).toHaveAttribute('href', '/dashboard/Category');
+        expect(within(breadcrumb()).getByText('Entity setup')).toHaveAttribute('aria-current', 'page');
     });
 
     it('says "New" needs a default form configuration when the type has none (decision 3)', async () => {

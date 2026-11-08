@@ -1,4 +1,4 @@
-import { detailTrail, formTrail, trailTo } from '../breadcrumbs';
+import { detailTrail, entitySetupTrail, formTrail, trailTo } from '../breadcrumbs';
 
 const labelFor = (name: string) => ({ town: 'Town', gatestructure: 'Gate structure' } as Record<string, string>)[name.toLowerCase()] ?? name;
 
@@ -66,5 +66,16 @@ describe('detailTrail', () => {
       { label: 'Back', to: '/admin/users/3' },
       { label: 'Cinix' },
     ]);
+  });
+});
+
+describe('entitySetupTrail (#30, LW1-2)', () => {
+  it('leads from the setup lists back to the dashboard on the type', () => {
+    expect(entitySetupTrail('Town', labelFor)).toEqual([
+      { label: 'Dashboard', to: '/dashboard' },
+      { label: 'Town', to: '/dashboard/Town' },
+      { label: 'Entity setup' },
+    ]);
+    expect(entitySetupTrail('', labelFor)).toEqual([{ label: 'Dashboard', to: '/dashboard' }, { label: 'Entity setup' }]);
   });
 });

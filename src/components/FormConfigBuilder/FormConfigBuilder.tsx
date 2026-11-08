@@ -12,15 +12,14 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableStepItem } from './SortableStepItem';
 import { FeedbackModal } from '../FeedbackModal';
+import { toast } from '../../utils/toast';
 import { ReusableStepSelector } from './ReusableStepSelector';
 import { ConfigurationHealthPanel } from './ConfigurationHealthPanel';
 import { detectProjectionCycles } from '../../utils/forms/valueProjection';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { useConfirm } from '../../hooks/useConfirm';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 export const FormConfigBuilder: React.FC = () => {
-    usePageTitle('Form builder');
     const { id } = useParams<{ id?: string }>();
     const navigate = useNavigate();
     const configId = id || 'new';
@@ -68,7 +67,6 @@ export const FormConfigBuilder: React.FC = () => {
         message: '',
         status: 'info'
     });
-    const autoCloseRef = useRef<number | undefined>(undefined);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -77,36 +75,12 @@ export const FormConfigBuilder: React.FC = () => {
         })
     );
 
-    const clearAutoClose = () => {
-        if (autoCloseRef.current) {
-            window.clearTimeout(autoCloseRef.current);
-            autoCloseRef.current = undefined;
-        }
-    };
-
-    useEffect(() => {
-        return () => clearAutoClose();
-    }, []);
-
     // Back to the Forms page (where the builders are opened from), on this config's entity.
     const formsPagePath = config.entityTypeName
         ? `/forms/${encodeURIComponent(config.entityTypeName)}`
         : '/forms';
 
-    const closeSaveModal = () => {
-        clearAutoClose();
-        const shouldNavigate = saveFeedback.status === 'success';
-        setSaveFeedback(prev => ({ ...prev, open: false }));
-        if (shouldNavigate) {
-            navigate(formsPagePath);
-        }
-    };
-
-    const handleSaveContinue = () => {
-        clearAutoClose();
-        setSaveFeedback(prev => ({ ...prev, open: false }));
-        navigate(formsPagePath);
-    };
+    const closeSaveModal = () => setSaveFeedback(prev => ({ ...prev, open: false }));
 
     const loadData = useCallback(async () => {
         try {
@@ -454,16 +428,9 @@ export const FormConfigBuilder: React.FC = () => {
             const successMessage = isEditMode
                 ? 'Configuration updated successfully.'
                 : 'Configuration created successfully.';
-            setSaveFeedback({
-                open: true,
-                title: 'Saved',
-                message: successMessage,
-                status: 'success'
-            });
-            clearAutoClose();
-            autoCloseRef.current = window.setTimeout(() => {
-                handleSaveContinue();
-            }, 3000);
+            // #33: a toast and straight back (no 3 s success modal), like the form wizard since #177.
+            toast.success(successMessage);
+            navigate(formsPagePath);
             if (isEditMode) {
                 setHealthRefreshToken(prev => prev + 1);
             }
@@ -765,7 +732,6 @@ export const FormConfigBuilder: React.FC = () => {
                 message={saveFeedback.message}
                 status={saveFeedback.status}
                 onClose={closeSaveModal}
-                onContinue={handleSaveContinue}
             />
             {confirmModal}
 

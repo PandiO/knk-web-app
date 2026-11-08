@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Copy, Pause, Play, RefreshCw, RotateCcw, Send, ShieldCheck, Ticket, Users, X, XCircle } from 'lucide-react';
 import { invitationClient } from '../../apiClients/invitationClient';
 import { FeedbackModal } from '../../components/FeedbackModal';
+import { Dialog } from '../../components/Dialog';
 import {
   CloudflareAccessSyncStatusDto,
   INVITATION_STATUSES,
@@ -281,34 +282,38 @@ export const InvitationsPage: React.FC = () => {
         </div>
       )}
 
-      {drawer && (
-        <aside className="fixed inset-y-0 right-0 z-40 w-full max-w-md overflow-y-auto border-l border-slate-200 bg-white p-4 shadow-xl"
-          role="dialog" aria-label="Redemptions">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Redemptions</h2>
-            <button type="button" onClick={() => setDrawer(null)} aria-label="Close redemptions" className="rounded p-1 hover:bg-slate-100">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <p className="mt-1 text-sm text-slate-600">{drawer.item.kind === 'Personal' ? drawer.item.email : drawer.item.label}</p>
-          {drawer.error && <p className="mt-3 text-sm text-red-700">{drawer.error}</p>}
-          {drawer.rows === null && <p className="mt-3 text-sm text-slate-500">Loading…</p>}
-          {drawer.rows && drawer.rows.length === 0 && !drawer.error && <p className="mt-3 text-sm text-slate-500">Nobody has used it yet.</p>}
-          <ul className="mt-3 divide-y divide-slate-100">
-            {drawer.rows?.map(row => (
-              <li key={row.userId} className="py-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{row.minecraftLinked ? row.username : row.emailMasked ?? row.username}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${row.minecraftLinked ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
-                    {row.minecraftLinked ? 'Linked' : 'Not linked yet'}
-                  </span>
-                </div>
-                <div className="text-xs text-slate-500">#{row.userId} · {row.emailMasked ?? 'no email'} · {formatDateTime(row.redeemedAt)}</div>
-              </li>
-            ))}
-          </ul>
-        </aside>
-      )}
+      <Dialog
+        open={drawer !== null}
+        onClose={() => setDrawer(null)}
+        title="Redemptions"
+        description={drawer ? (drawer.item.kind === 'Personal' ? drawer.item.email : drawer.item.label) : undefined}
+        placement="right"
+        size="md"
+        closeOnBackdrop
+        closeLabel="Close redemptions"
+        bodyClassName="px-6 py-4"
+      >
+        {drawer && (
+          <>
+            {drawer.error && <p className="text-sm text-danger-strong">{drawer.error}</p>}
+            {drawer.rows === null && <p className="text-sm text-muted" role="status">Loading…</p>}
+            {drawer.rows && drawer.rows.length === 0 && !drawer.error && <p className="text-sm text-muted">Nobody has used it yet.</p>}
+            <ul className="divide-y divide-line">
+              {drawer.rows?.map(row => (
+                <li key={row.userId} className="py-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{row.minecraftLinked ? row.username : row.emailMasked ?? row.username}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${row.minecraftLinked ? 'bg-success-muted text-success-strong' : 'bg-warning-muted text-warning-strong'}`}>
+                      {row.minecraftLinked ? 'Linked' : 'Not linked yet'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted">#{row.userId} · {row.emailMasked ?? 'no email'} · {formatDateTime(row.redeemedAt)}</div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </Dialog>
 
       <FeedbackModal
         open={pending !== null}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ToastRegion } from '../ToastRegion';
 import { logging } from '../../utils';
@@ -70,4 +70,68 @@ describe('ToastRegion (X-1)', () => {
     expect(screen.getAllByText('Town created.')).toHaveLength(1);
     expect(screen.getByText('Town created.').closest('[data-kind]')).toHaveAttribute('data-kind', 'error');
   });
+
+  it('shows info and warning toasts, each named by its kind for screen readers (#33)', () => {
+    render(<ToastRegion />);
+
+    act(() => {
+      toast.info('Draft restored.');
+      toast.warning('The game server is offline.');
+    });
+
+    expect(screen.getByText('Draft restored.').closest('[data-kind]')).toHaveAttribute('data-kind', 'info');
+    expect(screen.getByText('The game server is offline.').closest('[data-kind]')).toHaveAttribute('data-kind', 'warning');
+    expect(screen.getByRole('status')).toHaveTextContent('Information: Draft restored.');
+    expect(screen.getByRole('status')).toHaveTextContent('Warning: The game server is offline.');
+  });
+
+  it('runs an action once and closes; an action keeps the toast for at least 10 s', () => {
+    jest.useFakeTimers();
+    const undo = jest.fn();
+    render(<ToastRegion />);
+
+    act(() => toast.success('Town deleted.', { action: { label: 'Undo', onClick: undo } }));
+    act(() => { jest.advanceTimersByTime(9000); });
+    expect(screen.getByText('Town deleted.')).toBeInTheDocument();
+
+    act(() => { screen.getByRole('button', { name: 'Undo' }).click(); });
+    expect(undo).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Town deleted.')).not.toBeInTheDocument();
+  });
+
+  it('waits while the pointer is on it, and keeps durationMs: null until dismissed', () => {
+    jest.useFakeTimers();
+    render(<ToastRegion />);
+
+    act(() => {
+      toast.info('Hover me.');
+      toast.error('Sticky.', { durationMs: null });
+    });
+    fireEvent.mouseEnter(screen.getByText('Hover me.').closest('[data-kind]')!);
+    act(() => { jest.advanceTimersByTime(60000); });
+    expect(screen.getByText('Hover me.')).toBeInTheDocument();
+    expect(screen.getByText('Sticky.')).toBeInTheDocument();
+
+    fireEvent.mouseLeave(screen.getByText('Hover me.').closest('[data-kind]')!);
+    act(() => { jest.advanceTimersByTime(5000); });
+    expect(screen.queryByText('Hover me.')).not.toBeInTheDocument();
+    expect(screen.getByText('Sticky.')).toBeInTheDocument();
+  });
+
+  it('sends a plain toast.error through the error handler, one with options straight to the region', () => {
+    const seen: unknown[] = [];
+    const subscription = logging.errorHandler.subscribe(message => seen.push(message));
+    render(<ToastRegion />);
+
+    act(() => {
+      toast.error('Plain.');
+      toast.error('With a retry.', { action: { label: 'Retry', onClick: () => undefined } });
+    });
+    subscription.unsubscribe();
+
+    expect(seen).toEqual(['Plain.']);
+    expect(screen.getByText('Plain.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
 });
+
