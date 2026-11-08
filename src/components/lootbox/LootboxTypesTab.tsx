@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, Loader2, Pencil, Percent, Plus, RefreshCcw } from 'lucide-react';
 import { lootboxTypeClient } from '../../apiClients/lootboxTypeClient';
 import { LootboxOddsDto, LootboxTypeDto } from '../../types/dtos/lootbox/LootboxDtos';
+import { useConfirm } from '../../hooks/useConfirm';
+import type { ConfirmOptions } from '../../hooks/useConfirm';
 import { apiErrorMessage, coveringBoxStars, coveringBoxStarsOf, emptyWindowStars, poolCountsByStars, reachableItemStars, starLabel } from '../../utils/lootbox';
 
 /**
@@ -13,6 +15,23 @@ import { apiErrorMessage, coveringBoxStars, coveringBoxStarsOf, emptyWindowStars
  */
 
 type PoolState = { counts: Record<number, number>; empty: number[] } | 'error';
+
+/** PandiO/knk-workspace#26 (SET-6): the question before a type's Enabled is switched, stating the effect. */
+export function typeToggleQuestion(type: Pick<LootboxTypeDto, 'name' | 'enabled'>): ConfirmOptions {
+    return type.enabled
+        ? {
+            title: `Disable ${type.name}?`,
+            message: 'No new boxes of this type spawn, from the game server\'s next runtime refresh. Boxes already in the world are not removed (Active boxes).',
+            confirmLabel: 'Disable',
+            danger: true,
+        }
+        : {
+            title: `Enable ${type.name}?`,
+            message: 'Boxes of this type start spawning in its areas, by its spawn weight, from the game server\'s next runtime refresh. Check its odds first.',
+            confirmLabel: 'Enable',
+            danger: true,
+        };
+}
 
 interface Props {
     onShowOdds: (typeId: number) => void;
@@ -25,6 +44,7 @@ export const LootboxTypesTab: React.FC<Props> = ({ onShowOdds }) => {
     const [error, setError] = React.useState<string | null>(null);
     const [togglingId, setTogglingId] = React.useState<number | null>(null);
     const [rowError, setRowError] = React.useState<{ id: number; text: string } | null>(null);
+    const [confirm, confirmModal] = useConfirm();
 
     // The pool sizes come from the odds preview - the same pool rules the claim rolls with - a
     // couple of box grades per type, enough to cover every item grade its windows reach. One batch
@@ -80,6 +100,7 @@ export const LootboxTypesTab: React.FC<Props> = ({ onShowOdds }) => {
     // freshly read with only Enabled flipped.
     const toggleEnabled = async (type: LootboxTypeDto) => {
         if (!type.id) return;
+        if (!(await confirm(typeToggleQuestion(type)))) return;
         setTogglingId(type.id);
         setRowError(null);
         try {
@@ -201,6 +222,7 @@ export const LootboxTypesTab: React.FC<Props> = ({ onShowOdds }) => {
                     </table>
                 </div>
             )}
+            {confirmModal}
         </div>
     );
 };

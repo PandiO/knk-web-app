@@ -7,6 +7,7 @@ import { lootboxSpawnClient } from '../../../apiClients/lootboxSpawnClient';
 import { lootboxClaimClient } from '../../../apiClients/lootboxClaimClient';
 import { lootboxConfigurationClient } from '../../../apiClients/lootboxConfigurationClient';
 import { itemInstanceClient } from '../../../apiClients/itemInstanceClient';
+import { toast } from '../../../utils/toast';
 import { GradeClient } from '../../../apiClients/gradeClient';
 import { LootboxClaimLogDto, LootboxOddsDto, LootboxTypeDto } from '../../../types/dtos/lootbox/LootboxDtos';
 
@@ -169,6 +170,10 @@ describe('LootboxesPage', () => {
         typeClient.update.mockResolvedValue(undefined);
         render(<LootboxesPage />);
         fireEvent.click(await screen.findByRole('button', { name: 'Enable Weapons Lootbox' }));
+        // #26 (SET-6): the switch asks first and says what happens.
+        const dialog = await screen.findByRole('alertdialog', { name: 'Enable Weapons Lootbox?' });
+        expect(dialog).toHaveTextContent('start spawning in its areas');
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Enable' }));
         await waitFor(() => expect(typeClient.update).toHaveBeenCalledWith({ ...weapons, enabled: true }));
         expect(await screen.findByRole('button', { name: 'Disable Weapons Lootbox' })).toHaveTextContent('Enabled');
     });
@@ -182,7 +187,9 @@ describe('LootboxesPage', () => {
         expect(specials[0]).toHaveTextContent('Flaming Samurai');
         expect(specials[0]).toHaveTextContent('0.05%');
         // Own chance, then the chance it is what the box gives (the Flaming Samurai missed first).
-        expect(within(specials[1]).getAllByRole('cell').map(c => c.textContent)).toEqual(['Skull splitter', '0.2%', '0.199%']);
+        expect(within(specials[1]).getAllByRole('cell').map(c => c.textContent)).toEqual(['Skull splitter', '0.2%1 in 500', '0.199%1 in 503']);
+        // #26 (from #38): small chances also as "1 in N".
+        expect(within(specials[0]).getAllByText('1 in 2,000')).toHaveLength(2); // own chance and gives it (the first special)
         expect(screen.getByText('99.75%')).toBeInTheDocument();
 
         const grades = screen.getAllByTestId('item-grade-row');
@@ -268,6 +275,7 @@ describe('LootboxesPage', () => {
     });
 
     it('saves the whole settings object', async () => {
+        const success = jest.spyOn(toast, 'success').mockImplementation(() => undefined);
         configClient.update.mockImplementation(async (dto) => ({ ...dto, updatedAt: '2026-09-26T11:00:00Z' }));
         render(<LootboxesPage initialTab="settings" />);
         const cap = await screen.findByLabelText('Boxes per player per UTC day');
@@ -283,7 +291,9 @@ describe('LootboxesPage', () => {
             enabled: true, globalMaxActive: 15, maxClaimsPerPlayerPerDay: null, announceMinItemStars: 5, announceSpawnMinBoxStars: 6,
             dropAnnouncementTemplate: '&6{player} &efound {item} &ein a {box}!', spawnAnnouncementTemplate: '&eA {box} &eappeared in &6{area}&e!',
         }));
-        expect(await screen.findByText('Lootbox settings saved.')).toBeInTheDocument();
+        await waitFor(() => expect(success).toHaveBeenCalledWith('Lootbox settings saved.'));
+        expect(screen.getByText('No unsaved changes.')).toBeInTheDocument();
+        success.mockRestore();
     });
 
     it('opens the tab named in the URL and keeps the picked tab there (PandiO/knk-workspace#39)', async () => {

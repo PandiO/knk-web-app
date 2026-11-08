@@ -17,6 +17,10 @@ import { useTabParam } from '../../hooks/useTabParam';
  * tabs list them and link to the forms - while the settings singleton, the odds preview, the active
  * boxes, the token items (Phase 5: issued tokens, revoke, premium tier / kit grant rules) and the drop
  * log live here.
+ *
+ * PandiO/knk-workspace#26: the Settings tab is a SettingsPage shell of its own (`embedded`). Its changes live
+ * in the tab, so switching tabs with unsaved changes asks "Leave without saving?" (the switch changes `?tab=`,
+ * which the shell's navigation blocker sees); Stay keeps them.
  */
 
 type TabKey = 'settings' | 'types' | 'specials' | 'areas' | 'odds' | 'active' | 'tokens' | 'log';
@@ -46,15 +50,15 @@ export const LootboxesPage: React.FC<{ initialTab?: TabKey }> = ({ initialTab = 
     return (
         <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
             <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+                <h1 className="text-2xl font-bold text-fg flex items-center">
                     <Gift className="h-6 w-6 mr-2" /> Lootboxes
                 </h1>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-muted mt-1">
                     World boxes, one type per item category, rolled by the API when a player opens one.
                 </p>
             </div>
 
-            <div role="tablist" aria-label="Lootbox sections" className="flex flex-wrap gap-1 border-b border-gray-200">
+            <div role="tablist" aria-label="Lootbox sections" className="flex flex-wrap gap-1 border-b border-line">
                 {TABS.map(t => (
                     <button
                         key={t.key}
@@ -62,7 +66,7 @@ export const LootboxesPage: React.FC<{ initialTab?: TabKey }> = ({ initialTab = 
                         role="tab"
                         aria-selected={tab === t.key}
                         onClick={() => setTab(t.key)}
-                        className={`px-3 py-2 text-sm font-medium -mb-px border-b-2 ${tab === t.key ? 'border-primary text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+                        className={`px-3 py-2 text-sm font-medium -mb-px border-b-2 ${tab === t.key ? 'border-primary text-fg' : 'border-transparent text-muted hover:text-fg'}`}
                     >
                         {t.label}
                     </button>

@@ -17,6 +17,8 @@ import {
 import { PermissionGroupDto } from '../../types/dtos/userManagement/PermissionGroupDto';
 import { KitDto } from '../../types/dtos/kit/KitDtos';
 import { apiErrorMessage, formatDateTime, starLabel } from '../../utils/lootbox';
+import { useConfirm } from '../../hooks/useConfirm';
+import type { ConfirmOptions } from '../../hooks/useConfirm';
 
 /**
  * Lootbox token items (docs/specs/lootboxes/IMPLEMENTATION_PLAN.md Phase 5): v1's "Sword Box" consumables,
@@ -62,6 +64,29 @@ interface GrantDraft {
     quantity: string;
 }
 
+/** "joins Noble" / "gets kit Starter": the rule's trigger, for its row and its question. */
+const ruleTrigger = (grant: LootboxTokenGrantDto): string => (grant.permissionGroupId != null
+    ? `joins ${grant.permissionGroupName ?? `tier #${grant.permissionGroupId}`}`
+    : `gets kit ${grant.kitName ?? `#${grant.kitId}`}`);
+
+/** PandiO/knk-workspace#26 (SET-6): the question before a grant rule is switched, stating the effect. */
+export function grantToggleQuestion(grant: LootboxTokenGrantDto): ConfirmOptions {
+    const tokens = `${grant.quantity}× ${grant.lootboxTypeName ?? `type #${grant.lootboxTypeId}`}`;
+    return grant.enabled
+        ? {
+            title: 'Switch this rule off?',
+            message: `A player who ${ruleTrigger(grant)} no longer gets ${tokens} tokens. Tokens already issued stay.`,
+            confirmLabel: 'Switch off',
+            danger: true,
+        }
+        : {
+            title: 'Switch this rule on?',
+            message: `From now on every player who ${ruleTrigger(grant)} gets ${tokens} tokens. Players who already did get none.`,
+            confirmLabel: 'Switch on',
+            danger: true,
+        };
+}
+
 const EMPTY_DRAFT: GrantDraft = { target: 'tier', targetId: '', lootboxTypeId: '', boxStars: '', quantity: '1' };
 
 const GrantRules: React.FC<{ types: LootboxTypeDto[] }> = ({ types }) => {
@@ -72,6 +97,7 @@ const GrantRules: React.FC<{ types: LootboxTypeDto[] }> = ({ types }) => {
     const [loading, setLoading] = React.useState(true);
     const [saving, setSaving] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
+    const [confirm, confirmModal] = useConfirm();
 
     const load = React.useCallback(async () => {
         setLoading(true);
@@ -119,6 +145,7 @@ const GrantRules: React.FC<{ types: LootboxTypeDto[] }> = ({ types }) => {
     };
 
     const toggle = async (grant: LootboxTokenGrantDto) => {
+        if (!(await confirm(grantToggleQuestion(grant)))) return;
         setError(null);
         try {
             const updated = await lootboxTokenClient.updateGrant({ ...grant, enabled: !grant.enabled });
@@ -226,6 +253,7 @@ const GrantRules: React.FC<{ types: LootboxTypeDto[] }> = ({ types }) => {
                     <Plus className="h-4 w-4" /> Add rule
                 </button>
             </form>
+            {confirmModal}
         </section>
     );
 };
