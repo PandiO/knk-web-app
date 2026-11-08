@@ -74,12 +74,12 @@ describe('SiegeConfigurationPage', () => {
 
     it('edits the /siege skip seconds (playtest 2026-10-24) and sends only those', async () => {
         render(<SiegeConfigurationPage />);
-        const playerSkip = await screen.findByLabelText(/Player skip leaves \(seconds\)/);
+        const playerSkip = await screen.findByLabelText(/Player skip leaves/);
         expect(playerSkip).toHaveValue('60');
-        expect(screen.getByLabelText(/Admin skip leaves \(seconds\)/)).toHaveValue('31');
+        expect(screen.getByLabelText(/Admin skip leaves/)).toHaveValue('31');
 
         fireEvent.change(playerSkip, { target: { value: '90' } });
-        fireEvent.change(screen.getByLabelText(/Admin skip leaves \(seconds\)/), { target: { value: '45' } });
+        fireEvent.change(screen.getByLabelText(/Admin skip leaves/), { target: { value: '45' } });
         fireEvent.click(screen.getByRole('button', { name: /save \(2\)/i }));
 
         await waitFor(() => expect(siegeConfigurationClient.update).toHaveBeenCalledWith({
@@ -90,7 +90,7 @@ describe('SiegeConfigurationPage', () => {
 
     it('edits the post-match time at the hub (#198) and sends only that', async () => {
         render(<SiegeConfigurationPage />);
-        const postMatch = await screen.findByLabelText(/Time at the hub after the match \(seconds\)/);
+        const postMatch = await screen.findByLabelText(/Time at the hub after the match/);
         expect(postMatch).toHaveValue('30');
 
         fireEvent.change(postMatch, { target: { value: '45' } });

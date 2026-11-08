@@ -11,6 +11,7 @@ import { GroupOverridesCard } from '../../components/admin/gameSettings/GroupOve
 import { HubSettingsCard, defaultHubRules, defaultHubSettings } from '../../components/admin/gameSettings/HubSettingsCard';
 import { LocationReferencePicker } from '../../components/admin/gameSettings/LocationReferencePicker';
 import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
+import { UNIT, describeWorldTime, joinHint } from '../../utils/settingsUnits';
 import { RespawnPolicyEditor } from '../../components/admin/gameSettings/RespawnPolicyEditor';
 import { PREVIEW_SAMPLE, fillMessagePlaceholders } from '../../components/admin/gameSettings/messagePlaceholders';
 import { DomainOption, LocationOption, buildDomainOptions, buildLocationOptions } from '../../components/admin/gameSettings/locationReferenceOptions';
@@ -497,7 +498,11 @@ export const GameSettingsPage: React.FC = () => {
                                                 />
                                             </Field>
                                         </fieldset>
-                                        <Field label="Locked Time (ticks)">
+                                        <Field
+                                            label="Locked Time"
+                                            unit={UNIT.ticks}
+                                            hint={joinHint('World time kept while Lock Time is on; 0 = sunrise, 6000 = noon, 18000 = midnight.', describeWorldTime(world.lockedTime))}
+                                        >
                                             <input
                                                 type="number"
                                                 value={world.lockedTime}

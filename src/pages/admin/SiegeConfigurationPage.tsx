@@ -4,6 +4,8 @@ import { SiegeConfigurationDto, UpdateSiegeConfigurationDto } from '../../types/
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { SettingsPage, SettingsSection } from '../../components/SettingsPage';
 import { Field } from '../../components/Field';
+import { UNIT, describePerMille, describeSeconds, describeTicks, joinHint, readNumber } from '../../utils/settingsUnits';
+import { formatNumber } from '../../utils/format';
 
 /**
  * Siege Phase 3: the global SiegeConfiguration singleton (docs/specs/siege-minigame/DESIGN.md §3.8).
@@ -21,46 +23,56 @@ interface FieldSpec {
     label: string;
     kind: FieldKind;
     help?: string;
+    /** #26 (SET-5): the unit next to the input, and what the typed value means (`= 1 s`). */
+    unit?: string;
+    describe?: (text: string) => string | null;
 }
+
+const fractionAsPercent = (text: string): string | null => {
+    const n = readNumber(text);
+    return n === null || n < 0 || n > 1 ? null : `= ${formatNumber(n * 100, { maximumFractionDigits: 1 })}%`;
+};
+const seconds = { unit: UNIT.seconds, describe: describeSeconds };
+const POINTS = 'points/s';
 
 const SECTIONS: Array<{ title: string; description: string; fields: FieldSpec[] }> = [
     {
         title: 'Capture',
         description: 'Points per second while standing on an objective (DESIGN §7.2). "Extra" is per additional player; instant-victory objectives use their own per-extra value.',
         fields: [
-            { key: 'captureAttackBase', label: 'Attack base', kind: 'int' },
-            { key: 'captureAttackPerExtra', label: 'Attack per extra player', kind: 'int' },
-            { key: 'captureAttackPerExtraInstantVictory', label: 'Attack per extra player (instant victory)', kind: 'int' },
-            { key: 'captureDefendBase', label: 'Defend base', kind: 'int' },
-            { key: 'captureDefendPerExtra', label: 'Defend per extra player', kind: 'int' },
-            { key: 'captureDefendPerExtraInstantVictory', label: 'Defend per extra player (instant victory)', kind: 'int' },
-            { key: 'sideCaptureReduction', label: 'Side-capture reduction', kind: 'decimal', help: 'Fraction, e.g. 0.4 (§7.4).' },
+            { key: 'captureAttackBase', label: 'Attack base', kind: 'int', unit: POINTS, help: 'One attacker on the objective.' },
+            { key: 'captureAttackPerExtra', label: 'Attack per extra player', kind: 'int', unit: POINTS, help: 'Added for each further attacker.' },
+            { key: 'captureAttackPerExtraInstantVictory', label: 'Attack per extra player (instant victory)', kind: 'int', unit: POINTS, help: 'The same on an instant-victory objective.' },
+            { key: 'captureDefendBase', label: 'Defend base', kind: 'int', unit: POINTS, help: 'One defender winning the objective back.' },
+            { key: 'captureDefendPerExtra', label: 'Defend per extra player', kind: 'int', unit: POINTS, help: 'Added for each further defender.' },
+            { key: 'captureDefendPerExtraInstantVictory', label: 'Defend per extra player (instant victory)', kind: 'int', unit: POINTS, help: 'The same on an instant-victory objective.' },
+            { key: 'sideCaptureReduction', label: 'Side-capture reduction', kind: 'decimal', help: 'A fraction from 0 to 1, e.g. 0.4: a side capture takes this share (split over the side objectives) off the points each main objective still needs (§7.4).', describe: fractionAsPercent },
         ],
     },
     {
         title: 'Matchmaking timeline',
         description: 'Seconds before match start. Must satisfy vote close ≥ draw ≥ hub ≥ team split ≥ 1.',
         fields: [
-            { key: 'voteCloseSecondsBeforeStart', label: 'Vote closes', kind: 'int' },
-            { key: 'drawSecondsBeforeStart', label: 'Scenario draw', kind: 'int' },
-            { key: 'hubSecondsBeforeStart', label: 'Teleport to hub', kind: 'int' },
-            { key: 'teamSplitSecondsBeforeStart', label: 'Team split', kind: 'int' },
-            { key: 'matchmakingAnnouncementMarks', label: 'Announcement marks', kind: 'intList', help: 'Comma-separated seconds, e.g. 290,60,30,15.' },
+            { key: 'voteCloseSecondsBeforeStart', label: 'Vote closes', kind: 'int', ...seconds, help: 'Before the start; the scenario vote ends.' },
+            { key: 'drawSecondsBeforeStart', label: 'Scenario draw', kind: 'int', ...seconds, help: 'Before the start; the scenario is picked.' },
+            { key: 'hubSecondsBeforeStart', label: 'Teleport to hub', kind: 'int', ...seconds, help: 'Before the start; players go to the scenario hub.' },
+            { key: 'teamSplitSecondsBeforeStart', label: 'Team split', kind: 'int', ...seconds, help: 'Before the start; the teams are made.' },
+            { key: 'matchmakingAnnouncementMarks', label: 'Announcement marks', kind: 'intList', unit: UNIT.seconds, help: 'Comma-separated seconds before the start, e.g. 290,60,30,15.' },
         ],
     },
     {
         title: 'Skipping matchmaking',
         description: 'How much matchmaking is left after /siege skip. Skipping a cooldown always starts matchmaking at once. The plugin never shortens matchmaking to less than one second before voting closes, whatever is set here.',
         fields: [
-            { key: 'playerSkipMatchmakingSeconds', label: 'Player skip leaves (seconds)', kind: 'int', help: '/siege skip for players with knk.siege.skip (default 60).' },
-            { key: 'adminSkipMatchmakingSeconds', label: 'Admin skip leaves (seconds)', kind: 'int', help: '/siege admin skip (default 31: one second before voting closes).' },
+            { key: 'playerSkipMatchmakingSeconds', label: 'Player skip leaves', kind: 'int', ...seconds, help: '/siege skip for players with knk.siege.skip (default 60).' },
+            { key: 'adminSkipMatchmakingSeconds', label: 'Admin skip leaves', kind: 'int', ...seconds, help: '/siege admin skip (default 31: one second before voting closes).' },
         ],
     },
     {
         title: 'After the match',
         description: 'When a match ends, its players are taken back to the scenario hub, where they see the result. After this time they return to where they were, with their own inventory; /siege leave returns them earlier. Rewards are granted at the end of the match either way.',
         fields: [
-            { key: 'postMatchSeconds', label: 'Time at the hub after the match (seconds)', kind: 'int', help: '0–600 (default 30). 0 sends players back at once.' },
+            { key: 'postMatchSeconds', label: 'Time at the hub after the match', kind: 'int', ...seconds, help: '0–600 (default 30). 0 sends players back at once.' },
         ],
     },
     {
@@ -68,9 +80,9 @@ const SECTIONS: Array<{ title: string; description: string; fields: FieldSpec[] 
         description: 'Kill announcements, headshots, respawn and the command filter.',
         fields: [
             { key: 'killAnnouncementThresholds', label: 'Kill announcement thresholds', kind: 'intList', help: 'Comma-separated kill counts, e.g. 5,10,15.' },
-            { key: 'killStreakAnnounceAbove', label: 'Announce kill streaks above', kind: 'int' },
-            { key: 'headshotMultiplier', label: 'Headshot multiplier', kind: 'decimal', help: '1.0 disables headshots (1–10).' },
-            { key: 'spawnPickerDelayTicks', label: 'Spawn picker / respawn delay (ticks)', kind: 'int' },
+            { key: 'killStreakAnnounceAbove', label: 'Announce kill streaks above', kind: 'int', unit: 'kills', help: 'A streak longer than this is announced to the match.' },
+            { key: 'headshotMultiplier', label: 'Headshot multiplier', kind: 'decimal', unit: UNIT.multiplier, help: 'Damage of a headshot; 1 disables headshots (1–10).' },
+            { key: 'spawnPickerDelayTicks', label: 'Spawn picker / respawn delay', kind: 'int', unit: UNIT.ticks, help: 'Before the spawn picker opens after a death; 20 ticks = 1 second.', describe: describeTicks },
             { key: 'allowedCommands', label: 'Allowed commands', kind: 'stringList', help: 'One per line, e.g. /siege.' },
         ],
     },
@@ -78,11 +90,11 @@ const SECTIONS: Array<{ title: string; description: string; fields: FieldSpec[] 
         title: 'Enchant-book drops',
         description: 'DESIGN §9.4. Scenarios can switch drops off individually.',
         fields: [
-            { key: 'enchantDropChancePerMille', label: 'Drop chance per second (‰)', kind: 'int' },
+            { key: 'enchantDropChancePerMille', label: 'Drop chance per second', kind: 'int', unit: UNIT.perMille, help: 'The chance of a book drop, rolled each second, in per mille (10 ‰ = 1%).', describe: describePerMille },
             { key: 'allowedEnchantmentKeys', label: 'Allowed enchantment keys', kind: 'stringList', help: 'One per line, e.g. minecraft:sharpness.' },
-            { key: 'enchantLevelMin', label: 'Minimum level', kind: 'int' },
-            { key: 'enchantLevelMax', label: 'Maximum level', kind: 'int' },
-            { key: 'maxBooksAlive', label: 'Max books alive per match', kind: 'int' },
+            { key: 'enchantLevelMin', label: 'Minimum level', kind: 'int', help: 'Lowest enchantment level a book rolls.' },
+            { key: 'enchantLevelMax', label: 'Maximum level', kind: 'int', help: 'Highest enchantment level a book rolls.' },
+            { key: 'maxBooksAlive', label: 'Max books alive per match', kind: 'int', unit: 'books', help: 'No new book drops while this many lie in the match.' },
         ],
     },
     {
@@ -238,7 +250,8 @@ export const SiegeConfigurationPage: React.FC = () => {
                                 );
                             }
                             return (
-                                <Field key={field.key} label={field.label} hint={field.help} error={state?.error} className={wide}>
+                                <Field key={field.key} label={field.label} unit={field.unit}
+                                    hint={joinHint(field.help, field.describe?.(text))} error={state?.error} className={wide}>
                                     {field.kind === 'stringList' ? (
                                         <textarea rows={4} value={text} onChange={e => onChange(e.target.value)} className={inputClass} />
                                     ) : field.kind === 'gateView' ? (
