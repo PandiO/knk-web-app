@@ -32,8 +32,7 @@ describe('ReferenceDetails', () => {
 
     it('groups the rows in words, links readable ones to their page and says how many more there are', () => {
         const onFollow = jest.fn();
-        render(<ReferenceDetails data={data} returnTo="/dashboard/Street" onFollow={onFollow}
-            typeLabel={type => (type === 'FormSubmissionProgress' ? 'Saved draft' : type)} />);
+        render(<ReferenceDetails data={data} returnTo="/dashboard/Street" onFollow={onFollow} typeLabel={type => type} />);
 
         expect(screen.getByRole('heading', { name: '23 structures' })).toBeInTheDocument();
         const link = screen.getByRole('link', { name: 'Smithy' });
@@ -47,7 +46,7 @@ describe('ReferenceDetails', () => {
     });
 
     it('names rows of a type the viewer can not open without a link, with the nodes; counts the rest', () => {
-        render(<ReferenceDetails data={data} typeLabel={type => (type === 'FormSubmissionProgress' ? 'Saved draft' : type)} />);
+        render(<ReferenceDetails data={data} typeLabel={type => type} />);
 
         expect(screen.getByRole('heading', { name: '1 kit' })).toBeInTheDocument();
         expect(screen.getByText('Starter kit').tagName).toBe('SPAN');
@@ -75,5 +74,6 @@ describe('referenceDetails helpers', () => {
         expect(referenceNoun({ referencedBy: 'District (link)', entityType: 'District' }, 1)).toBe('district');
         expect(referenceNoun({ referencedBy: 'Category.ParentCategoryId', entityType: 'Category' }, 3)).toBe('categories');
         expect(referenceNoun({ referencedBy: 'FormStep.SubConfigurationId', entityType: null }, 2)).toBe('form steps that use it as a sub-form');
+        expect(referenceNoun({ referencedBy: 'FormSubmissionProgress.StreetId', entityType: 'FormSubmissionProgress' }, 2)).toBe('saved drafts');
     });
 });

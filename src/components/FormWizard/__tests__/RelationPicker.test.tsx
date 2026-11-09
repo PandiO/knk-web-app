@@ -214,7 +214,7 @@ describe('RelationPicker lookup mode (#280)', () => {
         expect(mockSearch).not.toHaveBeenCalled();
         expect(within(option).getByText('Cinix')).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Open full table' })).not.toBeInTheDocument();
-        expect(screen.getByRole('status')).toHaveTextContent('Names only: the full Street table needs one of: knk.admin.world, knk.road.manage.');
+        expect(screen.getByText('Names only: the full Street table needs one of: knk.admin.world, knk.road.manage.')).toBeInTheDocument();
 
         fireEvent.click(option);
         expect(value()).toEqual([{ id: 4, name: 'Castle Hill 4' }]);

@@ -230,7 +230,7 @@ const DetailsDisclosure: React.FC<{ details: FeedbackDetails }> = ({ details }) 
                 <Chevron className="h-4 w-4" aria-hidden="true" />
                 {expanded ? 'Hide details' : label}
             </button>
-            <div id={regionId} hidden={!expanded} className="mt-2 max-h-72 overflow-y-auto" aria-live="polite">
+            <div id={regionId} hidden={!expanded} className="mt-2" aria-live="polite">
                 {state.kind === 'loading' && (
                     <p className="inline-flex items-center gap-2 text-sm text-muted" role="status">
                         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

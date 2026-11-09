@@ -24,6 +24,12 @@ const FRIENDLY: Record<string, [string, string]> = {
     'FormSubmissionProgress.ParentProgressId': ['draft of a sub-form opened from it', 'drafts of sub-forms opened from it'],
 };
 
+/** Types that aren't records an admin knows by their class name (the rows are only counted). */
+const FRIENDLY_TYPES: Record<string, [string, string]> = {
+    FormSubmissionProgress: ['saved draft', 'saved drafts'],
+    WorkflowSession: ['form session', 'form sessions'],
+};
+
 const plural = (words: string): string => {
     if (/[^aeiou]y$/.test(words)) return `${words.slice(0, -1)}ies`;
     if (/(s|x|ch|sh)$/.test(words)) return `${words}es`;
@@ -39,6 +45,8 @@ export function referenceNoun(group: Pick<EntityReferenceGroupDto, 'referencedBy
     const friendly = FRIENDLY[group.referencedBy];
     if (friendly) return count === 1 ? friendly[0] : friendly[1];
     const typeName = group.entityType || group.referencedBy.split(/[. ]/, 1)[0];
+    const friendlyType = FRIENDLY_TYPES[typeName];
+    if (friendlyType) return count === 1 ? friendlyType[0] : friendlyType[1];
     const words = (typeLabel ? typeLabel(typeName) : entityTypeFallbackLabel(typeName)).toLowerCase();
     return count === 1 ? words : plural(words);
 }

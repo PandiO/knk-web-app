@@ -366,11 +366,21 @@ const ResultsPanel = forwardRef<PanelHandle, ResultsProps & { access: RelationAc
         status = `${formatNumber(pageCount)} of ${formatNumber(total)} shown. Keep typing to narrow it down${access.mode === 'full' ? ', or open the full table' : ''}.`;
     }
 
+    // Once the first answer is in, bring the list into view; the bottom scroll margin clears the wizard's sticky footer
+    // (tall on phones), so the list doesn't open behind it.
+    const root = useRef<HTMLDivElement>(null);
+    const shown = useRef(false);
+    useEffect(() => {
+        if (shown.current || (!answer && !error)) return;
+        shown.current = true;
+        root.current?.scrollIntoView?.({ block: 'nearest' });
+    }, [answer, error]);
+
     const pinnedCount = options.filter(option => option.badge).length;
     const statusClass = error || access.mode === 'none' || blockedFilters.length > 0 ? 'text-danger' : 'text-muted';
 
     return (
-        <div className="mt-1 rounded-md border border-line bg-surface shadow-sm" data-testid="relation-picker-panel">
+        <div ref={root} className="mt-1 scroll-mb-64 rounded-md border border-line bg-surface shadow-sm sm:scroll-mb-28" data-testid="relation-picker-panel">
             {options.length > 0 && (
                 <ul
                     id={listboxId}
@@ -427,10 +437,15 @@ const ResultsPanel = forwardRef<PanelHandle, ResultsProps & { access: RelationAc
                 </ul>
             )}
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-3 py-2 first:border-t-0">
-                <p role="status" aria-live="polite" className={`min-w-0 flex-1 text-xs ${statusClass}`}>
-                    {loading && answer && <Loader2 className="mr-1 inline h-3 w-3 animate-spin" aria-hidden="true" />}
-                    {status || (access.mode === 'lookup' ? `Names only: the full ${typeLabel} table needs one of: ${nodesText}.` : '')}
-                </p>
+                <div className="min-w-0 flex-1 space-y-0.5">
+                    <p role="status" aria-live="polite" className={`text-xs ${statusClass}`}>
+                        {loading && answer && <Loader2 className="mr-1 inline h-3 w-3 animate-spin" aria-hidden="true" />}
+                        {status}
+                    </p>
+                    {access.mode === 'lookup' && blockedFilters.length === 0 && (
+                        <p className="text-xs text-muted">Names only: the full {typeLabel} table needs one of: {nodesText}.</p>
+                    )}
+                </div>
                 {access.mode === 'full' && (
                     <button
                         type="button"
