@@ -22,6 +22,8 @@ jest.mock('../../hooks/useStaffAccess', () => ({
   ...jest.requireActual('../../hooks/useStaffAccess'),
   usePermission: jest.fn(),
   useStaffAccess: jest.fn(),
+  // The admin sidebar's checks (#30): no admin page in these tests.
+  usePermissions: () => ({}),
 }));
 
 const mockedPermission = usePermission as jest.Mock;

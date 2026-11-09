@@ -1,5 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { CheckCircle2, XCircle, Info, X } from 'lucide-react';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { CheckCircle2, XCircle, Info, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { Dialog } from './Dialog';
+import { apiRefusalReason } from '../utils/apiRefusalReason';
+
+/**
+ * Extra information behind a "Show details" button (PandiO/knk-workspace#44), e.g. which structures still use a
+ * street: `load` runs only when the button is pressed (once; Hide/Show again keeps the answer), with a spinner, and its
+ * result shows under the message in the scrolling body, so the footer stays in view. A failure shows an error line
+ * with Try again.
+ */
+export interface FeedbackDetails {
+    /** The button's text (default "Show details"). */
+    label?: string;
+    load: () => Promise<React.ReactNode>;
+}
 
 type FeedbackStatus = 'success' | 'error' | 'info';
 
@@ -11,6 +25,7 @@ interface FeedbackModalProps {
     onClose: () => void;
     onContinue?: () => void | Promise<void>;
     continueLabel?: string;
+    /** Closes (after onContinue) by itself. Prefer `toast.success` for news that needs no answer (#33). */
     autoCloseMs?: number;
     onSecondary?: () => void;
     secondaryLabel?: string;
@@ -18,9 +33,27 @@ interface FeedbackModalProps {
     cancelLabel?: string;
     /** The action destroys something (a delete): its button is red. */
     danger?: boolean;
+    /** "Show details" (#44): fetched only on request. */
+    details?: FeedbackDetails;
 }
 
-// Simple feedback modal with outside-click close and optional auto-close timer
+const ICON: Record<FeedbackStatus, JSX.Element> = {
+    success: <CheckCircle2 className="h-6 w-6 text-success" />,
+    error: <XCircle className="h-6 w-6 text-danger" />,
+    info: <Info className="h-6 w-6 text-info" />,
+};
+
+const BORDER: Record<FeedbackStatus, string> = {
+    success: 'border-t-4 border-t-success',
+    error: 'border-t-4 border-t-danger',
+    info: 'border-t-4 border-t-info',
+};
+
+/**
+ * A message or a question in the accessible Dialog (#33): Escape, the × and a click outside close it,
+ * focus starts on the first button and returns to where it was. Errors and questions are an
+ * `alertdialog`. A failing onContinue (it throws) keeps the dialog open for the error the parent shows.
+ */
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     open,
     title,
@@ -33,9 +66,15 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     onSecondary,
     secondaryLabel,
     cancelLabel = 'Close',
-    danger = false
+    danger = false,
+    details
 }) => {
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
+    const [busy, setBusy] = useState(false);
+    const mounted = useRef(true);
+    useEffect(() => () => { mounted.current = false; }, []);
+    // With a details button in the body, focus still starts on the footer's first button (#44).
+    const firstFooterButton = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         if (!open || !autoCloseMs) {
@@ -69,33 +108,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         };
     }, [open, autoCloseMs, onClose, onContinue]);
 
-    if (!open) return null;
-
-    const iconMap: Record<FeedbackStatus, JSX.Element> = {
-        success: <CheckCircle2 className="h-6 w-6 text-green-600" />,
-        error: <XCircle className="h-6 w-6 text-red-600" />,
-        info: <Info className="h-6 w-6 text-blue-600" />
-    };
-
-    const borderClass: Record<FeedbackStatus, string> = {
-        success: 'border-green-100',
-        error: 'border-red-100',
-        info: 'border-blue-100'
-    };
-
-    const bgClass: Record<FeedbackStatus, string> = {
-        success: 'bg-green-50',
-        error: 'bg-red-50',
-        info: 'bg-blue-50'
-    };
-
-    const textClass: Record<FeedbackStatus, string> = {
-        success: 'text-green-800',
-        error: 'text-red-800',
-        info: 'text-blue-800'
-    };
-
     const handleContinue = async () => {
+        if (busy) return;
+        setBusy(true);
         try {
             if (onContinue) {
                 await onContinue();
@@ -103,71 +118,132 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             onClose();
         } catch {
             // Keep modal open to show error feedback set by parent
+        } finally {
+            if (mounted.current) setBusy(false);
         }
     };
 
-    return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
-            onClick={onClose}
-        >
-            <div
-                role="dialog"
-                aria-label={title}
-                className={`w-full max-w-md rounded-lg shadow-lg border ${borderClass[status]} ${bgClass[status]} relative`}
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Auto-close countdown */}
-                {autoCloseMs && secondsRemaining !== null && (
-                    <div className="absolute top-3 right-12 text-xs text-muted opacity-70">
-                        Closing in {secondsRemaining}s...
-                    </div>
-                )}
+    const isQuestion = !!onContinue;
+    const firstIs = onSecondary && secondaryLabel ? 'secondary' : isQuestion ? 'cancel' : 'continue';
 
-                <div className="flex items-start justify-between px-5 py-4">
-                    <div className="flex items-start space-x-3">
-                        {iconMap[status]}
-                        <div>
-                            <h3 className={`text-lg font-semibold ${textClass[status]}`}>{title}</h3>
-                            <p className="mt-1 text-sm text-gray-700">{message}</p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="text-muted hover:text-gray-600"
-                        aria-label="Close dialog"
-                    >
-                        <X className="h-5 w-5" />
-                    </button>
-                </div>
-                <div className="px-5 pb-4 flex justify-end space-x-3">
+    return (
+        <Dialog
+            open={open}
+            onClose={onClose}
+            title={title}
+            description={message}
+            icon={ICON[status]}
+            role={status === 'error' || isQuestion ? 'alertdialog' : 'dialog'}
+            size="md"
+            closeOnBackdrop
+            dismissible={!busy}
+            panelClassName={BORDER[status]}
+            headerClassName="pb-2"
+            footerClassName="pb-4"
+            bodyClassName="px-6 pb-2 pt-0"
+            initialFocusRef={details ? (firstFooterButton as React.RefObject<HTMLElement>) : undefined}
+            footer={
+                <>
+                    {autoCloseMs && secondsRemaining !== null && (
+                        <span className="mr-auto self-center text-xs text-muted">Closing in {secondsRemaining}s...</span>
+                    )}
                     {onSecondary && secondaryLabel && (
                         <button
+                            type="button"
+                            ref={firstIs === 'secondary' ? firstFooterButton : undefined}
                             onClick={() => {
                                 onSecondary();
                                 onClose();
                             }}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                            className="btn-secondary"
                         >
                             {secondaryLabel}
                         </button>
                     )}
                     {/* With nothing to continue to, one button closes (no "Close" next to a second "Close"). */}
-                    {onContinue && (
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                        >
+                    {isQuestion && (
+                        <button type="button" ref={firstIs === 'cancel' ? firstFooterButton : undefined} onClick={onClose} disabled={busy} className="btn-secondary">
                             {cancelLabel}
                         </button>
                     )}
                     <button
+                        type="button"
+                        ref={firstIs === 'continue' ? firstFooterButton : undefined}
                         onClick={handleContinue}
-                        className={`px-4 py-2 text-sm font-medium rounded-md ${danger ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-primary hover:bg-primary-dark text-primary-fg'}`}
+                        disabled={busy}
+                        className={danger ? 'btn-danger' : 'btn-primary'}
                     >
-                        {continueLabel ?? (onContinue ? 'Continue' : 'Close')}
+                        {continueLabel ?? (isQuestion ? 'Continue' : 'Close')}
                     </button>
-                </div>
+                </>
+            }
+        >
+            {details ? <DetailsDisclosure details={details} /> : undefined}
+        </Dialog>
+    );
+};
+
+type DetailsState =
+    | { kind: 'idle' }
+    | { kind: 'loading' }
+    | { kind: 'loaded'; content: React.ReactNode }
+    | { kind: 'error'; message: string };
+
+/** The button with `aria-expanded` and the region it opens; loads once, on the first press. */
+const DetailsDisclosure: React.FC<{ details: FeedbackDetails }> = ({ details }) => {
+    const [expanded, setExpanded] = useState(false);
+    const [state, setState] = useState<DetailsState>({ kind: 'idle' });
+    const regionId = useId();
+    const alive = useRef(true);
+    useEffect(() => () => { alive.current = false; }, []);
+
+    const load = async () => {
+        setState({ kind: 'loading' });
+        try {
+            const content = await details.load();
+            if (alive.current) setState({ kind: 'loaded', content });
+        } catch (error) {
+            if (alive.current) {
+                setState({ kind: 'error', message: apiRefusalReason(error) ?? "The details couldn't be loaded." });
+            }
+        }
+    };
+
+    const toggle = () => {
+        const next = !expanded;
+        setExpanded(next);
+        if (next && (state.kind === 'idle' || state.kind === 'error')) void load();
+    };
+
+    const label = details.label ?? 'Show details';
+    const Chevron = expanded ? ChevronDown : ChevronRight;
+    return (
+        <div className="border-t border-line pt-2">
+            <button
+                type="button"
+                onClick={toggle}
+                aria-expanded={expanded}
+                aria-controls={regionId}
+                className="btn-tertiary inline-flex items-center gap-1 text-sm"
+                data-testid="feedback-details-toggle"
+            >
+                <Chevron className="h-4 w-4" aria-hidden="true" />
+                {expanded ? 'Hide details' : label}
+            </button>
+            <div id={regionId} hidden={!expanded} className="mt-2" aria-live="polite">
+                {state.kind === 'loading' && (
+                    <p className="inline-flex items-center gap-2 text-sm text-muted" role="status">
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                        Loading details…
+                    </p>
+                )}
+                {state.kind === 'error' && (
+                    <p className="flex flex-wrap items-center gap-2 text-sm text-danger" role="alert">
+                        {state.message}
+                        <button type="button" className="btn-tertiary text-sm" onClick={() => void load()}>Try again</button>
+                    </p>
+                )}
+                {state.kind === 'loaded' && state.content}
             </div>
         </div>
     );

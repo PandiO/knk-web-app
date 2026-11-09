@@ -6,9 +6,11 @@ import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 // @ts-ignore: side-effect import for CSS without type declarations
 import './ObjectDashboard.css';
 import { getColumnDefinitions } from '../../config/objectConfigs';
-import { FeedbackModal } from '../FeedbackModal';
+import { FeedbackDetails, FeedbackModal } from '../FeedbackModal';
+import { refusedDeleteDetails } from '../ReferenceDetails';
+import { isReferenceRefusal } from '../../utils/referenceDetails';
+import { typeLabelFor } from '../../utils/entityLabel';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
@@ -19,9 +21,12 @@ import { readTableQuery, toSearch, writeTableQuery } from '../../utils/tableQuer
 import { PagedQueryDto } from '../../types/dtos/common/PagedQuery';
 import { useDashboardFormOptions } from '../../hooks/useDashboardFormOptions';
 import { DashboardHeaderMenu } from './DashboardHeaderMenu';
+import { DashboardSelectionBar } from './DashboardSelectionBar';
 import { FormSubmissionStatus } from '../../utils/enums';
 import { readLastDashboardType, writeLastDashboardType } from '../../utils/lastDashboardType';
 import { readDashboardFavourites, toggleFavourite, writeDashboardFavourites } from '../../utils/dashboardFavourites';
+import { describeActors, useLiveEntityChanges } from '../../realtime/liveUpdates';
+import { formatTime } from '../../utils/format';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
@@ -58,7 +63,6 @@ const findName = (names: string[], wanted: string | null | undefined): string | 
 };
 
 const ObjectDashboard = ({ objectTypes }: Props) => {
-    usePageTitle('Dashboard');
     const navigate = useNavigate();
     const location = useLocation();
     // #177 link 1 (#58): the type is in the URL (/dashboard/:entityName), so Back, a refresh and a
@@ -240,6 +244,18 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         ? findName(baseMetadata.map(metadata => metadata.entityName), selectedType) !== null
         : findName(objectTypes.map(objectType => objectType.id), selectedType) !== null;
 
+    // #183 (Realtime S4): another admin's save of this type refreshes the table quietly (debounced),
+    // with a short "Updated by …" line; after a hub reconnect it re-reads too. Without the hub: as before.
+    const [liveRefreshKey, setLiveRefreshKey] = useState(0);
+    const [liveNotice, setLiveNotice] = useState<string | null>(null);
+    useEffect(() => setLiveNotice(null), [selectedType]);
+    useLiveEntityChanges(selectedType && selectedIsKnown ? selectedType : null, change => {
+        setLiveRefreshKey(previous => previous + 1);
+        if (change.reconnect && change.actors.length === 0) return;
+        const time = formatTime(new Date(), { hour: '2-digit', minute: '2-digit' });
+        setLiveNotice(`${describeActors(change.actors)} at ${time}`);
+    });
+
     // Where a form opened from here comes back to (#58): this type, with whatever the URL holds
     // (page, search and sort included, #39).
     const returnTo = () => buildReturnTo(location) ?? dashboardPath(selectedType);
@@ -282,7 +298,14 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     const [modalOnContinue, setModalOnContinue] = useState<(() => void) | undefined>(undefined);
     const [modalOnSecondary, setModalOnSecondary] = useState<(() => void) | undefined>(undefined);
     const [modalSecondaryLabel, setModalSecondaryLabel] = useState<string | undefined>(undefined);
+    // #44: a delete refused because the row is still used can list what uses it.
+    const [modalDetails, setModalDetails] = useState<FeedbackDetails | undefined>(undefined);
     const [refreshKey, setRefreshKey] = useState<number>(0);
+
+    // #205: rows ticked in the checkbox column, kept across pages and searches of this type (cleared when the
+    // type changes). The bar above the table exports them, or the whole search when none are ticked.
+    const [selectedRows, setSelectedRows] = useState<any[]>([]);
+    useEffect(() => setSelectedRows([]), [selectedType]);
 
     const handleDelete = (entityTypeName: string, item: any) => {
         const name = item?.name || item?.label || `ID ${item?.id}`;
@@ -290,6 +313,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         setModalMessage(`Are you sure you want to delete ${entityTypeName} ${name}? This action cannot be undone.`);
         setModalStatus('info');
         setModalContinueLabel('Delete');
+        setModalDetails(undefined);
 
         setModalOnContinue(() => async () => {
             try {
@@ -306,10 +330,19 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                 setModalSecondaryLabel(undefined);
                 setSelectedType((prev) => prev);
                 setRefreshKey((prev) => prev + 1);
+                // #205: a deleted row leaves the selection.
+                setSelectedRows(previous => previous.filter(row => String(row?.id) !== String(item?.id)));
             } catch (err) {
                 setModalTitle('Delete Failed');
                 setModalMessage(apiRefusalReason(err) ?? 'An error occurred while deleting.');
                 setModalStatus('error');
+                setModalDetails(isReferenceRefusal(err)
+                    ? refusedDeleteDetails(entityTypeName, item.id, {
+                        typeLabel: typeLabelFor(baseMetadata),
+                        returnTo: returnTo(),
+                        onFollow: () => setModalOpen(false),
+                    })
+                    : undefined);
 
                 const isCategory = entityTypeName.toLowerCase() === 'category';
                 if (isCategory) {
@@ -440,8 +473,13 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                         danger={modalStatus === 'info' && modalContinueLabel === 'Delete'}
                         onSecondary={modalOnSecondary}
                         secondaryLabel={modalSecondaryLabel}
+                        details={modalStatus === 'error' ? modalDetails : undefined}
                         onClose={() => setModalOpen(false)}
                     />
+                    <p role="status" aria-live="polite" data-testid="dashboard-live-notice"
+                        className={liveNotice ? 'mb-2 text-xs text-muted' : 'sr-only'}>
+                        {liveNotice ?? ''}
+                    </p>
                     {selectedType && selectedIsKnown && (
                         <PagedEntityTable
                             entityTypeName={selectedType}
@@ -455,6 +493,20 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                 ? (row) => (row?.id != null ? displayPath(selectedType, row.id, returnTo()) : undefined)
                                 : undefined}
                             refreshKey={refreshKey}
+                            liveRefreshKey={liveRefreshKey}
+                            // #205: a checkbox column selects rows for the bulk bar; rows stay links.
+                            selectionConfig={{ mode: 'multiple' }}
+                            selectionStyle="checkbox"
+                            selectedItems={selectedRows}
+                            onSelectionChange={setSelectedRows}
+                            showSelectionBanner={false}
+                            renderSelectionBar={(state) => (
+                                <DashboardSelectionBar
+                                    state={state}
+                                    entityTypeName={selectedType}
+                                    typeLabel={typeLabel}
+                                />
+                            )}
                             emptyState={(
                                 <div className="flex flex-col items-center gap-3">
                                     <span>No {typeLabel} yet.</span>

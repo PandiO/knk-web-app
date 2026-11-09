@@ -63,7 +63,10 @@ export interface ActionButtonsConfigDto {
   
   // Collection relationship buttons
   showAddButton?: boolean;
+  /** Per item: Unlink (removes the link only, #188). */
   showRemoveButton?: boolean;
+  /** Per item: a separate red Delete of the record itself (#188). */
+  showDeleteButton?: boolean;
   
   // Both types
   showCreateButton?: boolean;

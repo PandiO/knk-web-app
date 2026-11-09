@@ -120,7 +120,7 @@ const CONFIGS: Record<string, unknown> = {
 };
 
 const modalFor = (title: string): HTMLElement =>
-    screen.getAllByText(title)[0].closest('.overflow-y-auto') as HTMLElement;
+    screen.getAllByText(title)[0].closest('[role="dialog"]') as HTMLElement;
 
 const fieldBlock = (container: HTMLElement, label: string): HTMLElement =>
     within(container).getByText(label).closest('div') as HTMLElement;
@@ -161,7 +161,10 @@ describe('GateStructure -> Street -> District: the new District is pinned in the
         await screen.findByText('Gate name');
         fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'North Gate' } });
         const rootDistricts = () => fieldBlock(document.body, 'Gate districts');
-        expect(within(rootDistricts()).getByText('No results found')).toBeInTheDocument();
+        // #191: the picker is a search box; using it lists the first matches (none yet).
+        const rootPicker = () => within(rootDistricts()).getByRole('combobox', { name: 'Add Gate districts' });
+        fireEvent.focus(rootPicker());
+        expect(await within(rootDistricts()).findByText('There are no District records yet.')).toBeInTheDocument();
 
         // Depth 1: Street "Create New" (the Street field comes before the Districts field).
         fireEvent.click(screen.getAllByRole('button', { name: /create new/i })[0]);
@@ -182,7 +185,7 @@ describe('GateStructure -> Street -> District: the new District is pinned in the
 
         // Without reopening anything, the root picker lists the District, pinned and marked New.
         await waitFor(() => expect(within(rootDistricts()).getByText('Created in this form')).toBeInTheDocument());
-        const pinnedRow = within(rootDistricts()).getByText('Old Quarter').closest('tr') as HTMLElement;
+        const pinnedRow = within(rootDistricts()).getByRole('option', { name: /Old Quarter/ });
         expect(within(pinnedRow).getByText('New')).toBeInTheDocument();
         // The picker refetched when the registry changed.
         expect(districtSearch.mock.calls.length).toBeGreaterThan(1);
@@ -193,17 +196,17 @@ describe('GateStructure -> Street -> District: the new District is pinned in the
         await waitFor(() => expect(screen.queryByText('Create New Street')).not.toBeInTheDocument());
 
         // The search box filters pinned rows too.
-        const search = within(rootDistricts()).getByPlaceholderText('Search...');
-        fireEvent.change(search, { target: { value: 'harbour' } });
-        // Wait for the refetch with the term and its empty result (the table hides rows while loading).
+        fireEvent.focus(rootPicker());
+        fireEvent.change(rootPicker(), { target: { value: 'harbour' } });
+        // Wait for the search with the term (after the typing pause) and its empty result.
         await waitFor(() => expect(districtSearch).toHaveBeenLastCalledWith(expect.objectContaining({ searchTerm: 'harbour' })));
-        await waitFor(() => expect(within(rootDistricts()).getByText('No results found')).toBeInTheDocument());
-        expect(within(rootDistricts()).queryByText('Old Quarter')).not.toBeInTheDocument();
-        fireEvent.change(search, { target: { value: 'quarter' } });
+        await waitFor(() => expect(within(rootDistricts()).getByText('No District matches "harbour".')).toBeInTheDocument());
+        expect(within(rootDistricts()).queryByRole('option', { name: /Old Quarter/ })).not.toBeInTheDocument();
+        fireEvent.change(rootPicker(), { target: { value: 'quarter' } });
         await waitFor(() => expect(districtSearch).toHaveBeenLastCalledWith(expect.objectContaining({ searchTerm: 'quarter' })));
 
         // Pick it in the GateStructure form and submit.
-        fireEvent.click(await within(rootDistricts()).findByText('Old Quarter'));
+        fireEvent.click(await within(rootDistricts()).findByRole('option', { name: /Old Quarter/ }));
         await waitFor(() => expect(within(rootDistricts()).getByText('ID: 501')).toBeInTheDocument());
         fireEvent.click(screen.getByRole('button', { name: /submit/i }));
 

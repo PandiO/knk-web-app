@@ -7,6 +7,10 @@ import { formConfigClient } from '../../../apiClients/formConfigClient';
 import { formSubmissionClient } from '../../../apiClients/formSubmissionClient';
 import { DisplayConfigurationDto } from '../../../types/dtos/displayConfig/DisplayModels';
 import { logging } from '../../../utils';
+import { fakeRealtime } from '../../../test-utils/fakeRealtime';
+import { LIVE_REFRESH_DEBOUNCE_MS } from '../../../realtime/liveUpdates';
+import { act } from '@testing-library/react';
+import { entityReferenceClient } from '../../../apiClients/entityReferenceClient';
 
 // virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
 const mockNavigate = jest.fn();
@@ -27,6 +31,14 @@ jest.mock('../../../apiClients/formConfigClient', () => ({
 }));
 jest.mock('../../../apiClients/formSubmissionClient', () => ({
     formSubmissionClient: { getByEntityTypeName: jest.fn() },
+}));
+
+// #205: the single-row Delete (FeedbackModal) also takes the row out of the bulk selection.
+const mockDeleteRow = jest.fn();
+jest.mock('../../../apiClients/entityReferenceClient', () => ({ entityReferenceClient: { getRows: jest.fn() } }));
+jest.mock('../../../utils/entityApiMapping', () => ({
+    ...jest.requireActual('../../../utils/entityApiMapping'),
+    getDeleteFunctionForEntity: () => mockDeleteRow,
 }));
 
 const loadedMetadata = [
@@ -669,3 +681,150 @@ describe('ObjectDashboard "Drafts (n)" and "New with" (#177 follow-up)', () => {
     });
 });
 
+// PandiO/knk-workspace#183 (Realtime S4): another admin's save of the shown type refreshes the table quietly.
+describe('ObjectDashboard live updates', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        window.localStorage.clear();
+        mockMetadata = { baseMetadata: loadedMetadata, loading: false };
+        mockParams = { entityName: 'Town' };
+        mockLocation = { pathname: '/dashboard/Town', search: '' };
+        getAll.mockResolvedValue([config('Town', true, false)]);
+    });
+    afterEach(() => jest.useRealTimers());
+
+    it("bumps the table's live key once per burst for the shown type, with who changed it", async () => {
+        const hub = fakeRealtime({ userId: 1 });
+        render(<hub.Provider><ObjectDashboard objectTypes={[]} /></hub.Provider>);
+        expect(await screen.findByTestId('table')).toHaveTextContent('Town');
+        const before = mockTableProps.liveRefreshKey;
+        jest.useFakeTimers();
+
+        act(() => {
+            hub.emit('EntityChanged', { type: 'Street', id: 1, op: 'Updated', actorUserId: 7, actorName: 'alice' }, 7);
+            hub.emit('EntityChanged', { type: 'Town', id: 4, op: 'Created', actorUserId: 7, actorName: 'alice' }, 7);
+            hub.emit('EntityChanged', { type: 'Town', id: 5, op: 'Updated', actorUserId: 8, actorName: 'bob' }, 8);
+        });
+        expect(mockTableProps.liveRefreshKey).toBe(before);
+        act(() => { jest.advanceTimersByTime(LIVE_REFRESH_DEBOUNCE_MS); });
+
+        expect(mockTableProps.liveRefreshKey).toBe(before + 1);
+        expect(mockTableProps.refreshKey).toBe(0); // not the spinner refresh
+        expect(screen.getByTestId('dashboard-live-notice')).toHaveTextContent(/^Updated by alice and bob at /);
+    });
+
+    it('ignores your own saves and other types; a reconnect re-reads without a notice', async () => {
+        const hub = fakeRealtime({ userId: 7 });
+        render(<hub.Provider><ObjectDashboard objectTypes={[]} /></hub.Provider>);
+        await screen.findByTestId('table');
+        const before = mockTableProps.liveRefreshKey;
+        jest.useFakeTimers();
+
+        act(() => {
+            hub.emit('EntityChanged', { type: 'Town', id: 4, op: 'Updated', actorUserId: 7, actorName: 'me' }, 7);
+            hub.emit('EntityChanged', { type: 'District', id: 2, op: 'Updated', actorUserId: 8, actorName: 'bob' }, 8);
+            jest.advanceTimersByTime(LIVE_REFRESH_DEBOUNCE_MS);
+        });
+        expect(mockTableProps.liveRefreshKey).toBe(before);
+
+        act(() => {
+            hub.reconnect();
+            jest.advanceTimersByTime(LIVE_REFRESH_DEBOUNCE_MS);
+        });
+        expect(mockTableProps.liveRefreshKey).toBe(before + 1);
+        expect(screen.getByTestId('dashboard-live-notice')).toHaveTextContent('');
+    });
+
+    it('without the hub the table is never bumped', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        expect(mockTableProps.liveRefreshKey).toBe(0);
+    });
+});
+
+describe('ObjectDashboard checkbox selection and bulk bar (PandiO/knk-workspace#205)', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        window.localStorage.clear();
+        mockMetadata = { baseMetadata: loadedMetadata, loading: false };
+        mockParams = { entityName: 'Street' };
+        mockLocation = { pathname: '/dashboard/Street', search: '' };
+        getAll.mockResolvedValue([config('Street', true, false), config('District', true, false)]);
+    });
+
+    it('selects with a checkbox column and keeps the row links and the row click', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        await waitFor(() => expect(mockTableProps.rowHref).toBeDefined());
+        expect(mockTableProps.selectionConfig).toEqual({ mode: 'multiple' });
+        expect(mockTableProps.selectionStyle).toBe('checkbox');
+        expect(mockTableProps.showSelectionBanner).toBe(false);
+        expect(mockTableProps.onRowClick).toBeDefined();
+        expect(mockTableProps.selectedItems).toEqual([]);
+    });
+
+    it('renders the bulk bar for the type with the table state', async () => {
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        const state = { selected: [], clearSelection: jest.fn(), columns: [], query: { page: 1, pageSize: 10 }, totalCount: 0, loading: false };
+        const bar = mockTableProps.renderSelectionBar(state);
+        expect(bar.props).toMatchObject({ state, entityTypeName: 'Street', typeLabel: 'Street' });
+    });
+
+    it('takes a deleted row out of the selection', async () => {
+        mockDeleteRow.mockResolvedValue(undefined);
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        act(() => mockTableProps.onSelectionChange([{ id: 7, name: 'Row seven' }, { id: 8 }]));
+        fireEvent.click(screen.getByTitle('Delete'));
+        const dialog = await screen.findByRole('alertdialog');
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+        await waitFor(() => expect(mockDeleteRow).toHaveBeenCalledWith(7));
+        await waitFor(() => expect(mockTableProps.selectedItems).toEqual([{ id: 8 }]));
+    });
+
+    it('offers what uses a row when its delete is refused as in use, and nothing more for other failures (#44)', async () => {
+        mockDeleteRow.mockRejectedValueOnce(Object.assign(new Error('in use'), {
+            status: 409, response: { code: 'DbConstraint', message: "This street can't be deleted: it is still used by 1 structure." },
+        }));
+        (entityReferenceClient.getRows as jest.Mock).mockResolvedValue({
+            entityTypeName: 'Street', id: 7, groups: [{
+                referencedBy: 'Structure.StreetId', entityType: 'Structure', count: 1, listed: true, readable: false,
+                nodes: ['knk.admin.world'], rows: [{ id: 3, label: 'Smithy' }], more: false,
+            }],
+        });
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        fireEvent.click(screen.getByTitle('Delete'));
+        let dialog = await screen.findByRole('alertdialog');
+        await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' })); });
+
+        dialog = await screen.findByRole('alertdialog', { name: 'Delete Failed' });
+        expect(dialog).toHaveTextContent("This street can't be deleted: it is still used by 1 structure.");
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Show what uses it' }));
+        expect(await within(dialog).findByText('Smithy')).toBeInTheDocument();
+        expect(entityReferenceClient.getRows).toHaveBeenCalledWith('Street', 7);
+        expect(within(dialog).getByText('Opening structures requires one of: knk.admin.world')).toBeInTheDocument();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+
+        mockDeleteRow.mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }));
+        fireEvent.click(screen.getByTitle('Delete'));
+        dialog = await screen.findByRole('alertdialog');
+        await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' })); });
+        dialog = await screen.findByRole('alertdialog', { name: 'Delete Failed' });
+        expect(within(dialog).queryByRole('button', { name: 'Show what uses it' })).not.toBeInTheDocument();
+    });
+
+    it('keeps the selection for the type and clears it when the type changes', async () => {
+        const { rerender } = render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        act(() => mockTableProps.onSelectionChange([{ id: 7, name: 'Row seven' }, { id: 8 }]));
+        expect(mockTableProps.selectedItems).toEqual([{ id: 7, name: 'Row seven' }, { id: 8 }]);
+
+        mockParams = { entityName: 'District' };
+        mockLocation = { pathname: '/dashboard/District', search: '' };
+        rerender(<ObjectDashboard objectTypes={[]} />);
+        await waitFor(() => expect(mockTableProps.entityTypeName).toBe('District'));
+        expect(mockTableProps.selectedItems).toEqual([]);
+    });
+});

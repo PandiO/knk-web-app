@@ -4,6 +4,7 @@ import '@testing-library/jest-dom';
 import { DisplayWizardPage } from '../DisplayWizardPage';
 import { getDeleteFunctionForEntity } from '../../utils/entityApiMapping';
 import { toast } from '../../utils/toast';
+import { entityReferenceClient } from '../../apiClients/entityReferenceClient';
 
 /** #81 (in #177 link 2): the detail page header - entity name, Back / Edit / Delete, breadcrumb, tab title. */
 
@@ -24,7 +25,13 @@ jest.mock('../../hooks/useEntityMetadata', () => ({
 jest.mock('../../utils/entityApiMapping', () => ({
     getDeleteFunctionForEntity: jest.fn(),
 }));
+// The viewer holds every node asked for (#188 gates; useAuth isn't provided here).
+jest.mock('../../hooks/useStaffAccess', () => ({
+    usePermissions: (nodes: string[]) => Object.fromEntries(nodes.map(node => [node, 'allowed'])),
+    usePermission: () => ({ allowed: true, isChecking: false, status: 'allowed', retry: jest.fn() }),
+}));
 jest.mock('../../utils/toast', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
+jest.mock('../../apiClients/entityReferenceClient', () => ({ entityReferenceClient: { getRows: jest.fn() } }));
 // The wizard as the page sees it: it loaded the entity and renders the page's header.
 let mockEntity: Record<string, unknown> = { id: 4, name: 'Cinix' };
 jest.mock('../../components/DisplayWizard/DisplayWizard', () => ({
@@ -112,5 +119,36 @@ describe('DisplayWizardPage header (#81)', () => {
 
         await waitFor(() => expect(toast.error).toHaveBeenCalled());
         expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('a delete refused because the town is in use opens a dialog that lists what uses it on request (#44)', async () => {
+        const refusal = Object.assign(new Error("This town can't be deleted: it is still used by 2 districts."), {
+            status: 409,
+            response: { code: 'DbConstraint', message: "This town can't be deleted: it is still used by 2 districts.", references: [] },
+        });
+        (getDeleteFunctionForEntity as jest.Mock).mockReturnValue(jest.fn().mockRejectedValue(refusal));
+        (entityReferenceClient.getRows as jest.Mock).mockResolvedValue({
+            entityTypeName: 'Town', id: 4, groups: [{
+                referencedBy: 'District.TownId', entityType: 'District', count: 2, listed: true, readable: true,
+                nodes: ['knk.admin.world'], rows: [{ id: 7, label: 'Old Quarter' }, { id: 8, label: 'Oostwijk' }], more: false,
+            }],
+        });
+        render(<DisplayWizardPage />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+        await screen.findByText('Delete Town "Cinix"?');
+        const dialogButtons = screen.getAllByRole('button', { name: 'Delete' });
+        await act(async () => { fireEvent.click(dialogButtons[dialogButtons.length - 1]); });
+
+        const dialog = await screen.findByRole('alertdialog', { name: 'Town "Cinix" is still in use' });
+        expect(toast.error).not.toHaveBeenCalled();
+        expect(entityReferenceClient.getRows).not.toHaveBeenCalled();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Show what uses it' }));
+        await waitFor(() => expect(entityReferenceClient.getRows).toHaveBeenCalledWith('town', '4'));
+        const link = await within(dialog).findByRole('link', { name: 'Old Quarter' });
+
+        fireEvent.click(link, { button: 0 });
+        expect(mockNavigate).toHaveBeenCalledWith(expect.stringMatching(/^\/display\/District\/7\?returnTo=/));
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     });
 });

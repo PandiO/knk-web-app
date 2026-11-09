@@ -70,7 +70,10 @@ export interface ActionButtonsConfigDto {
   
   // Collection relationship buttons
   showAddButton?: boolean;
+  /** Per item: "Unlink" (removes the link only, never the record, #188). */
   showRemoveButton?: boolean;
+  /** Per item: a separate red Delete that deletes the related record itself (#188). */
+  showDeleteButton?: boolean;
   
   // Both types
   showCreateButton?: boolean;
@@ -103,13 +106,20 @@ export interface DisplayWizardProps {
    * default heading, which shows the display configuration's name.
    */
   renderHeader?: (entity: Record<string, unknown>) => import('react').ReactNode;
+  /** #183: changing it re-reads the entity quietly (another admin changed it); not on mount. */
+  liveRefreshKey?: number;
 }
 
 export interface DisplayAction {
-  type: 'view' | 'edit' | 'create' | 'select' | 'unlink' | 'add' | 'remove';
+  /** `remove` is the old name of an item's Unlink (#188); `delete` deletes the related record. */
+  type: 'view' | 'edit' | 'create' | 'select' | 'unlink' | 'add' | 'remove' | 'delete';
   entityType: string;
   entityId?: number;
   fieldName?: string;
+  /** #188: the relationship (navigation property) the action changes, camelCase. */
+  property?: string;
+  /** The related record's name, for the question and the toast. */
+  label?: string;
 }
 
 export interface DisplayConfigBuilderProps {

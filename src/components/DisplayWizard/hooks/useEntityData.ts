@@ -2,31 +2,40 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getFetchByIdFunctionForEntity } from '../../../utils/entityApiMapping';
 import { failureReason } from '../../../utils/apiRefusalReason';
+import { withCause } from './withCause';
 
 export function useEntityData(entityTypeName: string, entityId: number) {
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchData = useCallback(async () => {
+  /**
+   * `quiet` (#183, a live update): the shown entity stays while it reloads and when the reload fails
+   * (the next change or Reload tries again); no "Loading..." flash.
+   */
+  const fetchData = useCallback(async (quiet = false) => {
     try {
-      setLoading(true);
-      setError(null);
+      if (!quiet) {
+        setLoading(true);
+        setError(null);
+      }
 
       const fetchById = getFetchByIdFunctionForEntity(entityTypeName);
       const entityData = await fetchById(entityId.toString());
       setData(entityData);
     } catch (err) {
-      // Shown to the user: the API's reason, never a bare "HTTP 500: …" (KNG-169).
-      setError(new Error(failureReason(err) ?? 'Failed to fetch entity data'));
       console.error('Failed to fetch entity data:', err);
+      if (quiet) return;
+      // Shown to the user: the API's reason, never a bare "HTTP 500: …" (KNG-169).
+      // #189: status and body ride along, so the page can say "You don't have access …" or "doesn't exist".
+      setError(withCause(new Error(failureReason(err) ?? 'Failed to fetch entity data'), err));
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   }, [entityTypeName, entityId]);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [fetchData]);
 
   return { data, loading, error, refetch: fetchData };

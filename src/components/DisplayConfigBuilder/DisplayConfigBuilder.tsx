@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Save, Plus, AlertCircle, Loader2, Copy, Trash2 } from 'lucide-react';
 import { DisplayConfigurationDto, DisplaySectionDto, DisplayFieldDto, ReuseLinkMode } from '../../types/dtos/displayConfig/DisplayModels';
@@ -11,13 +11,12 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableSectionItem } from './SortableSectionItem';
 import { FeedbackModal } from '../FeedbackModal';
+import { toast } from '../../utils/toast';
 import { ReusableSectionSelector } from './ReusableSectionSelector';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { useConfirm } from '../../hooks/useConfirm';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 export const DisplayConfigBuilder: React.FC = () => {
-    usePageTitle('Display builder');
     const { id } = useParams<{ id?: string }>();
     const navigate = useNavigate();
     const configId = id || 'new';
@@ -56,7 +55,6 @@ export const DisplayConfigBuilder: React.FC = () => {
         message: '',
         status: 'info'
     });
-    const autoCloseRef = useRef<number | undefined>(undefined);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -65,36 +63,12 @@ export const DisplayConfigBuilder: React.FC = () => {
         })
     );
 
-    const clearAutoClose = () => {
-        if (autoCloseRef.current) {
-            window.clearTimeout(autoCloseRef.current);
-            autoCloseRef.current = undefined;
-        }
-    };
-
-    useEffect(() => {
-        return () => clearAutoClose();
-    }, []);
-
     // Back to the Forms page (where the builders are opened from), on this config's entity.
     const formsPagePath = config.entityTypeName
         ? `/forms/${encodeURIComponent(config.entityTypeName)}`
         : '/forms';
 
-    const closeSaveModal = () => {
-        clearAutoClose();
-        const shouldNavigate = saveFeedback.status === 'success';
-        setSaveFeedback(prev => ({ ...prev, open: false }));
-        if (shouldNavigate) {
-            navigate(formsPagePath);
-        }
-    };
-
-    const handleSaveContinue = () => {
-        clearAutoClose();
-        setSaveFeedback(prev => ({ ...prev, open: false }));
-        navigate(formsPagePath);
-    };
+    const closeSaveModal = () => setSaveFeedback(prev => ({ ...prev, open: false }));
 
     // Load the reusable templates, and the config itself when editing (re-runs when the route id changes).
     useEffect(() => {
@@ -445,16 +419,9 @@ export const DisplayConfigBuilder: React.FC = () => {
             const successMessage = isEditMode
                 ? 'Configuration updated successfully.'
                 : 'Configuration created successfully.';
-            setSaveFeedback({
-                open: true,
-                title: 'Saved',
-                message: successMessage,
-                status: 'success'
-            });
-            clearAutoClose();
-            autoCloseRef.current = window.setTimeout(() => {
-                handleSaveContinue();
-            }, 3000);
+            // #33: a toast and straight back (no 3 s success modal), like the form wizard since #177.
+            toast.success(successMessage);
+            navigate(formsPagePath);
 
         } catch (err) {
             console.error('Failed to save configuration:', err);

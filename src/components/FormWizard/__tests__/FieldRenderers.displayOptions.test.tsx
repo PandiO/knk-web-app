@@ -75,7 +75,7 @@ describe('FieldRenderer display options', () => {
         expect(screen.getByRole('option', { name: 'DOUBLE_DOORS' })).toBeInTheDocument();
     });
 
-    it('labels an unselected object picker as Select instance', () => {
+    it('labels an unselected object picker as Select (#191: a search box)', () => {
         render(
             <FieldRenderer
                 field={baseField({
@@ -89,10 +89,10 @@ describe('FieldRenderer display options', () => {
             />
         );
 
-        expect(screen.getAllByRole('button', { name: /select instance/i }).length).toBeGreaterThan(0);
+        expect(screen.getByRole('combobox', { name: 'Select Street' })).toBeInTheDocument();
     });
 
-    it('labels a populated object picker as Replace instance', () => {
+    it('labels a populated object picker as Replace (#191: a search box)', () => {
         render(
             <FieldRenderer
                 field={baseField({
@@ -106,7 +106,7 @@ describe('FieldRenderer display options', () => {
             />
         );
 
-        expect(screen.getAllByRole('button', { name: /replace instance/i }).length).toBeGreaterThan(0);
+        expect(screen.getByRole('combobox', { name: 'Replace Street' })).toHaveAttribute('placeholder', "Search to replace King's Road…");
     });
 
     it('renders location details restored from saved form progress without an empty ID', () => {
