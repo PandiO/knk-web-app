@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { CheckCircle2, XCircle, Info, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { CheckCircle2, XCircle, Info } from 'lucide-react';
+import { Dialog } from './Dialog';
 
 type FeedbackStatus = 'success' | 'error' | 'info';
 
@@ -11,6 +12,7 @@ interface FeedbackModalProps {
     onClose: () => void;
     onContinue?: () => void | Promise<void>;
     continueLabel?: string;
+    /** Closes (after onContinue) by itself. Prefer `toast.success` for news that needs no answer (#33). */
     autoCloseMs?: number;
     onSecondary?: () => void;
     secondaryLabel?: string;
@@ -20,7 +22,23 @@ interface FeedbackModalProps {
     danger?: boolean;
 }
 
-// Simple feedback modal with outside-click close and optional auto-close timer
+const ICON: Record<FeedbackStatus, JSX.Element> = {
+    success: <CheckCircle2 className="h-6 w-6 text-success" />,
+    error: <XCircle className="h-6 w-6 text-danger" />,
+    info: <Info className="h-6 w-6 text-info" />,
+};
+
+const BORDER: Record<FeedbackStatus, string> = {
+    success: 'border-t-4 border-t-success',
+    error: 'border-t-4 border-t-danger',
+    info: 'border-t-4 border-t-info',
+};
+
+/**
+ * A message or a question in the accessible Dialog (#33): Escape, the × and a click outside close it,
+ * focus starts on the first button and returns to where it was. Errors and questions are an
+ * `alertdialog`. A failing onContinue (it throws) keeps the dialog open for the error the parent shows.
+ */
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     open,
     title,
@@ -36,6 +54,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     danger = false
 }) => {
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
+    const [busy, setBusy] = useState(false);
+    const mounted = useRef(true);
+    useEffect(() => () => { mounted.current = false; }, []);
 
     useEffect(() => {
         if (!open || !autoCloseMs) {
@@ -69,33 +90,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         };
     }, [open, autoCloseMs, onClose, onContinue]);
 
-    if (!open) return null;
-
-    const iconMap: Record<FeedbackStatus, JSX.Element> = {
-        success: <CheckCircle2 className="h-6 w-6 text-green-600" />,
-        error: <XCircle className="h-6 w-6 text-red-600" />,
-        info: <Info className="h-6 w-6 text-blue-600" />
-    };
-
-    const borderClass: Record<FeedbackStatus, string> = {
-        success: 'border-green-100',
-        error: 'border-red-100',
-        info: 'border-blue-100'
-    };
-
-    const bgClass: Record<FeedbackStatus, string> = {
-        success: 'bg-green-50',
-        error: 'bg-red-50',
-        info: 'bg-blue-50'
-    };
-
-    const textClass: Record<FeedbackStatus, string> = {
-        success: 'text-green-800',
-        error: 'text-red-800',
-        info: 'text-blue-800'
-    };
-
     const handleContinue = async () => {
+        if (busy) return;
+        setBusy(true);
         try {
             if (onContinue) {
                 await onContinue();
@@ -103,72 +100,60 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             onClose();
         } catch {
             // Keep modal open to show error feedback set by parent
+        } finally {
+            if (mounted.current) setBusy(false);
         }
     };
 
-    return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
-            onClick={onClose}
-        >
-            <div
-                role="dialog"
-                aria-label={title}
-                className={`w-full max-w-md rounded-lg shadow-lg border ${borderClass[status]} ${bgClass[status]} relative`}
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Auto-close countdown */}
-                {autoCloseMs && secondsRemaining !== null && (
-                    <div className="absolute top-3 right-12 text-xs text-muted opacity-70">
-                        Closing in {secondsRemaining}s...
-                    </div>
-                )}
+    const isQuestion = !!onContinue;
 
-                <div className="flex items-start justify-between px-5 py-4">
-                    <div className="flex items-start space-x-3">
-                        {iconMap[status]}
-                        <div>
-                            <h3 className={`text-lg font-semibold ${textClass[status]}`}>{title}</h3>
-                            <p className="mt-1 text-sm text-gray-700">{message}</p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="text-muted hover:text-gray-600"
-                        aria-label="Close dialog"
-                    >
-                        <X className="h-5 w-5" />
-                    </button>
-                </div>
-                <div className="px-5 pb-4 flex justify-end space-x-3">
+    return (
+        <Dialog
+            open={open}
+            onClose={onClose}
+            title={title}
+            description={message}
+            icon={ICON[status]}
+            role={status === 'error' || isQuestion ? 'alertdialog' : 'dialog'}
+            size="md"
+            closeOnBackdrop
+            dismissible={!busy}
+            panelClassName={BORDER[status]}
+            headerClassName="pb-2"
+            footerClassName="pb-4"
+            footer={
+                <>
+                    {autoCloseMs && secondsRemaining !== null && (
+                        <span className="mr-auto self-center text-xs text-muted">Closing in {secondsRemaining}s...</span>
+                    )}
                     {onSecondary && secondaryLabel && (
                         <button
+                            type="button"
                             onClick={() => {
                                 onSecondary();
                                 onClose();
                             }}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                            className="btn-secondary"
                         >
                             {secondaryLabel}
                         </button>
                     )}
                     {/* With nothing to continue to, one button closes (no "Close" next to a second "Close"). */}
-                    {onContinue && (
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                        >
+                    {isQuestion && (
+                        <button type="button" onClick={onClose} disabled={busy} className="btn-secondary">
                             {cancelLabel}
                         </button>
                     )}
                     <button
+                        type="button"
                         onClick={handleContinue}
-                        className={`px-4 py-2 text-sm font-medium rounded-md ${danger ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-primary hover:bg-primary-dark text-primary-fg'}`}
+                        disabled={busy}
+                        className={danger ? 'btn-danger' : 'btn-primary'}
                     >
-                        {continueLabel ?? (onContinue ? 'Continue' : 'Close')}
+                        {continueLabel ?? (isQuestion ? 'Continue' : 'Close')}
                     </button>
-                </div>
-            </div>
-        </div>
+                </>
+            }
+        />
     );
 };

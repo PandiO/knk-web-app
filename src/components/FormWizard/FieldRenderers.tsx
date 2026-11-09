@@ -708,6 +708,8 @@ const IntegerField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
                 </button>
                 <input
                     type="number"
+                    id={field.fieldName}
+                    aria-invalid={error ? true : undefined}
                     value={value ?? ''}
                     onChange={e => onChange(e.target.value ? Number(e.target.value) : null)}
                     onBlur={onBlur}
@@ -735,7 +737,8 @@ const IntegerField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
 
 const DecimalField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onBlur }) => (
     <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        {/* #187 (X-5): the label is tied to the input. */}
+        <label htmlFor={field.fieldName} className="block text-sm font-medium text-gray-700 mb-1">
             {field.label}
             {field.isRequired && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -743,6 +746,8 @@ const DecimalField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
         <input
             type="number"
             step="0.01"
+            id={field.fieldName}
+            aria-invalid={error ? true : undefined}
             value={value ?? ''}
             onChange={e => onChange(e.target.value ? parseFloat(e.target.value) : null)}
             onBlur={onBlur}
@@ -787,7 +792,8 @@ const BooleanField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
 
 const DateTimeField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onBlur }) => (
     <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        {/* #187 (X-5): the label is tied to the input. */}
+        <label htmlFor={field.fieldName} className="block text-sm font-medium text-gray-700 mb-1">
             {field.label}
             {field.isRequired && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -795,6 +801,8 @@ const DateTimeField: React.FC<FieldRendererProps> = ({ field, value, onChange, e
         <div className="relative">
             <input
                 type="datetime-local"
+                id={field.fieldName}
+                aria-invalid={error ? true : undefined}
                 value={value ?? ''}
                 onChange={e => onChange(e.target.value)}
                 onBlur={onBlur}

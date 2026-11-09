@@ -209,3 +209,31 @@ describe('PagedEntityTable rows as links (#39 CRUD-4)', () => {
         expect(screen.queryByRole('link')).not.toBeInTheDocument();
     });
 });
+
+// PandiO/knk-workspace#183: a live update refetches the page quietly (rows stay, no spinner).
+describe('PagedEntityTable liveRefreshKey (#183)', () => {
+    const Live: React.FC<{ liveKey: number }> = ({ liveKey }) => (
+        <PagedEntityTable<Row> entityTypeName="Town" columns={columns} query={{ page: 2, searchTerm: 'north' }} liveRefreshKey={liveKey} />
+    );
+
+    it('does not fetch twice on mount, then refetches the same page without hiding the rows', async () => {
+        const { rerender } = render(<Live liveKey={0} />);
+        await screen.findByText('Alpha');
+        expect(search).toHaveBeenCalledTimes(1);
+
+        let answer: (value: unknown) => void = () => undefined;
+        search.mockImplementationOnce(() => new Promise(resolve => { answer = resolve; }));
+        rerender(<Live liveKey={1} />);
+
+        expect(search).toHaveBeenCalledTimes(2);
+        expect(search).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, searchTerm: 'north' }));
+        expect(screen.getByText('Alpha')).toBeInTheDocument();
+        expect(screen.queryByRole('status', { name: 'Loading' })).not.toBeInTheDocument();
+
+        await act(async () => {
+            answer({ items: [{ id: 1, name: 'Alpha renamed', note: 'x' }], totalCount: 1, page: 2, pageSize: 10, totalPages: 1 });
+        });
+        expect(await screen.findByText('Alpha renamed')).toBeInTheDocument();
+        expect(screen.queryByText('Bravo')).not.toBeInTheDocument();
+    });
+});

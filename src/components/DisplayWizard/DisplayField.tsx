@@ -5,6 +5,7 @@ import { DisplayFieldProps } from '../../types/dtos/displayConfig/DisplayModels'
 import { useTemplateParser } from './hooks/useTemplateParser';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { MinecraftIcon } from '../minecraft/MinecraftIcon';
+import { formatDate, formatDateTime, formatNumber, isIsoDateTimeString } from '../../utils/format';
 
 export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: string }> = ({ 
   field, 
@@ -261,22 +262,26 @@ function toCamelCase(str: string): string {
   return str.charAt(0).toLowerCase() + str.slice(1);
 }
 
-// Helper: Format value based on type
-function formatValue(value: unknown, fieldType?: string): string {
-  if (value === null || value === undefined) return '-';
+// Helper: Format value based on type. #187: through utils/format.ts, so API dates without a zone are read
+// as UTC and shown in the viewer's time, and numbers look the same everywhere. A field without a type (or
+// typed String) that holds an ISO date-time, e.g. CreatedAt, is shown as a date and time, not raw ISO text.
+export function formatValue(value: unknown, fieldType?: string): string {
+  if (value === null || value === undefined || value === '') return '-';
 
   switch (fieldType?.toLowerCase()) {
     case 'datetime':
-      return new Date(value as string).toLocaleString();
+      return formatDateTime(value as string);
     case 'date':
-      return new Date(value as string).toLocaleDateString();
+      return formatDate(value as string);
     case 'integer':
     case 'number':
-      return (value as number).toLocaleString();
+    case 'decimal':
+      return typeof value === 'number' || typeof value === 'string' ? formatNumber(value, undefined, String(value)) : String(value);
     case 'boolean':
       return value ? 'Yes' : 'No';
     default:
-      return String(value);
+      if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+      return isIsoDateTimeString(value) ? formatDateTime(value) : String(value);
   }
 }
 

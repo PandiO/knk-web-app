@@ -4,7 +4,6 @@ import { Ticket } from 'lucide-react';
 import { invitationClient } from '../../apiClients/invitationClient';
 import { InviteSignupForm } from '../../components/auth/InviteSignupForm';
 import { useAuth } from '../../contexts/AuthContext';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { useNoReferrer } from '../../hooks/useNoReferrer';
 import { InvalidInvite } from './InvitePage';
 import { AFTER_SIGNUP_PATH } from '../../utils/onboardingPaths';
@@ -23,7 +22,6 @@ type Step = 'code' | 'checking' | 'invalid' | 'signup';
  * and the links get the whole KNK-XXXXX-XXXXX.
  */
 export const JoinPage: React.FC = () => {
-  usePageTitle('Join the closed alpha');
   usePublicSurface();
   useNoReferrer();
   const [searchParams] = useSearchParams();

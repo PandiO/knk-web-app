@@ -4,11 +4,8 @@ import { ArrowDown, ArrowUp, Loader2, Search } from 'lucide-react';
 import { currencyClient } from '../../apiClients/currencyClient';
 import { LedgerLineDto, LedgerPageDto, LedgerQuery, LedgerSortKey } from '../../types/dtos/currency/CurrencyDtos';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
-
-const numberFormat = new Intl.NumberFormat('en-US');
-
-/** The API sends UTC, sometimes without an offset. */
-export const parseUtc = (value: string): Date => new Date(/[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`);
+// #187: the shared number format and the UTC reading of API dates (parseUtc lived here) are in utils/format.ts.
+import { numberFormat, parseUtc } from '../../utils/format';
 
 const formatWhen = (value: string): string => {
   const date = parseUtc(value);

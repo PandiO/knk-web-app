@@ -344,7 +344,9 @@ export const RoadEdgesCard: React.FC<{
           <td className="py-2 pr-4 text-gray-500 text-xs">{edge.source}{edge.status === 'Stale' ? ' · stale' : ''}</td>
           <td className="py-2 pr-4 text-right whitespace-nowrap">
             <div className="inline-flex gap-1">
-              <button type="button" className="btn-primary text-xs px-2 py-1 inline-flex items-center" disabled={saving} onClick={() => void save(edge)}>
+              {/* Named for its stretch: the page header has a Save of its own (#26). */}
+              <button type="button" className="btn-primary text-xs px-2 py-1 inline-flex items-center" disabled={saving} onClick={() => void save(edge)}
+                aria-label={`Save stretch #${edge.id}`}>
                 {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
                 Save
               </button>

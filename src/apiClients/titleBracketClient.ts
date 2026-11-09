@@ -18,6 +18,11 @@ export class TitleBracketClient extends ObjectManager {
         return TitleBracketClient.instance;
     }
 
+    /** Every bracket (GET api/TitleBrackets, logged in); the currency policy's sender-title choice (#26). */
+    getAll(): Promise<TitleBracketDto[]> {
+        return this.invokeServiceCall(null, '', Controllers.TitleBrackets, HttpMethod.Get);
+    }
+
     getById(id: number): Promise<TitleBracketDto> {
         return this.invokeServiceCall(null, `${id}`, Controllers.TitleBrackets, HttpMethod.Get);
     }

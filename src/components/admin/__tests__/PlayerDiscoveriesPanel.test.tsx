@@ -159,10 +159,10 @@ describe('PlayerDiscoveriesPanel', () => {
     render(<PlayerDiscoveriesPanel userId={PLAYER} />);
     await screen.findByText('Old Quarter');
 
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     await clickRowReset();
 
-    const dialog = screen.getByRole('dialog', { name: 'Reset discovery?' });
+    const dialog = screen.getByRole('alertdialog', { name: 'Reset discovery?' });
     expect(within(dialog).getByText(/Reset the discovery of Old Quarter\?/)).toBeInTheDocument();
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(mockedReset).not.toHaveBeenCalled();
@@ -175,13 +175,13 @@ describe('PlayerDiscoveriesPanel', () => {
     await screen.findByText('Old Quarter');
 
     await clickRowReset();
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reset' }));
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Reset' }));
 
     await waitFor(() => expect(mockedReset).toHaveBeenCalledWith(PLAYER, 2));
     await waitFor(() => expect(onReset).toHaveBeenCalled());
     expect(mockedReset).toHaveBeenCalledTimes(1);
     expect(mockedProgress).toHaveBeenCalledTimes(2);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(confirmSpy).not.toHaveBeenCalled();
   });
 
@@ -196,7 +196,7 @@ describe('PlayerDiscoveriesPanel', () => {
     mockedSummary.mockReturnValue(new Promise(() => {}));
 
     await clickRowReset();
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reset' }));
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Reset' }));
 
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Reset the discovery of Old Quarter. The player keeps the reward and can discover it again.');
@@ -211,7 +211,7 @@ describe('PlayerDiscoveriesPanel', () => {
     mockedProgress.mockResolvedValue(page([row({ domainId: 1 })]));
 
     await clickRowReset();
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reset' }));
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Reset' }));
 
     await waitFor(() => expect(mockedProgress).toHaveBeenCalledTimes(2));
     expect(screen.queryByText('Old Quarter')).not.toBeInTheDocument();
@@ -223,9 +223,9 @@ describe('PlayerDiscoveriesPanel', () => {
     await screen.findByText('Old Quarter');
 
     await clickRowReset();
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Close' }));
 
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(mockedReset).not.toHaveBeenCalled();
     expect(mockedProgress).toHaveBeenCalledTimes(1);
   });
@@ -236,7 +236,7 @@ describe('PlayerDiscoveriesPanel', () => {
     await screen.findByText('Old Quarter');
 
     await clickRowReset();
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reset' }));
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Reset' }));
 
     expect(await screen.findByText('User 7 has not discovered domain 2')).toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
