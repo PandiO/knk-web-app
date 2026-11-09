@@ -10,9 +10,25 @@ export interface DisplayConfigurationDto {
   description?: string;
   sectionOrderJson?: string;
   isDraft: boolean;
+  /** PandiO/knk-workspace#71: the builder holds saved changes that aren't published yet. Read only. */
+  hasUnpublishedChanges?: boolean;
+  draftSavedAt?: string | null;
+  publishedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
   sections: DisplaySectionDto[];
+}
+
+/** #71 (knk-web-api `DisplayConfigurationBuilderStateDto`): what the display builder opens. */
+export interface DisplayConfigurationBuilderState {
+  configuration: DisplayConfigurationDto;
+  published: DisplayConfigurationDto | null;
+  isPublished: boolean;
+  hasUnpublishedChanges: boolean;
+  draftSavedAt?: string | null;
+  publishedAt?: string | null;
+  currentDefaultId?: string | null;
+  currentDefaultName?: string | null;
 }
 
 export interface DisplaySectionDto {

@@ -136,7 +136,32 @@ export interface FormConfigurationDto {
     stepOrderJson?: string;
     createdAt?: string;
     updatedAt?: string;
+    /** PandiO/knk-workspace#71: never published; the form wizard doesn't offer it. Read only. */
+    isDraft?: boolean;
+    /** #71: the builder holds saved changes that aren't published yet. Read only. */
+    hasUnpublishedChanges?: boolean;
+    draftSavedAt?: string | null;
+    publishedAt?: string | null;
     steps: FormStepDto[];
+}
+
+/**
+ * #71 (knk-web-api `FormConfigurationBuilderStateDto`): what the form builder opens. `configuration` is the working
+ * copy (the saved draft, else the published version); `published` is what the wizard uses now (null until the first
+ * Publish).
+ */
+export interface FormConfigurationBuilderState {
+    configuration: FormConfigurationDto;
+    published: FormConfigurationDto | null;
+    isPublished: boolean;
+    hasUnpublishedChanges: boolean;
+    draftSavedAt?: string | null;
+    publishedAt?: string | null;
+    /** Saved wizard drafts (in progress or paused) on this configuration. */
+    openDraftCount: number;
+    /** The entity's published default, when it is another configuration. */
+    currentDefaultId?: string | null;
+    currentDefaultName?: string | null;
 }
 
 export interface FormSubmissionProgressDto {

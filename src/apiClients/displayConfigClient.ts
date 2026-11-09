@@ -1,6 +1,7 @@
 import { logging, Controllers, HttpMethod, DisplayConfigurationOperation } from "../utils";
 import { ObjectManager } from "./objectManager";
 import {
+  DisplayConfigurationBuilderState,
   DisplayConfigurationDto,
   DisplaySectionDto,
   DisplayFieldDto,
@@ -98,6 +99,33 @@ export class DisplayConfigClient extends ObjectManager {
   async publish(id: number): Promise<DisplayConfigurationDto> {
     return this.invokeServiceCall(null, `${id}/${DisplayConfigurationOperation.Publish}`, Controllers.DisplayConfigurations, HttpMethod.Post);
   }
+
+  // PandiO/knk-workspace#71: the builder's draft and Duplicate (Publish above applies the saved copy too)
+
+  /** The working copy (saved draft, else the published version) and the published version. */
+  getBuilderState(id: number | string): Promise<DisplayConfigurationBuilderState> {
+    return this.invokeServiceCall(null, `${id}/builder`, Controllers.DisplayConfigurations, HttpMethod.Get);
+  }
+
+  /** A new display configuration, saved as a draft only. */
+  createDraft(config: DisplayConfigurationDto): Promise<DisplayConfigurationBuilderState> {
+    return this.invokeServiceCall(config, 'drafts', Controllers.DisplayConfigurations, HttpMethod.Post);
+  }
+
+  /** Saves the working copy; detail pages keep showing the published version. */
+  saveDraft(id: number | string, config: DisplayConfigurationDto): Promise<DisplayConfigurationBuilderState> {
+    return this.invokeServiceCall(config, `${id}/draft`, Controllers.DisplayConfigurations, HttpMethod.Put);
+  }
+
+  discardDraft(id: number | string): Promise<DisplayConfigurationBuilderState> {
+    return this.invokeServiceCall(null, `${id}/draft/discard`, Controllers.DisplayConfigurations, HttpMethod.Post);
+  }
+
+  /** A copy of the published version as a new draft; without a name "<name> (copy)". */
+  duplicate(id: number | string, name?: string): Promise<DisplayConfigurationBuilderState> {
+    return this.invokeServiceCall({ name: name?.trim() || null }, `${id}/duplicate`, Controllers.DisplayConfigurations, HttpMethod.Post);
+  }
+
 
   /**
    * Clone/copy configuration
