@@ -38,6 +38,18 @@ interface ActionButtonsProps {
   deleteGate?: ButtonGate;
 }
 
+/** "Change…: X" and "Unlink: X" → "Change… and Unlink: X". */
+export function mergeHints(texts: string[]): string[] {
+  const byReason = new Map<string, string[]>();
+  texts.forEach(text => {
+    const at = text.indexOf(': ');
+    const label = at < 0 ? '' : text.slice(0, at);
+    const reason = at < 0 ? text : text.slice(at + 2);
+    byReason.set(reason, [...(byReason.get(reason) ?? []), label].filter(Boolean));
+  });
+  return Array.from(byReason, ([reason, labels]) => (labels.length ? `${labels.join(' and ')}: ${reason}` : reason));
+}
+
 const BUTTON = 'btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-sm';
 
 /**
@@ -155,7 +167,8 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
       'btn-danger inline-flex items-center gap-1.5 px-3 py-1.5 text-sm', relatedLabel ? `Delete ${relatedLabel}` : undefined));
   }
 
-  if (config.showCreateButton) {
+  // Create New belongs to the section (its header), not to each item.
+  if (config.showCreateButton && !isItemLevel) {
     buttons.push(
       <button key="create" type="button" className={BUTTON} onClick={() => onCreateNew ? onCreateNew() : handleClick('create')}>
         <PlusCircle size={16} aria-hidden="true" />
@@ -170,9 +183,11 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
     <div className={isItemLevel ? 'mt-3 pt-3 border-t border-line' : 'mt-4'}>
       <div className="flex flex-wrap gap-2">{buttons}</div>
       {hints.map(hint => (
-        <p key={hint.id} id={hint.id} className={isItemLevel ? 'sr-only' : 'mt-2 text-xs text-muted'} data-testid="action-hint">
-          {hint.text}
-        </p>
+        <p key={hint.id} id={hint.id} className="sr-only">{hint.text}</p>
+      ))}
+      {/* Visible once per reason: "Change… and Unlink: Change this on the Edit page." */}
+      {!isItemLevel && mergeHints(hints.map(hint => hint.text)).map(text => (
+        <p key={text} className="mt-2 text-xs text-muted" data-testid="action-hint" aria-hidden="true">{text}</p>
       ))}
     </div>
   );

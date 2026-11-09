@@ -57,4 +57,17 @@ describe('ActionButtons (#188)', () => {
     expect(add).toHaveAccessibleDescription('Add…: Requires knk.admin.world');
     expect(screen.getByTestId('action-hint')).toHaveTextContent('Add…: Requires knk.admin.world');
   });
+
+  it('says a shared reason once, and offers Create New on the section, not on each item', () => {
+    const reference = { ...streets, kind: 'reference' as const, storage: 'foreignKey' as const, canLink: false, canUnlink: false };
+    const closed = { allowed: false, reason: 'Change this on the Edit page.' };
+    render(<ActionButtons config={ALL_ON} isCollection={false} entityType="Location" entityData={{ id: 9 }}
+      relationship={reference} linkGate={closed} unlinkGate={closed} />);
+    expect(screen.getAllByTestId('action-hint').map(p => p.textContent)).toEqual(['Change… and Unlink: Change this on the Edit page.']);
+  });
+
+  it('has no Create New on an item', () => {
+    render(<ActionButtons config={ALL_ON} isCollection isItemLevel entityType="Street" entityData={{ id: 3 }} relationship={streets} />);
+    expect(screen.queryByRole('button', { name: /Create New/ })).not.toBeInTheDocument();
+  });
 });

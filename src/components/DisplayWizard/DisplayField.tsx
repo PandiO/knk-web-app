@@ -183,15 +183,15 @@ export const DisplayField: React.FC<Props> = ({
             </button>
           </div>
         ) : (
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1 break-words text-base text-fg">
+          <div className="flex items-start gap-1">
+            <div className="min-w-0 break-words text-base text-fg">
               {renderDisplayValue(sourceData, field, displayValue, parentEntityType, target, links)}
             </div>
             {canEdit && (
               <button
                 type="button"
                 onClick={handleEditStart}
-                className="flex-shrink-0 rounded-md p-1.5 text-muted transition-colors hover:bg-info-soft hover:text-primary"
+                className="-mt-0.5 flex-shrink-0 rounded-md p-1 text-muted transition-colors hover:bg-info-soft hover:text-primary"
                 title="Edit this field"
                 aria-label={`Edit ${field.label}`}
               >

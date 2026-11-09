@@ -195,7 +195,7 @@ describe('relationship actions (#188)', () => {
 
         const location = screen.getByRole('region', { name: 'Location' });
         expect(within(location).getByRole('button', { name: /Change…/ })).toBeDisabled();
-        expect(within(location).getByText('Change…: Change this on the Edit page.')).toBeInTheDocument();
+        expect(within(location).getByTestId('action-hint')).toHaveTextContent('Change… and Unlink: Change this on the Edit page.');
     });
 
     it('a staff account without knk.admin.delete sees Delete disabled with "Requires knk.admin.delete", Unlink still works', () => {
@@ -212,7 +212,7 @@ describe('relationship actions (#188)', () => {
         mockHeld = new Set(['knk.admin.road']);
         renderPage();
         expect(within(screen.getByRole('region', { name: 'Streets' })).getByRole('button', { name: /Add…/ })).toBeDisabled();
-        expect(screen.getByText('Add…: Requires knk.admin.world')).toBeInTheDocument();
+        expect(within(screen.getByRole('region', { name: 'Streets' })).getByTestId('action-hint')).toHaveTextContent('Add…: Requires knk.admin.world');
         expect(within(streets()).getByRole('button', { name: 'Unlink Main Street' })).toHaveAttribute('title', 'Requires knk.admin.world');
     });
 });
