@@ -202,8 +202,9 @@ describe('Siege authoring: Scenario -> Team -> Spawnpoint owned nesting', () => 
         // Item 2: the Clan picker is ordered by the scenario's town (parent context, edit mode).
         const teamModal = modalFor('Edit SiegeTeam');
         await waitFor(() => expect(within(teamModal).getByText('Spawnpoints')).toBeInTheDocument());
-        const selectButtons = within(teamModal).getAllByText('Select instance');
-        fireEvent.click(selectButtons[selectButtons.length - 1]);
+        // #191: the picker searches when its box is used.
+        const pickers = within(teamModal).getAllByTestId('relation-picker').map(picker => within(picker).getByRole('combobox'));
+        fireEvent.focus(pickers[pickers.length - 1]);
         await waitFor(() => expect(clanSearch).toHaveBeenCalledWith(
             expect.objectContaining({ filters: { preferTownId: '5' } })
         ));

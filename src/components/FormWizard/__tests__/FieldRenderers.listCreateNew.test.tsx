@@ -49,7 +49,7 @@ describe('FieldRenderer List+Object "Create New" and ownedChildCollection', () =
         );
 
         expect(screen.getByRole('button', { name: /create new/i })).toBeEnabled();
-        expect(screen.getByTestId('paged-table')).toBeInTheDocument();
+        expect(screen.getByRole('combobox')).toBeInTheDocument(); // #191: the search-as-you-type picker
     });
 
     it('hides Create New when canCreate is false', () => {
@@ -77,7 +77,7 @@ describe('FieldRenderer List+Object "Create New" and ownedChildCollection', () =
             />
         );
 
-        expect(screen.queryByTestId('paged-table')).not.toBeInTheDocument();
+        expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
         expect(screen.queryByTitle(/remove from selection/i)).not.toBeInTheDocument();
         expect(screen.getByRole('button', { name: /create new/i })).toBeEnabled();
         expect(screen.getByRole('button', { name: /edit instance/i })).toBeInTheDocument();

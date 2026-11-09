@@ -1,9 +1,8 @@
 import React from 'react';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
-import { Calendar, Plus, Minus, X, CheckCircle2, AlertTriangle, Loader2, Info, Pencil, Gamepad2, RefreshCw, WifiOff } from 'lucide-react';
-import { PagedEntityTable, SelectionConfig } from '../PagedEntityTable/PagedEntityTable';
-import { getColumnDefinitions } from '../../config/objectConfigs';
+import { Calendar, Plus, Minus, X, CheckCircle2, AlertTriangle, Loader2, Info, Pencil, Gamepad2, WifiOff } from 'lucide-react';
+import { RelationPicker } from './RelationPicker';
 import { MinecraftMaterialPicker } from '../minecraft/MinecraftMaterialPicker';
 import { EnchantmentOriginFilter, MinecraftEnchantmentPicker, parseOriginFilter } from '../minecraft/MinecraftEnchantmentPicker';
 import { ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
@@ -942,7 +941,6 @@ const ObjectField: React.FC<FieldRendererProps> = ({
 }) => {
     const pickerUnavailableReason = pickerFilters?.unavailableReason;
     const canCreate = field.canCreate !== false; // default true if not specified
-    const [showReplaceTable, setShowReplaceTable] = React.useState(false);
     // KNG-136: entities this form session created, pinned in the picker.
     const sessionPins = useSessionPinnedRows(field.objectType);
     const configuredDisplayFields = useDefaultDisplayFields(field.objectType);
@@ -950,20 +948,6 @@ const ObjectField: React.FC<FieldRendererProps> = ({
     // Fall back to the generic Location shape when the entity has no configured display columns.
     const locationDetails = configuredDetails.length > 0 ? [] : getLocationDetails(value);
     const summaryDetails = configuredDetails.length > 0 ? configuredDetails : locationDetails;
-
-    React.useEffect(() => {
-        if (value) {
-            setShowReplaceTable(false);
-        }
-    }, [value, field.fieldName]);
-
-    const selectionConfig: SelectionConfig = {
-        mode: 'single'
-    };
-
-    const handleSelectionChange = (selected: any[]) => {
-        onChange(selected[0] || null);
-    };
 
     // changed: handler to remove selected item
     const handleRemoveSelection = () => {
@@ -998,15 +982,6 @@ const ObjectField: React.FC<FieldRendererProps> = ({
             label: value ? 'Replace via Minecraft' : 'Send to Minecraft',
             onClick: onWorldTaskAction,
             icon: <Gamepad2 className="h-4 w-4" />
-        });
-    }
-
-    if (!field.isReadOnly && !pickerUnavailableReason) {
-        actions.push({
-            key: 'replace',
-            label: value ? 'Replace instance' : 'Select instance',
-            onClick: () => setShowReplaceTable(prev => !prev),
-            icon: <RefreshCw className="h-4 w-4" />
         });
     }
 
@@ -1111,16 +1086,6 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                                 {value ? 'Replace via Minecraft' : 'Send to Minecraft'}
                             </button>
                         )}
-                        {!pickerUnavailableReason && (
-                            <button
-                                type="button"
-                                onClick={() => setShowReplaceTable(prev => !prev)}
-                                className="btn-secondary whitespace-nowrap inline-flex items-center gap-1"
-                            >
-                                <RefreshCw className="h-4 w-4" />
-                                {value ? 'Replace instance' : 'Select instance'}
-                            </button>
-                        )}
                     </div>
                 </div>
 
@@ -1131,22 +1096,19 @@ const ObjectField: React.FC<FieldRendererProps> = ({
                     </p>
                 )}
 
-                {showReplaceTable && !pickerUnavailableReason && (
-                    <div className="relative">
-                        <PagedEntityTable
-                            // Remount when the context filters change - the table reads initialQuery once.
-                            key={JSON.stringify(pickerFilters?.filters ?? {})}
-                            entityTypeName={field.objectType!}
-                            columns={getColumnDefinitions(field.objectType)}
-                            initialQuery={{ page: 1, pageSize: 10, filters: pickerFilters?.filters ?? {} }}
-                            selectionConfig={selectionConfig}
-                            selectedItems={value ? [value] : []}
-                            onSelectionChange={handleSelectionChange}
-                            showSelectionBanner={false}
-                            pinnedRows={sessionPins.pinnedRows}
-                            refreshKey={sessionPins.refreshKey}
-                        />
-                    </div>
+                {/* #191: search as you type, the full table behind "Open full table" (it was this inline table). */}
+                {!pickerUnavailableReason && field.objectType && (
+                    <RelationPicker
+                        entityTypeName={field.objectType}
+                        label={`${value ? 'Replace' : 'Select'} ${field.label}`}
+                        placeholder={value ? `Search to replace ${getEntityDisplayLabel(value, 'it')}…` : `Search ${field.label}…`}
+                        mode="single"
+                        selected={value ? [value] : []}
+                        onChange={picked => onChange(picked[0] ?? null)}
+                        filters={pickerFilters?.filters}
+                        pinnedRows={sessionPins.pinnedRows}
+                        refreshKey={sessionPins.refreshKey}
+                    />
                 )}
             </div>}
             {error && <p className="mt-1 text-sm field-error">{error}</p>}
@@ -1204,16 +1166,6 @@ const ListField: React.FC<FieldRendererProps> = ({
             {worldTaskLabel}
         </button>
     ) : null;
-
-    const selectionConfig: SelectionConfig = {
-        mode: 'multiple',
-        min: field.minSelection,
-        max: field.maxSelection
-    };
-
-    const handleSelectionChange = (selected: any[]) => {
-        onChange(selected);
-    };
 
     // KNG-134: by position, not id - two id-less items (an old draft's unsaved values) both have
     // no id, so removing by id dropped all of them.
@@ -1409,21 +1361,22 @@ const ListField: React.FC<FieldRendererProps> = ({
                         </p>
                     )}
 
-                    {!field.isReadOnly && !isScanList && !ownedChildCollection && !pickerFilters?.unavailableReason && <div className="border border-line rounded-md p-4">
-                        <PagedEntityTable
-                            key={JSON.stringify(pickerFilters?.filters ?? {})}
+                    {/* #191: search as you type (a pick adds or removes one), the full table behind "Open full table". */}
+                    {!field.isReadOnly && !isScanList && !ownedChildCollection && !pickerFilters?.unavailableReason && (
+                        <RelationPicker
                             entityTypeName={field.objectType}
-                            columns={getColumnDefinitions(field.objectType)}
-                            initialQuery={{ page: 1, pageSize: 5, filters: pickerFilters?.filters ?? {} }}
-                            selectionConfig={selectionConfig}
-                            selectedItems={items}
-                            onSelectionChange={handleSelectionChange}
-                            showSearchBar={true}
-                            showSelectionBanner={false}
+                            label={`Add ${field.label}`}
+                            placeholder={`Search ${field.label} to add…`}
+                            mode="multiple"
+                            selected={items}
+                            onChange={onChange}
+                            min={field.minSelection}
+                            max={field.maxSelection}
+                            filters={pickerFilters?.filters}
                             pinnedRows={sessionPins.pinnedRows}
                             refreshKey={sessionPins.refreshKey}
                         />
-                    </div>}
+                    )}
                 </>
             )}
             {error && <p className="mt-1 text-sm field-error">{error}</p>}

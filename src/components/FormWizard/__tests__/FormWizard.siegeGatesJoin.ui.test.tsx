@@ -153,8 +153,9 @@ describe('Siege authoring: scenario Gates M2M with three join fields (edit mode)
         expect(within(joinModal).getAllByText('ID: 2').length).toBeGreaterThan(0);
 
         // The owner-team picker is scoped to this scenario.
-        const selectButtons = within(joinModal).getAllByText(/select instance|replace instance/i);
-        fireEvent.click(selectButtons[selectButtons.length - 1]);
+        // #191: the picker searches when its box is used.
+        const pickers = within(joinModal).getAllByTestId('relation-picker').map(picker => within(picker).getByRole('combobox'));
+        fireEvent.focus(pickers[pickers.length - 1]);
         await waitFor(() => expect(teamSearch).toHaveBeenCalledWith(
             expect.objectContaining({ filters: { siegeScenarioId: '1' } })
         ));

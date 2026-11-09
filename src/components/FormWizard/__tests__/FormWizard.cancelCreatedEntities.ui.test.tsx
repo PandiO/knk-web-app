@@ -323,8 +323,10 @@ describe('Cancel a root form after its child forms saved entities (KNG-162)', ()
 
         await screen.findByText('Gate name');
         const rootDistricts = () => fieldBlock(document.body, 'Gate districts');
+        // #191: the picker lists the pinned rows when its search box is used.
+        fireEvent.focus(within(rootDistricts()).getByRole('combobox'));
         await waitFor(() => expect(within(rootDistricts()).getByText('Created in this form')).toBeInTheDocument());
-        expect(within(rootDistricts()).getByText('Old Quarter')).toBeInTheDocument();
+        expect(within(rootDistricts()).getByRole('option', { name: /Old Quarter/ })).toBeInTheDocument();
 
         const dialog = await openCancelPrompt();
         expect(within(dialog).getByText("Street 'Market Lane'")).toBeInTheDocument();
