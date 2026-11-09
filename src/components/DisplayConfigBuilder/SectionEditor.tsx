@@ -7,11 +7,9 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { FieldEditor } from './FieldEditor';
 import { ReusableFieldSelector } from './ReusableFieldSelector';
-import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { metadataClient } from '../../apiClients/metadataClient';
-import { logging } from '../../utils';
 import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
-import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { newGuid } from '../../utils/configBuilder/scaffold';
 
 interface Props {
     section: DisplaySectionDto;
@@ -35,8 +33,6 @@ function getRelatedEntityOptions(metadataFields: FieldMetadataDto[]): { property
 export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpdate, onAddChildSection, metadataFields = [] }) => {
     const [editingField, setEditingField] = useState<{ field: DisplayFieldDto; index: number } | null>(null);
     const [showFieldSelector, setShowFieldSelector] = useState(false);
-    const [addingTemplate, setAddingTemplate] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [relatedEntityFields, setRelatedEntityFields] = useState<FieldMetadataDto[]>([]);
     const [, setLoadingRelatedMetadata] = useState(false);
 
@@ -53,6 +49,7 @@ export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpda
         ...field,
         id: undefined,
         displaySectionId: undefined,
+        fieldGuid: newGuid(),
         sourceFieldId: field.id,
         isLinkedToSource: false,
         hasCompatibilityIssues: false,
@@ -72,48 +69,18 @@ export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpda
         setEditingField({ field: newField, index: -1 });
     };
 
-    const handleAddReusableField = async (templateField: DisplayFieldDto, mode: ReuseLinkMode) => {
-        if (!section.id || section.id.startsWith('temp-')) {
-            // If section hasn't been saved yet, fall back to local cloning
-            const clonedField = cloneField(templateField);
-            clonedField.id = generateTempId();
-            clonedField.fieldGuid = crypto.randomUUID?.() || `guid-${Date.now()}`;
-            clonedField.isLinkedToSource = mode === ReuseLinkMode.Link;
+    // PandiO/knk-workspace#71: a template is copied into the working copy (saved with the draft, live on Publish). The
+    // API's add-from-template wrote straight into the published page, so the builder no longer calls it.
+    const handleAddReusableField = (templateField: DisplayFieldDto, mode: ReuseLinkMode) => {
+        const clonedField = cloneField(templateField);
+        clonedField.id = generateTempId();
+        clonedField.isLinkedToSource = mode === ReuseLinkMode.Link;
 
-            onUpdate({
-                ...section,
-                fields: [...section.fields, clonedField]
-            });
-            setShowFieldSelector(false);
-            return;
-        }
-
-        // Use backend API for saved sections
-        try {
-            setAddingTemplate(true);
-            setError(null);
-
-            const addedField = await displayConfigClient.addReusableFieldToSection(
-                section.id,
-                {
-                    sourceFieldId: templateField.id!,
-                    linkMode: mode
-                }
-            );
-
-            // Add the returned field to section
-            onUpdate({
-                ...section,
-                fields: [...section.fields, addedField]
-            });
-            setShowFieldSelector(false);
-        } catch (err) {
-            console.error('Failed to add reusable field:', err);
-            setError(apiRefusalReason(err) ?? 'Failed to add field from template');
-            logging.errorHandler.next('ErrorMessage.DisplayConfiguration.AddFieldFailed');
-        } finally {
-            setAddingTemplate(false);
-        }
+        onUpdate({
+            ...section,
+            fields: [...section.fields, clonedField]
+        });
+        setShowFieldSelector(false);
     };
 
     const handleSaveField = (field: DisplayFieldDto) => {
@@ -487,14 +454,6 @@ export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpda
 
                 {/* Fields Section */}
                 <div className="pt-4 border-t border-gray-200">
-                    {error && (
-                        <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-3 flex items-start">
-                            <svg className="h-5 w-5 text-red-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <p className="text-sm text-red-800">{error}</p>
-                        </div>
-                    )}
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-md font-medium text-gray-900">Fields</h3>
                         <div className="flex space-x-2">
@@ -508,7 +467,6 @@ export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpda
                             <button
                                 onClick={() => setShowFieldSelector(true)}
                                 className="btn-secondary text-sm"
-                                disabled={addingTemplate}
                             >
                                 <Copy className="h-4 w-4 mr-1" />
                                 From Template

@@ -384,7 +384,7 @@ export const FormWizardPage: React.FC<Props> = ({
             void handleResumeProgress({ id: urlResumeId } as FormSubmissionProgressSummaryDto);
             return;
         }
-        const config = formConfigs.find(candidate => String(candidate.id) === urlConfigId);
+        const config = formConfigs.find(candidate => String(candidate.id) === urlConfigId && !candidate.isDraft);
         if (config) {
             void handleOpenConfiguration(config);
         } else {
@@ -451,15 +451,15 @@ export const FormWizardPage: React.FC<Props> = ({
             setShowWizard(false);
             setWizardConfig(null); // Clear any previously selected config
 
-            // Fetch all configurations
-            const configs = await formConfigClient.getByEntityTypeName(entityTypeName, false) as FormConfigurationDto[];
+            // Fetch all configurations; #71: drafts too (never published), listed for the builders only.
+            const configs = await formConfigClient.getByEntityTypeName(entityTypeName, false, true) as FormConfigurationDto[];
             const sortedConfigs = [...configs].sort((a, b) => {
                 if (a.isDefault && !b.isDefault) return -1;
                 if (!a.isDefault && b.isDefault) return 1;
                 return 0;
             });
             setFormConfigs(sortedConfigs);
-            setDefaultConfig(sortedConfigs.find(c => c.isDefault) || null);
+            setDefaultConfig(sortedConfigs.find(c => c.isDefault && !c.isDraft) || null);
 
             // Fetch saved progress
             const progress = await formSubmissionClient.getByEntityTypeName(entityTypeName, true) as FormSubmissionProgressSummaryDto[];
@@ -560,6 +560,27 @@ export const FormWizardPage: React.FC<Props> = ({
     // Handler: Edit configuration
     const handleEditConfiguration = (config: FormConfigurationDto) => {
         navigate(`/admin/form-configurations/edit/${config.id}`);
+    };
+
+    // #71 (CRUD-12): Duplicate copies the published version as a new draft and opens it in the builder.
+    const handleDuplicateConfiguration = async (config: FormConfigurationDto) => {
+        try {
+            const copy = await formConfigClient.duplicate(config.id!);
+            toast.success(`"${copy.configuration.configurationName}" created as a draft.`);
+            navigate(`/admin/form-configurations/edit/${copy.configuration.id}`);
+        } catch (error) {
+            showFailure('Duplicate failed', error, 'The form configuration could not be copied.');
+        }
+    };
+
+    const handleDuplicateDisplay = async (config: DisplayConfigurationDto) => {
+        try {
+            const copy = await displayConfigClient.duplicate(config.id!);
+            toast.success(`"${copy.configuration.name}" created as a draft.`);
+            navigate(`/admin/display-configurations/edit/${copy.configuration.id}`);
+        } catch (error) {
+            showFailure('Duplicate failed', error, 'The display configuration could not be copied.');
+        }
     };
 
     // Handler: Resume progress
@@ -1083,13 +1104,14 @@ export const FormWizardPage: React.FC<Props> = ({
         );
     }
 
-    // Notification logic
-    const showNoConfigs = selectedTypeName && formConfigs.length === 0 && !showWizard;
+    // Notification logic (#71: a draft is not a form staff can use yet)
+    const publishedConfigs = formConfigs.filter(cfg => !cfg.isDraft);
+    const showNoConfigs = selectedTypeName && publishedConfigs.length === 0 && !showWizard;
     // #177 decision 3: "New" on a type without a default form configuration lands here and says so
     // once the configurations loaded (before, the notice was hidden whenever autoOpen was set).
-    const showNoDefault = selectedTypeName && formConfigs.length > 0 && !defaultConfig && !showWizard && (!shouldAutoOpen || !loadingConfigs);
+    const showNoDefault = selectedTypeName && publishedConfigs.length > 0 && !defaultConfig && !showWizard && (!shouldAutoOpen || !loadingConfigs);
     const newNeedsDefault = shouldAutoOpen && !entityId && !loadingConfigs && (showNoConfigs || showNoDefault);
-    const showTooManyDefaults = selectedTypeName && formConfigs.filter(cfg => cfg.isDefault).length > 1 && !showWizard;
+    const showTooManyDefaults = selectedTypeName && publishedConfigs.filter(cfg => cfg.isDefault).length > 1 && !showWizard;
 
     return (
         <>
@@ -1270,6 +1292,7 @@ export const FormWizardPage: React.FC<Props> = ({
                                                 onSetDefault={handleSetDefault}
                                                 onRemoveDefault={handleRemoveDefault}
                                                 onEdit={handleEditConfiguration}
+                                                onDuplicate={handleDuplicateConfiguration}
                                                 onDelete={handleFormConfigDelete}
                                                 onCreate={handleCreateFormConfiguration}
                                                 onCreateDefault={handleCreateFormConfigurationAsDefault}
@@ -1294,6 +1317,7 @@ export const FormWizardPage: React.FC<Props> = ({
                                                     onSetDefault={handleDisplaySetDefault}
                                                     onRemoveDefault={handleDisplayRemoveDefault}
                                                     onPublish={handleDisplayPublish}
+                                                    onDuplicate={handleDuplicateDisplay}
                                                     onDelete={handleDisplayDelete}
                                                     onCreate={handleCreateDisplayConfiguration}
                                                     onCreateDefault={handleCreateDisplayConfigurationAsDefault}

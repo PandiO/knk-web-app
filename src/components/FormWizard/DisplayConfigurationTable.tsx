@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Download, Eye, MoreVertical, Pencil, Rocket, Star, StarOff, Trash2, Upload } from 'lucide-react';
+import { CopyPlus, Download, Eye, MoreVertical, Pencil, Rocket, Star, StarOff, Trash2, Upload } from 'lucide-react';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
 
 interface Props {
@@ -8,6 +8,8 @@ interface Props {
     onSetDefault: (config: DisplayConfigurationDto) => void;
     onRemoveDefault: (config: DisplayConfigurationDto) => void;
     onPublish?: (config: DisplayConfigurationDto) => void;
+    /** #71: a copy of the published version as a new draft. */
+    onDuplicate?: (config: DisplayConfigurationDto) => void;
     onDelete?: (config: DisplayConfigurationDto) => void;
     onCreate: () => void;
     onCreateDefault: () => void;
@@ -23,6 +25,7 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
     onSetDefault,
     onRemoveDefault,
     onPublish,
+    onDuplicate,
     onDelete,
     onCreate,
     onCreateDefault,
@@ -180,6 +183,9 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                         }`}>
                                             {config.isDraft ? 'Draft' : 'Published'}
                                         </span>
+                                        {!config.isDraft && config.hasUnpublishedChanges && (
+                                            <span className="mt-1 block text-xs text-info-strong" title="Saved in the builder, not published yet">+ unpublished changes</span>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-muted w-32">
                                         {config.createdAt ? new Date(config.createdAt).toLocaleDateString() : '-'}
@@ -197,6 +203,7 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                 <button
                                                     ref={(el) => buttonRefs.current[config.id!] = el}
                                                     onClick={() => setActiveMenu(activeMenu === config.id ? null : config.id!)}
+                                                    aria-label={`More actions for ${config.name}`}
                                                     className="p-2 rounded-full hover:bg-gray-100 transition-colors"
                                                 >
                                                     <MoreVertical className="h-4 w-4 text-muted" />
@@ -266,6 +273,19 @@ export const DisplayConfigurationTable: React.FC<Props> = ({
                                                                 >
                                                                     <Download className="h-4 w-4 text-muted" />
                                                                     <span>Export JSON</span>
+                                                                </button>
+                                                            )}
+                                                            {onDuplicate && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        closeMenuToTrigger(config.id!);
+                                                                        onDuplicate(config);
+                                                                    }}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-fg hover:bg-surface-alt flex items-center space-x-2"
+                                                                    role="menuitem"
+                                                                >
+                                                                    <CopyPlus className="h-4 w-4 text-muted" />
+                                                                    <span>Duplicate</span>
                                                                 </button>
                                                             )}
                                                             {config.isDraft && onPublish && (

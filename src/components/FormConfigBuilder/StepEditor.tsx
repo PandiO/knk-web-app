@@ -11,13 +11,12 @@ import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { ReusableFieldSelector } from './ReusableFieldSelector';
 import { ReusableStepSelector } from './ReusableStepSelector';
 import { formConfigClient } from '../../apiClients/formConfigClient';
+import { newGuid } from '../../utils/configBuilder/scaffold';
 import { metadataClient } from '../../apiClients/metadataClient';
-import { logging } from '../../utils';
 import { getManyToManyStepIssues } from '../../utils/forms/manyToManyStepValidation';
 import { DisplayConditionBuilder } from './DisplayConditionBuilder';
 import { fieldsBeforeField, fieldsBeforeStep } from '../../utils/forms/displayConditionSources';
 import { DisplayConditionTargetType } from '../../utils/enums';
-import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 interface Props {
     step: FormStepDto;
@@ -46,8 +45,6 @@ export const StepEditor: React.FC<Props> = ({
 }) => {
     const [editingField, setEditingField] = useState<{ field: FormFieldDto; index: number } | null>(null);
     const [showFieldSelector, setShowFieldSelector] = useState(false);
-    const [addingTemplate, setAddingTemplate] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [availableEntityTypes, setAvailableEntityTypes] = useState<string[]>([]);
     const [showChildStepSelector, setShowChildStepSelector] = useState(false);
     const [childFieldEdit, setChildFieldEdit] = useState<{ childIndex: number; field: FormFieldDto; index: number } | null>(null);
@@ -247,6 +244,8 @@ export const StepEditor: React.FC<Props> = ({
         ...field,
         id: undefined,
         formStepId: undefined,
+        // #71: a copy gets its own GUID (field order and conditions go by GUID).
+        fieldGuid: newGuid(),
         sourceFieldId: field.id,
         order: step.fields.length,
         isLinkedToSource: false,
@@ -423,47 +422,18 @@ export const StepEditor: React.FC<Props> = ({
         }));
     };
 
-    const handleAddReusableField = async (templateField: FormFieldDto, mode: ReuseLinkMode) => {
-        if (!step.id || step.id.startsWith('temp-')) {
-            // If step hasn't been saved yet, fall back to local cloning
-            const clonedField = cloneField(templateField);
-            clonedField.id = generateTempId();
-            clonedField.isLinkedToSource = mode === 'link';
+    // PandiO/knk-workspace#71: a template is copied into the working copy (saved with the draft, live on Publish). The
+    // API's add-from-template wrote straight into the published form, so the builder no longer calls it.
+    const handleAddReusableField = (templateField: FormFieldDto, mode: ReuseLinkMode) => {
+        const clonedField = cloneField(templateField);
+        clonedField.id = generateTempId();
+        clonedField.isLinkedToSource = mode === 'link';
 
-            onUpdate({
-                ...step,
-                fields: [...step.fields, clonedField]
-            });
-            setShowFieldSelector(false);
-            return;
-        }
-
-        // Use backend API for saved steps
-        try {
-            setAddingTemplate(true);
-            setError(null);
-
-            const addedField = await formConfigClient.addReusableFieldToStep(
-                step.id,
-                {
-                    sourceFieldId: parseInt(templateField.id!),
-                    linkMode: mode
-                }
-            );
-
-            // Add the returned field to step
-            onUpdate({
-                ...step,
-                fields: [...step.fields, addedField]
-            });
-            setShowFieldSelector(false);
-        } catch (err) {
-            console.error('Failed to add reusable field:', err);
-            setError(apiRefusalReason(err) ?? 'Failed to add field from template');
-            logging.errorHandler.next('ErrorMessage.FormConfiguration.AddFieldFailed');
-        } finally {
-            setAddingTemplate(false);
-        }
+        onUpdate({
+            ...step,
+            fields: [...step.fields, clonedField]
+        });
+        setShowFieldSelector(false);
     };
 
     const handleSaveField = (field: FormFieldDto) => {
@@ -778,7 +748,6 @@ export const StepEditor: React.FC<Props> = ({
                                                             type="button"
                                                             className="btn-secondary text-xs"
                                                             onClick={() => setChildFieldSelectorIndex(childIdx)}
-                                                            disabled={addingTemplate}
                                                         >
                                                             <Copy className="h-4 w-4 mr-1" />
                                                             From template
@@ -867,14 +836,6 @@ export const StepEditor: React.FC<Props> = ({
 
                 {/* Fields Section */}
                 <div className="pt-4 border-t border-gray-200">
-                    {error && (
-                        <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-3 flex items-start">
-                            <svg className="h-5 w-5 text-red-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <p className="text-sm text-red-800">{error}</p>
-                        </div>
-                    )}
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-md font-medium text-gray-900">Fields</h3>
                         <div className="flex space-x-2">
@@ -888,7 +849,6 @@ export const StepEditor: React.FC<Props> = ({
                             <button
                                 onClick={() => setShowFieldSelector(true)}
                                 className="btn-secondary text-sm"
-                                disabled={addingTemplate}
                             >
                                 <Copy className="h-4 w-4 mr-1" />
                                 From Template

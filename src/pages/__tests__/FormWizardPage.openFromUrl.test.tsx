@@ -102,6 +102,19 @@ describe('FormWizardPage opens a configuration or draft from the URL (#177 follo
         expect((formSubmissionClient.getById as jest.Mock).mock.calls.every(([id]) => id === 'd1')).toBe(true);
     });
 
+    it('#71: lists the configurations with drafts, but never opens a draft from the URL', async () => {
+        (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue([
+            ...configs, { id: '11', entityTypeName: 'Category', configurationName: 'Unfinished', isDefault: false, isDraft: true, steps: [] },
+        ]);
+        mockSearch = 'configId=11';
+        render(<FormWizardPage entityTypeName="" objectTypes={[]} />);
+        await waitFor(() => expect(errors).toHaveBeenCalledWith('That form configuration was not found. Pick one from the list below.'));
+        expect(formConfigClient.getByEntityTypeName).toHaveBeenCalledWith('category', false, true);
+        expect(screen.queryByTestId('wizard')).not.toBeInTheDocument();
+        expect(screen.getByText('Unfinished')).toBeInTheDocument();
+        expect(screen.getByText('Draft')).toBeInTheDocument();
+    });
+
     it('stays on the configuration lists with an error for an unknown configuration', async () => {
         mockSearch = 'configId=404';
         render(<FormWizardPage entityTypeName="" objectTypes={[]} />);

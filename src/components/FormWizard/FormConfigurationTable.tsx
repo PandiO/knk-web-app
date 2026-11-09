@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Star, Pencil, StarOff, MoreVertical, Trash2, Download, Upload } from 'lucide-react';
+import { Play, Star, Pencil, StarOff, MoreVertical, Trash2, Download, Upload, CopyPlus } from 'lucide-react';
 import { FormConfigurationDto } from '../../types/dtos/forms/FormModels';
 
 interface Props {
@@ -8,6 +8,8 @@ interface Props {
     onSetDefault: (config: FormConfigurationDto) => void;
     onRemoveDefault: (config: FormConfigurationDto) => void;
     onEdit: (config: FormConfigurationDto) => void;
+    /** #71: a copy of the published version as a new draft. */
+    onDuplicate?: (config: FormConfigurationDto) => void;
     onDelete?: (config: FormConfigurationDto) => void;
     onCreate: () => void;
     onCreateDefault: () => void;
@@ -23,6 +25,7 @@ export const FormConfigurationTable: React.FC<Props> = ({
     onSetDefault,
     onRemoveDefault,
     onEdit,
+    onDuplicate,
     onDelete,
     onCreate,
     onCreateDefault,
@@ -145,6 +148,12 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                             {config.isDefault && (
                                                 <Star className="ml-2 h-4 w-4 text-yellow-400 fill-current flex-shrink-0" />
                                             )}
+                                            {/* #71: where the configuration stands; the wizard only uses what is published. */}
+                                            {config.isDraft ? (
+                                                <span className="ml-2 flex-shrink-0 rounded-full bg-warning-muted px-2 py-0.5 text-xs font-medium text-warning-strong">Draft</span>
+                                            ) : config.hasUnpublishedChanges ? (
+                                                <span className="ml-2 flex-shrink-0 rounded-full bg-info-muted px-2 py-0.5 text-xs font-medium text-info-strong" title="Saved in the builder, not published yet">Unpublished changes</span>
+                                            ) : null}
                                         </div>
                                     </td>
                                     <td 
@@ -175,7 +184,9 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                         <div className="flex items-center justify-end space-x-2">
                                             <button
                                                 onClick={() => onOpen(config)}
-                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-primary-fg bg-primary hover:bg-primary-dark"
+                                                disabled={config.isDraft}
+                                                title={config.isDraft ? 'Publish it in the builder first' : undefined}
+                                                className="disabled:opacity-50 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-primary-fg bg-primary hover:bg-primary-dark"
                                             >
                                                 <Play className="h-3 w-3 mr-1" />
                                                 Use
@@ -206,7 +217,7 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                         }}
                                                     >
                                                         <div className="py-1" role="menu">
-                                                            {!config.isDefault && (
+                                                            {!config.isDefault && !config.isDraft && (
                                                                 <button
                                                                     onClick={() => {
                                                                         closeMenuToTrigger(config.id!);
@@ -243,6 +254,21 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                                 <Pencil className="h-4 w-4 text-muted" />
                                                                 <span>Edit</span>
                                                             </button>
+                                                            {onDuplicate && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        closeMenuToTrigger(config.id!);
+                                                                        onDuplicate(config);
+                                                                    }}
+                                                                    disabled={config.isDraft}
+                                                                    title={config.isDraft ? 'Publish it first: a copy starts from the published version.' : undefined}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-fg hover:bg-surface-alt flex items-center space-x-2 disabled:opacity-50"
+                                                                    role="menuitem"
+                                                                >
+                                                                    <CopyPlus className="h-4 w-4 text-muted" />
+                                                                    <span>Duplicate</span>
+                                                                </button>
+                                                            )}
                                                             {onExport && (
                                                                 <button
                                                                     onClick={() => {
