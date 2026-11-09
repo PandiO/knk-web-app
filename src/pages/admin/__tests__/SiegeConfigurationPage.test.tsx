@@ -3,6 +3,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SiegeConfigurationPage } from '../SiegeConfigurationPage';
 import { siegeConfigurationClient } from '../../../apiClients/siegeConfigurationClient';
+import { toast } from '../../../utils/toast';
+
+// virtual: CRA's Jest resolver can't resolve react-router-dom's package exports. No data router here, so the
+// SettingsPage shell (#187) leaves its navigation blocker out.
+jest.mock('react-router-dom', () => ({}), { virtual: true });
 
 jest.mock('../../../apiClients/siegeConfigurationClient', () => ({
     siegeConfigurationClient: { get: jest.fn(), update: jest.fn() }
@@ -26,6 +31,12 @@ describe('SiegeConfigurationPage', () => {
         (siegeConfigurationClient.update as jest.Mock).mockImplementation(async (dto: object) => ({ ...DEFAULTS, ...dto }));
     });
 
+    let successToast: jest.SpyInstance;
+    beforeEach(() => {
+        successToast = jest.spyOn(toast, 'success').mockImplementation(() => undefined);
+    });
+    afterEach(() => successToast.mockRestore());
+
     it('sends only the changed values (partial PUT), parsing lists', async () => {
         render(<SiegeConfigurationPage />);
         await waitFor(() => expect(screen.getByDisplayValue('1.5')).toBeInTheDocument());
@@ -41,7 +52,9 @@ describe('SiegeConfigurationPage', () => {
             headshotMultiplier: 1,
             matchmakingAnnouncementMarks: [120, 60]
         }));
-        await waitFor(() => expect(screen.getByText('Saved 2 settings.')).toBeInTheDocument());
+        // #187: the shell's success toast; the header says nothing is left to save.
+        await waitFor(() => expect(successToast).toHaveBeenCalledWith('Saved 2 settings.'));
+        expect(screen.getByText('No unsaved changes.')).toBeInTheDocument();
     });
 
     it('blocks saving invalid input and shows the API reason on a rejected save', async () => {
@@ -61,12 +74,12 @@ describe('SiegeConfigurationPage', () => {
 
     it('edits the /siege skip seconds (playtest 2026-10-24) and sends only those', async () => {
         render(<SiegeConfigurationPage />);
-        const playerSkip = await screen.findByLabelText(/Player skip leaves \(seconds\)/);
+        const playerSkip = await screen.findByLabelText(/Player skip leaves/);
         expect(playerSkip).toHaveValue('60');
-        expect(screen.getByLabelText(/Admin skip leaves \(seconds\)/)).toHaveValue('31');
+        expect(screen.getByLabelText(/Admin skip leaves/)).toHaveValue('31');
 
         fireEvent.change(playerSkip, { target: { value: '90' } });
-        fireEvent.change(screen.getByLabelText(/Admin skip leaves \(seconds\)/), { target: { value: '45' } });
+        fireEvent.change(screen.getByLabelText(/Admin skip leaves/), { target: { value: '45' } });
         fireEvent.click(screen.getByRole('button', { name: /save \(2\)/i }));
 
         await waitFor(() => expect(siegeConfigurationClient.update).toHaveBeenCalledWith({
@@ -77,7 +90,7 @@ describe('SiegeConfigurationPage', () => {
 
     it('edits the post-match time at the hub (#198) and sends only that', async () => {
         render(<SiegeConfigurationPage />);
-        const postMatch = await screen.findByLabelText(/Time at the hub after the match \(seconds\)/);
+        const postMatch = await screen.findByLabelText(/Time at the hub after the match/);
         expect(postMatch).toHaveValue('30');
 
         fireEvent.change(postMatch, { target: { value: '45' } });

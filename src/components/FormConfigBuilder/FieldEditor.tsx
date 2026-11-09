@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { DEFAULT_WORLD_TASK_TYPE, WORLD_TASK_TYPES_WITH_HANDLER } from '../../utils/forms/worldTaskTypes';
-import { Plus, ShieldAlert, ShieldCheck, Trash2, X } from 'lucide-react';
+import { Plus, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react';
+import { Dialog } from '../Dialog';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
 import { FieldMetadataDto, EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
@@ -835,501 +836,497 @@ export const FieldEditor: React.FC<Props> = ({
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                    <h3 className="text-lg font-medium text-gray-900">
-                        {field.id ? 'Edit Field' : 'New Field'}
-                    </h3>
-                    <button onClick={onCancel} className="text-muted hover:text-gray-600">
-                        <X className="h-5 w-5" />
+        <>
+        <Dialog
+            open
+            onClose={onCancel}
+            title={field.id ? 'Edit Field' : 'New Field'}
+            size="2xl"
+            bodyClassName="px-6 py-4 space-y-4"
+            footer={
+                <>
+                    <button type="button" onClick={onCancel} className="btn-secondary">
+                        Cancel
                     </button>
+                    <button type="button" onClick={handleSave} className="btn-primary">
+                        Save Field
+                    </button>
+                </>
+            }
+        >
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Field Name <span className="text-red-500">*</span>
+                    </label>
+                    {metadataFields.length > 0 ? (
+                        <select
+                            value={field.fieldName}
+                            onChange={e => handleFieldNameChange(e.target.value)}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                        >
+                            <option value="">Select a field...</option>
+                            {metadataFields.map(mf => (
+                                <option key={mf.fieldName} value={mf.fieldName}>
+                                    {mf.fieldName} ({mf.fieldType})
+                                </option>
+                            ))}
+                        </select>
+                    ) : (
+                        <input
+                            type="text"
+                            value={field.fieldName}
+                            onChange={e => setField({ ...field, fieldName: e.target.value })}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                            placeholder="e.g., streetName, totalCost"
+                        />
+                    )}
+                    {metadataFields.length > 0 && (
+                        <p className="mt-1 text-xs text-gray-500">
+                            Select from entity fields or leave empty to add custom field
+                        </p>
+                    )}
+                    
+                    {/* added: Show metadata hints for selected field */}
+                    {field.fieldName && metadataFields.length > 0 && (
+                        <FieldMetadataHint fieldName={field.fieldName} metadataFields={metadataFields} />
+                    )}
                 </div>
 
-                <div className="px-6 py-4 space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Label <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                        type="text"
+                        value={field.label}
+                        onChange={e => setField({ ...field, label: e.target.value })}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                        placeholder="e.g., Street Name, Total Cost"
+                    />
+                </div>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Field Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                    value={field.fieldType}
+                    onChange={e => handleFieldTypeChange(e.target.value as FieldType)}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                    required
+                >
+                    {Object.values(FieldType).map(type => (
+                        <option key={type} value={type}>{type}</option>
+                    ))}
+                </select>
+            </div>
+
+            {isCollectionType(field.fieldType) && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Element Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                        value={collectionElementType}
+                        onChange={e => setCollectionElementType(e.target.value as FieldType)}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                        required
+                    >
+                        {Object.values(FieldType).filter(t => t !== FieldType.List).map(type => (
+                            <option key={type} value={type}>{type}</option>
+                        ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                        Specify the type of elements this {field.fieldType.toLowerCase()} will contain
+                    </p>
+                </div>
+            )}
+
+            {(field.fieldType === FieldType.Object || 
+              (isCollectionType(field.fieldType) && collectionElementType === FieldType.Object)) && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Object Type <span className="text-red-500">*</span>
+                        {isCollectionType(field.fieldType) && <span className="text-xs text-gray-500 font-normal ml-1">(for List elements)</span>}
+                    </label>
+                    <select
+                        value={field.objectType || ''}
+                        onChange={e => setField({ ...field, objectType: e.target.value })}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                        required
+                    >
+                        <option value="">Select an entity...</option>
+                        {entityMetadata.map(m => (
+                            <option key={m.entityName} value={m.entityName}>
+                                {m.displayName} ({m.entityName})
+                            </option>
+                        ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                        {isCollectionType(field.fieldType) 
+                            ? 'The type of objects this list will contain'
+                            : 'The type of this object field'}
+                    </p>
+                </div>
+            )}
+
+            {isCollectionType(field.fieldType) && collectionElementType === FieldType.Object && (
+                <>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Field Name <span className="text-red-500">*</span>
+                                Minimum Selection
                             </label>
-                            {metadataFields.length > 0 ? (
-                                <select
-                                    value={field.fieldName}
-                                    onChange={e => handleFieldNameChange(e.target.value)}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                >
-                                    <option value="">Select a field...</option>
-                                    {metadataFields.map(mf => (
-                                        <option key={mf.fieldName} value={mf.fieldName}>
-                                            {mf.fieldName} ({mf.fieldType})
-                                        </option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <input
-                                    type="text"
-                                    value={field.fieldName}
-                                    onChange={e => setField({ ...field, fieldName: e.target.value })}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                    placeholder="e.g., streetName, totalCost"
-                                />
-                            )}
-                            {metadataFields.length > 0 && (
-                                <p className="mt-1 text-xs text-gray-500">
-                                    Select from entity fields or leave empty to add custom field
-                                </p>
-                            )}
-                            
-                            {/* added: Show metadata hints for selected field */}
-                            {field.fieldName && metadataFields.length > 0 && (
-                                <FieldMetadataHint fieldName={field.fieldName} metadataFields={metadataFields} />
-                            )}
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Label <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                value={field.label}
-                                onChange={e => setField({ ...field, label: e.target.value })}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                placeholder="e.g., Street Name, Total Cost"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Field Type <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            value={field.fieldType}
-                            onChange={e => handleFieldTypeChange(e.target.value as FieldType)}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                            required
-                        >
-                            {Object.values(FieldType).map(type => (
-                                <option key={type} value={type}>{type}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {isCollectionType(field.fieldType) && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Element Type <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                value={collectionElementType}
-                                onChange={e => setCollectionElementType(e.target.value as FieldType)}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                required
-                            >
-                                {Object.values(FieldType).filter(t => t !== FieldType.List).map(type => (
-                                    <option key={type} value={type}>{type}</option>
-                                ))}
-                            </select>
-                            <p className="mt-1 text-xs text-gray-500">
-                                Specify the type of elements this {field.fieldType.toLowerCase()} will contain
-                            </p>
-                        </div>
-                    )}
-
-                    {(field.fieldType === FieldType.Object || 
-                      (isCollectionType(field.fieldType) && collectionElementType === FieldType.Object)) && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Object Type <span className="text-red-500">*</span>
-                                {isCollectionType(field.fieldType) && <span className="text-xs text-gray-500 font-normal ml-1">(for List elements)</span>}
-                            </label>
-                            <select
-                                value={field.objectType || ''}
-                                onChange={e => setField({ ...field, objectType: e.target.value })}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                required
-                            >
-                                <option value="">Select an entity...</option>
-                                {entityMetadata.map(m => (
-                                    <option key={m.entityName} value={m.entityName}>
-                                        {m.displayName} ({m.entityName})
-                                    </option>
-                                ))}
-                            </select>
-                            <p className="mt-1 text-xs text-gray-500">
-                                {isCollectionType(field.fieldType) 
-                                    ? 'The type of objects this list will contain'
-                                    : 'The type of this object field'}
-                            </p>
-                        </div>
-                    )}
-
-                    {isCollectionType(field.fieldType) && collectionElementType === FieldType.Object && (
-                        <>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Minimum Selection
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={field.minSelection ?? 0}
-                                        onChange={e => setField({ ...field, minSelection: parseInt(e.target.value) || 0 })}
-                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                    />
-                                    <p className="mt-1 text-xs text-gray-500">
-                                        Minimum number of items user must select (0 = no minimum)
-                                    </p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Maximum Selection
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        value={field.maxSelection ?? ''}
-                                        onChange={e => setField({ ...field, maxSelection: e.target.value ? parseInt(e.target.value) : undefined })}
-                                        placeholder="No limit"
-                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                    />
-                                    <p className="mt-1 text-xs text-gray-500">
-                                        Maximum number of items user can select (empty = no limit)
-                                    </p>
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    <div>
-                        <div className="flex items-center justify-between mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Placeholder</label>
-                            <label className="flex items-center text-xs text-gray-700 gap-2">
-                                <input
-                                    type="checkbox"
-                                    checked={placeholderIsDefault}
-                                    onChange={e => handlePlaceholderModeToggle(e.target.checked)}
-                                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                />
-                                Use as default value
-                            </label>
-                        </div>
-                        <input
-                            type="text"
-                            value={placeholderInputValue}
-                            onChange={e => handlePlaceholderInputChange(e.target.value)}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                            placeholder={placeholderIsDefault ? 'Default value' : 'Placeholder text'}
-                        />
-                        <p className="mt-1 text-xs text-gray-500">
-                            {placeholderIsDefault
-                                ? 'This value is saved as the field default and used to initialize new form state.'
-                                : 'This value is display-only hint text shown when the field is empty.'}
-                        </p>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                        <textarea
-                            value={field.description || ''}
-                            onChange={e => setField({ ...field, description: e.target.value })}
-                            rows={2}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                        />
-                    </div>
-
-                    {field.fieldType === FieldType.String && (
-                        <div className="mt-1 p-3 rounded-md border border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <label className="text-sm font-medium text-gray-700">Enable Minecraft text coloring</label>
-                                <input
-                                    type="checkbox"
-                                    checked={minecraftTextColorEnabled}
-                                    onChange={e => {
-                                        const enabled = e.target.checked;
-                                        setMinecraftTextColorEnabled(enabled);
-                                        if (enabled) {
-                                            mergeSettings({ 'minecraft-text-color': { enabled: true } });
-                                        } else {
-                                            let base: any = {};
-                                            try {
-                                                base = field.settingsJson ? JSON.parse(field.settingsJson) : {};
-                                            } catch {
-                                                base = {};
-                                            }
-                                            delete base['minecraft-text-color'];
-                                            setField(prev => ({ ...prev, settingsJson: JSON.stringify(base) }));
-                                        }
-                                    }}
-                                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                />
-                            </div>
-                            <p className="mt-1 text-xs text-gray-500">
-                                Adds/removes <span className="font-mono">minecraft-text-color.enabled</span> in settings.
-                            </p>
-                        </div>
-                    )}
-
-                    {field.fieldType === FieldType.String && (
-                        <div className="mt-1 p-3 rounded-md border border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <label htmlFor="field-editor-multiline" className="text-sm font-medium text-gray-700">Multi-line text</label>
-                                <input
-                                    id="field-editor-multiline"
-                                    type="checkbox"
-                                    checked={resolveMultilineSetting(field.settingsJson, field.fieldName)}
-                                    onChange={e => mergeSettings({ multiline: e.target.checked })}
-                                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                />
-                            </div>
-                            <p className="mt-1 text-xs text-gray-500">
-                                A text area instead of a one-line input. Without a choice, fields named …Description or …Lore get one. Sets <span className="font-mono">multiline</span> in settings.
-                            </p>
-                        </div>
-                    )}
-
-                    {field.fieldType === FieldType.HybridMinecraftMaterialRefPicker && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Settings JSON</label>
-                            <textarea
-                                value={field.settingsJson || ''}
-                                onChange={e => setField({ ...field, settingsJson: e.target.value })}
-                                rows={2}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                placeholder='{"categoryFilter":"BLOCK","multiSelect":false}'
-                            />
-                            <p className="mt-1 text-xs text-gray-500">
-                                Configure categoryFilter or multiSelect for the material picker, which lists the
-                                saved materials of the Minecraft catalogue. Without a categoryFilter (or with ITEM
-                                or ICON) it lists items; BLOCK lists blocks, BANNER banners and ANY every material.
-                            </p>
-                        </div>
-                    )}
-
-                    {field.fieldType === FieldType.HybridMinecraftEnchantmentRefPicker && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Settings JSON</label>
-                            <textarea
-                                value={field.settingsJson || ''}
-                                onChange={e => setField({ ...field, settingsJson: e.target.value })}
-                                rows={2}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                                placeholder='{"originFilter":"custom"}'
-                            />
-                            <p className="mt-1 text-xs text-gray-500">
-                                The enchantment picker lists the saved vanilla and custom enchantments of the Minecraft
-                                catalogue. originFilter (all, vanilla or custom) sets its initial filter; categoryFilter
-                                limits it to one category.
-                            </p>
-                        </div>
-                    )}
-
-                    {/* In-Game Action (World Task) configuration */}
-                    <div className="mt-4 p-3 rounded-md border border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm font-medium text-gray-700">Requires in-game action</label>
-                            <input
-                                type="checkbox"
-                                checked={worldTaskEnabled}
-                                onChange={e => {
-                                    const enabled = e.target.checked;
-                                    setWorldTaskEnabled(enabled);
-                                    mergeSettings({ worldTask: { enabled } });
-                                    if (enabled && !worldTaskType) {
-                                            // Set default task type
-                                            setWorldTaskType(DEFAULT_WORLD_TASK_TYPE);
-                                            mergeSettings({ worldTask: { enabled: true, taskType: DEFAULT_WORLD_TASK_TYPE } });
-                                    }
-                                }}
-                                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                            />
-                        </div>
-                        <div className="mt-3">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Task Type</label>
-                                <select
-                                value={worldTaskType}
-                                    onChange={e => {
-                                        const selectedType = e.target.value;
-                                        setWorldTaskType(selectedType);
-                                        if (selectedType === 'Custom') {
-                                            // Don't set taskType yet, wait for custom input
-                                            if (customTaskType) {
-                                                mergeSettings({ worldTask: { taskType: customTaskType } });
-                                            }
-                                        } else {
-                                            mergeSettings({ worldTask: { taskType: selectedType || undefined } });
-                                            setCustomTaskType(''); // Clear custom input when selecting predefined
-                                        }
-                                }}
-                                disabled={!worldTaskEnabled}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm disabled:bg-gray-100 disabled:text-gray-500"
-                                >
-                                    <option value="">Select a task type...</option>
-                                    {PREDEFINED_TASK_TYPES.map(type => (
-                                        <option key={type} value={type}>
-                                            {type}
-                                        </option>
-                                    ))}
-                                    {worldTaskType === 'Custom' && (
-                                        <option value="Custom">
-                                            {customTaskType || 'Custom'} (no handler in game)
-                                        </option>
-                                    )}
-                                </select>
-                                {worldTaskType === 'Custom' && (
-                                    <p className="mt-1 text-xs text-red-700">
-                                        The game server has no handler for this task type: a claimed task fails at once.
-                                        Pick one of the listed types.
-                                    </p>
-                                )}
-                                {worldTaskType === 'Custom' && (
-                                    <input
-                                        type="text"
-                                        value={customTaskType}
-                                        onChange={e => {
-                                            setCustomTaskType(e.target.value);
-                                            mergeSettings({ worldTask: { taskType: e.target.value || undefined } });
-                                        }}
-                                        disabled={!worldTaskEnabled}
-                                        placeholder="Enter custom task type..."
-                                        className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm disabled:bg-gray-100"
-                                    />
-                                )}
-                            <p className="mt-1 text-xs text-gray-500">
-                                When enabled, the form shows a "Send to Minecraft" action and tracks this task.
-                            </p>
-                            {(worldTaskType === 'GateBlockScan' || worldTaskType === 'GateOpenedBlockScan') && (
-                                <p className="mt-1 text-xs text-blue-600">
-                                    Runs automatically on the server; no player needs to be online.
-                                    {worldTaskType === 'GateOpenedBlockScan' && (
-                                        <> Scans the gate's separately-built open state (from its
-                                        Open Anchor Point) instead of its closed one - only fill
-                                        this in if you want to override the automatic open
-                                        animation with a custom scanned shape.</>
-                                    )}
-                                </p>
-                            )}
-                            {worldTaskType === 'ItemScan' && (
-                                <p className="mt-1 text-xs text-blue-600">
-                                    Requires a player: hold the item to scan, then claim the
-                                    displayed code in-game (chat command or "/knk itemscan claim
-                                    &lt;code&gt;") to capture its material, name, lore, and
-                                    enchantments.
-                                </p>
-                            )}
-                            {worldTaskType === 'KitScan' && (
-                                <p className="mt-1 text-xs text-blue-600">
-                                    Requires a player: equip and arrange the kit's items in your
-                                    inventory, then claim the displayed task code in-game ("/knk
-                                    task &lt;code&gt;" or "/knk kitscan claim &lt;code&gt;")
-                                    to capture armor, off-hand, main hand, and every inventory slot.
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    {renderProjectionBuilder()}
-
-                    <div className="flex items-center space-x-6">
-                        <div className="flex items-center">
-                            <input
-                                type="checkbox"
-                                id="isRequired"
-                                checked={field.isRequired}
-                                onChange={e => setField({ ...field, isRequired: e.target.checked })}
-                                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                            />
-                            <label htmlFor="isRequired" className="ml-2 block text-sm text-gray-900">
-                                Required
-                            </label>
-                        </div>
-
-                        <div className="flex items-center">
-                            <input
-                                type="checkbox"
-                                id="isReadOnly"
-                                checked={field.isReadOnly}
-                                onChange={e => setField({ ...field, isReadOnly: e.target.checked })}
-                                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                            />
-                            <label htmlFor="isReadOnly" className="ml-2 block text-sm text-gray-900">
-                                Read Only
-                            </label>
-                        </div>
-
-                        <div className="flex items-center">
-                            <input
-                                type="checkbox"
-                                id="isReusable"
-                                checked={field.isReusable}
-                                onChange={e => setField({ ...field, isReusable: e.target.checked })}
-                                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                            />
-                            <label htmlFor="isReusable" className="ml-2 block text-sm text-gray-900">
-                                Reusable Template
-                            </label>
-                        </div>
-                    </div>
-
-                    {field.sourceFieldId && (
-                        <div className="flex items-center gap-2 text-sm text-gray-600 p-3 bg-blue-50 rounded-md">
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                            </svg>
-                            <span>
-                                {field.isLinkedToSource ? 'Linked to template' : 'Copied from template'} (source ID: {field.sourceFieldId})
-                            </span>
-                        </div>
-                    )}
-
-                    {field.fieldType === FieldType.Integer && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Increment Value</label>
                             <input
                                 type="number"
-                                value={field.incrementValue || 1}
-                                onChange={e => setField({ ...field, incrementValue: parseInt(e.target.value) })}
+                                min="0"
+                                value={field.minSelection ?? 0}
+                                onChange={e => setField({ ...field, minSelection: parseInt(e.target.value) || 0 })}
                                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                             />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Minimum number of items user must select (0 = no minimum)
+                            </p>
                         </div>
-                    )}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Maximum Selection
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                value={field.maxSelection ?? ''}
+                                onChange={e => setField({ ...field, maxSelection: e.target.value ? parseInt(e.target.value) : undefined })}
+                                placeholder="No limit"
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Maximum number of items user can select (empty = no limit)
+                            </p>
+                        </div>
+                    </div>
+                </>
+            )}
 
-                    <div className="border-t border-gray-200 pt-4 space-y-3">
-                        <DisplayConditionBuilder
-                            targetLabel={`Field "${field.label || field.fieldName || 'Untitled'}"`}
-                            targetType={DisplayConditionTargetType.FormField}
-                            groups={field.displayConditionGroups || []}
-                            availableSourceFields={displayConditionSources}
-                            metadataFields={metadataFields}
-                            onChange={groups => setField({ ...field, displayConditionGroups: groups })}
+            <div>
+                <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Placeholder</label>
+                    <label className="flex items-center text-xs text-gray-700 gap-2">
+                        <input
+                            type="checkbox"
+                            checked={placeholderIsDefault}
+                            onChange={e => handlePlaceholderModeToggle(e.target.checked)}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        Use as default value
+                    </label>
+                </div>
+                <input
+                    type="text"
+                    value={placeholderInputValue}
+                    onChange={e => handlePlaceholderInputChange(e.target.value)}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                    placeholder={placeholderIsDefault ? 'Default value' : 'Placeholder text'}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                    {placeholderIsDefault
+                        ? 'This value is saved as the field default and used to initialize new form state.'
+                        : 'This value is display-only hint text shown when the field is empty.'}
+                </p>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                    value={field.description || ''}
+                    onChange={e => setField({ ...field, description: e.target.value })}
+                    rows={2}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                />
+            </div>
+
+            {field.fieldType === FieldType.String && (
+                <div className="mt-1 p-3 rounded-md border border-gray-200">
+                    <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-gray-700">Enable Minecraft text coloring</label>
+                        <input
+                            type="checkbox"
+                            checked={minecraftTextColorEnabled}
+                            onChange={e => {
+                                const enabled = e.target.checked;
+                                setMinecraftTextColorEnabled(enabled);
+                                if (enabled) {
+                                    mergeSettings({ 'minecraft-text-color': { enabled: true } });
+                                } else {
+                                    let base: any = {};
+                                    try {
+                                        base = field.settingsJson ? JSON.parse(field.settingsJson) : {};
+                                    } catch {
+                                        base = {};
+                                    }
+                                    delete base['minecraft-text-color'];
+                                    setField(prev => ({ ...prev, settingsJson: JSON.stringify(base) }));
+                                }
+                            }}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                         />
                     </div>
-
-                    <div className="border-t border-gray-200 pt-4 space-y-3">
-                        {renderValidationRules()}
-                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                        Adds/removes <span className="font-mono">minecraft-text-color.enabled</span> in settings.
+                    </p>
                 </div>
+            )}
 
-                <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
-                    <button onClick={onCancel} className="btn-secondary">
-                        Cancel
-                    </button>
-                    <button onClick={handleSave} className="btn-primary">
-                        Save Field
-                    </button>
+            {field.fieldType === FieldType.String && (
+                <div className="mt-1 p-3 rounded-md border border-gray-200">
+                    <div className="flex items-center justify-between">
+                        <label htmlFor="field-editor-multiline" className="text-sm font-medium text-gray-700">Multi-line text</label>
+                        <input
+                            id="field-editor-multiline"
+                            type="checkbox"
+                            checked={resolveMultilineSetting(field.settingsJson, field.fieldName)}
+                            onChange={e => mergeSettings({ multiline: e.target.checked })}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                        A text area instead of a one-line input. Without a choice, fields named …Description or …Lore get one. Sets <span className="font-mono">multiline</span> in settings.
+                    </p>
+                </div>
+            )}
+
+            {field.fieldType === FieldType.HybridMinecraftMaterialRefPicker && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Settings JSON</label>
+                    <textarea
+                        value={field.settingsJson || ''}
+                        onChange={e => setField({ ...field, settingsJson: e.target.value })}
+                        rows={2}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                        placeholder='{"categoryFilter":"BLOCK","multiSelect":false}'
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                        Configure categoryFilter or multiSelect for the material picker, which lists the
+                        saved materials of the Minecraft catalogue. Without a categoryFilter (or with ITEM
+                        or ICON) it lists items; BLOCK lists blocks, BANNER banners and ANY every material.
+                    </p>
+                </div>
+            )}
+
+            {field.fieldType === FieldType.HybridMinecraftEnchantmentRefPicker && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Settings JSON</label>
+                    <textarea
+                        value={field.settingsJson || ''}
+                        onChange={e => setField({ ...field, settingsJson: e.target.value })}
+                        rows={2}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                        placeholder='{"originFilter":"custom"}'
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                        The enchantment picker lists the saved vanilla and custom enchantments of the Minecraft
+                        catalogue. originFilter (all, vanilla or custom) sets its initial filter; categoryFilter
+                        limits it to one category.
+                    </p>
+                </div>
+            )}
+
+            {/* In-Game Action (World Task) configuration */}
+            <div className="mt-4 p-3 rounded-md border border-gray-200">
+                <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700">Requires in-game action</label>
+                    <input
+                        type="checkbox"
+                        checked={worldTaskEnabled}
+                        onChange={e => {
+                            const enabled = e.target.checked;
+                            setWorldTaskEnabled(enabled);
+                            mergeSettings({ worldTask: { enabled } });
+                            if (enabled && !worldTaskType) {
+                                    // Set default task type
+                                    setWorldTaskType(DEFAULT_WORLD_TASK_TYPE);
+                                    mergeSettings({ worldTask: { enabled: true, taskType: DEFAULT_WORLD_TASK_TYPE } });
+                            }
+                        }}
+                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                </div>
+                <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Task Type</label>
+                        <select
+                        value={worldTaskType}
+                            onChange={e => {
+                                const selectedType = e.target.value;
+                                setWorldTaskType(selectedType);
+                                if (selectedType === 'Custom') {
+                                    // Don't set taskType yet, wait for custom input
+                                    if (customTaskType) {
+                                        mergeSettings({ worldTask: { taskType: customTaskType } });
+                                    }
+                                } else {
+                                    mergeSettings({ worldTask: { taskType: selectedType || undefined } });
+                                    setCustomTaskType(''); // Clear custom input when selecting predefined
+                                }
+                        }}
+                        disabled={!worldTaskEnabled}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm disabled:bg-gray-100 disabled:text-gray-500"
+                        >
+                            <option value="">Select a task type...</option>
+                            {PREDEFINED_TASK_TYPES.map(type => (
+                                <option key={type} value={type}>
+                                    {type}
+                                </option>
+                            ))}
+                            {worldTaskType === 'Custom' && (
+                                <option value="Custom">
+                                    {customTaskType || 'Custom'} (no handler in game)
+                                </option>
+                            )}
+                        </select>
+                        {worldTaskType === 'Custom' && (
+                            <p className="mt-1 text-xs text-red-700">
+                                The game server has no handler for this task type: a claimed task fails at once.
+                                Pick one of the listed types.
+                            </p>
+                        )}
+                        {worldTaskType === 'Custom' && (
+                            <input
+                                type="text"
+                                value={customTaskType}
+                                onChange={e => {
+                                    setCustomTaskType(e.target.value);
+                                    mergeSettings({ worldTask: { taskType: e.target.value || undefined } });
+                                }}
+                                disabled={!worldTaskEnabled}
+                                placeholder="Enter custom task type..."
+                                className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm disabled:bg-gray-100"
+                            />
+                        )}
+                    <p className="mt-1 text-xs text-gray-500">
+                        When enabled, the form shows a "Send to Minecraft" action and tracks this task.
+                    </p>
+                    {(worldTaskType === 'GateBlockScan' || worldTaskType === 'GateOpenedBlockScan') && (
+                        <p className="mt-1 text-xs text-blue-600">
+                            Runs automatically on the server; no player needs to be online.
+                            {worldTaskType === 'GateOpenedBlockScan' && (
+                                <> Scans the gate's separately-built open state (from its
+                                Open Anchor Point) instead of its closed one - only fill
+                                this in if you want to override the automatic open
+                                animation with a custom scanned shape.</>
+                            )}
+                        </p>
+                    )}
+                    {worldTaskType === 'ItemScan' && (
+                        <p className="mt-1 text-xs text-blue-600">
+                            Requires a player: hold the item to scan, then claim the
+                            displayed code in-game (chat command or "/knk itemscan claim
+                            &lt;code&gt;") to capture its material, name, lore, and
+                            enchantments.
+                        </p>
+                    )}
+                    {worldTaskType === 'KitScan' && (
+                        <p className="mt-1 text-xs text-blue-600">
+                            Requires a player: equip and arrange the kit's items in your
+                            inventory, then claim the displayed task code in-game ("/knk
+                            task &lt;code&gt;" or "/knk kitscan claim &lt;code&gt;")
+                            to capture armor, off-hand, main hand, and every inventory slot.
+                        </p>
+                    )}
                 </div>
             </div>
-            <FeedbackModal
-                open={ruleFeedback.open}
-                title={ruleFeedback.title}
-                message={ruleFeedback.message}
-                status={ruleFeedback.status}
-                onClose={() => setRuleFeedback(prev => ({ ...prev, open: false }))}
-            />
-            {confirmModal}
-        </div>
+
+            {renderProjectionBuilder()}
+
+            <div className="flex items-center space-x-6">
+                <div className="flex items-center">
+                    <input
+                        type="checkbox"
+                        id="isRequired"
+                        checked={field.isRequired}
+                        onChange={e => setField({ ...field, isRequired: e.target.checked })}
+                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <label htmlFor="isRequired" className="ml-2 block text-sm text-gray-900">
+                        Required
+                    </label>
+                </div>
+
+                <div className="flex items-center">
+                    <input
+                        type="checkbox"
+                        id="isReadOnly"
+                        checked={field.isReadOnly}
+                        onChange={e => setField({ ...field, isReadOnly: e.target.checked })}
+                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <label htmlFor="isReadOnly" className="ml-2 block text-sm text-gray-900">
+                        Read Only
+                    </label>
+                </div>
+
+                <div className="flex items-center">
+                    <input
+                        type="checkbox"
+                        id="isReusable"
+                        checked={field.isReusable}
+                        onChange={e => setField({ ...field, isReusable: e.target.checked })}
+                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <label htmlFor="isReusable" className="ml-2 block text-sm text-gray-900">
+                        Reusable Template
+                    </label>
+                </div>
+            </div>
+
+            {field.sourceFieldId && (
+                <div className="flex items-center gap-2 text-sm text-gray-600 p-3 bg-blue-50 rounded-md">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    <span>
+                        {field.isLinkedToSource ? 'Linked to template' : 'Copied from template'} (source ID: {field.sourceFieldId})
+                    </span>
+                </div>
+            )}
+
+            {field.fieldType === FieldType.Integer && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Increment Value</label>
+                    <input
+                        type="number"
+                        value={field.incrementValue || 1}
+                        onChange={e => setField({ ...field, incrementValue: parseInt(e.target.value) })}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                    />
+                </div>
+            )}
+
+            <div className="border-t border-gray-200 pt-4 space-y-3">
+                <DisplayConditionBuilder
+                    targetLabel={`Field "${field.label || field.fieldName || 'Untitled'}"`}
+                    targetType={DisplayConditionTargetType.FormField}
+                    groups={field.displayConditionGroups || []}
+                    availableSourceFields={displayConditionSources}
+                    metadataFields={metadataFields}
+                    onChange={groups => setField({ ...field, displayConditionGroups: groups })}
+                />
+            </div>
+
+            <div className="border-t border-gray-200 pt-4 space-y-3">
+                {renderValidationRules()}
+            </div>
+        </Dialog>
+        <FeedbackModal
+            open={ruleFeedback.open}
+            title={ruleFeedback.title}
+            message={ruleFeedback.message}
+            status={ruleFeedback.status}
+            onClose={() => setRuleFeedback(prev => ({ ...prev, open: false }))}
+        />
+        {confirmModal}
+        </>
     );
 };
 

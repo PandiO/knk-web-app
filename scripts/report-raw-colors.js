@@ -6,7 +6,9 @@
  *   npm run lint:colors                  report files with more raw colour classes than the baseline
  *   npm run lint:colors -- --all         list every file with raw colour classes
  *   npm run lint:colors -- --update      write the current counts as the new baseline
- *   npm run lint:colors -- --strict      exit 1 when something is new (not used in CI: report only)
+ *   npm run lint:colors -- --strict      exit 1 when something is new
+ *
+ * `npm run test:ci` fails as well when a file is over its baseline (src/__tests__/rawColorsBaseline.test.ts, #263).
  *
  * Use the semantic tokens instead (tailwind.config.js, src/theme/tokens.css): primary, primary-dark,
  * surface, fg, muted, line, field, danger, success, warning, info, ... Test files are not counted.
@@ -39,6 +41,18 @@ function count() {
   return counts;
 }
 
+function readBaseline() {
+  return fs.existsSync(BASELINE) ? JSON.parse(fs.readFileSync(BASELINE, 'utf8')) : {};
+}
+
+/** Files with more raw colour classes than the baseline, as [file, count, baseline] sorted by path. */
+function overBaseline(counts = count(), baseline = readBaseline()) {
+  return Object.entries(counts)
+    .filter(([file, n]) => n > (baseline[file] ?? 0))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([file, n]) => [file, n, baseline[file] ?? 0]);
+}
+
 function main(args) {
   const counts = count();
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
@@ -47,10 +61,8 @@ function main(args) {
     console.log(`Baseline written: ${total} raw colour classes in ${Object.keys(counts).length} files.`);
     return 0;
   }
-  const baseline = fs.existsSync(BASELINE) ? JSON.parse(fs.readFileSync(BASELINE, 'utf8')) : {};
-  const grown = Object.entries(counts)
-    .filter(([file, n]) => n > (baseline[file] ?? 0))
-    .sort(([a], [b]) => a.localeCompare(b));
+  const baseline = readBaseline();
+  const grown = overBaseline(counts, baseline);
   if (args.includes('--all')) {
     Object.entries(counts).sort(([, a], [, b]) => b - a).forEach(([file, n]) => console.log(`${String(n).padStart(5)}  ${file}`));
   }
@@ -61,8 +73,12 @@ function main(args) {
     return 0;
   }
   console.log('More raw colour classes than the baseline - use the theme tokens (#95):');
-  for (const [file, n] of grown) console.log(`  ${file}: ${n} (baseline ${baseline[file] ?? 0})`);
+  for (const [file, n, base] of grown) console.log(`  ${file}: ${n} (baseline ${base})`);
   return args.includes('--strict') ? 1 : 0;
 }
 
-process.exitCode = main(process.argv.slice(2));
+// src/__tests__/rawColorsBaseline.test.ts runs overBaseline() in `npm run test:ci`, so a merge that adds raw
+// colour classes turns the tests red instead of only this report (PandiO/knk-workspace#263).
+if (require.main === module) process.exitCode = main(process.argv.slice(2));
+
+module.exports = { count, readBaseline, overBaseline };

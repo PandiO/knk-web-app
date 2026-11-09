@@ -143,7 +143,7 @@ describe('Siege authoring: scenario Gates M2M with three join fields (edit mode)
 
         fireEvent.click(screen.getByRole('button', { name: /edit join entry/i }));
         await waitFor(() => expect(screen.getByText('Create Join Entry')).toBeInTheDocument());
-        const joinModal = screen.getByText('Create Join Entry').closest('.overflow-y-auto') as HTMLElement;
+        const joinModal = screen.getByText('Create Join Entry').closest('[role="dialog"]') as HTMLElement;
 
         // Starts from the saved values...
         const stateSelect = await waitFor(() => within(joinModal).getByDisplayValue('OPEN')) as HTMLSelectElement;
@@ -186,7 +186,7 @@ describe('Siege authoring: scenario Gates M2M with three join fields (edit mode)
         await waitFor(() => expect(screen.getByRole('button', { name: /create new join entry/i })).toBeInTheDocument());
         fireEvent.click(screen.getByRole('button', { name: /create new join entry/i }));
         await waitFor(() => expect(screen.getByText('Create Join Entry')).toBeInTheDocument());
-        const joinModal = screen.getByText('Create Join Entry').closest('.overflow-y-auto') as HTMLElement;
+        const joinModal = screen.getByText('Create Join Entry').closest('[role="dialog"]') as HTMLElement;
 
         await waitFor(() => expect(within(joinModal).getByText('Save the scenario first.')).toBeInTheDocument());
         expect(teamSearch).not.toHaveBeenCalled();

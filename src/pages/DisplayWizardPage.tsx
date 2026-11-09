@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import DisplayWizard from '../components/DisplayWizard/DisplayWizard';
 import { EntityDetailHeader } from '../components/DisplayWizard/EntityDetailHeader';
-import { DisplayAction } from '../types/displayConfiguration';
+import { DisplayAction } from '../types/dtos/displayConfig/DisplayModels';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useEntityMetadata } from '../hooks/useEntityMetadata';
 import { useConfirm } from '../hooks/useConfirm';
@@ -13,6 +13,9 @@ import { entityDisplayLabel, typeLabelFor } from '../utils/entityLabel';
 import { getDeleteFunctionForEntity } from '../utils/entityApiMapping';
 import { apiRefusalReason } from '../utils/apiRefusalReason';
 import { toast } from '../utils/toast';
+import { describeActors, useLiveEntityChanges } from '../realtime/liveUpdates';
+import { formatTime } from '../utils/format';
+import { useAllNodesGate } from '../hooks/useActionGate';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -31,9 +34,32 @@ export const DisplayWizardPage: React.FC = () => {
   const [confirm, confirmModal] = useConfirm();
   const [entityLabel, setEntityLabel] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // #183 (Realtime S4): another admin's change to this entity re-reads it quietly, with a short
+  // "Updated by …" line; a delete says so instead (the page stays, with a way back).
+  const [liveRefreshKey, setLiveRefreshKey] = useState(0);
+  const [liveNotice, setLiveNotice] = useState<{ text: string; deleted: boolean } | null>(null);
+  const numericId = id != null && /^\d+$/.test(id) ? Number(id) : null;
+  useEffect(() => setLiveNotice(null), [entityName, id]);
 
   const labelFor = useMemo(() => typeLabelFor(baseMetadata), [baseMetadata]);
+  // #188 / #280: Edit and Delete of this record need the type's action nodes (Delete: area node + knk.admin.delete).
+  const typeMeta = useMemo(
+    () => baseMetadata?.find(meta => meta.entityName.toLowerCase() === (entityName ?? '').toLowerCase()),
+    [baseMetadata, entityName]
+  );
+  const editGate = useAllNodesGate(typeMeta?.actionNodes?.edit);
+  const deleteGate = useAllNodesGate(typeMeta?.actionNodes?.delete);
   const typeLabel = entityName ? labelFor(entityName) : '';
+  useLiveEntityChanges(entityName && numericId != null ? entityName : null, change => {
+    if (change.deleted) {
+      setLiveNotice({ text: describeActors(change.actors, `This ${typeLabel || 'item'} was deleted`), deleted: true });
+      return;
+    }
+    setLiveRefreshKey(previous => previous + 1);
+    if (change.reconnect && change.actors.length === 0) return;
+    const time = formatTime(new Date(), { hour: '2-digit', minute: '2-digit' });
+    setLiveNotice(previous => previous?.deleted ? previous : { text: `${describeActors(change.actors)} at ${time}`, deleted: false });
+  }, { id: numericId });
   // #81: an entity-specific tab title ("Cinix · Town"), generic until the entity loaded.
   usePageTitle(entityLabel ? `${entityLabel} · ${typeLabel}` : 'Details');
 
@@ -54,7 +80,7 @@ export const DisplayWizardPage: React.FC = () => {
       case 'create':
         navigate(newFormPath(action.entityType, here));
         break;
-      // select / unlink / add / remove are not built yet; ActionButtons doesn't offer them (#188).
+      // select / unlink / add / remove / delete are handled by the wizard itself (#188).
       default:
         break;
     }
@@ -101,6 +127,11 @@ export const DisplayWizardPage: React.FC = () => {
           onEdit={() => navigate(entityEditPath(entityName, id, here))}
           onDelete={() => handleDelete(label)}
           deleting={deleting}
+          checking={editGate.checking || deleteGate.checking}
+          editBlocked={editGate.allowed || editGate.checking ? null : editGate.hint}
+          deleteBlocked={typeMeta?.deletable === false
+            ? `${typeLabel} records can't be deleted.`
+            : deleteGate.allowed || deleteGate.checking ? null : deleteGate.hint}
         />
       </>
     );
@@ -108,11 +139,23 @@ export const DisplayWizardPage: React.FC = () => {
 
   return (
     <div className="page-container">
+      {liveNotice?.deleted ? (
+        <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning-line bg-warning-muted px-4 py-3 text-sm text-warning-strong">
+          <span>{liveNotice.text}.</span>
+          <button type="button" className="btn-secondary text-sm" onClick={() => navigate(backTarget)}>Back</button>
+        </div>
+      ) : (
+        <p role="status" aria-live="polite" data-testid="detail-live-notice"
+          className={liveNotice ? 'mb-2 text-xs text-muted' : 'sr-only'}>
+          {liveNotice?.text ?? ''}
+        </p>
+      )}
       <DisplayWizard
         entityTypeName={entityName}
         entityId={parseInt(id)}
         onActionClick={handleActionClick}
         renderHeader={renderHeader}
+        liveRefreshKey={liveRefreshKey}
       />
       {confirmModal}
     </div>

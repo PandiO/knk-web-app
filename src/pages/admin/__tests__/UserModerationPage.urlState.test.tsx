@@ -29,6 +29,9 @@ jest.mock('react-router-dom', () => {
     };
 }, { virtual: true });
 
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 1, username: 'Staff' } }),
+}));
 jest.mock('../../../apiClients/userClient', () => ({
     userClient: { searchPaged: jest.fn() },
 }));
@@ -62,11 +65,18 @@ describe('UserModerationPage URL state (#39)', () => {
         const link = await screen.findByRole('link', { name: 'Pandi' });
         expect(link).toHaveAttribute('href', '/admin/users/12');
 
-        // A click on the link is the link's (no second navigate from the row).
+        // #187 (DataTable): a plain click on the link opens the profile in the app, once (not again for the row).
         fireEvent.click(link);
+        expect(mockNavigate).toHaveBeenCalledTimes(1);
+        expect(mockNavigate).toHaveBeenCalledWith('/admin/users/12');
+
+        // Ctrl-click is the browser's (a new tab), not the app's.
+        mockNavigate.mockClear();
+        fireEvent.click(link, { ctrlKey: true });
         expect(mockNavigate).not.toHaveBeenCalled();
 
-        fireEvent.click(link.closest('tr')!);
+        // A click elsewhere on the row opens it too.
+        fireEvent.click(screen.getByText('Offline'));
         expect(mockNavigate).toHaveBeenCalledWith('/admin/users/12');
     });
 
@@ -91,5 +101,45 @@ describe('UserModerationPage URL state (#39)', () => {
         fireEvent.click(screen.getByRole('button', { name: /All players/ }));
         const [toDefault] = mockSetSearchParams.mock.calls[1];
         expect(toDefault(new URLSearchParams('tab=demoted')).toString()).toBe('');
+    });
+});
+
+describe('UserModerationPage on DataTable/Pager (#187)', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockInitialSearch = '';
+        (permissionGroupClient.getAll as jest.Mock).mockResolvedValue([]);
+    });
+
+    it('formats coins and XP, labels the search box and pages with the Pager', async () => {
+        searchPaged.mockResolvedValue({
+            items: [{ id: 12, username: 'Pandi', email: 'p@example.org', isOnline: true, coins: 1234567, experiencePoints: 2500 }],
+            totalCount: 45,
+        });
+        render(<UserModerationPage />);
+        await screen.findByRole('link', { name: 'Pandi' });
+        expect(screen.getByRole('table', { name: 'All players' })).toBeInTheDocument();
+        expect(screen.getByText('1,234,567')).toBeInTheDocument();
+        expect(screen.getByText('2,500')).toBeInTheDocument();
+        expect(screen.getByLabelText('Search username / email / UUID')).toHaveAttribute('placeholder', 'Leave blank to list everyone');
+
+        const pager = screen.getByRole('navigation', { name: 'All players pages' });
+        expect(pager).toHaveTextContent('Page 1 of 3');
+        expect(pager).toHaveTextContent('Showing 1 to 20 of 45 players');
+        fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+        expect(searchPaged).toHaveBeenLastCalledWith(expect.objectContaining({ pageNumber: 2 }));
+    });
+
+    it('shows when a demotion happened as a local date and time (the API sends UTC without a zone)', async () => {
+        mockInitialSearch = '?tab=demoted';
+        getAuditLog.mockResolvedValue({
+            items: [{ id: 1, targetUserId: 30, targetUsername: 'Demoted', action: 'TitleChanged', timestamp: '2026-10-30T10:00:00', details: 'Knight -> Squire' }],
+            totalCount: 1,
+        });
+        render(<UserModerationPage />);
+        await screen.findByRole('link', { name: 'Demoted' });
+        const { formatDateTime } = jest.requireActual('../../../utils/format');
+        expect(screen.getByText(formatDateTime(new Date('2026-10-30T10:00:00Z')))).toBeInTheDocument();
+        expect(screen.getByText('Knight -> Squire')).toBeInTheDocument();
     });
 });

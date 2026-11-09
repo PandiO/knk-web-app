@@ -160,7 +160,11 @@ export enum Controllers {
     // Invitations and the sign-up check (KNG-212).
     Invitations = 'Invitations',
     // The game server's admission gate; /link checks claim codes before login (KNG-214).
-    Admission = 'Admission'
+    Admission = 'Admission',
+    // Pickers and labels for any area node (PandiO/knk-workspace#280 AM2).
+    Lookup = 'Lookup',
+    // Select / Unlink / Add on the entity detail page (PandiO/knk-workspace#188).
+    Relationships = 'Relationships'
 }
 
 

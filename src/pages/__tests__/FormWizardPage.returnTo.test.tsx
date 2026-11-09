@@ -153,13 +153,13 @@ describe('FormWizardPage returnTo (#177 link 1)', () => {
 
         const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
         fireEvent.click(within(breadcrumb).getAllByRole('link')[0]);
-        const dialog = await screen.findByRole('dialog', { name: 'Leave this form?' });
+        const dialog = await screen.findByRole('alertdialog', { name: 'Leave this form?' });
         expect(mockNavigate).not.toHaveBeenCalled();
         fireEvent.click(within(dialog).getByRole('button', { name: 'Stay' }));
         expect(screen.getByText('wizard')).toBeInTheDocument();
 
         fireEvent.click(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getAllByRole('link')[0]);
-        fireEvent.click(within(await screen.findByRole('dialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Leave form' }));
+        fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Leave form' }));
         // The first crumb: the dashboard.
         await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/dashboard'));
     });

@@ -6,14 +6,12 @@ import { authService } from '../services/authService';
 import { FeedbackModal } from '../components/FeedbackModal';
 import { validateEmailFormat } from '../utils/passwordValidator';
 import { MyDiscoveriesSection } from '../components/discovery/MyDiscoveriesSection';
-import { usePageTitle } from '../hooks/usePageTitle';
 import { MyStatisticsSection } from './statistics/MyStatisticsSection';
 import { MyDataDeletionSection } from '../components/privacy/MyDataDeletionSection';
 import { apiRefusalReason } from '../utils/apiRefusalReason';
 import { usePublicSurface } from '../theme/surface';
 
 export const AccountManagementPage: React.FC = () => {
-  usePageTitle('Account');
   usePublicSurface();
   const navigate = useNavigate();
   const { user, refresh, logout, logoutAll, isLoading } = useAuth();

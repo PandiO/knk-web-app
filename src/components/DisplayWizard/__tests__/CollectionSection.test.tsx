@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { CollectionSection } from '../CollectionSection';
 import { DisplayFieldDto, DisplaySectionDto } from '../../../types/dtos/displayConfig/DisplayModels';
 
@@ -99,6 +99,32 @@ describe('CollectionSection', () => {
 
         render(<CollectionSection section={collection} collectionData={defaultEnchantments} onActionClick={jest.fn()} />);
 
-        expect(screen.getByText('No template configured')).toBeInTheDocument();
+        expect(screen.getByText('This list has no item layout configured.')).toBeInTheDocument();
+    });
+});
+
+describe('CollectionSection paging (#189)', () => {
+    const streets = Array.from({ length: 14 }, (_, i) => ({ id: i + 1, name: `Street ${i + 1}` }));
+    const list = section({
+        sectionName: 'Streets',
+        isCollection: true,
+        relatedEntityPropertyName: 'Streets',
+        relatedEntityTypeName: 'Street',
+        fields: [field({ fieldGuid: 'n', label: 'Name', fieldName: 'name' })],
+    });
+
+    it('shows 12 items per page with a pager', () => {
+        render(<CollectionSection section={list} collectionData={streets} onActionClick={jest.fn()} />);
+        expect(screen.getAllByRole('listitem')).toHaveLength(12);
+        fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+        expect(screen.getByText('Street 14')).toBeInTheDocument();
+        expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    });
+
+    it('says the list is empty and still offers its buttons', () => {
+        const empty = section({ ...list, actionButtonsConfigJson: JSON.stringify({ showCreateButton: true }) });
+        render(<CollectionSection section={empty} collectionData={[]} onActionClick={jest.fn()} />);
+        expect(screen.getByText('No streets yet.')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Create New/ })).toBeInTheDocument();
     });
 });

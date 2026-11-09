@@ -32,6 +32,8 @@ export type RealtimeHandler<T = unknown> = (payload: T, envelope: RealtimeEnvelo
 export interface RealtimeContextValue {
   /** True while the web hub connection is up. */
   connected: boolean;
+  /** #183: the logged-in user the connection is for (null without one), so live updates can skip your own changes. */
+  userId?: number | null;
   /** Listen for one event type; returns the unsubscribe. */
   subscribe: <T = unknown>(type: string, handler: RealtimeHandler<T>) => () => void;
   /** Called after every (re)connect: re-read what you show. Returns the unsubscribe. */
@@ -41,12 +43,13 @@ export interface RealtimeContextValue {
   leaveTask: (taskId: number) => void;
 }
 
-/** The event types the web app listens for (DESIGN §6.5). */
-export const WEB_EVENT_TYPES = ['WorldTaskUpdated', 'CatalogScanUpdated'] as const;
+/** The event types the web app listens for (DESIGN §6.5; EntityChanged and PresenceChanged: #183). */
+export const WEB_EVENT_TYPES = ['WorldTaskUpdated', 'CatalogScanUpdated', 'EntityChanged', 'PresenceChanged'] as const;
 
 /** Without a provider (tests, logged out): never connected, so every consumer keeps polling. */
 const disconnected: RealtimeContextValue = {
   connected: false,
+  userId: null,
   subscribe: () => () => undefined,
   onReconnected: () => () => undefined,
   joinTask: async () => false,
@@ -212,8 +215,8 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({ children, cr
   }, []);
 
   const value = useMemo<RealtimeContextValue>(
-    () => ({ connected, subscribe, onReconnected, joinTask, leaveTask }),
-    [connected, subscribe, onReconnected, joinTask, leaveTask],
+    () => ({ connected, userId, subscribe, onReconnected, joinTask, leaveTask }),
+    [connected, userId, subscribe, onReconnected, joinTask, leaveTask],
   );
 
   return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;

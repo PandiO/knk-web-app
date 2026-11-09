@@ -92,7 +92,7 @@ describe('OwnerTelemetryPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /search events/i }));
     await userEvent.click(await screen.findByText('siege.lobby_join_attempt'));
 
-    const drawer = await screen.findByRole('dialog', { name: 'Event detail' });
+    const drawer = await screen.findByRole('dialog', { name: 'siege.lobby_join_attempt' });
     expect(drawer).toHaveTextContent('alice (#7)');
     expect(drawer).toHaveTextContent('Siege match #12');
     expect(screen.getByRole('link', { name: 'Ledger tx-1' })).toHaveAttribute('href', '/admin/economy/transactions/tx-1');
@@ -110,20 +110,20 @@ describe('OwnerTelemetryPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /search events/i }));
     const open = async () => {
       await userEvent.click(await screen.findByText('siege.lobby_join_attempt'));
-      return screen.findByRole('dialog', { name: 'Event detail' });
+      return screen.findByRole('dialog', { name: 'siege.lobby_join_attempt' });
     };
 
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(screen.queryByRole('dialog', { name: 'Event detail' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'siege.lobby_join_attempt' })).not.toBeInTheDocument();
 
     await open();
-    await userEvent.click(screen.getByTestId('event-drawer-backdrop'));
-    expect(screen.queryByRole('dialog', { name: 'Event detail' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByTestId('dialog-backdrop'));
+    expect(screen.queryByRole('dialog', { name: 'siege.lobby_join_attempt' })).not.toBeInTheDocument();
 
     await open();
     await userEvent.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog', { name: 'Event detail' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'siege.lobby_join_attempt' })).not.toBeInTheDocument();
   });
 
   it('shows a player timeline with ledger and Siege rows', async () => {

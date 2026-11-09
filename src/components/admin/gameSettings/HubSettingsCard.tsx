@@ -10,6 +10,7 @@ import {
 import { DomainOption, LocationOption } from './locationReferenceOptions';
 import { gameSettingsErrorMessage } from './gameSettingsErrors';
 import { LocationReferencePicker } from './LocationReferencePicker';
+import { describeTicks } from '../../../utils/settingsUnits';
 
 export const OUTAGE_ACTION_LABELS: Record<HubOutageAction, string> = {
     SendToHub: 'Send to the hub',
@@ -313,6 +314,8 @@ export const HubSettingsCard: React.FC<{
                                     className="w-20 rounded-md border-gray-300 focus:border-primary focus:ring-primary"
                                 />
                                 ticks
+                                {/* #26 (SET-5): what the interval is in seconds. */}
+                                <span className="text-xs text-muted">({describeTicks(rules[r.interval] as number)?.replace(/^= /, '')})</span>
                             </div>
                         </div>
                     ))}

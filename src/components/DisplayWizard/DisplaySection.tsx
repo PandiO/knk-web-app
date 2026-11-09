@@ -3,25 +3,56 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DisplayField } from './DisplayField';
 import { CollectionSection } from './CollectionSection';
-import { ActionButtons } from './ActionButtons';
+import { ActionButtons, ButtonGate } from './ActionButtons';
 import { DisplaySectionProps, ActionButtonsConfigDto } from '../../types/dtos/displayConfig/DisplayModels';
+import { EntityMetadataDto, RelationshipMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { MinecraftIcon } from '../minecraft/MinecraftIcon';
+import { useAllNodesGate } from '../../hooks/useActionGate';
+import { findRelationship, metadataFor, relatedIdOf, relatedLabelOf } from './detailPage';
+import { formatNumber } from '../../utils/format';
+import { entityTypeFallbackLabel } from '../../utils/entityLabel';
 
-export const DisplaySection: React.FC<DisplaySectionProps> = ({
+type Props = DisplaySectionProps & {
+  /** #188: every type's metadata (relationships, action nodes); without it the relationship buttons stay hidden. */
+  metadata?: EntityMetadataDto[];
+};
+
+/** Select/Add and Unlink of one relationship: what the API allows (with its reason), then the nodes (#280). */
+export function relationshipGate(
+  allowedHere: boolean | undefined,
+  reason: string | undefined,
+  nodes: { allowed: boolean; checking: boolean; hint: string | null }
+): ButtonGate {
+  if (!allowedHere) return { allowed: false, reason: reason ?? 'Change this on the Edit page.' };
+  if (nodes.checking) return { allowed: false, reason: null };
+  return nodes.allowed ? { allowed: true, reason: null } : { allowed: false, reason: nodes.hint };
+}
+
+/** Delete of a related record: the type must be deletable, then `actionNodes.delete` (area node + knk.admin.delete). */
+export function deleteGateOf(
+  related: EntityMetadataDto | undefined,
+  typeLabel: string,
+  nodes: { allowed: boolean; checking: boolean; hint: string | null }
+): ButtonGate {
+  if (related && related.deletable === false) return { allowed: false, reason: `${typeLabel} records can't be deleted here.` };
+  if (nodes.checking) return { allowed: false, reason: null };
+  return nodes.allowed ? { allowed: true, reason: null } : { allowed: false, reason: nodes.hint };
+}
+
+export const DisplaySection: React.FC<Props> = ({
   section,
   entityData,
   entityId,
   entityTypeName,
   onActionClick,
-  onValueChange
+  onValueChange,
+  metadata,
 }) => {
   const navigate = useNavigate();
 
-  // Parse fieldOrderJson
-  const fieldOrder: string[] = section.fieldOrderJson 
-    ? JSON.parse(section.fieldOrderJson) 
+  const fieldOrder: string[] = section.fieldOrderJson
+    ? JSON.parse(section.fieldOrderJson)
     : [];
-  
   const orderedFields = fieldOrder.length > 0
     ? fieldOrder
         .map(guid => section.fields.find(f => f.fieldGuid === guid))
@@ -32,78 +63,68 @@ export const DisplaySection: React.FC<DisplaySectionProps> = ({
   let sectionData: unknown = entityData;
   if (section.relatedEntityPropertyName) {
     const record = entityData as Record<string, unknown>;
-    // Handle both camelCase and PascalCase property names
     const propName = section.relatedEntityPropertyName;
-    sectionData = record[propName] ?? 
-                  record[toPascalCase(propName)] ?? 
+    sectionData = record[propName] ??
+                  record[toPascalCase(propName)] ??
                   record[toCamelCase(propName)];
   }
 
-  console.log('DisplaySection: rendering', {
-    section,
-    sectionData,
-    entityData,
-    orderedFields
-  });
+  // #188: the relationship this section shows, and who may change it.
+  const ownMeta = metadataFor(metadata, entityTypeName);
+  const relationship: RelationshipMetadataDto | undefined = section.relatedEntityPropertyName
+    ? findRelationship(ownMeta, section.relatedEntityPropertyName)
+    : undefined;
+  const targetType = relationship?.storage === 'linkRow' ? relationship.relatedType : section.relatedEntityTypeName;
+  const targetMeta = metadataFor(metadata, targetType);
+  const targetLabel = targetMeta?.displayName || (targetType ? entityTypeFallbackLabel(targetType) : '');
+  const nodesGate = useAllNodesGate(relationship?.nodes);
+  const deleteNodes = useAllNodesGate(targetMeta?.actionNodes?.delete);
+  const linkGate = relationshipGate(relationship?.canLink, relationship?.linkReason, nodesGate);
+  const unlinkGate = relationshipGate(relationship?.canUnlink, relationship?.unlinkReason, nodesGate);
+  const deleteGate = deleteGateOf(targetMeta, targetLabel, deleteNodes);
 
-// Helper: Convert to PascalCase (first letter uppercase)
-function toPascalCase(str: string): string {
-  if (!str) return str;
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-// Helper: Convert to camelCase (first letter lowercase)
-function toCamelCase(str: string): string {
-  if (!str) return str;
-  return str.charAt(0).toLowerCase() + str.slice(1);
-}
-
-// Helper: Render Minecraft material/block icon. KNG-200 phase 4: MinecraftIcon shows a placeholder
-// for a missing or broken icon (icons are required, D8), so every material/block section has one.
-function renderMinecraftIcon(data: Record<string, unknown>): React.ReactElement {
-  const iconUrl = data.iconUrl || data.IconUrl;
-  const name = data.displayName || data.DisplayName || data.namespaceKey || data.NamespaceKey || 'Material';
-
-  return (
-    <div className="flex items-center justify-center h-24 w-24 bg-gray-100 rounded-lg border border-line overflow-hidden p-2">
-      <MinecraftIcon src={iconUrl ? String(iconUrl) : null} alt={String(name)} size={80} />
-    </div>
-  );
-}
-
-  // Parse action buttons config
   const actionButtons: ActionButtonsConfigDto = section.actionButtonsConfigJson
     ? JSON.parse(section.actionButtonsConfigJson)
     : {};
 
-  // Handle edit button: navigate to form wizard with entityId for editing
   const handleEditEntity = (editEntityId: string | number) => {
     navigate(`/forms/${section.relatedEntityTypeName}/edit/${editEntityId}`);
   };
 
-  // Handle create new button: navigate to form wizard to create new entity
-  // Pass parent context so the child entity can establish relationship after creation
+  // Create New with parent context, so the child can be linked after creation.
   const handleCreateNewEntity = () => {
     const queryString = `?autoOpen=true&parentEntityTypeName=${entityTypeName}&parentEntityId=${entityId}&relationshipFieldName=${section.relatedEntityPropertyName || ''}`;
     navigate(`/forms/${section.relatedEntityTypeName}${queryString}`);
   };
 
+  const count = section.isCollection && Array.isArray(sectionData) ? sectionData.length : null;
+  const isRelatedSingle = !section.isCollection && !!section.relatedEntityPropertyName;
+  const hasRelated = isRelatedSingle && !!sectionData && typeof sectionData === 'object';
+  const singleId = hasRelated ? relatedIdOf(sectionData, relationship) : undefined;
+
   return (
-    <div className="bg-surface rounded-lg shadow-md p-6">
-      <div className="mb-4 pb-3 border-b border-gray-100">
+    <section className="bg-surface rounded-lg shadow-md p-4 sm:p-6" aria-label={section.sectionName}>
+      <div className="mb-4 pb-3 border-b border-line">
         <div className="flex items-center gap-4">
-          {/* Render icon for MinecraftMaterialRef/BlockRef sections */}
-          {((section.relatedEntityTypeName === 'MinecraftMaterialRef' || 
-            section.relatedEntityTypeName === 'MinecraftBlockRef') && 
+          {((section.relatedEntityTypeName === 'MinecraftMaterialRef' ||
+            section.relatedEntityTypeName === 'MinecraftBlockRef') &&
             sectionData && typeof sectionData === 'object') ? (
             <div className="flex-shrink-0">
               {renderMinecraftIcon(sectionData as Record<string, unknown>)}
             </div>
           ) : null}
-          <div className="flex-1">
-            <h3 className="text-xl font-semibold text-gray-800">{section.sectionName}</h3>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-xl font-semibold text-fg">
+              {section.sectionName}
+              {count !== null && (
+                <span className="ml-2 align-middle rounded-full bg-surface-alt px-2 py-0.5 text-sm font-medium text-muted"
+                  aria-label={`${formatNumber(count)} ${count === 1 ? 'item' : 'items'}`}>
+                  {formatNumber(count)}
+                </span>
+              )}
+            </h3>
             {section.description && (
-              <p className="text-sm text-gray-600 mt-1">{section.description}</p>
+              <p className="text-sm text-muted mt-1">{section.description}</p>
             )}
           </div>
         </div>
@@ -111,43 +132,75 @@ function renderMinecraftIcon(data: Record<string, unknown>): React.ReactElement 
 
       <div className="mt-4">
         {section.isCollection ? (
-          // Collection: iterate over array data
           <CollectionSection
             section={section}
             collectionData={sectionData as unknown[]}
             onActionClick={onActionClick}
+            relationship={relationship}
+            linkGate={linkGate}
+            unlinkGate={unlinkGate}
+            deleteGate={deleteGate}
           />
         ) : (
-          // Single entity: render fields
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {orderedFields.map(field => field && (
-                <DisplayField
-                  key={field.fieldGuid}
-                  field={field}
-                  data={field.relatedEntityPropertyName ? entityData : sectionData}
-                  entityId={entityId}
-                  entityTypeName={entityTypeName}
-                  onValueChange={onValueChange}
-                  parentEntityType={section.relatedEntityTypeName}
-                />
-              ))}
-            </div>
+            {isRelatedSingle && !hasRelated ? (
+              <p className="text-muted">No {targetLabel || section.sectionName} linked.</p>
+            ) : (
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
+                {orderedFields.map((field, index) => field && (
+                  <DisplayField
+                    key={field.fieldGuid ?? index}
+                    field={field}
+                    data={field.relatedEntityPropertyName ? entityData : sectionData}
+                    entityId={entityId}
+                    entityTypeName={entityTypeName}
+                    onValueChange={isRelatedSingle ? undefined : onValueChange}
+                    parentEntityType={section.relatedEntityTypeName}
+                    recordLink={isRelatedSingle && index === 0 ? { typeName: targetType, id: singleId } : undefined}
+                  />
+                ))}
+              </dl>
+            )}
 
-            {/* Action buttons for single relationship */}
             <ActionButtons
               config={actionButtons}
               isCollection={false}
-              entityType={section.relatedEntityTypeName}
-              entityData={sectionData as Record<string, unknown>}
+              entityType={targetType}
+              entityData={hasRelated ? sectionData as Record<string, unknown> : undefined}
               onActionClick={onActionClick}
               onEdit={section.relatedEntityTypeName ? handleEditEntity : undefined}
               onCreateNew={section.relatedEntityTypeName ? handleCreateNewEntity : undefined}
+              relationship={relationship}
+              relatedId={singleId}
+              relatedLabel={hasRelated ? relatedLabelOf(sectionData, relationship) : undefined}
+              linkGate={linkGate}
+              unlinkGate={unlinkGate}
             />
           </>
         )}
       </div>
-    </div>
+    </section>
   );
 };
 
+function toPascalCase(str: string): string {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function toCamelCase(str: string): string {
+  if (!str) return str;
+  return str.charAt(0).toLowerCase() + str.slice(1);
+}
+
+// KNG-200 phase 4: MinecraftIcon shows a placeholder for a missing or broken icon (icons are required, D8).
+function renderMinecraftIcon(data: Record<string, unknown>): React.ReactElement {
+  const iconUrl = data.iconUrl || data.IconUrl;
+  const name = data.displayName || data.DisplayName || data.namespaceKey || data.NamespaceKey || 'Material';
+
+  return (
+    <div className="flex items-center justify-center h-24 w-24 bg-surface-alt rounded-lg border border-line overflow-hidden p-2">
+      <MinecraftIcon src={iconUrl ? String(iconUrl) : null} alt={String(name)} size={80} />
+    </div>
+  );
+}
