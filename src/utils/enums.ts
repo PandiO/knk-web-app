@@ -164,7 +164,9 @@ export enum Controllers {
     // Pickers and labels for any area node (PandiO/knk-workspace#280 AM2).
     Lookup = 'Lookup',
     // Select / Unlink / Add on the entity detail page (PandiO/knk-workspace#188).
-    Relationships = 'Relationships'
+    Relationships = 'Relationships',
+    // "Show details" of a refused delete: the rows that still use a record (PandiO/knk-workspace#44).
+    EntityReferences = 'EntityReferences'
 }
 
 

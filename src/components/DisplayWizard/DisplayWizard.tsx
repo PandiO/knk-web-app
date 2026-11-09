@@ -19,6 +19,8 @@ import { lookupClient, LookupItemDto } from '../../apiClients/lookupClient';
 import { buildReturnTo, displayPath } from '../../utils/returnTo';
 import { entityDisplayLabel, entityTypeFallbackLabel } from '../../utils/entityLabel';
 import { RelationshipPickerDialog } from './RelationshipPickerDialog';
+import { refusedDeleteDetails } from '../ReferenceDetails';
+import { isReferenceRefusal } from '../../utils/referenceDetails';
 import {
   DetailLinks, DetailLinksContext, describeLoadProblem, findRelationship, metadataFor, relatedIdOf,
 } from './detailPage';
@@ -87,7 +89,10 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
   }, [liveRefreshKey, refetchEntityData]);
 
   const [picker, setPicker] = useState<PickerState | null>(null);
-  const [recovery, setRecovery] = useState<{ title: string; message: string; categoryId?: number } | null>(null);
+  // #44: `inUse` (the API's "still in use" refusal) adds "Show what uses it" for that record.
+  const [recovery, setRecovery] = useState<{
+    title: string; message: string; categoryId?: number; inUse?: { entityType: string; id: number };
+  } | null>(null);
   const [refusedLabel, setRefusedLabel] = useState<string | null>(null);
 
   const ownMeta = metadataFor(baseMetadata, entityTypeName);
@@ -215,9 +220,12 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
       await refreshQuietly();
     } catch (err) {
       const reason = apiRefusalReason(err) ?? `${kind} "${name}" couldn't be deleted.`;
+      const inUse = isReferenceRefusal(err) ? { entityType: action.entityType, id: action.entityId } : undefined;
       // Keep the category recovery: a category with children offers its children or a new parent.
       if (action.entityType.toLowerCase() === 'category') {
-        setRecovery({ title: `${kind} "${name}" wasn't deleted`, message: reason, categoryId: action.entityId });
+        setRecovery({ title: `${kind} "${name}" wasn't deleted`, message: reason, categoryId: action.entityId, inUse });
+      } else if (inUse) {
+        setRecovery({ title: `${kind} "${name}" wasn't deleted`, message: reason, inUse });
       } else {
         toast.error(reason);
       }
@@ -323,6 +331,11 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
             setRecovery(null);
             navigate(`/forms/category/edit/${id}`);
           } : undefined}
+          details={recovery?.inUse ? refusedDeleteDetails(recovery.inUse.entityType, recovery.inUse.id, {
+            typeLabel: labelOf,
+            returnTo: here,
+            onFollow: () => setRecovery(null),
+          }) : undefined}
           onClose={() => setRecovery(null)}
         />
 

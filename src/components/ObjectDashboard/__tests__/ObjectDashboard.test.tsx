@@ -10,6 +10,7 @@ import { logging } from '../../../utils';
 import { fakeRealtime } from '../../../test-utils/fakeRealtime';
 import { LIVE_REFRESH_DEBOUNCE_MS } from '../../../realtime/liveUpdates';
 import { act } from '@testing-library/react';
+import { entityReferenceClient } from '../../../apiClients/entityReferenceClient';
 
 // virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
 const mockNavigate = jest.fn();
@@ -34,6 +35,7 @@ jest.mock('../../../apiClients/formSubmissionClient', () => ({
 
 // #205: the single-row Delete (FeedbackModal) also takes the row out of the bulk selection.
 const mockDeleteRow = jest.fn();
+jest.mock('../../../apiClients/entityReferenceClient', () => ({ entityReferenceClient: { getRows: jest.fn() } }));
 jest.mock('../../../utils/entityApiMapping', () => ({
     ...jest.requireActual('../../../utils/entityApiMapping'),
     getDeleteFunctionForEntity: () => mockDeleteRow,
@@ -779,6 +781,38 @@ describe('ObjectDashboard checkbox selection and bulk bar (PandiO/knk-workspace#
         fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
         await waitFor(() => expect(mockDeleteRow).toHaveBeenCalledWith(7));
         await waitFor(() => expect(mockTableProps.selectedItems).toEqual([{ id: 8 }]));
+    });
+
+    it('offers what uses a row when its delete is refused as in use, and nothing more for other failures (#44)', async () => {
+        mockDeleteRow.mockRejectedValueOnce(Object.assign(new Error('in use'), {
+            status: 409, response: { code: 'DbConstraint', message: "This street can't be deleted: it is still used by 1 structure." },
+        }));
+        (entityReferenceClient.getRows as jest.Mock).mockResolvedValue({
+            entityTypeName: 'Street', id: 7, groups: [{
+                referencedBy: 'Structure.StreetId', entityType: 'Structure', count: 1, listed: true, readable: false,
+                nodes: ['knk.admin.world'], rows: [{ id: 3, label: 'Smithy' }], more: false,
+            }],
+        });
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        fireEvent.click(screen.getByTitle('Delete'));
+        let dialog = await screen.findByRole('alertdialog');
+        await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' })); });
+
+        dialog = await screen.findByRole('alertdialog', { name: 'Delete Failed' });
+        expect(dialog).toHaveTextContent("This street can't be deleted: it is still used by 1 structure.");
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Show what uses it' }));
+        expect(await within(dialog).findByText('Smithy')).toBeInTheDocument();
+        expect(entityReferenceClient.getRows).toHaveBeenCalledWith('Street', 7);
+        expect(within(dialog).getByText('Opening structures requires one of: knk.admin.world')).toBeInTheDocument();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+
+        mockDeleteRow.mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }));
+        fireEvent.click(screen.getByTitle('Delete'));
+        dialog = await screen.findByRole('alertdialog');
+        await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' })); });
+        dialog = await screen.findByRole('alertdialog', { name: 'Delete Failed' });
+        expect(within(dialog).queryByRole('button', { name: 'Show what uses it' })).not.toBeInTheDocument();
     });
 
     it('keeps the selection for the type and clears it when the type changes', async () => {

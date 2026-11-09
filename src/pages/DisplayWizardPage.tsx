@@ -16,6 +16,9 @@ import { toast } from '../utils/toast';
 import { describeActors, useLiveEntityChanges } from '../realtime/liveUpdates';
 import { formatTime } from '../utils/format';
 import { useAllNodesGate } from '../hooks/useActionGate';
+import { FeedbackModal } from '../components/FeedbackModal';
+import { refusedDeleteDetails } from '../components/ReferenceDetails';
+import { isReferenceRefusal } from '../utils/referenceDetails';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -34,6 +37,8 @@ export const DisplayWizardPage: React.FC = () => {
   const [confirm, confirmModal] = useConfirm();
   const [entityLabel, setEntityLabel] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // #44: a delete refused because the record is still used opens a dialog that can list what uses it.
+  const [inUse, setInUse] = useState<{ title: string; message: string } | null>(null);
   // #183 (Realtime S4): another admin's change to this entity re-reads it quietly, with a short
   // "Updated by …" line; a delete says so instead (the page stays, with a way back).
   const [liveRefreshKey, setLiveRefreshKey] = useState(0);
@@ -108,7 +113,12 @@ export const DisplayWizardPage: React.FC = () => {
       toast.success(`${typeLabel} "${label}" deleted.`);
       navigate(backTarget);
     } catch (error) {
-      toast.error(apiRefusalReason(error) ?? `${typeLabel} "${label}" could not be deleted.`);
+      const reason = apiRefusalReason(error) ?? `${typeLabel} "${label}" could not be deleted.`;
+      if (isReferenceRefusal(error)) {
+        setInUse({ title: `${typeLabel} "${label}" is still in use`, message: reason });
+      } else {
+        toast.error(reason);
+      }
     } finally {
       setDeleting(false);
     }
@@ -158,6 +168,18 @@ export const DisplayWizardPage: React.FC = () => {
         liveRefreshKey={liveRefreshKey}
       />
       {confirmModal}
+      <FeedbackModal
+        open={inUse !== null}
+        title={inUse?.title ?? ''}
+        message={inUse?.message ?? ''}
+        status="error"
+        onClose={() => setInUse(null)}
+        details={inUse ? refusedDeleteDetails(entityName, id, {
+          typeLabel: labelFor,
+          returnTo: here,
+          onFollow: () => setInUse(null),
+        }) : undefined}
+      />
     </div>
   );
 };

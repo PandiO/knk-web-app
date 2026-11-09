@@ -6,7 +6,10 @@ import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 // @ts-ignore: side-effect import for CSS without type declarations
 import './ObjectDashboard.css';
 import { getColumnDefinitions } from '../../config/objectConfigs';
-import { FeedbackModal } from '../FeedbackModal';
+import { FeedbackDetails, FeedbackModal } from '../FeedbackModal';
+import { refusedDeleteDetails } from '../ReferenceDetails';
+import { isReferenceRefusal } from '../../utils/referenceDetails';
+import { typeLabelFor } from '../../utils/entityLabel';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { formConfigClient } from '../../apiClients/formConfigClient';
@@ -295,6 +298,8 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     const [modalOnContinue, setModalOnContinue] = useState<(() => void) | undefined>(undefined);
     const [modalOnSecondary, setModalOnSecondary] = useState<(() => void) | undefined>(undefined);
     const [modalSecondaryLabel, setModalSecondaryLabel] = useState<string | undefined>(undefined);
+    // #44: a delete refused because the row is still used can list what uses it.
+    const [modalDetails, setModalDetails] = useState<FeedbackDetails | undefined>(undefined);
     const [refreshKey, setRefreshKey] = useState<number>(0);
 
     // #205: rows ticked in the checkbox column, kept across pages and searches of this type (cleared when the
@@ -308,6 +313,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         setModalMessage(`Are you sure you want to delete ${entityTypeName} ${name}? This action cannot be undone.`);
         setModalStatus('info');
         setModalContinueLabel('Delete');
+        setModalDetails(undefined);
 
         setModalOnContinue(() => async () => {
             try {
@@ -330,6 +336,13 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                 setModalTitle('Delete Failed');
                 setModalMessage(apiRefusalReason(err) ?? 'An error occurred while deleting.');
                 setModalStatus('error');
+                setModalDetails(isReferenceRefusal(err)
+                    ? refusedDeleteDetails(entityTypeName, item.id, {
+                        typeLabel: typeLabelFor(baseMetadata),
+                        returnTo: returnTo(),
+                        onFollow: () => setModalOpen(false),
+                    })
+                    : undefined);
 
                 const isCategory = entityTypeName.toLowerCase() === 'category';
                 if (isCategory) {
@@ -460,6 +473,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                         danger={modalStatus === 'info' && modalContinueLabel === 'Delete'}
                         onSecondary={modalOnSecondary}
                         secondaryLabel={modalSecondaryLabel}
+                        details={modalStatus === 'error' ? modalDetails : undefined}
                         onClose={() => setModalOpen(false)}
                     />
                     <p role="status" aria-live="polite" data-testid="dashboard-live-notice"
