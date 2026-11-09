@@ -70,7 +70,10 @@ export interface ActionButtonsConfigDto {
   
   // Collection relationship buttons
   showAddButton?: boolean;
+  /** Per item: "Unlink" (removes the link only, never the record, #188). */
   showRemoveButton?: boolean;
+  /** Per item: a separate red Delete that deletes the related record itself (#188). */
+  showDeleteButton?: boolean;
   
   // Both types
   showCreateButton?: boolean;
@@ -108,10 +111,15 @@ export interface DisplayWizardProps {
 }
 
 export interface DisplayAction {
-  type: 'view' | 'edit' | 'create' | 'select' | 'unlink' | 'add' | 'remove';
+  /** `remove` is the old name of an item's Unlink (#188); `delete` deletes the related record. */
+  type: 'view' | 'edit' | 'create' | 'select' | 'unlink' | 'add' | 'remove' | 'delete';
   entityType: string;
   entityId?: number;
   fieldName?: string;
+  /** #188: the relationship (navigation property) the action changes, camelCase. */
+  property?: string;
+  /** The related record's name, for the question and the toast. */
+  label?: string;
 }
 
 export interface DisplayConfigBuilderProps {

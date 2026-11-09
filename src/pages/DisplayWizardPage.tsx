@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import DisplayWizard from '../components/DisplayWizard/DisplayWizard';
 import { EntityDetailHeader } from '../components/DisplayWizard/EntityDetailHeader';
-import { DisplayAction } from '../types/displayConfiguration';
+import { DisplayAction } from '../types/dtos/displayConfig/DisplayModels';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useEntityMetadata } from '../hooks/useEntityMetadata';
 import { useConfirm } from '../hooks/useConfirm';
@@ -15,6 +15,7 @@ import { apiRefusalReason } from '../utils/apiRefusalReason';
 import { toast } from '../utils/toast';
 import { describeActors, useLiveEntityChanges } from '../realtime/liveUpdates';
 import { formatTime } from '../utils/format';
+import { useAllNodesGate } from '../hooks/useActionGate';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -41,6 +42,13 @@ export const DisplayWizardPage: React.FC = () => {
   useEffect(() => setLiveNotice(null), [entityName, id]);
 
   const labelFor = useMemo(() => typeLabelFor(baseMetadata), [baseMetadata]);
+  // #188 / #280: Edit and Delete of this record need the type's action nodes (Delete: area node + knk.admin.delete).
+  const typeMeta = useMemo(
+    () => baseMetadata?.find(meta => meta.entityName.toLowerCase() === (entityName ?? '').toLowerCase()),
+    [baseMetadata, entityName]
+  );
+  const editGate = useAllNodesGate(typeMeta?.actionNodes?.edit);
+  const deleteGate = useAllNodesGate(typeMeta?.actionNodes?.delete);
   const typeLabel = entityName ? labelFor(entityName) : '';
   useLiveEntityChanges(entityName && numericId != null ? entityName : null, change => {
     if (change.deleted) {
@@ -72,7 +80,7 @@ export const DisplayWizardPage: React.FC = () => {
       case 'create':
         navigate(newFormPath(action.entityType, here));
         break;
-      // select / unlink / add / remove are not built yet; ActionButtons doesn't offer them (#188).
+      // select / unlink / add / remove / delete are handled by the wizard itself (#188).
       default:
         break;
     }
@@ -119,6 +127,11 @@ export const DisplayWizardPage: React.FC = () => {
           onEdit={() => navigate(entityEditPath(entityName, id, here))}
           onDelete={() => handleDelete(label)}
           deleting={deleting}
+          checking={editGate.checking || deleteGate.checking}
+          editBlocked={editGate.allowed || editGate.checking ? null : editGate.hint}
+          deleteBlocked={typeMeta?.deletable === false
+            ? `${typeLabel} records can't be deleted.`
+            : deleteGate.allowed || deleteGate.checking ? null : deleteGate.hint}
         />
       </>
     );

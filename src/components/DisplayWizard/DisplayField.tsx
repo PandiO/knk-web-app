@@ -1,43 +1,54 @@
 // DisplayField Component - Renders individual field with template text support and optional hot edit
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { Edit2, Check, X } from 'lucide-react';
 import { DisplayFieldProps } from '../../types/dtos/displayConfig/DisplayModels';
 import { useTemplateParser } from './hooks/useTemplateParser';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { MinecraftIcon } from '../minecraft/MinecraftIcon';
-import { formatDate, formatDateTime, formatNumber, isIsoDateTimeString } from '../../utils/format';
+import { EMPTY_VALUE, formatDate, formatDateTime, formatNumber, isIsoDateTimeString } from '../../utils/format';
+import { DetailLinks, useDetailLinks } from './detailPage';
 
-export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: string }> = ({ 
-  field, 
+type Props = DisplayFieldProps & {
+  parentEntityType?: string;
+  /**
+   * #189: where the value leads when it isn't a related record of its own (the first field of a collection item or of
+   * a related section opens that record). A related-record field links to its own record instead.
+   */
+  recordLink?: { typeName?: string; id?: number };
+};
+
+/**
+ * One value of the detail page (#189): a label and the value as text, not a disabled-looking input box. A related
+ * record's value is a link to its detail page when the viewer may read that type (otherwise plain text with the
+ * reason). Hot edit (a pencil on editable simple fields) saves with Enter or ✓ and cancels with Escape or ×.
+ * Rendered as a `<dt>`/`<dd>` pair inside the section's `<dl>`.
+ */
+export const DisplayField: React.FC<Props> = ({
+  field,
   data,
   onValueChange,
-  parentEntityType
+  parentEntityType,
+  recordLink,
 }) => {
   const { parseTemplate } = useTemplateParser();
+  const links = useDetailLinks();
+  const inputId = useId();
+  const errorId = useId();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   // Why the last save didn't happen (a bad number or the API's refusal); was a browser alert.
   const [editError, setEditError] = useState<string | null>(null);
 
-  // Determine the data source
+  // A field dedicated to a related entity reads that entity first.
   let sourceData: unknown = data;
-  
-  // If field is dedicated to a related entity, navigate to that entity first
   if (field.relatedEntityPropertyName && data) {
     sourceData = getNestedValue(data, field.relatedEntityPropertyName);
-    console.log('DisplayField: navigated to related entity', {
-      relatedEntityPropertyName: field.relatedEntityPropertyName,
-      sourceData
-    });
   }
 
-  // Determine value to display
   let displayValue: unknown;
-
   if (field.templateText) {
-    // Use template text with variable interpolation
-    displayValue = parseTemplate(field.templateText, sourceData as Record<string, unknown>);
+    displayValue = parseTemplate(field.templateText, (sourceData ?? {}) as Record<string, unknown>);
   } else if (field.fieldName) {
     // Direct property access (supports nested: "street.name")
     displayValue = getNestedValue(sourceData, field.fieldName);
@@ -45,42 +56,34 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
     displayValue = null;
   }
 
-  console.log('DisplayField: rendering', {
-    field,
-    data,
-    sourceData,
-    displayValue,
-    isEditable: field.isEditableInDisplay
-  });
-
-  // Check if this field is editable (only for simple fields, not related entities)
-  const canEdit = field.isEditableInDisplay && 
-                  !field.relatedEntityPropertyName && 
-                  field.fieldName &&
-                  ['string', 'integer', 'number', 'boolean'].includes(field.fieldType?.toLowerCase() || '');
+  // Editable: only simple fields of the entity itself, not related entities.
+  const fieldTypeLower = field.fieldType?.toLowerCase() || '';
+  const canEdit = field.isEditableInDisplay &&
+                  !field.relatedEntityPropertyName &&
+                  !!field.fieldName &&
+                  !!onValueChange &&
+                  ['string', 'integer', 'number', 'boolean'].includes(fieldTypeLower);
 
   const handleEditStart = () => {
     setEditError(null);
-    setEditValue(String(displayValue || ''));
+    setEditValue(displayValue === null || displayValue === undefined ? '' : String(displayValue));
     setIsEditing(true);
   };
 
   const handleEditCancel = () => {
+    if (isSaving) return;
     setEditError(null);
     setIsEditing(false);
     setEditValue('');
   };
 
   const handleEditSave = async () => {
-    if (!onValueChange || !field.fieldName) return;
+    if (!onValueChange || !field.fieldName || isSaving) return;
 
     setIsSaving(true);
     setEditError(null);
     try {
-      // Convert value based on field type
       let newValue: unknown = editValue;
-      const fieldTypeLower = field.fieldType?.toLowerCase();
-
       if (fieldTypeLower === 'integer' || fieldTypeLower === 'number') {
         newValue = fieldTypeLower === 'integer' ? parseInt(editValue, 10) : parseFloat(editValue);
         if (isNaN(newValue as number)) {
@@ -96,102 +99,160 @@ export const DisplayField: React.FC<DisplayFieldProps & { parentEntityType?: str
       setIsEditing(false);
       setEditValue('');
     } catch (err) {
-      console.error('Error saving field value:', err);
       setEditError(apiRefusalReason(err) ?? 'The change could not be saved.');
     } finally {
       setIsSaving(false);
     }
   };
 
+  // #189: Enter saves, Escape cancels (and doesn't close anything around it).
+  const onEditKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void handleEditSave();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      handleEditCancel();
+    }
+  };
+
+  const ownRecord = field.relatedEntityPropertyName && sourceData && typeof sourceData === 'object'
+    ? { typeName: field.relatedEntityTypeName, id: idOf(sourceData) }
+    : undefined;
+  const target = ownRecord?.id != null ? ownRecord : recordLink;
+
   return (
-    <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        {field.label}
+    <div className="min-w-0">
+      <dt className="text-sm font-medium text-muted">
+        {isEditing ? <label htmlFor={inputId}>{field.label}</label> : field.label}
         {field.relatedEntityPropertyName && (
-          <span className="ml-2 text-xs font-normal text-primary">
+          <span className="ml-2 text-xs font-normal text-muted">
             (from {field.relatedEntityTypeName || field.relatedEntityPropertyName})
           </span>
         )}
-      </label>
-      
-      {isEditing ? (
-        <div className="flex gap-2 items-center">
-          {field.fieldType?.toLowerCase() === 'boolean' ? (
-            <select
-              value={editValue}
-              onChange={e => setEditValue(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          ) : (
-            <input
-              type={field.fieldType?.toLowerCase() === 'integer' || field.fieldType?.toLowerCase() === 'number' ? 'number' : 'text'}
-              value={editValue}
-              onChange={e => setEditValue(e.target.value)}
-              autoFocus
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          )}
-          <button
-            onClick={handleEditSave}
-            disabled={isSaving}
-            className="p-2 bg-success-soft hover:bg-success-muted text-success rounded-md transition-colors disabled:opacity-50"
-            title="Save"
-          >
-            <Check className="h-4 w-4" />
-          </button>
-          <button
-            onClick={handleEditCancel}
-            disabled={isSaving}
-            className="p-2 bg-danger-soft hover:bg-danger-muted text-danger rounded-md transition-colors disabled:opacity-50"
-            title="Cancel"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between">
-          {renderDisplayValue(sourceData, field, displayValue, parentEntityType)}
-          {canEdit && (
+      </dt>
+
+      <dd className="mt-1">
+        {isEditing ? (
+          <div className="flex items-center gap-2">
+            {fieldTypeLower === 'boolean' ? (
+              <select
+                id={inputId}
+                value={editValue}
+                onChange={e => setEditValue(e.target.value)}
+                onKeyDown={onEditKeyDown}
+                autoFocus
+                aria-describedby={editError ? errorId : undefined}
+                className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-fg focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            ) : (
+              <input
+                id={inputId}
+                type={fieldTypeLower === 'integer' || fieldTypeLower === 'number' ? 'number' : 'text'}
+                value={editValue}
+                onChange={e => setEditValue(e.target.value)}
+                onKeyDown={onEditKeyDown}
+                autoFocus
+                aria-describedby={editError ? errorId : undefined}
+                className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-fg focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            )}
             <button
-              onClick={handleEditStart}
-              className="ml-2 p-2 bg-info-soft hover:bg-info-muted text-primary rounded-md transition-colors"
-              title="Edit this field"
+              type="button"
+              onClick={() => void handleEditSave()}
+              disabled={isSaving}
+              className="rounded-md bg-success-soft p-2 text-success transition-colors hover:bg-success-muted disabled:opacity-50"
+              title="Save (Enter)"
+              aria-label={`Save ${field.label}`}
             >
-              <Edit2 className="h-4 w-4" />
+              <Check className="h-4 w-4" aria-hidden="true" />
             </button>
-          )}
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={handleEditCancel}
+              disabled={isSaving}
+              className="rounded-md bg-danger-soft p-2 text-danger transition-colors hover:bg-danger-muted disabled:opacity-50"
+              title="Cancel (Esc)"
+              aria-label={`Cancel editing ${field.label}`}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1 break-words text-base text-fg">
+              {renderDisplayValue(sourceData, field, displayValue, parentEntityType, target, links)}
+            </div>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={handleEditStart}
+                className="flex-shrink-0 rounded-md p-1.5 text-muted transition-colors hover:bg-info-soft hover:text-primary"
+                title="Edit this field"
+                aria-label={`Edit ${field.label}`}
+              >
+                <Edit2 className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        )}
 
-      {isEditing && editError && (
-        <p className="field-error text-sm mt-1" role="alert">{editError}</p>
-      )}
+        {isEditing && editError && (
+          <p id={errorId} className="field-error text-sm mt-1" role="alert">{editError}</p>
+        )}
 
-      {field.description && (
-        <p className="text-xs text-muted mt-1">{field.description}</p>
-      )}
+        {field.description && (
+          <p className="text-xs text-muted mt-1">{field.description}</p>
+        )}
+      </dd>
     </div>
   );
 };
 
+function idOf(record: unknown): number | undefined {
+  const value = (record as Record<string, unknown> | null)?.id ?? (record as Record<string, unknown> | null)?.Id;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value);
+  return undefined;
+}
+
+/** The value, as a link to the record's detail page when there is one the viewer may open. */
+function withLink(content: React.ReactNode, target: Props['recordLink'], links: DetailLinks | null): React.ReactNode {
+  if (!links || !target?.typeName || target.id == null) return content;
+  const href = links.hrefFor(target.typeName, target.id);
+  if (!href) {
+    const { hint } = links.access(target.typeName);
+    return hint ? <span title={hint}>{content}</span> : content;
+  }
+  return (
+    <a href={href} onClick={event => links.follow(event, href)} className="text-primary hover:underline">
+      {content}
+    </a>
+  );
+}
+
 // Helper: Render display value with special handling for MinecraftMaterialRef icons
-function renderDisplayValue(sourceData: unknown, field: DisplayFieldProps['field'], displayValue: unknown, parentEntityType?: string): React.ReactElement {
-  // Check if this is a MinecraftMaterialRef/BlockRef with an iconUrl
-  const isMinecraftEntity = field.relatedEntityTypeName === 'MinecraftMaterialRef' || 
+function renderDisplayValue(
+  sourceData: unknown,
+  field: DisplayFieldProps['field'],
+  displayValue: unknown,
+  parentEntityType: string | undefined,
+  target: Props['recordLink'],
+  links: DetailLinks | null
+): React.ReactNode {
+  const isMinecraftEntity = field.relatedEntityTypeName === 'MinecraftMaterialRef' ||
                             field.relatedEntityTypeName === 'MinecraftBlockRef' ||
                             parentEntityType === 'MinecraftMaterialRef' ||
                             parentEntityType === 'MinecraftBlockRef';
-  
-  // Skip icon rendering if:
-  // 1. Parent is a Minecraft entity AND
-  // 2. This field is displaying a direct property of that same parent entity (not a related entity)
-  // (The parent section header already displays the icon for the entity)
+
+  // A direct property of a material section: the section header already shows its icon.
   const isDirectPropertyOfParent = (parentEntityType === 'MinecraftMaterialRef' || parentEntityType === 'MinecraftBlockRef') &&
                                    !field.relatedEntityPropertyName;
-  
+
   if (isMinecraftEntity && typeof sourceData === 'object' && sourceData !== null && !isDirectPropertyOfParent) {
     const data = sourceData as Record<string, unknown>;
     const iconUrl = data.iconUrl || data.IconUrl;
@@ -200,18 +261,18 @@ function renderDisplayValue(sourceData: unknown, field: DisplayFieldProps['field
     // KNG-200 phase 4: MinecraftIcon shows a placeholder for a missing or broken icon.
     if (iconUrl || namespaceKey) {
       return (
-        <div className="flex items-center gap-3 bg-surface-alt px-3 py-2 rounded flex-1">
+        <div className="flex items-center gap-3">
           <MinecraftIcon
             src={iconUrl ? String(iconUrl) : null}
             alt={String(namespaceKey || 'Material')}
             size={32}
           />
-          <div>
-            <div className="text-base text-fg font-medium">
-              {String(namespaceKey || displayValue || '-')}
+          <div className="min-w-0">
+            <div className="font-medium text-fg">
+              {withLink(String(namespaceKey || displayValue || EMPTY_VALUE), target, links)}
             </div>
             {displayValue && displayValue !== namespaceKey && (
-              <div className="text-xs text-gray-600">{String(displayValue)}</div>
+              <div className="text-xs text-muted">{String(displayValue)}</div>
             )}
           </div>
         </div>
@@ -219,20 +280,18 @@ function renderDisplayValue(sourceData: unknown, field: DisplayFieldProps['field
     }
   }
 
-  // Default rendering for other field types
   const formattedValue = formatValue(displayValue, field.fieldType);
-  return (
-    <div className="text-base text-fg bg-surface-alt px-3 py-2 rounded flex-1">
-      {formattedValue}
-    </div>
-  );
+  if (formattedValue === EMPTY_VALUE) {
+    return <span className="text-muted" aria-label={`${field.label}: not set`}>{EMPTY_VALUE}</span>;
+  }
+  return withLink(formattedValue, target, links);
 }
 
 // Helper: Get nested property value (e.g., "street.name")
 // Handles both camelCase and PascalCase property names
 function getNestedValue(obj: unknown, path: string): unknown {
   if (!obj || typeof obj !== 'object') return null;
-  
+
   const parts = path.split('.');
   let current: unknown = obj;
 
@@ -240,7 +299,6 @@ function getNestedValue(obj: unknown, path: string): unknown {
     if (current === null || current === undefined) return null;
     if (typeof current === 'object' && current !== null) {
       const record = current as Record<string, unknown>;
-      // Try original casing first, then try alternative casing
       current = record[part] ?? record[toPascalCase(part)] ?? record[toCamelCase(part)];
     } else {
       return null;
@@ -250,13 +308,11 @@ function getNestedValue(obj: unknown, path: string): unknown {
   return current;
 }
 
-// Helper: Convert to PascalCase (first letter uppercase)
 function toPascalCase(str: string): string {
   if (!str) return str;
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// Helper: Convert to camelCase (first letter lowercase)
 function toCamelCase(str: string): string {
   if (!str) return str;
   return str.charAt(0).toLowerCase() + str.slice(1);
@@ -266,7 +322,7 @@ function toCamelCase(str: string): string {
 // as UTC and shown in the viewer's time, and numbers look the same everywhere. A field without a type (or
 // typed String) that holds an ISO date-time, e.g. CreatedAt, is shown as a date and time, not raw ISO text.
 export function formatValue(value: unknown, fieldType?: string): string {
-  if (value === null || value === undefined || value === '') return '-';
+  if (value === null || value === undefined || value === '') return EMPTY_VALUE;
 
   switch (fieldType?.toLowerCase()) {
     case 'datetime':
@@ -281,7 +337,8 @@ export function formatValue(value: unknown, fieldType?: string): string {
       return value ? 'Yes' : 'No';
     default:
       if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+      if (Array.isArray(value)) return value.length === 0 ? EMPTY_VALUE : `${formatNumber(value.length)} items`;
+      if (typeof value === 'object') return EMPTY_VALUE;
       return isIsoDateTimeString(value) ? formatDateTime(value) : String(value);
   }
 }
-

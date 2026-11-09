@@ -461,7 +461,17 @@ export const SectionEditor: React.FC<Props> = ({ section, reusableFields, onUpda
                                 onChange={e => handleActionButtonChange('showRemoveButton', e.target.checked)}
                                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                             />
-                            <span className="ml-2 text-sm text-gray-700">Remove</span>
+                            <span className="ml-2 text-sm text-gray-700">Unlink item (Remove)</span>
+                        </label>
+                        <label className="flex items-center">
+                            <input
+                                type="checkbox"
+                                checked={actionButtons.showDeleteButton || false}
+                                onChange={e => handleActionButtonChange('showDeleteButton', e.target.checked)}
+                                className="h-4 w-4 rounded border-line text-primary focus:ring-primary"
+                            />
+                            {/* #188: a separate red Delete on each item, deleting the record itself. */}
+                            <span className="ml-2 text-sm text-fg">Delete item</span>
                         </label>
                         <label className="flex items-center">
                             <input

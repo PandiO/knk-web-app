@@ -19,6 +19,11 @@ jest.mock('../../hooks/useEntityMetadata', () => ({
     useEntityMetadata: () => ({ baseMetadata: [{ entityName: 'Town', displayName: 'Town', fields: [] }] }),
 }));
 jest.mock('../../utils/entityApiMapping', () => ({ getDeleteFunctionForEntity: jest.fn() }));
+// The viewer holds every node asked for (#188 gates; useAuth isn't provided here).
+jest.mock('../../hooks/useStaffAccess', () => ({
+    usePermissions: (nodes: string[]) => Object.fromEntries(nodes.map(node => [node, 'allowed'])),
+    usePermission: () => ({ allowed: true, isChecking: false, status: 'allowed', retry: jest.fn() }),
+}));
 jest.mock('../../utils/toast', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
 let mockLiveKey: number | undefined;
 jest.mock('../../components/DisplayWizard/DisplayWizard', () => ({

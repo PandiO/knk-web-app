@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getFetchByIdFunctionForEntity } from '../../../utils/entityApiMapping';
 import { failureReason } from '../../../utils/apiRefusalReason';
+import { withCause } from './withCause';
 
 export function useEntityData(entityTypeName: string, entityId: number) {
   const [data, setData] = useState<Record<string, unknown> | null>(null);
@@ -26,7 +27,8 @@ export function useEntityData(entityTypeName: string, entityId: number) {
       console.error('Failed to fetch entity data:', err);
       if (quiet) return;
       // Shown to the user: the API's reason, never a bare "HTTP 500: …" (KNG-169).
-      setError(new Error(failureReason(err) ?? 'Failed to fetch entity data'));
+      // #189: status and body ride along, so the page can say "You don't have access …" or "doesn't exist".
+      setError(withCause(new Error(failureReason(err) ?? 'Failed to fetch entity data'), err));
     } finally {
       if (!quiet) setLoading(false);
     }

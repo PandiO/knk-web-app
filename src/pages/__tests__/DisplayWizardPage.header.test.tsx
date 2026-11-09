@@ -24,6 +24,11 @@ jest.mock('../../hooks/useEntityMetadata', () => ({
 jest.mock('../../utils/entityApiMapping', () => ({
     getDeleteFunctionForEntity: jest.fn(),
 }));
+// The viewer holds every node asked for (#188 gates; useAuth isn't provided here).
+jest.mock('../../hooks/useStaffAccess', () => ({
+    usePermissions: (nodes: string[]) => Object.fromEntries(nodes.map(node => [node, 'allowed'])),
+    usePermission: () => ({ allowed: true, isChecking: false, status: 'allowed', retry: jest.fn() }),
+}));
 jest.mock('../../utils/toast', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
 // The wizard as the page sees it: it loaded the entity and renders the page's header.
 let mockEntity: Record<string, unknown> = { id: 4, name: 'Cinix' };
