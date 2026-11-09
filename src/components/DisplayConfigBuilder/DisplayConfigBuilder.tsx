@@ -683,9 +683,10 @@ export const DisplayConfigBuilder: React.FC = () => {
                         </div>
 
                         {/* Main Content */}
-                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                        {/* #71: with the preview beside it, the list and the editor sit side by side only on a wide screen. */}
+                        <div className={`grid grid-cols-1 gap-6 ${previewOpen ? 'min-[1800px]:grid-cols-12' : 'lg:grid-cols-12'}`}>
                             {/* Sections Sidebar */}
-                            <div className="lg:col-span-4 panel bg-surface p-4 sm:p-6 min-w-0">
+                            <div className={`${previewOpen ? 'min-[1800px]:col-span-4' : 'lg:col-span-4'} panel bg-surface p-4 sm:p-6 min-w-0`}>
                                 <div className="flex items-center justify-between mb-4">
                                     <h2 className="text-lg font-medium text-fg">Sections</h2>
                                     <div className="flex space-x-2">
@@ -757,7 +758,7 @@ export const DisplayConfigBuilder: React.FC = () => {
                             </div>
 
                             {/* Section Editor */}
-                            <div className="lg:col-span-8 min-w-0">
+                            <div className={`${previewOpen ? 'min-[1800px]:col-span-8' : 'lg:col-span-8'} min-w-0`}>
                                 {selectedSectionKey ? (
                                     (() => {
                                         const selected = findSection(config.sections, selectedSectionKey);

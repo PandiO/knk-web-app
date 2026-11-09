@@ -122,7 +122,7 @@ export const BuilderToolbar: React.FC<BuilderToolbarProps> = ({
     return (
         <header
             aria-label={title}
-            className="sticky top-16 z-30 panel bg-surface px-4 py-3 md:px-6 md:py-4 shadow-md"
+            className="md:sticky md:top-16 z-30 panel bg-surface px-4 py-3 md:px-6 md:py-4 shadow-md"
             data-testid="builder-toolbar"
         >
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -211,7 +211,7 @@ export const BuilderToolbar: React.FC<BuilderToolbarProps> = ({
                     </div>
                     <button type="button" onClick={onClose} className="btn-tertiary text-sm" aria-label={`Close the ${noun} builder`}>
                         <X className="h-4 w-4" aria-hidden="true" />
-                        <span className="sr-only sm:not-sr-only">Close</span>
+                        <span aria-hidden="true">Close</span>
                     </button>
                 </div>
             </div>
