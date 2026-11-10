@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes, Check } from 'lucide-react';
+import { Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes, BookOpen } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { CONTENT_PERMISSION_NODE, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE, usePermission, useStaffAccess } from '../hooks/useStaffAccess';
 import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
@@ -12,7 +12,8 @@ import { EMAIL_ADMIN_NODE } from '../types/dtos/email/EmailOutboxDtos';
 import { INVITATION_NODES } from '../types/dtos/invitations/InvitationDtos';
 import { NavLayout, pickNavLayout } from './navLayout';
 import { CreateNewMenu } from './CreateNewMenu';
-import { THEMES, selectTheme, themePickerVisible, useActiveTheme } from '../theme/themes';
+import { themePickerVisible } from '../theme/themes';
+import { ThemeSwitcher } from '../theme/ThemeSwitcher';
 
 // added: explicit types for object types prop
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -28,6 +29,8 @@ const NAV_LINKS: NavLink[] = [
   { to: '/', label: 'Home', Icon: Home, exact: true },
   // Player statistics (KNG-34): public leaderboards.
   { to: '/leaderboards', label: 'Leaderboards', Icon: Trophy },
+  // Player guides (PandiO/knk-workspace#221), public: the custom enchantment info page first.
+  { to: '/guides', label: 'Guides', Icon: BookOpen },
   // The content tools (dashboard, forms, displays, builders) need knk.admin.content, like their
   // routes (alpha hardening WP9.1). The form and display builders have no link of their own:
   // they're opened from the Entity setup page.
@@ -92,10 +95,8 @@ export function Navigation({ objectTypes }: Props) {
     [SIEGE_ADMIN_PERMISSION_NODE]: usePermission(SIEGE_ADMIN_PERMISSION_NODE).allowed,
   };
   const navLinks = NAV_LINKS.filter(link => (!link.staffOnly || isStaff) && (!link.node || nodeAccess[link.node]));
-  // #95: the design-comparison theme picker, for staff only (players never see it).
-  const showThemePicker = themePickerVisible(isStaff || canManageContent);
-  const activeTheme = useActiveTheme();
-  const logoutItemIndex = showThemePicker ? THEMES.length + 1 : 1;
+  // #95: the theme switcher (cogwheel) for everyone, unless REACT_APP_THEME_PICKER=off.
+  const showThemePicker = themePickerVisible();
 
   const [navLayout, setNavLayout] = useState<NavLayout>('labels+title');
   const leftRef = useRef<HTMLDivElement>(null);
@@ -332,6 +333,8 @@ export function Navigation({ objectTypes }: Props) {
           <div className="flex flex-shrink-0 items-center space-x-4">
             {/* Account menu: opens on click (Enter/Space/ArrowDown from the keyboard), closes on
                 Escape (focus back on the button), on an outside click or after choosing an item. */}
+            {/* The theme switcher (#95): a cogwheel with the themes, for everyone. */}
+            {showThemePicker && <ThemeSwitcher variant="nav" />}
             <div className="relative" ref={accountMenuRef}>
               <button
                 ref={accountButtonRef}
@@ -373,33 +376,8 @@ export function Navigation({ objectTypes }: Props) {
                       <UserCircle2 className="h-4 w-4 mr-3" aria-hidden="true" />
                       Account settings
                     </Link>
-                    {showThemePicker && (
-                      // Design comparison (#95): switching is instant and the menu stays open, so the
-                      // themes can be flipped through. `?theme=` in the URL does the same for one tab.
-                      <div role="group" aria-labelledby="theme-picker-label" className="border-y border-gray-100 py-1 my-1">
-                        <div id="theme-picker-label" className="px-4 pt-1 pb-0.5 text-xs font-medium text-gray-500" role="none">
-                          Theme (design comparison)
-                        </div>
-                        {THEMES.map((theme, index) => (
-                          <button
-                            key={theme.id}
-                            ref={el => { accountItemRefs.current[index + 1] = el; }}
-                            type="button"
-                            role="menuitemradio"
-                            aria-checked={activeTheme === theme.id}
-                            tabIndex={-1}
-                            title={theme.description}
-                            onClick={() => selectTheme(theme.id)}
-                            className="w-full text-left px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none flex items-center"
-                          >
-                            <Check className={`h-4 w-4 mr-3 ${activeTheme === theme.id ? '' : 'invisible'}`} aria-hidden="true" />
-                            {theme.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                     <button
-                      ref={el => { accountItemRefs.current[logoutItemIndex] = el; }}
+                      ref={el => { accountItemRefs.current[1] = el; }}
                       type="button"
                       role="menuitem"
                       tabIndex={-1}

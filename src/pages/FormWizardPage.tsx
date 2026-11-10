@@ -30,6 +30,7 @@ import { CreatedEntityRecord, parseCreatedEntitiesJson } from '../utils/forms/cr
 import { deleteCreatedEntities } from '../utils/forms/deleteCreatedEntities';
 import { createdEntityDeleteDeps } from '../utils/forms/createdEntityDeleteDeps';
 import { workflowClient } from '../apiClients/workflowClient';
+import { resolveWorkflowSessionId } from '../utils/forms/worldTaskLifecycle';
 import ObjectTypeExplorer from '../components/ObjectTypeExplorer';
 import { columnDefinitionsRegistry, defaultColumnDefinitions } from '../config/objectConfigs';
 import { EntityMetadataDto } from '../types/dtos/metadata/MetadataModels';
@@ -501,19 +502,16 @@ export const FormWizardPage: React.FC<Props> = ({
         setAutoOpenForm(false); // Clear auto-open flag to prevent default config from overriding
         setWizardConfig(config);
         setWizardProgressId(progressId);
-        try {
-            const cfgIdNum = config.id ? parseInt(String(config.id), 10) : undefined;
-            const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
-            const session = await workflowClient.createSession({
-                formConfigurationId: cfgIdNum,
-                entityTypeName: selectedTypeName,
-                entityId: entityIdNum
-            });
-            setWorkflowSessionId(session.id);
-        } catch (error) {
-            console.error('Failed to create workflow session', error);
-            setWorkflowSessionId(undefined);
-        }
+        // PandiO/knk-workspace#180 (DESIGN §8.7): a resumed draft keeps its workflow session, so its world tasks
+        // are found again; a new form starts one.
+        const cfgIdNum = config.id ? parseInt(String(config.id), 10) : undefined;
+        const entityIdNum = entityId ? parseInt(String(entityId), 10) : undefined;
+        setWorkflowSessionId(await resolveWorkflowSessionId({
+            progressId,
+            formConfigurationId: cfgIdNum,
+            entityTypeName: selectedTypeName,
+            entityId: entityIdNum
+        }));
         setShowWizard(true);
     };
 
@@ -1139,11 +1137,17 @@ export const FormWizardPage: React.FC<Props> = ({
                 )}
                 <div className='dashboard-content'>
                     {showWizard && wizardConfig && selectedTypeName && (
-                        <Breadcrumbs trail={breadcrumbTrail} onNavigate={handleBreadcrumbNavigate} className="mb-4" />
+                        // #227 fix round: in the form card's centred column (FormWizard: max-w-4xl mx-auto), so
+                        // the breadcrumb starts at the card's left edge.
+                        <Breadcrumbs trail={breadcrumbTrail} onNavigate={handleBreadcrumbNavigate} className="mx-auto mb-4 max-w-4xl" />
                     )}
-                    <div className="mb-4">
-                        <EntityMetadataNavigator metadata={selectedEntityMetadata} />
-                    </div>
+                    {/* #227: the type overview (fields list) belongs to the setup lists; above an open
+                        form it read like debug output, so the breadcrumb sits right above the form. */}
+                    {!showWizard && (
+                        <div className="mb-4">
+                            <EntityMetadataNavigator metadata={selectedEntityMetadata} />
+                        </div>
+                    )}
 
                     {selectedTypeName && !showWizard && (
                         <div className="mb-6 bg-surface rounded-lg shadow-sm border border-line p-4 space-y-4">

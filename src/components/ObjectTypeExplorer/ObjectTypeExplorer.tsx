@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowDownAZ, ArrowUpZA, ChevronDown, ChevronRight, EyeOff, PanelLeftClose, PanelLeftOpen, Search, Star, X } from 'lucide-react';
+import { ArrowDownAZ, ArrowUpZA, ChevronDown, ChevronRight, EyeOff, ListFilter, PanelLeftClose, PanelLeftOpen, Search, Star, X } from 'lucide-react';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
@@ -22,6 +22,21 @@ export type ObjectTypeExplorerGroup = {
   defaultExpanded: boolean;
   collapsible: boolean;
 };
+
+/**
+ * PandiO/knk-workspace#226: a yes/no filter on the explorer list, e.g. "Display configuration".
+ * `entityNames` holds the lower-cased names that have the property; null while it is unknown
+ * (loading or failed): the filter is then neither offered nor applied, so nothing disappears by mistake.
+ */
+export type ObjectTypeExplorerFilter = {
+  id: string;
+  label: string;
+  entityNames: ReadonlySet<string> | null;
+};
+
+/** A filter's choice: only types that have the property (`yes`) or only those that don't (`no`). */
+export type ObjectTypeFilterValue = 'yes' | 'no';
+type FilterValues = Record<string, ObjectTypeFilterValue>;
 
 type Props = {
   items?: ObjectType[];
@@ -46,6 +61,11 @@ type Props = {
    * The caller keeps them (the dashboard: per browser). Omit for no stars.
    */
   favourites?: { entityNames: ReadonlySet<string>; onToggle: (entityName: string) => void };
+  /**
+   * #226: a filter button next to the sort toggle offers these (Any / Yes / No each); the choice is
+   * remembered with `storageKey` like the sort. Omit for no filter button. Needs `searchable`.
+   */
+  filters?: ObjectTypeExplorerFilter[];
 };
 
 type ExplorerItem = { id: string; label: string };
@@ -56,6 +76,7 @@ const STORAGE_PREFIX = 'objectTypeExplorer';
 export const getSortStorageKey = (storageKey: string) => `${STORAGE_PREFIX}.${storageKey}.sort`;
 export const getExpandedStorageKey = (storageKey: string) => `${STORAGE_PREFIX}.${storageKey}.expandedGroups`;
 export const getCollapsedStorageKey = (storageKey: string) => `${STORAGE_PREFIX}.${storageKey}.collapsed`;
+export const getFiltersStorageKey = (storageKey: string) => `${STORAGE_PREFIX}.${storageKey}.filters`;
 
 /**
  * KNG-94: from Tailwind's `md` up the explorer sits beside the content and can be collapsed to a
@@ -118,6 +139,21 @@ const readExpandedState = (storageKey?: string): ExpandedState => {
   }
 };
 
+/** The stored filter choices: `{ "<filter id>": "yes" | "no" }`; anything else counts as no filter. */
+const readFilterValues = (storageKey?: string): FilterValues => {
+  const stored = readStorage(storageKey ? getFiltersStorageKey(storageKey) : undefined);
+  if (!stored) return {};
+  try {
+    const parsed = JSON.parse(stored);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, ObjectTypeFilterValue] => entry[1] === 'yes' || entry[1] === 'no')
+    );
+  } catch {
+    return {};
+  }
+};
+
 const compareLabels = (a: ExplorerItem, b: ExplorerItem) =>
   a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }) ||
   a.id.localeCompare(b.id, undefined, { sensitivity: 'base' });
@@ -140,6 +176,7 @@ const ObjectTypeExplorer = ({
   storageKey,
   marked,
   favourites,
+  filters,
 }: Props) => {
   const [query, setQuery] = useState('');
   const docked = useDocked();
@@ -160,6 +197,11 @@ const ObjectTypeExplorer = ({
   }, [panelVisible]);
   const [sortDirection, setSortDirection] = useState<ObjectTypeSortDirection>(() => readSortDirection(storageKey));
   const [expandedState, setExpandedState] = useState<ExpandedState>(() => readExpandedState(storageKey));
+  // #226: the filter choices (remembered like the sort) and whether the filter panel is open.
+  const [filterValues, setFilterValues] = useState<FilterValues>(() => readFilterValues(storageKey));
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filterPanelId = `${panelId}-filters`;
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
   // Collapsed groups opened to show the selected entity; transient, never persisted.
   const [revealedGroupIds, setRevealedGroupIds] = useState<ReadonlySet<string>>(() => new Set());
   // Groups the user collapsed while the current search had auto-expanded them.
@@ -183,15 +225,30 @@ const ObjectTypeExplorer = ({
   const searchActive = normalizedQuery.length > 0;
   const normalizedSelectedId = selectedId?.toLowerCase();
 
+  // #226: the filters that can be used now (their data is known), and those of them that are set.
+  const offeredFilters = useMemo(
+    () => (searchable && filters ? filters.filter(filter => filter.entityNames !== null) : []),
+    [filters, searchable]
+  );
+  const activeFilters = useMemo(
+    () => offeredFilters.filter(filter => filterValues[filter.id] !== undefined),
+    [offeredFilters, filterValues]
+  );
+  const filterActive = activeFilters.length > 0;
+
   const visibleItems = useMemo(() => {
-    const filtered = searchActive
+    const matching = searchActive
       ? sourceItems.filter(item =>
           item.label.toLowerCase().includes(normalizedQuery) || item.id.toLowerCase().includes(normalizedQuery)
         )
       : sourceItems;
+    const filtered = filterActive
+      ? matching.filter(item => activeFilters.every(filter =>
+          filter.entityNames!.has(item.id.toLowerCase()) === (filterValues[filter.id] === 'yes')))
+      : matching;
     const sorted = [...filtered].sort(compareLabels);
     return sortDirection === 'desc' ? sorted.reverse() : sorted;
-  }, [sourceItems, normalizedQuery, searchActive, sortDirection]);
+  }, [sourceItems, normalizedQuery, searchActive, sortDirection, filterActive, activeFilters, filterValues]);
 
   // #194: favourites first (in the same order). #225: they are copies, the full list below still
   // holds every type at its usual place.
@@ -271,6 +328,32 @@ const ObjectTypeExplorer = ({
       writeStorage(storageKey ? getSortStorageKey(storageKey) : undefined, next);
       return next;
     });
+  };
+
+  const setFilterValue = (filterId: string, value: ObjectTypeFilterValue | undefined) => {
+    setFilterValues(previous => {
+      const next = { ...previous };
+      if (value) next[filterId] = value;
+      else delete next[filterId];
+      writeStorage(storageKey ? getFiltersStorageKey(storageKey) : undefined, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const clearFilters = () => {
+    setFilterValues(previous => {
+      // Keep choices of filters that aren't offered right now (their data hasn't loaded).
+      const next = Object.fromEntries(
+        Object.entries(previous).filter(([id]) => !offeredFilters.some(filter => filter.id === id))
+      );
+      writeStorage(storageKey ? getFiltersStorageKey(storageKey) : undefined, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const closeFilters = () => {
+    setFiltersOpen(false);
+    filterButtonRef.current?.focus();
   };
 
   const updateQuery = (value: string) => {
@@ -470,13 +553,102 @@ const ObjectTypeExplorer = ({
               >
                 <SortIcon className="h-4 w-4" aria-hidden="true" />
               </button>
+              {offeredFilters.length > 0 && (
+                <button
+                  ref={filterButtonRef}
+                  type="button"
+                  onClick={() => setFiltersOpen(open => !open)}
+                  aria-expanded={filtersOpen}
+                  aria-controls={filterPanelId}
+                  aria-label={filterActive ? `Filter entity types (${activeFilters.length} on)` : 'Filter entity types'}
+                  title={filterActive ? `Filters on: ${activeFilters.map(filter => filter.label).join(', ')}` : 'Filter entity types'}
+                  data-testid="explorer-filter-button"
+                  className={`relative flex-shrink-0 rounded-md border p-1.5 hover:bg-surface-alt hover:text-fg ${filterActive
+                    ? 'border-primary text-primary'
+                    : 'border-field text-muted'
+                  }`}
+                >
+                  <ListFilter className="h-4 w-4" aria-hidden="true" />
+                  {filterActive && (
+                    <span
+                      className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-fg"
+                      aria-hidden="true"
+                    >
+                      {activeFilters.length}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+          {offeredFilters.length > 0 && filtersOpen && (
+            // #226: inline under the search row (not a popover), so the scrolling list can't clip it.
+            <div
+              id={filterPanelId}
+              role="group"
+              aria-label="Filter entity types"
+              className="mb-2 space-y-1.5 rounded-md border border-line bg-surface-alt p-2"
+              onKeyDown={event => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  closeFilters();
+                }
+              }}
+            >
+              {/* #226 fix round: one compact row per filter, the choice in a native select (keyboard and
+                  screen readers as usual), instead of three buttons. */}
+              {offeredFilters.map(filter => {
+                const selectId = `${filterPanelId}-${filter.id}`;
+                const value = filterValues[filter.id];
+                return (
+                  <div key={filter.id} className="flex items-center justify-between gap-2 px-1">
+                    <label htmlFor={selectId} className="min-w-0 truncate text-xs font-semibold text-fg">
+                      {filter.label}
+                    </label>
+                    <select
+                      id={selectId}
+                      value={value ?? ''}
+                      onChange={event => {
+                        const next = event.target.value;
+                        setFilterValue(filter.id, next === 'yes' || next === 'no' ? next : undefined);
+                      }}
+                      className={`flex-shrink-0 rounded-md border bg-surface px-1.5 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-focus ${value
+                        ? 'border-primary font-semibold text-primary'
+                        : 'border-field text-fg'
+                      }`}
+                    >
+                      <option value="">Any</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
+                );
+              })}
+              <div className="flex justify-between gap-2 px-1">
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  disabled={!filterActive}
+                  className="text-xs font-medium text-primary hover:underline disabled:cursor-default disabled:text-muted disabled:no-underline"
+                >
+                  Clear filters
+                </button>
+                <button type="button" onClick={closeFilters} className="text-xs font-medium text-muted hover:text-fg hover:underline">
+                  Done
+                </button>
+              </div>
             </div>
           )}
           <div className={searchable ? 'pt-1' : 'pt-4'}>
-            {visibleItems.length === 0 && searchActive ? (
-              <p className="px-2 py-4 text-sm text-muted" role="status">
-                No entity types match
-              </p>
+            {visibleItems.length === 0 && (searchActive || filterActive) ? (
+              <div className="px-2 py-4 text-sm text-muted" role="status">
+                <p>No entity types match</p>
+                {filterActive && (
+                  <button type="button" onClick={clearFilters} className="mt-1 font-medium text-primary hover:underline">
+                    Clear filters
+                  </button>
+                )}
+              </div>
             ) : (
               <>
                 {favouriteItems.length > 0 && (

@@ -1,12 +1,85 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { worldTaskClient } from '../../apiClients/worldTaskClient';
-import { WorldTaskReadDto } from '../../types/dtos/workflow/WorkflowDtos';
+import {
+    OnlineStaffDto,
+    WorldTaskActiveForMeDto,
+    WorldTaskDelivery,
+    WorldTaskReadDto,
+    WorldTaskUpdatedPayload,
+} from '../../types/dtos/workflow/WorkflowDtos';
+import { useRealtime, useRealtimeEvent, useRealtimeReconnected } from '../../realtime/RealtimeProvider';
 import { FormFieldDto, FormConfigurationDto } from '../../types/dtos/forms/FormModels';
 import { FieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 import { Copy, Check, MapPin } from 'lucide-react';
 import { useEnrichedFormContext } from '../../hooks/useEnrichedFormContext';
 import { resolveWorldTaskDependencyValue } from '../../utils/forms/worldTaskDependency';
 import { keepLocationIdOnReplace } from '../../utils/forms/worldTaskFieldValue';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import {
+    isClosedWorldTask,
+    isOpenWorldTask,
+    needsApplying,
+    taskCodeCommand,
+} from '../../utils/forms/worldTaskLifecycle';
+
+/**
+ * PandiO/knk-workspace#181 (DESIGN §8.5): how often an open task is re-read. While the web hub is connected the panel
+ * renders from WorldTaskUpdated and this is only a safety net; while it is not (or realtime is off) the poll is the
+ * #180 one, unchanged.
+ */
+export const TASK_POLL_MS_DISCONNECTED = 2000;
+export const TASK_POLL_MS_CONNECTED = 10000;
+
+/** #181: a WorldTaskUpdated payload over the task the panel holds (the output is read with GET once Completed). */
+export function mergeTaskUpdate(task: WorldTaskReadDto, update: WorldTaskUpdatedPayload): WorldTaskReadDto {
+    return {
+        ...task,
+        status: update.status ?? task.status,
+        offerState: update.offerState ?? task.offerState,
+        targetUserId: update.targetUserId ?? task.targetUserId,
+        targetUsername: update.targetUsername ?? task.targetUsername,
+        claimedByMinecraftUsername: update.claimedByMinecraftUsername ?? undefined,
+        claimedByServerId: update.claimedByServerId ?? undefined,
+        errorMessage: update.errorMessage ?? undefined,
+        expiresAt: update.expiresAt ?? task.expiresAt,
+        offeredAt: update.offeredAt ?? task.offeredAt,
+        releaseCount: update.releaseCount ?? task.releaseCount,
+    };
+}
+
+/** #181: the line above the task code for a waiting task, by its offer state (DESIGN §8.3). */
+export function offerNotice(task: WorldTaskReadDto): string | null {
+    const who = task.targetUsername || 'the player';
+    const handOff = task.targetUserId !== undefined && task.targetUserId !== null
+        && task.createdByUserId !== undefined && task.targetUserId !== task.createdByUserId;
+    switch (task.offerState) {
+        case 'Offered':
+            return handOff
+                ? `Sent to ${who} in game, waiting for Accept or Decline (2 min)…`
+                : 'Sent to you in game…';
+        case 'Queued':
+            return 'Queued: it is sent to you in game when your current task ends.';
+        case 'Declined':
+            return handOff ? `${who} declined it in game (or wasn't online). Use the task code.` : 'It could not be sent to you in game. Use the task code.';
+        case 'TimedOut':
+            return handOff ? `No answer from ${who} in game. Use the task code.` : 'No answer from the game server. Use the task code.';
+        case 'Busy':
+            return 'You already had a task open in game when this one arrived. Finish that one, then use the task code (or Start again).';
+        case 'NoPermission':
+            // #239: the game server refused it: the player lacks knk.tasks in game.
+            return handOff
+                ? `${who} doesn't have world-task access in game (knk.tasks). Hand it to someone else or use the task code.`
+                : "You don't have world-task access in game (knk.tasks). Use the task code, or hand it off.";
+        default:
+            return null;
+    }
+}
+
+/** PandiO/knk-workspace#180: where a new task belongs (the draft is saved silently first if there is none, Q19). */
+export interface WorldTaskAnchor {
+    workflowSessionId: number;
+    formSubmissionProgressId?: number;
+}
 
 interface WorldBoundFieldRendererProps {
     field: FormFieldDto;
@@ -29,6 +102,18 @@ interface WorldBoundFieldRendererProps {
     hidePrimaryActionButton?: boolean;
     actionButtonId?: string;
     onStatusBannerVisibilityChange?: (visible: boolean) => void;
+    /**
+     * PandiO/knk-workspace#180 (DESIGN §8.7): the field's latest task as the form knows it (from the draft on resume, or
+     * from earlier in this visit after a step change). The panel reattaches to it: an open task is followed again, a
+     * completed one that is not in the draft yet fills the field.
+     */
+    initialTask?: WorldTaskReadDto | null;
+    /** #180: every change of this field's task (null when the panel was reset), so the form can keep it across steps. */
+    onTaskChange?: (task: WorldTaskReadDto | null) => void;
+    /** #180: called before a task is created: saves the draft silently if none exists and returns where the task belongs. */
+    ensureTaskAnchor?: () => Promise<WorldTaskAnchor | null>;
+    /** #180: a completed result was written into the form; the form saves the draft and marks the task applied. */
+    onResultApplied?: (task: WorldTaskReadDto) => void;
 }
 
 /**
@@ -73,7 +158,7 @@ const KIT_SCAN_TASK_TYPE = 'KitScan';
 
 /**
  * Task types that are executed by the plugin without a player and therefore never
- * produce a claim code. The webapp shows scan progress instead of a "send to Minecraft" prompt.
+ * produce a task code. The webapp shows scan progress instead of a "send to Minecraft" prompt.
  *
  * ItemScan is deliberately NOT here (docs/specs/items/IMPLEMENTATION_PLAN.md §5.1/§5.3) - it's
  * player-driven (a specific player must be holding the item at scan time), so it needs the
@@ -407,10 +492,15 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     hidePrimaryActionButton = false,
     actionButtonId,
     onStatusBannerVisibilityChange,
+    initialTask,
+    onTaskChange,
+    ensureTaskAnchor,
+    onResultApplied,
 }) => {
     const [taskId, setTaskId] = useState<number | null>(null);
     const [task, setTask] = useState<WorldTaskReadDto | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [cancelling, setCancelling] = useState(false);
     const [extractionSucceeded, setExtractionSucceeded] = useState(false);
     const [extractionError, setExtractionError] = useState<string | null>(null);
     // KNG-268: why the API refused to create the task (e.g. a region door without its captured region).
@@ -421,10 +511,33 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const valueRef = useRef(value);
     valueRef.current = value;
     const onTaskCompletedRef = useRef(onTaskCompleted);
+    const onTaskChangeRef = useRef(onTaskChange);
+    onTaskChangeRef.current = onTaskChange;
+    const onResultAppliedRef = useRef(onResultApplied);
+    onResultAppliedRef.current = onResultApplied;
     const isReadOnlyRef = useRef(!!field.isReadOnly);
-    
+    const taskTypeRef = useRef(taskType);
+    taskTypeRef.current = taskType;
+
     // Keep polling interval stable across parent re-renders
     const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // #181 (DESIGN §8.3, §8.5): the web hub, the busy check, "Hand off to…" and the task code shown or folded away.
+    const realtime = useRealtime();
+    const [busy, setBusy] = useState<WorldTaskActiveForMeDto | null>(null);
+    const [handOffOpen, setHandOffOpen] = useState(false);
+    const [staff, setStaff] = useState<OnlineStaffDto[] | null>(null);
+    const [staffError, setStaffError] = useState<string | null>(null);
+    const [codeExpanded, setCodeExpanded] = useState(false);
+    /** #240: why "Send again" didn't send (not online in game, or the API refused). */
+    const [resendError, setResendError] = useState<string | null>(null);
+    useEffect(() => {
+        setResendError(null);
+    }, [task?.id, task?.status, task?.offerState]);
+    const taskRef = useRef<WorldTaskReadDto | null>(null);
+    taskRef.current = task;
+    const extractionSucceededRef = useRef(false);
+    extractionSucceededRef.current = extractionSucceeded;
 
     useEffect(() => {
         onChangeRef.current = onChange;
@@ -442,10 +555,87 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     // NOTE: Hook must be called unconditionally per React rules
     const formContext = useEnrichedFormContext(formConfiguration || {} as any);
 
-    // Poll task status when taskId is set
+    /** #180: the task changed; the form keeps the latest per field (across steps and reloads). */
+    const reportTask = (next: WorldTaskReadDto | null) => {
+        onTaskChangeRef.current?.(next);
+    };
+
+    /**
+     * A Completed task's result goes into the field (and, through onTaskCompleted, into the fields ItemScan/KitScan
+     * fan out to). Returns whether a value was applied. #180: the form then saves the draft and marks the task applied.
+     */
+    const applyCompletedTask = (completed: WorldTaskReadDto): boolean => {
+        const currentTaskType = taskTypeRef.current;
+        if (!completed.outputJson) {
+            setExtractionError('Task completed but no output was returned.');
+            return false;
+        }
+        // Use the task's actual taskType for extraction (not the prop)
+        const capturedValue = extractTaskResult(completed, completed.taskType || currentTaskType);
+        // KNG-134: "Replace via Minecraft" on a Location that already has an id keeps it,
+        // so the save updates that Location instead of creating a second one.
+        const extractedValue = isLocationTask(currentTaskType, completed.taskType)
+            ? keepLocationIdOnReplace(valueRef.current, capturedValue)
+            : capturedValue;
+
+        if (!hasExtractedValue(extractedValue) || isReadOnlyRef.current) {
+            setExtractionError('Could not extract result from task output');
+            return false;
+        }
+        // Update field value - except for KitScan, whose bound field is just an
+        // anchor for the panel; applyKitScanResult (via onTaskCompleted) does
+        // every Kit field write itself.
+        if (!isKitScanTask(currentTaskType, completed.taskType)) {
+            onChangeRef.current(extractedValue);
+        }
+        setExtractionSucceeded(true);
+        setExtractionError(null);
+        onTaskCompletedRef.current?.(completed, extractedValue);
+        onResultAppliedRef.current?.(completed);
+        // Marked applied locally at once, so a step change and back doesn't apply it twice.
+        reportTask({ ...completed, appliedAt: completed.appliedAt ?? new Date().toISOString() });
+        return true;
+    };
+
+    // #180 (DESIGN §8.7): reattach to the field's latest task when the panel mounts.
+    useEffect(() => {
+        if (!initialTask || field.isReadOnly) return;
+        if (needsApplying(initialTask)) {
+            setTask(initialTask);
+            setTaskId(initialTask.id);
+            applyCompletedTask(initialTask);
+            return;
+        }
+        const status = getNormalizedStatus(initialTask.status);
+        // Applied results are already in the field; a cancelled task (left the form, Capture again) is history.
+        if (status === 'completed' || status === 'cancelled') return;
+        setTask(initialTask);
+        setTaskId(initialTask.id);
+        // Only the mount (or a different task) reattaches; later changes come from this panel itself.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialTask?.id]);
+
+    /**
+     * A fresh read of the task: shown, reported to the form, and a Completed result applied. Returns true when the task
+     * is closed (stop following it). #180: Failed, Cancelled and Expired end the task; the banner offers "Start again".
+     */
+    const applyFetched = (updated: WorldTaskReadDto): boolean => {
+        if (!updated) return false;
+        setTask(updated);
+        if (getNormalizedStatus(updated.status) === 'completed') {
+            if (!extractionSucceededRef.current) {
+                applyCompletedTask(updated);
+            }
+            return true;
+        }
+        reportTask(updated);
+        return isClosedWorldTask(updated);
+    };
+
+    // Poll task status while the task is open
     useEffect(() => {
         // Don't start polling when task is not active or already completed locally
-        if (field.isReadOnly || !taskId || extractionSucceeded) {
+        if (field.isReadOnly || !taskId || extractionSucceeded || isClosedWorldTask(task)) {
             return;
         }
 
@@ -454,69 +644,23 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             return;
         }
 
-        console.log('Starting task status polling for taskId:', taskId);
+        const stopPolling = () => {
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
+            }
+        };
 
         const pollInterval = setInterval(async () => {
             try {
-                console.log('Polling status for WorldTask ID:', taskId);
                 const updated = await worldTaskClient.getById(taskId);
-                setTask(updated);
-                const updatedStatus = getNormalizedStatus(updated.status);
-
-                // If task completed, extract output and bind to field
-                if (updatedStatus === 'completed' && updated.outputJson) {
-                    console.log('WorldTask completed, extracting result:', updated);
-                    // Use the task's actual taskType for extraction (not the prop)
-                    const capturedValue = extractTaskResult(updated, updated.taskType || taskType);
-                    // KNG-134: "Replace via Minecraft" on a Location that already has an id keeps it,
-                    // so the save updates that Location instead of creating a second one.
-                    const extractedValue = isLocationTask(taskType, updated.taskType)
-                        ? keepLocationIdOnReplace(valueRef.current, capturedValue)
-                        : capturedValue;
-                    
-                    if (hasExtractedValue(extractedValue) && !isReadOnlyRef.current) {
-                        // Update field value - except for KitScan, whose bound field is just an
-                        // anchor for the panel; applyKitScanResult (via onTaskCompleted) does
-                        // every Kit field write itself.
-                        if (!isKitScanTask(taskType, updated.taskType)) {
-                            onChangeRef.current(extractedValue);
-                        }
-                        setExtractionSucceeded(true);
-                        setExtractionError(null);
-                        
-                        // Notify parent about successful completion
-                        if (onTaskCompletedRef.current) {
-                            onTaskCompletedRef.current(updated, extractedValue);
-                        }
-                        
-                        console.log(`✓ WorldTask ${taskId} result extracted and field populated:`, extractedValue);
-                        clearInterval(pollInterval);
-                        pollingIntervalRef.current = null;
-                    } else {
-                        setExtractionError('Could not extract result from task output');
-                        console.warn(`WorldTask ${taskId} completed but no result value found in output`);
-                        clearInterval(pollInterval);
-                        pollingIntervalRef.current = null;
-                    }
-                }
-
-                if (updatedStatus === 'completed' && !updated.outputJson) {
-                    setExtractionError('Task completed but no output was returned.');
-                    clearInterval(pollInterval);
-                    pollingIntervalRef.current = null;
-                }
-
-                // If task failed, stop polling. The "Task Failed" banner shows the reason (KNG-268:
-                // also setting it as the extraction error showed it twice).
-                if (updatedStatus === 'failed') {
-                    console.error('WorldTask failed:', updated.errorMessage);
-                    clearInterval(pollInterval);
-                    pollingIntervalRef.current = null;
+                if (applyFetched(updated)) {
+                    stopPolling();
                 }
             } catch (error) {
                 console.error('Failed to poll task status:', error);
             }
-        }, 2000);  // Poll every 2 seconds
+        }, realtime.connected ? TASK_POLL_MS_CONNECTED : TASK_POLL_MS_DISCONNECTED);
 
         pollingIntervalRef.current = pollInterval;
 
@@ -524,10 +668,62 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
             clearInterval(pollInterval);
             pollingIntervalRef.current = null;
         };
-    }, [taskId, extractionSucceeded, taskType, field.isReadOnly]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [taskId, extractionSucceeded, taskType, field.isReadOnly, task?.status, realtime.connected]);
 
-    const handleCreateInMinecraft = async () => {
+    // #181: follow this task over the web hub (joined again by the provider after a reconnect).
+    useEffect(() => {
+        if (field.isReadOnly || !taskId || !realtime.connected) return undefined;
+        void realtime.joinTask(taskId);
+        return () => realtime.leaveTask(taskId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [taskId, realtime.connected, field.isReadOnly]);
+
+    useRealtimeEvent<WorldTaskUpdatedPayload>('WorldTaskUpdated', (update) => {
+        const current = taskRef.current;
+        if (!update || !current || update.taskId !== current.id || field.isReadOnly || extractionSucceededRef.current) return;
+        if (getNormalizedStatus(update.status) === 'completed') {
+            // The output isn't in the event: read the task once and fill the field.
+            void worldTaskClient.getById(current.id).then(applyFetched).catch(error =>
+                console.error('Failed to read the completed world task:', error));
+            return;
+        }
+        const merged = mergeTaskUpdate(current, update);
+        setTask(merged);
+        reportTask(merged);
+    });
+
+    // P2: after the hub was down, re-read what the panel shows.
+    useRealtimeReconnected(() => {
+        const current = taskRef.current;
+        if (!current || field.isReadOnly || extractionSucceededRef.current || isClosedWorldTask(current)) return;
+        void worldTaskClient.getById(current.id).then(applyFetched).catch(() => undefined);
+    });
+
+    /** #180: where the new task belongs; the form saves the draft first when there is none (silent, Q19). */
+    const resolveAnchor = async (): Promise<WorldTaskAnchor> => {
+        if (ensureTaskAnchor) {
+            try {
+                const anchor = await ensureTaskAnchor();
+                if (anchor) return anchor;
+            } catch (error) {
+                console.error('Saving the draft for the world task failed; the task is not anchored to a draft:', error);
+            }
+        }
+        return { workflowSessionId };
+    };
+
+    const startTracking = (created: WorldTaskReadDto) => {
+        setTask(created);  // Set full task object immediately (includes the task code)
+        setTaskId(created.id);  // Start polling for status updates
+        reportTask(created);
+    };
+
+    const handleCreateInMinecraft = async (deliver?: WorldTaskDelivery) => {
         if (isReadOnlyRef.current) return;
+        setBusy(null);
+        setHandOffOpen(false);
+        setCodeExpanded(false);
 
         const isGateBlockScan = GATE_BLOCK_SCAN_TASK_TYPES.includes(taskType);
         if (isGateBlockScan && !entityId) {
@@ -538,6 +734,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         setIsLoading(true);
         setCreateError(null);
         try {
+            const anchor = await resolveAnchor();
             if (isGateBlockScan) {
                 // Item 5 (docs/features/gate-structure-animation/
                 // GATESTRUCTURE_QOL_IMPLEMENTATION_PLAN.md) moved BlockSnapshots/
@@ -545,7 +742,8 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 // door, not a whole structure, so this field only ever renders inside a GateDoor
                 // form/step and entityId is already that door's own id.
                 const created = await worldTaskClient.create({
-                    workflowSessionId,
+                    workflowSessionId: anchor.workflowSessionId,
+                    formSubmissionProgressId: anchor.formSubmissionProgressId,
                     stepNumber,
                     stepKey: stepKey || field.formStepId || 'unknown',
                     fieldName: field.fieldName,
@@ -553,8 +751,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     inputJson: JSON.stringify({ gateDoorId: Number(entityId) }),
                 });
 
-                setTask(created);
-                setTaskId(created.id);
+                startTracking(created);
                 return;
             }
 
@@ -576,21 +773,21 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 // Enrich validation rules with dependency values from form
                 const enrichedRules = await Promise.all((validationRules ?? []).map(async rule => {
                     const enriched: any = { ...rule };
-                    
+
                     // Get dependency field name and look up its value
                     const depFieldName = rule.dependsOnField?.fieldName || rule.dependencyPath;
                     if (depFieldName && currentFormValues) {
                         // For simple fields, use the field name directly
                         // For multi-layer paths like "Town.WgRegionId", use the last segment
-                        const fieldName = depFieldName.includes('.') 
-                            ? depFieldName.split('.').pop() 
+                        const fieldName = depFieldName.includes('.')
+                            ? depFieldName.split('.').pop()
                             : depFieldName;
                         // KNG-131: an edit-loaded reference (e.g. an existing door's GateStructureId = 21)
                         // becomes the saved record, so the plugin can read its region.
                         enriched.dependencyFieldValue = await resolveWorldTaskDependencyValue(
                             rule, currentFormValues[fieldName || ''], formConfiguration);
                     }
-                    
+
                     return enriched;
                 }));
 
@@ -606,23 +803,122 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 console.log('WorldTask created with enriched validation context:', validationContext);
             }
 
-            // Create world task via API
+            // Create world task via API (#180: a field's previous open task is cancelled by the API)
             const created = await worldTaskClient.create({
-                workflowSessionId,
+                workflowSessionId: anchor.workflowSessionId,
+                formSubmissionProgressId: anchor.formSubmissionProgressId,
                 stepNumber,
                 stepKey: stepKey || field.formStepId || 'unknown',
                 fieldName: field.fieldName,
                 taskType: taskType,  // e.g., "WgRegionId"
                 inputJson: JSON.stringify(inputData),
+                // #181: omitted = the API's default, auto (offered to you when you are online in game, else the code)
+                ...(deliver !== undefined ? { deliver } : {}),
             });
 
-            setTask(created);  // Set full task object immediately (includes linkCode)
-            setTaskId(created.id);  // Start polling for status updates
+            startTracking(created);
         } catch (error) {
             console.error('Failed to create world task:', error);
             setCreateError(error instanceof Error && error.message ? error.message : 'The task could not be started.');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    /**
+     * #181 (DESIGN §8.3): "Send to Minecraft". With the web hub connected and you online in game, the busy check runs
+     * first: if you already hold a task in game the panel asks Queue / Hand off / Replace / Cancel instead of sending
+     * blindly. Otherwise (offline, realtime off, a scan) it sends as before; the API offers it to you or shows the code.
+     */
+    const handleSendToMinecraft = async () => {
+        if (isReadOnlyRef.current) return;
+        if (isHeadlessTaskType(taskType) || !realtime.connected) {
+            await handleCreateInMinecraft();
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const [me, active] = await Promise.all([worldTaskClient.getMyPresence(), worldTaskClient.getActiveForMe()]);
+            if (me?.online && active?.task) {
+                setBusy(active);
+                setIsLoading(false);
+                return;
+            }
+        } catch (error) {
+            // The busy check is a courtesy; the API checks again (Busy) and the task code always works.
+            console.error('Busy check failed; sending anyway:', error);
+        }
+        setIsLoading(false);
+        await handleCreateInMinecraft('auto');
+    };
+
+    /** #240: whether the open task can be sent again: waiting with its code, not offered right now, hub connected. */
+    const canSendAgain = (): boolean => {
+        const current = task;
+        return !!current && !field.isReadOnly && realtime.connected && !!current.linkCode
+            && getNormalizedStatus(current.status) === 'pending' && current.offerState !== 'Offered'
+            && !isHeadlessTaskType(taskType, current.taskType);
+    };
+
+    /** #240: offers the waiting task again (POST {id}/offer) instead of creating a new one. */
+    const offerAgain = async (deliver: Exclude<WorldTaskDelivery, 'code'>) => {
+        if (!task || isReadOnlyRef.current) return;
+        setBusy(null);
+        setHandOffOpen(false);
+        setCodeExpanded(false);
+        setResendError(null);
+        setIsLoading(true);
+        try {
+            const updated = await worldTaskClient.offer(task.id, deliver);
+            setTask(updated);
+            reportTask(updated);
+        } catch (error) {
+            console.error(`Failed to send world task ${task.id} again:`, error);
+            setResendError(apiRefusalReason(error) ?? 'The task could not be sent again. Its task code still works.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    /** The busy panel and the hand-off picker: send the waiting task again (#240), else a new task (#181). */
+    const deliverTask = (deliver: Exclude<WorldTaskDelivery, 'code'>) =>
+        canSendAgain() ? offerAgain(deliver) : handleCreateInMinecraft(deliver);
+
+    /** #240 "Send again": the same busy check as "Send to Minecraft", for the waiting task. */
+    const handleSendAgain = async () => {
+        if (!task || isReadOnlyRef.current) return;
+        setResendError(null);
+        setIsLoading(true);
+        try {
+            const [me, active] = await Promise.all([worldTaskClient.getMyPresence(), worldTaskClient.getActiveForMe()]);
+            if (!me?.online) {
+                setResendError("You're not online in game. Join the server and press Send again, or use the task code.");
+                setIsLoading(false);
+                return;
+            }
+            if (active?.task && active.task.id !== task.id) {
+                setBusy(active);
+                setIsLoading(false);
+                return;
+            }
+        } catch (error) {
+            // The checks are a courtesy; the API checks again.
+            console.error('Busy check failed; sending anyway:', error);
+        }
+        setIsLoading(false);
+        await offerAgain('auto');
+    };
+
+    /** #181: "Hand off to…": the online players with knk.tasks (Accept/Decline in game, 2 min). */
+    const openHandOff = async () => {
+        setHandOffOpen(true);
+        setStaff(null);
+        setStaffError(null);
+        try {
+            setStaff((await worldTaskClient.getOnlineStaff()) ?? []);
+        } catch (error) {
+            console.error('Failed to list online players:', error);
+            setStaffError('Could not list who is online in game.');
         }
     };
 
@@ -636,11 +932,48 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         }
     };
 
-    const handleRunAgain = () => {
+    /** Back to the "Send to Minecraft" button. #180: an open task is cancelled first (Capture again / Try again). */
+    const resetPanel = async (reason: string) => {
+        const current = task;
         setTaskId(null);
         setTask(null);
         setExtractionSucceeded(false);
         setExtractionError(null);
+        setCreateError(null);
+        reportTask(null);
+        if (current && isOpenWorldTask(current)) {
+            try {
+                await worldTaskClient.cancel(current.id, { reason });
+            } catch (error) {
+                console.error(`Failed to cancel world task ${current.id}:`, error);
+            }
+        }
+    };
+
+    const handleRunAgain = () => {
+        void resetPanel('Capture again in the web app.');
+    };
+
+    /** #180: "Cancel task" on a waiting or claimed task (also the way out of a stuck InProgress). */
+    const handleCancelTask = async () => {
+        if (!task) return;
+        setCancelling(true);
+        try {
+            const cancelled = await worldTaskClient.cancel(task.id, { reason: 'Cancelled in the web app.' });
+            setTask(cancelled);
+            reportTask(cancelled);
+        } catch (error) {
+            // 409: it moved on meanwhile (claimed, completed); show what it is now.
+            try {
+                const current = await worldTaskClient.getById(task.id);
+                setTask(current);
+                reportTask(current);
+            } catch {
+                console.error(`Failed to cancel world task ${task.id}:`, error);
+            }
+        } finally {
+            setCancelling(false);
+        }
     };
 
     const taskStatus = getNormalizedStatus(task?.status);
@@ -653,6 +986,14 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
     const showResultDetails = task
         ? shouldShowWorldTaskResultDetails(task, taskType)
         : false;
+    const taskCommand = task?.linkCode ? taskCodeCommand(task.linkCode) : '';
+    // #181: while an offer is out, the task code is folded away (one click to show it, R5).
+    const offerPending = !!task && taskStatus === 'pending' && task.offerState === 'Offered';
+    const notice = task && taskStatus === 'pending' && !isHeadless ? offerNotice(task) : null;
+    const showTaskCode = !!task && taskStatus === 'pending' && !!task.linkCode && !isHeadless && (!offerPending || codeExpanded);
+    const expiresAtLabel = task?.expiresAt ? formatClockTime(task.expiresAt) : null;
+    // #240: "Send again" / "Hand off to…" on a waiting task that fell back to its code.
+    const sendAgainVisible = showTaskCode && canSendAgain();
 
     const hasVisibleStatusBanner =
         (!!task && taskStatus === 'pending' && (!!task.linkCode || isHeadless)) ||
@@ -661,11 +1002,34 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         (!!task && taskStatus === 'completed' && extractionSucceeded) ||
         !!extractionError ||
         !!createError ||
-        (!!task && taskStatus === 'failed');
+        (!!task && (taskStatus === 'failed' || taskStatus === 'cancelled' || taskStatus === 'expired'));
 
     useEffect(() => {
         onStatusBannerVisibilityChange?.(hasVisibleStatusBanner);
     }, [hasVisibleStatusBanner, onStatusBannerVisibilityChange]);
+
+    const cancelTaskButton = !field.isReadOnly && (
+        <button
+            type="button"
+            onClick={handleCancelTask}
+            disabled={cancelling}
+            className="mt-2 text-xs px-2 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-100 disabled:opacity-50"
+        >
+            {cancelling ? 'Cancelling…' : 'Cancel task'}
+        </button>
+    );
+
+    const startAgainButton = (label: string, tone: 'red' | 'gray') => !field.isReadOnly && (
+        <button
+            type="button"
+            onClick={() => void resetPanel('Started again in the web app.')}
+            className={tone === 'red'
+                ? 'mt-2 text-xs px-2 py-1 bg-red-200 text-red-800 rounded hover:bg-red-300'
+                : 'mt-2 text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300'}
+        >
+            {label}
+        </button>
+    );
 
     return (
         <div className="mb-4">
@@ -676,8 +1040,33 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                 </label>
             )}
 
-            {/* Prominent claim code display for Pending tasks (player-driven only) */}
-            {task && taskStatus === 'pending' && task.linkCode && !isHeadless && (
+            {/* #181: where the task went (offered, queued, declined, timed out, busy) */}
+            {notice && (
+                <div
+                    className={offerPending
+                        ? 'mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md'
+                        : 'mb-3 p-3 bg-gray-50 border border-gray-300 rounded-md'}
+                    role="status"
+                >
+                    <p className={offerPending ? 'text-sm font-medium text-blue-800' : 'text-sm text-gray-800'}>
+                        {offerPending ? '📨 ' : ''}{notice}
+                    </p>
+                    {offerPending && task?.linkCode && (
+                        <button
+                            type="button"
+                            onClick={() => setCodeExpanded(open => !open)}
+                            className="mt-2 text-xs text-blue-700 underline hover:text-blue-900"
+                            aria-expanded={codeExpanded}
+                        >
+                            {codeExpanded ? 'Hide the task code' : `Or use task code ${task.linkCode}`}
+                        </button>
+                    )}
+                    {offerPending && !codeExpanded && cancelTaskButton}
+                </div>
+            )}
+
+            {/* Prominent task code display for Pending tasks (player-driven only) */}
+            {showTaskCode && task && (
                 <div className="mb-4 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg shadow-sm">
                     <div className="flex items-start">
                         <span className="text-3xl mr-3">🎮</span>
@@ -685,37 +1074,25 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                             <p className="text-lg font-bold text-yellow-900 mb-2">
                                 Ready for Minecraft!
                             </p>
-                            <div className="bg-white p-3 rounded-md border border-yellow-300 mb-3">
-                                <p className="text-sm text-gray-700 mb-1 font-medium">Claim Code:</p>
-                                <div className="flex items-center gap-2">
-                                    <code className="text-2xl font-mono font-bold text-yellow-900 tracking-wider">
-                                        {task.linkCode}
-                                    </code>
-                                    <button
-                                        onClick={() => handleCopyText(task.linkCode!)}
-                                        className="p-2 hover:bg-yellow-100 rounded transition-colors"
-                                        title="Copy claim code"
-                                    >
-                                        {copiedText === task.linkCode ? (
-                                            <Check className="h-5 w-5 text-green-600" />
-                                        ) : (
-                                            <Copy className="h-5 w-5 text-gray-600 hover:text-gray-900" />
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
+                            {(task.releaseCount ?? 0) > 0 && (
+                                <p className="text-xs text-yellow-800 mb-2">
+                                    The task was handed back in game; its task code works again.
+                                </p>
+                            )}
+                            {/* #240: only the full command; people copy that, not the bare code */}
                             <div className="bg-gray-800 p-3 rounded-md">
                                 <p className="text-xs text-muted mb-1">In Minecraft, type:</p>
                                 <div className="flex items-center justify-between gap-2">
                                     <code className="min-w-0 break-all text-sm font-mono text-green-400">
-                                        /knk task-claim {task.linkCode}
+                                        {taskCommand}
                                     </code>
                                     <button
-                                        onClick={() => handleCopyText(`/knk task-claim ${task.linkCode}`)}
+                                        type="button"
+                                        onClick={() => handleCopyText(taskCommand)}
                                         className="shrink-0 p-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded transition-colors"
                                         title="Copy Minecraft command"
                                     >
-                                        {copiedText === `/knk task-claim ${task.linkCode}` ? (
+                                        {copiedText === taskCommand ? (
                                             <Check className="h-5 w-5 text-green-400" />
                                         ) : (
                                             <Copy className="h-5 w-5" />
@@ -725,7 +1102,33 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                             </div>
                             <p className="text-xs text-yellow-700 mt-2">
                                 💡 This code links your web session to your in-game actions
+                                {expiresAtLabel && <> · expires at {expiresAtLabel} if nobody claims it</>}
                             </p>
+                            {sendAgainVisible && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleSendAgain()}
+                                        disabled={isLoading}
+                                        className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+                                        title="Send this task to you in game again"
+                                    >
+                                        {isLoading ? 'Sending…' : 'Send again'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => void openHandOff()}
+                                        disabled={isLoading}
+                                        className="text-xs px-2 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        Hand off to…
+                                    </button>
+                                </div>
+                            )}
+                            {resendError && (
+                                <p className="text-xs text-red-700 mt-2" role="alert">{resendError}</p>
+                            )}
+                            {cancelTaskButton}
                         </div>
                     </div>
                 </div>
@@ -759,6 +1162,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     <p className="text-xs text-blue-600 mt-2">
                         Waiting for task to complete in Minecraft...
                     </p>
+                    {cancelTaskButton}
                 </div>
             )}
 
@@ -787,6 +1191,7 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     )}
                     {!field.isReadOnly && (
                         <button
+                            type="button"
                             onClick={handleRunAgain}
                             className="mt-2 text-xs px-2 py-1 bg-green-200 text-green-800 rounded hover:bg-green-300"
                         >
@@ -827,18 +1232,23 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     {task.errorMessage && (
                         <p className="text-xs text-red-700 mt-1">{task.errorMessage}</p>
                     )}
-                    {!field.isReadOnly && (
-                        <button
-                            onClick={() => {
-                                setTaskId(null);
-                                setTask(null);
-                                setExtractionError(null);
-                            }}
-                            className="mt-2 text-xs px-2 py-1 bg-red-200 text-red-800 rounded hover:bg-red-300"
-                        >
-                            Try Again
-                        </button>
-                    )}
+                    {startAgainButton('Try Again', 'red')}
+                </div>
+            )}
+
+            {/* #180: the task ended without a result */}
+            {task && (taskStatus === 'cancelled' || taskStatus === 'expired') && (
+                <div className="mb-3 p-3 bg-gray-50 border border-gray-300 rounded-md">
+                    <p className="text-sm font-medium text-gray-800">
+                        {taskStatus === 'expired' ? '⌛ Task expired' : '✖ Task cancelled'}
+                    </p>
+                    <p className="text-xs text-gray-700 mt-1">
+                        {task.errorMessage
+                            || (taskStatus === 'expired'
+                                ? 'Nobody claimed it in time; its task code no longer works.'
+                                : 'Its task code no longer works.')}
+                    </p>
+                    {startAgainButton('Start again', 'gray')}
                 </div>
             )}
 
@@ -857,16 +1267,94 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
                     Save the gate first; scanning needs an existing gate ID.
                 </p>
             )}
+            {/* #181 busy check: you already hold a task in game */}
+            {busy && (!taskId || sendAgainVisible) && !field.isReadOnly && (
+                <div className="mb-3 p-3 bg-amber-50 border border-amber-300 rounded-md" role="alertdialog" aria-label="You already have a task in game">
+                    <p className="text-sm font-medium text-amber-900">You already have a task open in game.</p>
+                    <p className="text-xs text-amber-800 mt-1">
+                        {busy.task?.fieldName ? `${busy.task.fieldName}` : 'A task'}
+                        {busy.formName ? ` of “${busy.formName}”` : ''}
+                        {busy.queued > 0 ? ` · ${busy.queued} more waiting in your queue` : ''}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        <button type="button" className="btn btn-secondary text-xs px-2 py-1" onClick={() => void deliverTask('queue')}>
+                            Queue
+                        </button>
+                        <button type="button" className="btn btn-secondary text-xs px-2 py-1" onClick={() => { setBusy(null); void openHandOff(); }}>
+                            Hand off…
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-secondary text-xs px-2 py-1"
+                            onClick={() => void deliverTask('replace')}
+                            title="The task you hold goes back with its task code; this one is sent to you"
+                        >
+                            Replace
+                        </button>
+                        <button type="button" className="btn btn-tertiary text-xs px-2 py-1" onClick={() => setBusy(null)}>
+                            Cancel
+                        </button>
+                    </div>
+                    <p className="text-xs text-amber-700 mt-2">
+                        Queue: sent to you when that task ends. Replace: {busy.formName ? `“${busy.formName}”` : 'the other form'} loses
+                        the task in game; its task code keeps working.
+                    </p>
+                </div>
+            )}
+
+            {/* #181 "Hand off to…": an online player gets Accept/Decline in game */}
+            {handOffOpen && (!taskId || sendAgainVisible) && !field.isReadOnly && (
+                <div className="mb-3 p-3 bg-white border border-gray-300 rounded-md" aria-label="Hand off to">
+                    <p className="text-sm font-medium text-gray-800">Hand off to an online player</p>
+                    {staff === null && !staffError && <p className="text-xs text-gray-600 mt-1">Loading who is online…</p>}
+                    {staffError && <p className="text-xs text-red-700 mt-1">{staffError}</p>}
+                    {staff && staff.length === 0 && (
+                        <p className="text-xs text-gray-600 mt-1">Nobody else with world-task access is online in game.</p>
+                    )}
+                    {staff && staff.length > 0 && (
+                        <ul className="mt-2 space-y-1">
+                            {staff.map(person => (
+                                <li key={person.userId}>
+                                    <button
+                                        type="button"
+                                        className="text-sm text-left w-full px-2 py-1 rounded hover:bg-gray-100"
+                                        onClick={() => void deliverTask({ userId: person.userId })}
+                                    >
+                                        {person.username}
+                                        <span className="text-xs text-gray-500"> · {person.serverId}{person.world ? ` / ${person.world}` : ''}</span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    <button type="button" className="mt-2 text-xs text-gray-600 underline" onClick={() => setHandOffOpen(false)}>
+                        Close
+                    </button>
+                </div>
+            )}
+
             {allowCreate && !field.isReadOnly && !taskId && !gateScanBlocked && (
                 <button
+                    type="button"
                     id={actionButtonId}
-                    onClick={handleCreateInMinecraft}
+                    onClick={() => void handleSendToMinecraft()}
                     disabled={isLoading}
                     className={hidePrimaryActionButton ? 'hidden' : 'px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400'}
                 >
                     {isHeadlessTaskType(taskType)
                         ? (isLoading ? 'Starting scan...' : (value ? 'Re-scan' : 'Start scan'))
                         : (isLoading ? 'Creating task...' : (value ? 'Replace via Minecraft' : 'Send to Minecraft'))}
+                </button>
+            )}
+            {allowCreate && !field.isReadOnly && !taskId && !gateScanBlocked && !hidePrimaryActionButton
+                && realtime.connected && !isHeadlessTaskType(taskType) && (
+                <button
+                    type="button"
+                    onClick={() => void openHandOff()}
+                    disabled={isLoading}
+                    className="ml-2 px-3 py-2 border border-gray-300 bg-white text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                    Hand off to…
                 </button>
             )}
 
@@ -884,3 +1372,10 @@ export const WorldBoundFieldRenderer: React.FC<WorldBoundFieldRendererProps> = (
         </div>
     );
 };
+
+/** "14:35" in the browser's time zone, or null when the date can't be read. */
+function formatClockTime(iso: string): string | null {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}

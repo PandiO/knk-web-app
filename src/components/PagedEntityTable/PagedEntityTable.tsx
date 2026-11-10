@@ -648,7 +648,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 } : undefined}
                 className={`transition-all duration-150 ${
                     selected
-                        ? 'bg-success-soft hover:bg-success-muted border-l-4 border-green-500'
+                        ? 'bg-success-soft hover:bg-success-muted border-l-4 border-success'
                         : 'hover:bg-surface-alt border-l-4 border-transparent'
                 } ${selectionConfig.mode !== 'none' || onRowClick ? 'cursor-pointer' : ''}`}
             >
@@ -666,7 +666,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                 {href ? (
                                     <a
                                         href={href}
-                                        className="text-gray-900 hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+                                        className="text-fg hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
                                         onClick={(event) => {
                                             event.stopPropagation();
                                             // Ctrl/Cmd/Shift/middle click: the browser opens the address.
@@ -714,7 +714,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                 value={searchInput}
                                 onChange={e => setSearchInput(e.target.value)}
                                 placeholder="Search..."
-                                className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                className="pl-10 block w-full rounded-md border-field shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                             />
                         </div>
                     )}
@@ -781,7 +781,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                         // #39: screen readers hear which column sorts the table, and how.
                                         aria-sort={column.sortable ? ariaSort(column.key) : undefined}
                                         className={`px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider ${
-                                            column.sortable ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''
+                                            column.sortable ? 'cursor-pointer hover:bg-canvas transition-colors' : ''
                                         }`}
                                         onClick={() => column.sortable && handleSort(column.key)}
                                     >
@@ -862,7 +862,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                     </div>
                     <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                         <div>
-                            <p className="text-sm text-gray-700">
+                            <p className="text-sm text-fg">
                                 Showing <span className="font-medium">{(query.page - 1) * query.pageSize + 1}</span> to{' '}
                                 <span className="font-medium">{Math.min(query.page * query.pageSize, data.totalCount)}</span> of{' '}
                                 <span className="font-medium">{data.totalCount}</span> results
@@ -877,7 +877,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                                 <ChevronLeft className="h-4 w-4 mr-1" />
                                 Previous
                             </button>
-                            <span className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700">
+                            <span className="inline-flex items-center px-4 py-2 text-sm font-medium text-fg">
                                 Page {query.page} of {totalPagesDerived}
                             </span>
                             <button

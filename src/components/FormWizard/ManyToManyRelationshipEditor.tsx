@@ -220,14 +220,10 @@ export const ManyToManyRelationshipEditor: React.FC<Props> = ({
             debug('loadMetadata:error', err);
         } finally {
             setLoading(false);
-            debug('loadMetadata:complete', {
-                relatedEntityType,
-                relatedEntityIdField
-            });
+            // The resolved type and id field are logged above; state read here would be the previous values.
+            debug('loadMetadata:complete');
         }
-    // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [step.joinEntityType, entityName, parentEntityTypeName]);
+    }, [step.joinEntityType, step.stepName, entityName, parentEntityTypeName]);
 
     useEffect(() => {
         loadMetadata();

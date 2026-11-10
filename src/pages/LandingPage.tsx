@@ -174,6 +174,10 @@ export function LandingPage() {
             <p className="mt-6 text-xs text-white/70">
               The alpha is open to invited testers only.
             </p>
+            {/* #221: the public player guides (the navigation bar only shows when signed in). */}
+            <p className="mt-2 text-sm text-white/80">
+              How do the enchantments work? Read the <Link to="/guides" className="underline">player guides</Link>.
+            </p>
           </div>
         </div>
       </div>

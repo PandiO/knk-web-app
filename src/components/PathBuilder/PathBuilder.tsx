@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ChevronDown, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
 import {
@@ -86,7 +86,6 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
         logger.debug(`Loaded ${props.length} properties for entity ${selectedEntity}`);
         console.log('Raw property suggestions from API:', props);
         console.log('Selected Entity:', selectedEntity);
-        console.log('Disabled prop:', disabled);
         
         // Log first property to see structure
         if (props && props.length > 0) {
@@ -102,7 +101,7 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
           logger.warn(`No properties returned for entity ${selectedEntity}`);
           console.warn('Property dropdown will be DISABLED because suggestions.length === 0');
         } else {
-          console.log(`Property dropdown should be ${disabled ? 'DISABLED (parent disabled)' : 'ENABLED'} with ${props.length} options`);
+          console.log(`Property dropdown has ${props.length} options`);
         }
       } catch (err) {
         const reason = failureReason(err);
@@ -117,9 +116,12 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
     };
 
     void loadSuggestions();
-  // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEntity, logger]);
+
+  // The latest callback, read by the validation below: a parent passing an inline function must
+  // not re-run the (API) validation on every render.
+  const latestOnValidationStatusChange = useRef(onValidationStatusChange);
+  latestOnValidationStatusChange.current = onValidationStatusChange;
 
   // Validate path on change
   useEffect(() => {
@@ -148,7 +150,7 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
         
         setValidationStatus(isValid ? 'success' : 'error');
         setValidationResult(result);
-        onValidationStatusChange?.(result);
+        latestOnValidationStatusChange.current?.(result);
         
         if (!isValid) {
           logger.warn(`Invalid path: ${path}. Reason: ${errorMsg}`);
@@ -171,8 +173,6 @@ export const PathBuilder: React.FC<PathBuilderProps> = ({
     }, 300); // Debounce validation
 
     return () => clearTimeout(debounceTimer);
-  // Deps kept as they are on purpose for now; see PandiO/knk-workspace#218.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEntity, selectedProperty, entityTypeName, logger]);
 
   // Notify parent when path changes

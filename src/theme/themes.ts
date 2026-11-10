@@ -8,7 +8,7 @@ import { useSyncExternalStore } from 'react';
  * Which theme a tab shows, first match wins:
  *  1. `?theme=` in the URL (any page): only this tab, so two tabs can show two themes side by side.
  *     It is kept in sessionStorage, so it survives a reload and in-app navigation in that tab.
- *  2. The theme picked in the account menu (localStorage, every tab).
+ *  2. The theme picked with the theme switcher (localStorage, every tab).
  *  3. `current`.
  * Storage can be blocked (private windows, cleared site data): every access is wrapped in try/catch.
  */
@@ -103,11 +103,10 @@ export function useActiveTheme(): ThemeId {
 }
 
 /**
- * The picker shows for logged-in staff. `REACT_APP_THEME_PICKER=on` shows it to every logged-in user
- * (local testing); `off` hides it for everyone (the `?theme=` parameter still works).
+ * The theme switcher (a cogwheel, src/theme/ThemeSwitcher.tsx) shows for every visitor, logged in or not
+ * (developer request 2026-11-04). `REACT_APP_THEME_PICKER=off` hides it (the `?theme=` parameter still
+ * works); any other value, or none, shows it.
  */
-export function themePickerVisible(isStaff: boolean, flag: string | undefined = process.env.REACT_APP_THEME_PICKER): boolean {
-  if (flag === 'off') return false;
-  if (flag === 'on') return true;
-  return isStaff;
+export function themePickerVisible(flag: string | undefined = process.env.REACT_APP_THEME_PICKER): boolean {
+  return flag !== 'off';
 }

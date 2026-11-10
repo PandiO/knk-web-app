@@ -7,13 +7,20 @@ import {
 } from '../../../types/dtos/minecraftCatalog/MinecraftCatalogDtos';
 import { apiRefusalReason } from '../../../utils/apiRefusalReason';
 import { formatDateTime, scanStatusClass } from './minecraftCatalogFormat';
+import { useRealtime, useRealtimeEvent, useRealtimeReconnected } from '../../../realtime/RealtimeProvider';
 
 // KNG-200 §5.2a: "Scan server" creates a scan and a WorldTask; knk-plugin picks the task up, reads
 // the registry and sends the snapshot, and the API ingests it. The page polls the scan while it is
-// Requested/Running/Ingesting and stops on Completed/Failed or when it is left.
+// Requested/Running/Ingesting and stops on Completed/Failed or when it is left. #181: with the web hub
+// connected, CatalogScanUpdated triggers the read and the poll slows to a 15 s safety net.
 
-/** How often an active scan is polled. */
+/** How often an active scan is polled while the web hub is not connected. */
 export const SCAN_POLL_INTERVAL_MS = 3000;
+/**
+ * PandiO/knk-workspace#181 (DESIGN §6.5): with the web hub connected the card reads the scan when CatalogScanUpdated
+ * arrives; the poll is then only a safety net.
+ */
+export const SCAN_POLL_INTERVAL_CONNECTED_MS = 15000;
 /** Scans listed in the history table. */
 export const SCAN_HISTORY_SIZE = 10;
 
@@ -106,6 +113,33 @@ export const MinecraftCatalogScanCard: React.FC<{
 
   const currentId = current?.id ?? null;
   const currentActive = isActiveScanStatus(current?.status);
+  const realtime = useRealtime();
+  const pollInterval = realtime.connected ? SCAN_POLL_INTERVAL_CONNECTED_MS : SCAN_POLL_INTERVAL_MS;
+
+  // #181: the scan's task changed (claimed, completed, failed, cancelled): read the scan now.
+  const readNow = React.useCallback(async (scanId: number) => {
+    try {
+      const scan = await minecraftCatalogClient.getScan(scanId);
+      applyScan(scan);
+      if (!isActiveScanStatus(scan.status)) {
+        onScanFinishedRef.current?.(scan);
+      }
+    } catch (err) {
+      console.error('Failed to read the catalogue scan:', err);
+    }
+  }, [applyScan]);
+  const currentIdRef = React.useRef(currentId);
+  currentIdRef.current = currentId;
+  const currentActiveRef = React.useRef(currentActive);
+  currentActiveRef.current = currentActive;
+  useRealtimeEvent<{ scanId: number }>('CatalogScanUpdated', (update) => {
+    if (update && update.scanId === currentIdRef.current && currentActiveRef.current) {
+      void readNow(update.scanId);
+    }
+  });
+  useRealtimeReconnected(() => {
+    if (currentIdRef.current !== null && currentActiveRef.current) void readNow(currentIdRef.current);
+  });
 
   // Poll the active scan; one request at a time, stopped on a final status or on unmount.
   React.useEffect(() => {
@@ -126,14 +160,14 @@ export const MinecraftCatalogScanCard: React.FC<{
         console.error('Failed to read the catalogue scan:', err);
         if (stopped) return;
       }
-      timer = setTimeout(() => void poll(), SCAN_POLL_INTERVAL_MS);
+      timer = setTimeout(() => void poll(), pollInterval);
     };
-    timer = setTimeout(() => void poll(), SCAN_POLL_INTERVAL_MS);
+    timer = setTimeout(() => void poll(), pollInterval);
     return () => {
       stopped = true;
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [currentId, currentActive, applyScan]);
+  }, [currentId, currentActive, applyScan, pollInterval]);
 
   const requestScan = async () => {
     setRequesting(true);

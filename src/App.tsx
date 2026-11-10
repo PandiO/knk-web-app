@@ -46,6 +46,8 @@ import { OWNER_ANALYTICS_VIEW_NODE } from './types/dtos/analytics/WorldAnalytics
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from './types/dtos/telemetry/TelemetryDtos';
 import { PublicPlayerProfilePage } from './pages/players/PublicPlayerProfilePage';
 import { SiegeMatchPage } from './pages/siege/SiegeMatchPage';
+import { GuidesPage } from './pages/guides/GuidesPage';
+import { EnchantmentGuidePage } from './pages/guides/EnchantmentGuidePage';
 import React from 'react';
 import { RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage, InvitePage, JoinPage } from './pages/auth';
 import { LinkPage } from './pages/auth/LinkPage';
@@ -54,7 +56,11 @@ import { UnlinkedBanner } from './components/UnlinkedBanner';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { CONTENT_PERMISSION_NODE, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE } from './hooks/useStaffAccess';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { RealtimeProvider } from './realtime/RealtimeProvider';
 import { useEntityMetadata } from './hooks/useEntityMetadata';
+import { ThemeSwitcher } from './theme/ThemeSwitcher';
+import { themePickerVisible } from './theme/themes';
+import { PageBackground } from './theme/PageBackgroundLayer';
 
 function AppContent() {
   const objectTypes = Object.entries(objectConfigs).map(([type, config]) => ({
@@ -83,8 +89,17 @@ function AppContent() {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-100">
+      {/* #231: image 1 behind every page when the page background is on; `page-canvas` is the translucent
+          page backdrop over it (src/theme/pageBackground.css). On by default; off renders nothing. */}
+      <PageBackground />
+      <div className="page-canvas min-h-screen bg-gray-100">
         {isLoggedIn && <Navigation objectTypes={objectTypes} />}
+        {/* Logged out there is no navigation bar: the theme switcher floats in the top-right corner (#95). */}
+        {!isLoggedIn && themePickerVisible() && (
+          <div className="fixed right-4 top-4 z-[60]">
+            <ThemeSwitcher variant="floating" />
+          </div>
+        )}
         <div className="pt-16 p-8">
           <div className="max-w-7xl mx-auto space-y-12">
             {/* A crash in one page shows a recoverable message instead of a blank app (X-4, KNG-141). */}
@@ -279,6 +294,9 @@ function AppContent() {
               <Route path="/players/:username" element={<PublicPlayerProfilePage />} />
               {/* Alpha run 1 (#174): a finished siege match, public; linked from the in-game result and /siege history. */}
               <Route path="/siege/matches/:id" element={<SiegeMatchPage />} />
+              {/* Guides (#221): player guides, public - the custom enchantment info page first. */}
+              <Route path="/guides" element={<GuidesPage />} />
+              <Route path="/guides/enchantments" element={<EnchantmentGuidePage />} />
               {/* KNG-80: orphaned Locations found by the weekly retention check, reviewed by hand. */}
               <Route path="/admin/locations/orphans" element={
                 <StaffRoute node={LOCATION_RETENTION_NODES.view}>
@@ -325,7 +343,10 @@ function App() {
   const [router] = React.useState(() => createBrowserRouter([{ path: '*', element: <AppContent /> }]));
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      {/* PandiO/knk-workspace#181: the web hub (world tasks live); components poll while it is down. */}
+      <RealtimeProvider>
+        <RouterProvider router={router} />
+      </RealtimeProvider>
     </AuthProvider>
   );
 }
