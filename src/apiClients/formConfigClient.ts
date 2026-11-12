@@ -1,5 +1,6 @@
 import { Controllers, FormConfigurationOperation, HttpMethod } from "../utils/enums";
 import { 
+    FormConfigurationBuilderState,
     FormConfigurationDto, 
     FormStepDto, 
     FormFieldDto,
@@ -36,9 +37,13 @@ export class FormConfigClient extends ObjectManager {
         return this.invokeServiceCall(null, `${FormConfigurationOperation.GetById}${id}`, Controllers.FormConfigurations, HttpMethod.Get);
     }
 
-    getByEntityTypeName(entityName: string, defaultOnly: boolean = true): Promise<FormConfigurationDto | FormConfigurationDto[] | undefined> {
+    /**
+     * The entity's default (defaultOnly) or all its configurations. `includeDrafts` (#71): also the ones never
+     * published, for Entity setup's list; the wizard, "New with" and pickers never ask for them.
+     */
+    getByEntityTypeName(entityName: string, defaultOnly: boolean = true, includeDrafts: boolean = false): Promise<FormConfigurationDto | FormConfigurationDto[] | undefined> {
         return this.invokeServiceCall(
-            { defaultOnly },
+            includeDrafts ? { defaultOnly, includeDrafts } : { defaultOnly },
             entityName,
             Controllers.FormConfigurations,
             HttpMethod.Get
@@ -113,6 +118,37 @@ export class FormConfigClient extends ObjectManager {
             Controllers.FormConfigurations, 
             HttpMethod.Post
         );
+    }
+
+    // PandiO/knk-workspace#71: the builder's draft, Publish and Duplicate
+
+    /** The working copy (saved draft, else the published version) and the published version. */
+    getBuilderState(id: string): Promise<FormConfigurationBuilderState> {
+        return this.invokeServiceCall(null, `${id}/builder`, Controllers.FormConfigurations, HttpMethod.Get);
+    }
+
+    /** A new configuration, saved as a draft only (never published). */
+    createDraft(data: FormConfigurationDto): Promise<FormConfigurationBuilderState> {
+        return this.invokeServiceCall(data, 'drafts', Controllers.FormConfigurations, HttpMethod.Post);
+    }
+
+    /** Saves the working copy; the wizard keeps using the published version. */
+    saveDraft(id: string, data: FormConfigurationDto): Promise<FormConfigurationBuilderState> {
+        return this.invokeServiceCall(data, `${id}/draft`, Controllers.FormConfigurations, HttpMethod.Put);
+    }
+
+    discardDraft(id: string): Promise<FormConfigurationBuilderState> {
+        return this.invokeServiceCall(null, `${id}/draft/discard`, Controllers.FormConfigurations, HttpMethod.Post);
+    }
+
+    /** Applies the working copy with every save check; from then on the wizard uses it. */
+    publish(id: string): Promise<FormConfigurationDto> {
+        return this.invokeServiceCall(null, `${id}/publish`, Controllers.FormConfigurations, HttpMethod.Post);
+    }
+
+    /** A copy of the published version as a new draft; without a name "<name> (copy)". */
+    duplicate(id: string, name?: string): Promise<FormConfigurationBuilderState> {
+        return this.invokeServiceCall({ name: name?.trim() || null }, `${id}/duplicate`, Controllers.FormConfigurations, HttpMethod.Post);
     }
 
     // KNG-138: portable export/import and bundled seeds

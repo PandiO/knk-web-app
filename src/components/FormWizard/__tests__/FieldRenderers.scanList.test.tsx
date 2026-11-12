@@ -37,7 +37,7 @@ describe('FieldRenderer: gate block scan list (KNG-268)', () => {
         render(<FieldRenderer field={scanField()} value={scanned} onChange={jest.fn()} onWorldTaskAction={jest.fn()} />);
 
         expect(screen.getByText('24 blocks scanned.')).toBeInTheDocument();
-        expect(screen.queryByTestId('paged-table')).not.toBeInTheDocument();
+        expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
         expect(screen.queryByText(/selected \(24\)/i)).not.toBeInTheDocument();
         expect(screen.getByRole('button', { name: /re-scan in minecraft/i })).toBeInTheDocument();
     });
@@ -52,6 +52,6 @@ describe('FieldRenderer: gate block scan list (KNG-268)', () => {
     it('keeps the picker for an ordinary object list', () => {
         render(<FieldRenderer field={scanField({ settingsJson: undefined, objectType: 'GateDoor' })} value={[]} onChange={jest.fn()} />);
 
-        expect(screen.getByTestId('paged-table')).toBeInTheDocument();
+        expect(screen.getByRole('combobox')).toBeInTheDocument(); // #191: the search-as-you-type picker
     });
 });

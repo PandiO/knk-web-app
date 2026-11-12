@@ -5,7 +5,6 @@ import { LoginForm } from '../../components/auth/LoginForm';
 import { useAuth } from '../../contexts/AuthContext';
 import { CONTENT_PERMISSION_NODE, usePermission } from '../../hooks/useStaffAccess';
 import { returnToFromState, sanitizeReturnTo } from '../../utils/returnTo';
-import { usePageTitle } from '../../hooks/usePageTitle';
 import { usePublicSurface } from '../../theme/surface';
 
 /**
@@ -14,7 +13,6 @@ import { usePublicSurface } from '../../theme/surface';
  * account page for everyone else.
  */
 export const LoginPage: React.FC = () => {
-  usePageTitle('Log in');
   usePublicSurface();
   const navigate = useNavigate();
   const location = useLocation();

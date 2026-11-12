@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Star, Pencil, StarOff, MoreVertical, Trash2, Download, Upload } from 'lucide-react';
+import { Play, Star, Pencil, StarOff, MoreVertical, Trash2, Download, Upload, CopyPlus } from 'lucide-react';
 import { FormConfigurationDto } from '../../types/dtos/forms/FormModels';
 
 interface Props {
@@ -8,6 +8,8 @@ interface Props {
     onSetDefault: (config: FormConfigurationDto) => void;
     onRemoveDefault: (config: FormConfigurationDto) => void;
     onEdit: (config: FormConfigurationDto) => void;
+    /** #71: a copy of the published version as a new draft. */
+    onDuplicate?: (config: FormConfigurationDto) => void;
     onDelete?: (config: FormConfigurationDto) => void;
     onCreate: () => void;
     onCreateDefault: () => void;
@@ -23,6 +25,7 @@ export const FormConfigurationTable: React.FC<Props> = ({
     onSetDefault,
     onRemoveDefault,
     onEdit,
+    onDuplicate,
     onDelete,
     onCreate,
     onCreateDefault,
@@ -32,6 +35,12 @@ export const FormConfigurationTable: React.FC<Props> = ({
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+    // A menu item that opens a dialog (a confirm) closes the menu first: focus goes back to the ⋯ button,
+    // so the dialog can return it there (#33) instead of to the page.
+    const closeMenuToTrigger = (configId: string) => {
+        buttonRefs.current[configId]?.focus();
+        setActiveMenu(null);
+    };
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -46,8 +55,8 @@ export const FormConfigurationTable: React.FC<Props> = ({
 
     const handleDeleteClick = (config: FormConfigurationDto) => {
         // The page asks for confirmation (a FeedbackModal), so the menu only hands the config over.
+        closeMenuToTrigger(config.id!);
         onDelete?.(config);
-        setActiveMenu(null);
     };
 
     const getMenuPosition = (configId: string) => {
@@ -64,9 +73,11 @@ export const FormConfigurationTable: React.FC<Props> = ({
 
     return (
         <div className="bg-surface rounded-lg shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
+            {/* #266: below sm the title and the buttons stack and the buttons wrap, so the row never grows wider
+                than the card (at 390 px the buttons used to be cut off and the page scrolled sideways). */}
+            <div className="px-6 py-4 border-b border-line flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-lg font-medium text-fg">Available Form Configurations</h2>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <button
                         onClick={onCreate}
                         className="btn-primary text-sm"
@@ -95,7 +106,10 @@ export const FormConfigurationTable: React.FC<Props> = ({
                     <p className="text-muted">No form configurations found for this entity.</p>
                 </div>
             ) : (
-                <div className="overflow-x-auto">
+                <div className="relative overflow-x-auto">
+                    {/* #266: `relative` makes this box the containing block of the head's absolutely positioned
+                        sr-only "Actions" label, so the box clips it; without it the label sat at the table's right
+                        edge in page coordinates and made the whole page 785 px wide at 390 px. */}
                     <table className="min-w-full table-fixed divide-y divide-line">
                     <thead className="bg-surface-alt">
                         <tr>
@@ -134,6 +148,12 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                             {config.isDefault && (
                                                 <Star className="ml-2 h-4 w-4 text-yellow-400 fill-current flex-shrink-0" />
                                             )}
+                                            {/* #71: where the configuration stands; the wizard only uses what is published. */}
+                                            {config.isDraft ? (
+                                                <span className="ml-2 flex-shrink-0 rounded-full bg-warning-muted px-2 py-0.5 text-xs font-medium text-warning-strong">Draft</span>
+                                            ) : config.hasUnpublishedChanges ? (
+                                                <span className="ml-2 flex-shrink-0 rounded-full bg-info-muted px-2 py-0.5 text-xs font-medium text-info-strong" title="Saved in the builder, not published yet">Unpublished changes</span>
+                                            ) : null}
                                         </div>
                                     </td>
                                     <td 
@@ -164,7 +184,9 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                         <div className="flex items-center justify-end space-x-2">
                                             <button
                                                 onClick={() => onOpen(config)}
-                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-primary-fg bg-primary hover:bg-primary-dark"
+                                                disabled={config.isDraft}
+                                                title={config.isDraft ? 'Publish it in the builder first' : undefined}
+                                                className="disabled:opacity-50 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-primary-fg bg-primary hover:bg-primary-dark"
                                             >
                                                 <Play className="h-3 w-3 mr-1" />
                                                 Use
@@ -195,11 +217,11 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                         }}
                                                     >
                                                         <div className="py-1" role="menu">
-                                                            {!config.isDefault && (
+                                                            {!config.isDefault && !config.isDraft && (
                                                                 <button
                                                                     onClick={() => {
+                                                                        closeMenuToTrigger(config.id!);
                                                                         onSetDefault(config);
-                                                                        setActiveMenu(null);
                                                                     }}
                                                                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                     role="menuitem"
@@ -211,8 +233,8 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                             {config.isDefault && (
                                                                 <button
                                                                     onClick={() => {
+                                                                        closeMenuToTrigger(config.id!);
                                                                         onRemoveDefault(config);
-                                                                        setActiveMenu(null);
                                                                     }}
                                                                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                     role="menuitem"
@@ -223,8 +245,8 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                             )}
                                                             <button
                                                                 onClick={() => {
+                                                                    closeMenuToTrigger(config.id!);
                                                                     onEdit(config);
-                                                                    setActiveMenu(null);
                                                                 }}
                                                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                 role="menuitem"
@@ -232,11 +254,26 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                                 <Pencil className="h-4 w-4 text-muted" />
                                                                 <span>Edit</span>
                                                             </button>
+                                                            {onDuplicate && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        closeMenuToTrigger(config.id!);
+                                                                        onDuplicate(config);
+                                                                    }}
+                                                                    disabled={config.isDraft}
+                                                                    title={config.isDraft ? 'Publish it first: a copy starts from the published version.' : undefined}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-fg hover:bg-surface-alt flex items-center space-x-2 disabled:opacity-50"
+                                                                    role="menuitem"
+                                                                >
+                                                                    <CopyPlus className="h-4 w-4 text-muted" />
+                                                                    <span>Duplicate</span>
+                                                                </button>
+                                                            )}
                                                             {onExport && (
                                                                 <button
                                                                     onClick={() => {
+                                                                        closeMenuToTrigger(config.id!);
                                                                         onExport(config);
-                                                                        setActiveMenu(null);
                                                                     }}
                                                                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-surface-alt flex items-center space-x-2"
                                                                     role="menuitem"

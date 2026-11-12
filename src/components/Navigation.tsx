@@ -1,15 +1,11 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Home, Table2, FileText, LogOut, UserCircle2, Settings, Users, Menu, X, Gift, Swords, Compass, Trophy, Activity, ShieldOff, Map as MapIcon, Route, Mail, Ticket, Boxes, BookOpen } from 'lucide-react';
+import { LogOut, UserCircle2, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { CONTENT_PERMISSION_NODE, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE, usePermission, useStaffAccess } from '../hooks/useStaffAccess';
-import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
-import { DISCOVERY_ADMIN_NODE } from '../types/dtos/discovery/DiscoveryDtos';
-import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from '../types/dtos/telemetry/TelemetryDtos';
-import { OWNER_ANALYTICS_VIEW_NODE } from '../types/dtos/analytics/WorldAnalyticsDtos';
-import { ROAD_ADMIN_NODE } from '../types/dtos/road/RoadDtos';
-import { EMAIL_ADMIN_NODE } from '../types/dtos/email/EmailOutboxDtos';
-import { INVITATION_NODES } from '../types/dtos/invitations/InvitationDtos';
+import { CONTENT_PERMISSION_NODE, usePermission, usePermissions } from '../hooks/useStaffAccess';
+import { ADMIN_HOME_ID, isWithin, nodeOf, RouteMeta, TOP_NAV_NODES, TOP_NAV_ROUTES } from '../routes/routeTable';
+import { useRouteMeta } from '../routes/useRouteMeta';
+import { useAdminNav } from '../routes/useAdminNav';
 import { NavLayout, pickNavLayout } from './navLayout';
 import { CreateNewMenu } from './CreateNewMenu';
 import { themePickerVisible } from '../theme/themes';
@@ -19,47 +15,27 @@ import { ThemeSwitcher } from '../theme/ThemeSwitcher';
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
 
-// staffOnly: knk.admin.user.manage (useStaffAccess); node: only for holders of that node (checked in nodeAccess).
-// Players without any staff node only see Home; their own pages are in the account menu.
-type NavLink = { to: string; label: string; Icon: React.ComponentType<{ className?: string }>; exact?: boolean; staffOnly?: boolean; node?: string };
+// The bar's links come from the route-meta table (PandiO/knk-workspace#30): Home, Leaderboards, Guides,
+// Dashboard for holders of its node (the dashboard route's gate; LW4-1, developer's decision 2026-11-06) and,
+// for anyone holding the node of at least one admin page, Admin. The other admin pages are in the admin
+// layout's grouped sidebar (and on /admin), each shown only with its own node; that also fixed #262
+// (the Invitations link never showed: its node was missing from the bar's hand-kept node map).
+// A link is the current one on its page and on the pages below it in the table (`parent`): Dashboard on the
+// dashboard, Entity setup, the builders and the detail pages; Admin on every other page of the admin console.
+// That replaces #197's DASHBOARD_ACTIVE_ALSO list.
+type NavLink = {
+  id: string;
+  to: string;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+};
 
-// One list for every size: the inline bar (with labels, or icons only) and the menu
-// button's panel. Which one shows is decided by measuring - see pickNavLayout.
-const NAV_LINKS: NavLink[] = [
-  { to: '/', label: 'Home', Icon: Home, exact: true },
-  // Player statistics (KNG-34): public leaderboards.
-  { to: '/leaderboards', label: 'Leaderboards', Icon: Trophy },
-  // Player guides (PandiO/knk-workspace#221), public: the custom enchantment info page first.
-  { to: '/guides', label: 'Guides', Icon: BookOpen },
-  // The content tools (dashboard, forms, displays, builders) need knk.admin.content, like their
-  // routes (alpha hardening WP9.1). The form and display builders have no link of their own:
-  // they're opened from the Entity setup page.
-  // Not exact: /dashboard/:entityName (#177 link 1) is the same page.
-  { to: '/dashboard', label: 'Dashboard', Icon: Table2, node: CONTENT_PERMISSION_NODE },
-  // #177 decision 4: the Forms page is "Entity setup" (form and display configurations, default
-  // columns, saved progress); the route stays /forms. The dashboard's ⚙ opens it on one type.
-  { to: '/forms', label: 'Entity setup', Icon: FileText, node: CONTENT_PERMISSION_NODE },
-  { to: '/admin/game-settings', label: 'Game Settings', Icon: Settings, node: SERVER_CONFIG_PERMISSION_NODE },
-  // Siege Phase 3 (docs/specs/siege-minigame/IMPLEMENTATION_PLAN.md): global siege tunables. Both
-  // settings pages need the node their API checks (#185), not the moderator node.
-  { to: '/admin/siege-configuration', label: 'Siege Settings', Icon: Swords, node: SIEGE_ADMIN_PERMISSION_NODE },
-  // KNG-206: the mail log and test mail, next to the other config pages (knk.admin.config).
-  { to: '/admin/email', label: 'Mail', Icon: Mail, node: EMAIL_ADMIN_NODE },
-  { to: '/admin/lootboxes', label: 'Lootboxes', Icon: Gift, node: LOOTBOX_ADMIN_NODE },
-  { to: '/admin/discovery', label: 'Discovery', Icon: Compass, node: DISCOVERY_ADMIN_NODE },
-  // Road navigation Phase 5 (docs/specs/navigation/IMPLEMENTATION_PLAN.md): profiles, tiles, edges
-  { to: '/admin/roads', label: 'Roads', Icon: Route, node: ROAD_ADMIN_NODE },
-  // KNG-200 phase 3: server scans, audit, merges and icon overrides of the material catalogue
-  { to: '/admin/minecraft-catalog', label: 'Minecraft catalogue', Icon: Boxes, node: CONTENT_PERMISSION_NODE },
-  { to: '/admin/users', label: 'Moderation', Icon: Users, exact: true, staffOnly: true },
-  // KNG-212: invitations for the closed alpha (knk.admin.invites).
-  { to: '/admin/invitations', label: 'Invitations', Icon: Ticket, node: INVITATION_NODES.manage },
-  // KNG-34 link 6: owner-only pages (shown only for an exact grant of the node, D24 - see usePermission).
-  { to: '/owner/telemetry', label: 'Diagnostics', Icon: Activity, node: OWNER_TELEMETRY_VIEW_NODE },
-  { to: '/owner/privacy', label: 'Data deletion', Icon: ShieldOff, node: OWNER_PRIVACY_MANAGE_NODE },
-  // KNG-34 link 7: anonymous world analytics (heatmaps, menu funnels, domain interactions).
-  { to: '/owner/analytics', label: 'World analytics', Icon: MapIcon, node: OWNER_ANALYTICS_VIEW_NODE },
-];
+const toNavLink = (route: RouteMeta): NavLink => ({
+  id: route.id,
+  to: route.path,
+  label: route.topNav?.label ?? route.title ?? route.id,
+  Icon: route.topNav!.icon,
+});
 
 const LINK_CLASS = 'inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-2 py-1.5 text-sm font-medium transition-colors';
 // Without labels the icons are all there is to go on: bigger, on a square button, with the
@@ -79,22 +55,17 @@ export function Navigation({ objectTypes }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, isLoading, user } = useAuth();
-  const { isStaff } = useStaffAccess();
   const canManageContent = usePermission(CONTENT_PERMISSION_NODE).allowed;
-  // One check per node a link needs (checks are cached per login, see useStaffAccess).
-  const nodeAccess: Record<string, boolean> = {
-    [CONTENT_PERMISSION_NODE]: canManageContent,
-    [LOOTBOX_ADMIN_NODE]: usePermission(LOOTBOX_ADMIN_NODE).allowed,
-    [DISCOVERY_ADMIN_NODE]: usePermission(DISCOVERY_ADMIN_NODE).allowed,
-    [OWNER_TELEMETRY_VIEW_NODE]: usePermission(OWNER_TELEMETRY_VIEW_NODE).allowed,
-    [OWNER_PRIVACY_MANAGE_NODE]: usePermission(OWNER_PRIVACY_MANAGE_NODE).allowed,
-    [OWNER_ANALYTICS_VIEW_NODE]: usePermission(OWNER_ANALYTICS_VIEW_NODE).allowed,
-    [ROAD_ADMIN_NODE]: usePermission(ROAD_ADMIN_NODE).allowed,
-    [EMAIL_ADMIN_NODE]: usePermission(EMAIL_ADMIN_NODE).allowed,
-    [SERVER_CONFIG_PERMISSION_NODE]: usePermission(SERVER_CONFIG_PERMISSION_NODE).allowed,
-    [SIEGE_ADMIN_PERMISSION_NODE]: usePermission(SIEGE_ADMIN_PERMISSION_NODE).allowed,
-  };
-  const navLinks = NAV_LINKS.filter(link => (!link.staffOnly || isStaff) && (!link.node || nodeAccess[link.node]));
+  const currentRoute = useRouteMeta();
+  const adminNav = useAdminNav();
+  const topNavStatuses = usePermissions(TOP_NAV_NODES);
+  const navLinks = TOP_NAV_ROUTES
+    .filter(route => {
+      if (route.id === ADMIN_HOME_ID) return adminNav.any;
+      const node = nodeOf(route.access);
+      return !node || topNavStatuses[node] === 'allowed';
+    })
+    .map(toNavLink);
   // #95: the theme switcher (cogwheel) for everyone, unless REACT_APP_THEME_PICKER=off.
   const showThemePicker = themePickerVisible();
 
@@ -209,8 +180,11 @@ export function Navigation({ objectTypes }: Props) {
     }
   };
 
-  const isActive = (link: NavLink) =>
-    link.exact ? location.pathname === link.to : location.pathname.startsWith(link.to);
+  // Admin: an admin page that no other bar link covers (not the dashboard's pages, LW4-1).
+  const isActive = (link: NavLink) => link.id === ADMIN_HOME_ID
+    ? currentRoute?.layout === 'admin'
+      && !navLinks.some(other => other.id !== ADMIN_HOME_ID && isWithin(currentRoute, other.id))
+    : isWithin(currentRoute, link.id);
 
   const handleLogout = async () => {
     try {
@@ -234,7 +208,7 @@ export function Navigation({ objectTypes }: Props) {
               <span ref={titleMeasureRef} className={`${TITLE_CLASS} inline-block`}>Knights &amp; Kings</span>
               <div ref={labelsMeasureRef} className={`${LINKS_ROW_CLASS} w-max`}>
                 {navLinks.map(link => (
-                  <span key={link.to} className={LINK_CLASS}>
+                  <span key={link.id} className={LINK_CLASS}>
                     <link.Icon className="h-5 w-5" />
                     {link.label}
                   </span>
@@ -242,7 +216,7 @@ export function Navigation({ objectTypes }: Props) {
               </div>
               <div ref={iconsMeasureRef} className={`${LINKS_ROW_CLASS} w-max`}>
                 {navLinks.map(link => (
-                  <span key={link.to} className={ICON_LINK_CLASS}>
+                  <span key={link.id} className={ICON_LINK_CLASS}>
                     <link.Icon className="h-6 w-6" />
                   </span>
                 ))}
@@ -261,21 +235,22 @@ export function Navigation({ objectTypes }: Props) {
                 </button>
                 {isNavMenuOpen && (
                   <div
-                    className="absolute left-0 mt-2 w-64 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 z-50"
+                    className="absolute left-0 mt-2 w-64 rounded-md bg-surface py-1 shadow-lg ring-1 ring-black ring-opacity-5 z-50"
                     role="menu"
                   >
                     {navLinks.map(link => (
                       <Link
-                        key={link.to}
+                        key={link.id}
                         to={link.to}
                         role="menuitem"
+                        aria-current={isActive(link) ? 'page' : undefined}
                         className={`flex items-center px-4 py-2.5 text-sm ${
                           isActive(link)
-                            ? 'bg-slate-100 font-medium text-slate-900'
-                            : 'text-slate-700 hover:bg-slate-50'
+                            ? 'bg-surface-alt font-medium text-fg'
+                            : 'text-fg hover:bg-surface-hover'
                         }`}
                       >
-                        <link.Icon className="h-5 w-5 mr-3 text-slate-500" />
+                        <link.Icon className="h-5 w-5 mr-3 text-muted" />
                         {link.label}
                       </Link>
                     ))}
@@ -300,7 +275,7 @@ export function Navigation({ objectTypes }: Props) {
               <div className={`${LINKS_ROW_CLASS} min-w-0`}>
                 {navLinks.map(link => (
                   <Link
-                    key={link.to}
+                    key={link.id}
                     to={link.to}
                     title={showLabels ? undefined : link.label}
                     aria-label={showLabels ? undefined : link.label}
@@ -396,7 +371,7 @@ export function Navigation({ objectTypes }: Props) {
               )}
             </div>
 
-            {/* Creating objects goes through the forms: content staff only, like the Entity setup link.
+            {/* Creating objects goes through the forms: content staff only, like the Dashboard link.
                 The list comes from the entity metadata (#177 link 2). */}
             {canManageContent && <CreateNewMenu objectTypes={objectTypes} />}
           </div>

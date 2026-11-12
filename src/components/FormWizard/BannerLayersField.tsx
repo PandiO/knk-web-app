@@ -94,15 +94,15 @@ export const BannerLayersField: React.FC<BannerLayersFieldProps> = ({ field, val
     const add = () => update([...layers, { patternKey: patternKeys[0] ?? 'minecraft:base', color: 'WHITE' }]);
 
     const selectClass = `block w-full rounded-md shadow-sm sm:text-sm ${
-        error ? 'border-danger focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-primary focus:ring-primary'
-    } ${field.isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`;
-    const iconButton = 'p-1.5 rounded-md border border-gray-300 hover:bg-surface-alt disabled:opacity-40';
+        error ? 'border-danger focus:border-danger focus:ring-danger' : 'border-field focus:border-primary focus:ring-primary'
+    } ${field.isReadOnly ? 'bg-surface-alt cursor-not-allowed' : ''}`;
+    const iconButton = 'p-1.5 rounded-md border border-field hover:bg-surface-alt disabled:opacity-40';
 
     return (
         <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-fg mb-1">
                 {field.label}
-                {field.isRequired && <span className="text-red-500 ml-1">*</span>}
+                {field.isRequired && <span className="text-danger ml-1">*</span>}
             </label>
             {field.description && <p className="text-xs text-muted mb-2">{field.description}</p>}
 

@@ -3,6 +3,18 @@ import { AlertTriangle, Loader2, RefreshCcw } from 'lucide-react';
 import { lootboxTypeClient } from '../../apiClients/lootboxTypeClient';
 import { LootboxEnchantOddsDto, LootboxOddsDto, LootboxTypeDto, MAX_BOX_STARS } from '../../types/dtos/lootbox/LootboxDtos';
 import { apiErrorMessage, formatPercent, starLabel } from '../../utils/lootbox';
+import { formatOneIn } from '../../utils/settingsUnits';
+
+/** A chance with its "1 in N" under it (#26, from #38), for the small ones where a percentage is hard to picture. */
+const Chance: React.FC<{ percent: number }> = ({ percent }) => {
+    const oneIn = formatOneIn(percent);
+    return (
+        <>
+            <span>{formatPercent(percent)}</span>
+            {oneIn && <span className="block text-xs text-muted">{oneIn}</span>}
+        </>
+    );
+};
 
 /**
  * The odds preview (docs/specs/lootboxes/DESIGN.md §3.1/§3.3): for one type and box grade, what the
@@ -183,8 +195,8 @@ export const LootboxOddsTab: React.FC<Props> = ({ typeId, onTypeChange }) => {
                                     {odds.specials.map(s => (
                                         <tr key={s.specialEntryId} data-testid="special-row">
                                             <td className="px-3 py-1.5 font-medium text-purple-800">{s.name}</td>
-                                            <td className="px-3 py-1.5 text-right">{formatPercent(s.chancePercent)}</td>
-                                            <td className="px-3 py-1.5 text-right">{formatPercent(s.percent)}</td>
+                                            <td className="px-3 py-1.5 text-right"><Chance percent={s.chancePercent} /></td>
+                                            <td className="px-3 py-1.5 text-right"><Chance percent={s.percent} /></td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -213,7 +225,7 @@ export const LootboxOddsTab: React.FC<Props> = ({ typeId, onTypeChange }) => {
                                             <td className="px-3 py-1.5">{starLabel(g.stars)} {g.name}</td>
                                             <td className="px-3 py-1.5 text-right">{g.itemCount ?? '-'}</td>
                                             <td className="px-3 py-1.5 text-right">{formatPercent(g.percent)}</td>
-                                            <td className="px-3 py-1.5 text-right">{formatPercent(g.percent * normal / 100)}</td>
+                                            <td className="px-3 py-1.5 text-right"><Chance percent={g.percent * normal / 100} /></td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -236,7 +248,7 @@ export const LootboxOddsTab: React.FC<Props> = ({ typeId, onTypeChange }) => {
                                                 <td className="px-3 py-1.5 text-right">{i.weight}</td>
                                                 <td className="px-3 py-1.5 text-right">{i.quantity}</td>
                                                 <td className="px-3 py-1.5 text-right">{formatPercent(i.percentWithinGrade)}</td>
-                                                <td className="px-3 py-1.5 text-right font-medium">{formatPercent(i.percent)}</td>
+                                                <td className="px-3 py-1.5 text-right font-medium"><Chance percent={i.percent} /></td>
                                                 <td className="px-3 py-1.5 text-xs text-gray-500">{i.rollsEnchantments ? 'Yes' : 'No (book or stackable)'}</td>
                                             </tr>
                                         ))}

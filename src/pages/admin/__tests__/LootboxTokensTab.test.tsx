@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { LootboxTokensTab } from '../../../components/lootbox/LootboxTokensTab';
 import { claimSourceLabel } from '../../../components/lootbox/LootboxDropLogTab';
@@ -101,5 +101,25 @@ describe('Lootbox token items tab (Phase 5)', () => {
         expect(claimSourceLabel({ ...base, lootboxSpawnId: 12 })).toBe('box #12');
         expect(claimSourceLabel({ ...base, lootboxTokenId: 5, source: 'Token' })).toBe('token item #5');
         expect(claimSourceLabel({ ...base, isAdminGive: true })).toBe('staff give');
+    });
+
+    it('asks before switching a grant rule, saying what changes (#26 SET-6)', async () => {
+        tokenClient.updateGrant.mockImplementation(async grant => grant);
+        render(<LootboxTokensTab />);
+        const box = await screen.findByLabelText('Rule 1 enabled');
+        fireEvent.click(box);
+
+        let dialog = await screen.findByRole('alertdialog', { name: 'Switch this rule off?' });
+        expect(dialog).toHaveTextContent('A player who joins Noble no longer gets 2× Weapons Lootbox tokens. Tokens already issued stay.');
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+        expect(tokenClient.updateGrant).not.toHaveBeenCalled();
+        expect(box).toBeChecked();
+
+        fireEvent.click(box);
+        dialog = await screen.findByRole('alertdialog', { name: 'Switch this rule off?' });
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Switch off' }));
+        await waitFor(() => expect(tokenClient.updateGrant).toHaveBeenCalledWith(expect.objectContaining({ id: 1, enabled: false })));
+        await waitFor(() => expect(screen.getByLabelText('Rule 1 enabled')).not.toBeChecked());
     });
 });

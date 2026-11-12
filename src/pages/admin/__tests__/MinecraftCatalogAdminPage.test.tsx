@@ -240,7 +240,7 @@ describe('MinecraftCatalogAdminPage - needs attention', () => {
     await waitFor(() => expect(within(targets).getAllByRole('button')).toHaveLength(1));
     fireEvent.click(within(targets).getByRole('button', { name: /Dirt Path/ }));
 
-    const confirmDialog = await screen.findByRole('dialog', { name: 'Merge this material?' });
+    const confirmDialog = await screen.findByRole('alertdialog', { name: 'Merge this material?' });
     expect(confirmDialog).toHaveTextContent('minecraft:grass_path (#40) into minecraft:dirt_path (#41)');
     expect(client.mergeMaterial).not.toHaveBeenCalled();
     fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Merge' }));
@@ -261,10 +261,10 @@ describe('MinecraftCatalogAdminPage - needs attention', () => {
     expect(within(group).getByRole('radio', { name: 'Keep minecraft:stone (#1)' })).toBeChecked();
     fireEvent.click(within(group).getByRole('button', { name: 'Merge STONE (#2) into minecraft:stone (#1)' }));
 
-    const confirmDialog = await screen.findByRole('dialog', { name: 'Merge this material?' });
+    const confirmDialog = await screen.findByRole('alertdialog', { name: 'Merge this material?' });
     fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Cancel' }));
 
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Merge this material?' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Merge this material?' })).not.toBeInTheDocument());
     expect(client.mergeMaterial).not.toHaveBeenCalled();
   });
 
@@ -278,7 +278,7 @@ describe('MinecraftCatalogAdminPage - needs attention', () => {
     const group = await screen.findByRole('group', { name: 'Collision minecraft:stone' });
     fireEvent.click(within(group).getByRole('radio', { name: 'Keep STONE (#2)' }));
     fireEvent.click(within(group).getByRole('button', { name: 'Merge minecraft:stone (#1) into STONE (#2)' }));
-    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Merge this material?' })).getByRole('button', { name: 'Merge' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Merge this material?' })).getByRole('button', { name: 'Merge' }));
 
     await waitFor(() => expect(client.mergeMaterial).toHaveBeenCalledWith(1, 2));
   });

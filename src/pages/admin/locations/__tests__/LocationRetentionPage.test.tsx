@@ -83,7 +83,7 @@ describe('LocationRetentionPage', () => {
         fireEvent.change(screen.getByLabelText('Note for Location 41'), { target: { value: 'Test leftover' } });
         fireEvent.click(screen.getByRole('button', { name: 'Delete Location 41' }));
 
-        const dialog = screen.getByRole('dialog', { name: 'Delete Location #41?' });
+        const dialog = screen.getByRole('alertdialog', { name: 'Delete Location #41?' });
         expect(dialog).toHaveTextContent('Test leftover');
         expect(locationRetentionClient.delete).not.toHaveBeenCalled();
         fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
@@ -101,7 +101,7 @@ describe('LocationRetentionPage', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Keep Location 41' }));
         fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
-        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
         expect(locationRetentionClient.keep).not.toHaveBeenCalled();
     });
 
@@ -111,7 +111,7 @@ describe('LocationRetentionPage', () => {
         await waitFor(() => expect(screen.getByText('Location #41')).toBeInTheDocument());
 
         fireEvent.click(screen.getByRole('button', { name: 'Keep Location 41' }));
-        fireEvent.click(within(screen.getByRole('dialog', { name: 'Keep Location #41?' })).getByRole('button', { name: 'Keep' }));
+        fireEvent.click(within(screen.getByRole('alertdialog', { name: 'Keep Location #41?' })).getByRole('button', { name: 'Keep' }));
 
         await waitFor(() => expect(locationRetentionClient.keep).toHaveBeenCalledWith(3, ''));
         await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Location #41 kept.'));
@@ -127,7 +127,7 @@ describe('LocationRetentionPage', () => {
         await waitFor(() => expect(screen.getByText('Location #41')).toBeInTheDocument());
 
         fireEvent.click(screen.getByRole('button', { name: 'Delete Location 41' }));
-        fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+        fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
 
         await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Another record references it now.'));
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();

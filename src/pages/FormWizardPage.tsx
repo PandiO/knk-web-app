@@ -44,7 +44,7 @@ import { dashboardPath, entitySetupPath, readReturnTo } from '../utils/returnTo'
 import { toast } from '../utils/toast';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { useLeaveGuard } from '../hooks/useLeaveGuard';
-import { formTrail } from '../utils/breadcrumbs';
+import { entitySetupTrail, formTrail } from '../utils/breadcrumbs';
 import { typeLabelFor } from '../utils/entityLabel';
 import { useEntityLabel } from '../hooks/useEntityLabel';
 
@@ -66,7 +66,7 @@ export const FormWizardPage: React.FC<Props> = ({
     entityMetadataFromApp,
     autoOpenDefaultForm = false 
 }: Props) => {
-    // #177 decision 4: the nav calls this page "Entity setup" (route /forms unchanged).
+    // #177 decision 4: the page is "Entity setup" (route /forms unchanged); opened from the dashboard's ⚙ (#197).
     usePageTitle('Entity setup');
     const navigate = useNavigate();
     const { entityName, entityId: urlEntityId } = useParams<{ entityName: string; entityId?: string }>();
@@ -135,7 +135,6 @@ export const FormWizardPage: React.FC<Props> = ({
         message: string;
         status: 'success' | 'error' | 'info';
         onContinue?: () => void;
-        autoCloseMs?: number;
     };
     const [feedbackModal, setFeedbackModal] = useState<FeedbackState>({
         open: false,
@@ -143,7 +142,6 @@ export const FormWizardPage: React.FC<Props> = ({
         message: '',
         status: 'info',
         onContinue: undefined,
-        autoCloseMs: undefined,
     });
 
     // KNG-162: deleting a draft whose form created entities asks whether to keep or delete them.
@@ -161,7 +159,7 @@ export const FormWizardPage: React.FC<Props> = ({
         setWorldPrompt(null);
     };
 
-    // Confirmations use a FeedbackModal (useConfirm) instead of the browser's confirm box.
+    // Confirmations use the ConfirmDialog (useConfirm, #33) instead of the browser's confirm box.
     const [confirm, confirmModal] = useConfirm();
 
     const showFeedback = (payload: Omit<FeedbackState, 'open'>) => {
@@ -221,6 +219,11 @@ export const FormWizardPage: React.FC<Props> = ({
             null
         );
     }, [allMergedMetadata, resolvedBaseMetadata, selectedTypeName]);
+    // #30 (LW1-2): the setup lists' way back to the dashboard ("Dashboard › Town › Entity setup").
+    const listTrail = useMemo(
+        () => entitySetupTrail(selectedEntityMetadata?.entityName ?? selectedTypeName, typeLabelFor(resolvedBaseMetadata)),
+        [selectedEntityMetadata, selectedTypeName, resolvedBaseMetadata],
+    );
 
     const configuredColumns = useMemo(() => {
         return selectedEntityMetadata?.defaultTableColumns ?? [];
@@ -381,7 +384,7 @@ export const FormWizardPage: React.FC<Props> = ({
             void handleResumeProgress({ id: urlResumeId } as FormSubmissionProgressSummaryDto);
             return;
         }
-        const config = formConfigs.find(candidate => String(candidate.id) === urlConfigId);
+        const config = formConfigs.find(candidate => String(candidate.id) === urlConfigId && !candidate.isDraft);
         if (config) {
             void handleOpenConfiguration(config);
         } else {
@@ -448,15 +451,15 @@ export const FormWizardPage: React.FC<Props> = ({
             setShowWizard(false);
             setWizardConfig(null); // Clear any previously selected config
 
-            // Fetch all configurations
-            const configs = await formConfigClient.getByEntityTypeName(entityTypeName, false) as FormConfigurationDto[];
+            // Fetch all configurations; #71: drafts too (never published), listed for the builders only.
+            const configs = await formConfigClient.getByEntityTypeName(entityTypeName, false, true) as FormConfigurationDto[];
             const sortedConfigs = [...configs].sort((a, b) => {
                 if (a.isDefault && !b.isDefault) return -1;
                 if (!a.isDefault && b.isDefault) return 1;
                 return 0;
             });
             setFormConfigs(sortedConfigs);
-            setDefaultConfig(sortedConfigs.find(c => c.isDefault) || null);
+            setDefaultConfig(sortedConfigs.find(c => c.isDefault && !c.isDraft) || null);
 
             // Fetch saved progress
             const progress = await formSubmissionClient.getByEntityTypeName(entityTypeName, true) as FormSubmissionProgressSummaryDto[];
@@ -559,6 +562,27 @@ export const FormWizardPage: React.FC<Props> = ({
         navigate(`/admin/form-configurations/edit/${config.id}`);
     };
 
+    // #71 (CRUD-12): Duplicate copies the published version as a new draft and opens it in the builder.
+    const handleDuplicateConfiguration = async (config: FormConfigurationDto) => {
+        try {
+            const copy = await formConfigClient.duplicate(config.id!);
+            toast.success(`"${copy.configuration.configurationName}" created as a draft.`);
+            navigate(`/admin/form-configurations/edit/${copy.configuration.id}`);
+        } catch (error) {
+            showFailure('Duplicate failed', error, 'The form configuration could not be copied.');
+        }
+    };
+
+    const handleDuplicateDisplay = async (config: DisplayConfigurationDto) => {
+        try {
+            const copy = await displayConfigClient.duplicate(config.id!);
+            toast.success(`"${copy.configuration.name}" created as a draft.`);
+            navigate(`/admin/display-configurations/edit/${copy.configuration.id}`);
+        } catch (error) {
+            showFailure('Duplicate failed', error, 'The display configuration could not be copied.');
+        }
+    };
+
     // Handler: Resume progress
     const handleResumeProgress = async (progress: FormSubmissionProgressSummaryDto) => {
         try {
@@ -597,13 +621,7 @@ export const FormWizardPage: React.FC<Props> = ({
             await formSubmissionClient.delete(progress.id!);
             setSavedProgress(prev => prev.filter(p => p.id !== progress.id));
             if (announce) {
-                showFeedback({
-                    title: 'Progress deleted',
-                    message: 'The saved progress has been removed.',
-                    status: 'success',
-                    onContinue: undefined,
-                    autoCloseMs: 3000,
-                });
+                toast.success('The saved progress has been removed.');
             }
             return true;
         } catch (error) {
@@ -689,13 +707,7 @@ export const FormWizardPage: React.FC<Props> = ({
         try {
             await formConfigClient.delete(config.id!);
             setFormConfigs(prev => prev.filter(c => c.id !== config.id));
-            showFeedback({
-                title: 'Configuration deleted',
-                message: 'The form configuration has been removed.',
-                status: 'success',
-                onContinue: undefined,
-                autoCloseMs: 3000,
-            });
+            toast.success('The form configuration has been removed.');
         } catch (error) {
             console.error('Failed to delete configuration:', error);
             logging.errorHandler.next('ErrorMessage.FormConfiguration.DeleteFailed');
@@ -786,13 +798,7 @@ export const FormWizardPage: React.FC<Props> = ({
         try {
             const published = await displayConfigClient.publish(idNumber);
             setDisplayConfigs(prev => prev.map(c => c.id === config.id ? published : c));
-            showFeedback({
-                title: 'Display configuration published',
-                message: `"${config.name}" is now live and available for use.`,
-                status: 'success',
-                onContinue: undefined,
-                autoCloseMs: 3000,
-            });
+            toast.success(`"${config.name}" is now live and available for use.`);
         } catch (error) {
             console.error('Failed to publish display configuration:', error);
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.PublishFailed');
@@ -801,7 +807,6 @@ export const FormWizardPage: React.FC<Props> = ({
                 message: apiRefusalReason(error) ?? 'Unable to publish the display configuration. Please try again.',
                 status: 'error',
                 onContinue: undefined,
-                autoCloseMs: 5000,
             });
         }
     };
@@ -821,13 +826,7 @@ export const FormWizardPage: React.FC<Props> = ({
         try {
             await displayConfigClient.delete(idNumber);
             setDisplayConfigs(prev => prev.filter(c => c.id !== config.id));
-            showFeedback({
-                title: 'Display configuration deleted',
-                message: 'The display configuration has been removed.',
-                status: 'success',
-                onContinue: undefined,
-                autoCloseMs: 3000,
-            });
+            toast.success('The display configuration has been removed.');
         } catch (error) {
             console.error('Failed to delete display configuration:', error);
             logging.errorHandler.next('ErrorMessage.DisplayConfiguration.DeleteFailed');
@@ -956,15 +955,9 @@ export const FormWizardPage: React.FC<Props> = ({
             }
 
             await refresh();
-            showFeedback({
-                title: 'Columns saved',
-                message: normalizedColumns.length === 0
+            toast.success(normalizedColumns.length === 0
                     ? 'Tables and pickers for this entity use their built-in columns again.'
-                    : 'Default table columns have been updated for this entity.',
-                status: 'success',
-                onContinue: undefined,
-                autoCloseMs: 3000,
-            });
+                    : 'Default table columns have been updated for this entity.');
         } catch (error) {
             console.error('Failed to save default table columns:', error);
             logging.errorHandler.next('ErrorMessage.EntityTypeConfiguration.SaveFailed');
@@ -1111,13 +1104,14 @@ export const FormWizardPage: React.FC<Props> = ({
         );
     }
 
-    // Notification logic
-    const showNoConfigs = selectedTypeName && formConfigs.length === 0 && !showWizard;
+    // Notification logic (#71: a draft is not a form staff can use yet)
+    const publishedConfigs = formConfigs.filter(cfg => !cfg.isDraft);
+    const showNoConfigs = selectedTypeName && publishedConfigs.length === 0 && !showWizard;
     // #177 decision 3: "New" on a type without a default form configuration lands here and says so
     // once the configurations loaded (before, the notice was hidden whenever autoOpen was set).
-    const showNoDefault = selectedTypeName && formConfigs.length > 0 && !defaultConfig && !showWizard && (!shouldAutoOpen || !loadingConfigs);
+    const showNoDefault = selectedTypeName && publishedConfigs.length > 0 && !defaultConfig && !showWizard && (!shouldAutoOpen || !loadingConfigs);
     const newNeedsDefault = shouldAutoOpen && !entityId && !loadingConfigs && (showNoConfigs || showNoDefault);
-    const showTooManyDefaults = selectedTypeName && formConfigs.filter(cfg => cfg.isDefault).length > 1 && !showWizard;
+    const showTooManyDefaults = selectedTypeName && publishedConfigs.filter(cfg => cfg.isDefault).length > 1 && !showWizard;
 
     return (
         <>
@@ -1143,6 +1137,7 @@ export const FormWizardPage: React.FC<Props> = ({
                     )}
                     {/* #227: the type overview (fields list) belongs to the setup lists; above an open
                         form it read like debug output, so the breadcrumb sits right above the form. */}
+                    {!showWizard && <Breadcrumbs trail={listTrail} className="mb-3" />}
                     {!showWizard && (
                         <div className="mb-4">
                             <EntityMetadataNavigator metadata={selectedEntityMetadata} />
@@ -1170,7 +1165,8 @@ export const FormWizardPage: React.FC<Props> = ({
 
                             {showDefaultColumns && (
                                 <div id="default-table-columns-content" className="space-y-4">
-                                    <div className="flex items-center justify-between gap-4">
+                                    {/* #266: below sm the button goes under the text instead of squeezing it. */}
+                                    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                                         <p className="text-sm text-gray-600">Configure which columns are shown first in entity tables and related pickers.</p>
                                         <button
                                             onClick={handleSaveDefaultColumns}
@@ -1296,6 +1292,7 @@ export const FormWizardPage: React.FC<Props> = ({
                                                 onSetDefault={handleSetDefault}
                                                 onRemoveDefault={handleRemoveDefault}
                                                 onEdit={handleEditConfiguration}
+                                                onDuplicate={handleDuplicateConfiguration}
                                                 onDelete={handleFormConfigDelete}
                                                 onCreate={handleCreateFormConfiguration}
                                                 onCreateDefault={handleCreateFormConfigurationAsDefault}
@@ -1320,6 +1317,7 @@ export const FormWizardPage: React.FC<Props> = ({
                                                     onSetDefault={handleDisplaySetDefault}
                                                     onRemoveDefault={handleDisplayRemoveDefault}
                                                     onPublish={handleDisplayPublish}
+                                                    onDuplicate={handleDuplicateDisplay}
                                                     onDelete={handleDisplayDelete}
                                                     onCreate={handleCreateDisplayConfiguration}
                                                     onCreateDefault={handleCreateDisplayConfigurationAsDefault}
@@ -1395,7 +1393,6 @@ export const FormWizardPage: React.FC<Props> = ({
                 status={feedbackModal.status}
                 onClose={closeFeedbackModal}
                 onContinue={feedbackModal.onContinue ? handleFeedbackContinue : undefined}
-                autoCloseMs={feedbackModal.autoCloseMs}
             />
         </>
     );

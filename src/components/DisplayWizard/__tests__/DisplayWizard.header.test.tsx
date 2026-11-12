@@ -5,7 +5,14 @@ import { DisplayWizard } from '../DisplayWizard';
 
 /** #81: a page header given by the page replaces the heading with the display configuration's name. */
 
-jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }), { virtual: true });
+jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn(), useLocation: () => ({ pathname: '/display/Town/4', search: '' }) }), { virtual: true });
+jest.mock('../../../hooks/useEntityMetadata', () => ({ useEntityMetadata: () => ({ baseMetadata: [] }) }));
+// The viewer holds every node asked for (#188 gates; useAuth isn't provided here).
+jest.mock('../../../hooks/useStaffAccess', () => ({
+    usePermissions: (nodes: string[]) => Object.fromEntries(nodes.map(node => [node, 'allowed'])),
+    usePermission: () => ({ allowed: true, isChecking: false, status: 'allowed', retry: jest.fn() }),
+}));
+
 jest.mock('../hooks/useDisplayConfig', () => ({
     useDisplayConfig: () => ({
         config: { name: 'Town display (seed)', description: 'What a town shows.', sections: [], sectionOrderJson: null },

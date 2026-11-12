@@ -122,7 +122,7 @@ const CONFIGS: Record<string, unknown> = {
 };
 
 const modalFor = (title: string): HTMLElement =>
-    screen.getAllByText(title)[0].closest('.overflow-y-auto') as HTMLElement;
+    screen.getAllByText(title)[0].closest('[role="dialog"]') as HTMLElement;
 
 const fieldBlock = (container: HTMLElement, label: string): HTMLElement =>
     within(container).getByText(label).closest('div') as HTMLElement;
@@ -199,7 +199,7 @@ describe('Cancel a root form after its child forms saved entities (KNG-162)', ()
 
     const openCancelPrompt = async () => {
         fireEvent.click(screen.getByRole('button', { name: /cancel form/i }));
-        return screen.findByRole('dialog', { name: 'Cancel this form?' });
+        return screen.findByRole('alertdialog', { name: 'Cancel this form?' });
     };
 
     it('lists both entities; Keep leaves the form and deletes nothing', async () => {
@@ -217,7 +217,7 @@ describe('Cancel a root form after its child forms saved entities (KNG-162)', ()
 
         await waitFor(() => expect(onLeave).toHaveBeenCalledTimes(1));
         expect(calls).toEqual([]);
-        expect(screen.queryByRole('dialog', { name: 'Cancel this form?' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('alertdialog', { name: 'Cancel this form?' })).not.toBeInTheDocument();
     });
 
     it('Delete removes the Street, then the District, reports it and leaves after Done', async () => {
@@ -265,13 +265,13 @@ describe('Cancel a root form after its child forms saved entities (KNG-162)', ()
         await screen.findByText('Gate name');
 
         fireEvent.click(screen.getByRole('button', { name: /cancel form/i }));
-        const dialog = await screen.findByRole('dialog', { name: 'Leave this form?' });
+        const dialog = await screen.findByRole('alertdialog', { name: 'Leave this form?' });
         fireEvent.click(within(dialog).getByRole('button', { name: 'Stay' }));
         expect(onLeave).not.toHaveBeenCalled();
         expect(screen.getByText('Gate name')).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: /cancel form/i }));
-        fireEvent.click(within(await screen.findByRole('dialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Leave form' }));
+        fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Leave this form?' })).getByRole('button', { name: 'Leave form' }));
         await waitFor(() => expect(onLeave).toHaveBeenCalledTimes(1));
     });
 
@@ -285,7 +285,7 @@ describe('Cancel a root form after its child forms saved entities (KNG-162)', ()
 
         fireEvent.click(screen.getByRole('button', { name: /cancel form/i }));
         expect(onLeave).toHaveBeenCalledTimes(1);
-        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
 
     it('Save Draft records both entities on the root progress', async () => {
@@ -323,8 +323,10 @@ describe('Cancel a root form after its child forms saved entities (KNG-162)', ()
 
         await screen.findByText('Gate name');
         const rootDistricts = () => fieldBlock(document.body, 'Gate districts');
+        // #191: the picker lists the pinned rows when its search box is used.
+        fireEvent.focus(within(rootDistricts()).getByRole('combobox'));
         await waitFor(() => expect(within(rootDistricts()).getByText('Created in this form')).toBeInTheDocument());
-        expect(within(rootDistricts()).getByText('Old Quarter')).toBeInTheDocument();
+        expect(within(rootDistricts()).getByRole('option', { name: /Old Quarter/ })).toBeInTheDocument();
 
         const dialog = await openCancelPrompt();
         expect(within(dialog).getByText("Street 'Market Lane'")).toBeInTheDocument();
