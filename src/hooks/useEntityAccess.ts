@@ -63,11 +63,17 @@ export function viewNodesOf(meta: AccessMeta | null | undefined): string[] | nul
     return actionNodesOf(meta, 'view') ?? (meta?.accessNode ? [meta.accessNode] : null);
 }
 
-/** Every node the gates of these types need, for one permission request per node. */
+/**
+ * Every node the gates of these types need, for one permission request per node: the metadata's lists, plus the global
+ * action nodes the gates fall back to when an action's list is missing.
+ */
 export function accessNodesOf(metas: readonly (AccessMeta | null | undefined)[]): string[] {
     const nodes = new Set<string>();
     metas.forEach(meta => {
         if (!meta) return;
+        if (hasAccessFields(meta)) {
+            [DELETE_PERMISSION_NODE, DELETE_BULK_PERMISSION_NODE, EXPORT_PERMISSION_NODE].forEach(node => nodes.add(node));
+        }
         Object.values(meta.actionNodes ?? {}).forEach(list => list?.forEach(node => node && nodes.add(node)));
         if (meta.accessNode) nodes.add(meta.accessNode);
         meta.readNodes?.forEach(node => node && nodes.add(node));

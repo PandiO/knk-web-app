@@ -68,6 +68,14 @@ describe('entityAccessOf', () => {
         expect(access.bulkDelete).toMatchObject({ allowed: false, hint: 'User records can only be deleted one at a time.' });
     });
 
+    it('asks for the fallback action nodes too when the metadata leaves an action out', () => {
+        const partial = { accessNode: 'knk.admin.world', actionNodes: { edit: ['knk.admin.world'] } };
+        expect(accessNodesOf([partial])).toEqual(['knk.admin.delete', 'knk.admin.delete.bulk', 'knk.admin.export', 'knk.admin.world']);
+        const access = entityAccessOf(partial, held('knk.admin.world', 'knk.admin.export')(accessNodesOf([partial])));
+        expect(access.export.allowed).toBe(true);
+        expect(access.delete).toMatchObject({ allowed: false, hint: 'Requires knk.admin.delete' });
+    });
+
     it('waits while a check runs and leaves an API before #280 to decide', () => {
         expect(entityAccessOf(town, {}).delete).toMatchObject({ allowed: false, checking: true, hint: null });
         const old = entityAccessOf({}, { 'knk.admin.export': 'allowed' });
