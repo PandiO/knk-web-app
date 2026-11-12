@@ -12,6 +12,7 @@ import { WorldBoundFieldRenderer, WorldTaskAnchor } from '../Workflow/WorldBound
 import { logging } from '../../utils';
 import { toast } from '../../utils/toast';
 import { getFetchByIdFunctionForEntity, getCreateFunctionForEntity, getUpdateFunctionForEntity } from '../../utils/entityApiMapping';
+import { fetchByIdOrLookup } from '../../utils/fetchOrLookup';
 import { findValueByFieldName } from '../../utils/fieldNameMapper';
 import { resolveObjectFieldValueForEdit } from '../../utils/forms/objectFieldEditValue';
 import { normalizeFormSubmission } from '../../utils/forms/normalizeFormSubmission';
@@ -2316,8 +2317,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         // ItemBlueprint's Tags/Origin steps (2026-09-23).
         if (!relatedEntity && relatedEntityId !== undefined && relatedEntityId !== null && relatedEntityTypeName) {
             try {
-                const fetchByIdFn = getFetchByIdFunctionForEntity(relatedEntityTypeName);
-                const fetched = await fetchByIdFn(String(relatedEntityId));
+                // #280: without a read node of the related type, its lookup label.
+                const fetched = await fetchByIdOrLookup(relatedEntityTypeName, String(relatedEntityId));
                 if (fetched && typeof fetched === 'object') {
                     relatedEntity = fetched as Record<string, unknown>;
                 }

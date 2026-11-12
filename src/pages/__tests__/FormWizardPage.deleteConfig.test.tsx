@@ -107,3 +107,46 @@ describe('FormWizardPage: delete a form configuration (KNG-172)', () => {
         expect(formConfigClient.delete).not.toHaveBeenCalled();
     });
 });
+
+// #280: the page asks whether the user holds knk.admin.content (setup lists) and knk.admin.delete (configuration
+// deletes, LV7-8). `mockHeld` lists the nodes held (default: both).
+let mockHeld = ['knk.admin.content', 'knk.admin.delete'];
+jest.mock('../../hooks/useStaffAccess', () => {
+    const status = (node: string) => (mockHeld.includes(node) ? 'allowed' : 'denied');
+    return {
+        ...jest.requireActual('../../hooks/useStaffAccess'),
+        usePermission: (node: string) => ({ allowed: status(node) === 'allowed', isChecking: false, status: status(node), retry: () => undefined }),
+        usePermissions: (nodes: readonly string[]) => Object.fromEntries(nodes.map(node => [node, status(node)])),
+    };
+});
+
+describe('FormWizardPage: access (PandiO/knk-workspace#280)', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        (displayConfigClient.getAll as jest.Mock).mockResolvedValue([]);
+        (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue([
+            { id: '20', entityTypeName: 'GateStructure', configurationName: 'GateStructure - Default', isDefault: false, steps: [] }
+        ]);
+        (formSubmissionClient.getByEntityTypeName as jest.Mock).mockResolvedValue([]);
+    });
+    afterEach(() => { mockHeld = ['knk.admin.content', 'knk.admin.delete']; });
+
+    it('disables a configuration\'s Delete with "Requires knk.admin.delete" without it (LV7-8)', async () => {
+        mockHeld = ['knk.admin.content'];
+        renderPage();
+        fireEvent.click(await screen.findByRole('button', { name: 'More actions for GateStructure - Default' }));
+        const item = screen.getByRole('menuitem', { name: 'Delete – Requires knk.admin.delete' });
+        expect(item).toBeDisabled();
+        fireEvent.click(item);
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+        expect(formConfigClient.delete).not.toHaveBeenCalled();
+    });
+
+    it('shows no setup lists without knk.admin.content, with a way back to the dashboard', async () => {
+        mockHeld = ['knk.admin.world'];
+        renderPage();
+        expect(await screen.findByTestId('entity-setup-no-access')).toHaveTextContent('Entity setup needs knk.admin.content');
+        expect(screen.queryByRole('button', { name: 'More actions for GateStructure - Default' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Back to the dashboard' })).toBeInTheDocument();
+    });
+});

@@ -11,6 +11,8 @@ interface Props {
     /** #71: a copy of the published version as a new draft. */
     onDuplicate?: (config: FormConfigurationDto) => void;
     onDelete?: (config: FormConfigurationDto) => void;
+    /** #280 (LV7-8): why Delete can't be used ("Requires knk.admin.delete"); the item shows disabled with it. */
+    deleteDisabledReason?: string | null;
     onCreate: () => void;
     onCreateDefault: () => void;
     /** KNG-138: download the configuration as a portable JSON file. */
@@ -27,6 +29,7 @@ export const FormConfigurationTable: React.FC<Props> = ({
     onEdit,
     onDuplicate,
     onDelete,
+    deleteDisabledReason,
     onCreate,
     onCreateDefault,
     onExport,
@@ -285,11 +288,14 @@ export const FormConfigurationTable: React.FC<Props> = ({
                                                             {onDelete && (
                                                                 <button
                                                                     onClick={() => handleDeleteClick(config)}
-                                                                    className="w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger-soft flex items-center space-x-2"
+                                                                    disabled={!!deleteDisabledReason}
+                                                                    title={deleteDisabledReason ?? undefined}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-danger hover:bg-danger-soft flex items-center space-x-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                                                                     role="menuitem"
                                                                 >
                                                                     <Trash2 className="h-4 w-4" />
                                                                     <span>Delete</span>
+                                                                    {deleteDisabledReason && <span className="sr-only"> – {deleteDisabledReason}</span>}
                                                                 </button>
                                                             )}
                                                         </div>

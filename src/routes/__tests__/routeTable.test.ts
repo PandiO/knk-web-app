@@ -1,5 +1,7 @@
+import { AREA_NODES } from '../../hooks/useStaffAccess';
 import {
-  ADMIN_GROUPS, ADMIN_NODES, adminGroupHref, isWithin, lineageOf, matchRoute, nodeOf, REDIRECTS, ROUTE_LIST, ROUTES,
+  ADMIN_GROUPS, ADMIN_NODES, adminGroupHref, isWithin, lineageOf, matchRoute, nodeOf, nodesOf, REDIRECTS, ROUTE_LIST, ROUTES,
+  routeAllowed,
   SIDEBAR_ROUTES, TOP_NAV_NODES, TOP_NAV_ROUTES, trailFor,
 } from '../routeTable';
 
@@ -42,7 +44,10 @@ describe('route-meta table', () => {
 
   it('keeps every gate App.tsx had before #30', () => {
     const gates = Object.fromEntries(ROUTE_LIST.map(route => [route.path, route.access.kind === 'staff' || route.access.kind === 'owner'
-      ? `${route.access.kind}:${route.access.node}` : route.access.kind]));
+      ? `${route.access.kind}:${route.access.node}`
+      : route.access.kind === 'staffAny' ? `staffAny:${route.access.nodes.join('|')}` : route.access.kind]));
+    // #280 decision 8: the dashboard, detail page and form wizard for any area node.
+    const AREA = 'staffAny:knk.admin.content|knk.admin.world|knk.kit.manage|knk.admin.lootbox.manage|knk.siege.admin.manage|knk.admin.road|knk.admin.user.manage';
     expect(gates).toEqual({
       '/': 'public', '/auth/register': 'public', '/auth/login': 'public', '/auth/forgot-password': 'public',
       '/auth/reset-password': 'public', '/invite/:token': 'public', '/invite': 'public', '/join': 'public', '/link': 'public',
@@ -50,12 +55,12 @@ describe('route-meta table', () => {
       '/siege/matches/:id': 'public', '/guides': 'public', '/guides/enchantments': 'public', '*': 'public',
       '/account': 'login', '/account/link': 'login', '/account/transactions': 'login',
       '/admin': 'login',
-      '/dashboard': 'staff:knk.admin.content', '/dashboard/:entityName': 'staff:knk.admin.content',
-      '/forms': 'staff:knk.admin.content', '/forms/:entityName': 'staff:knk.admin.content',
-      '/forms/:entityName/edit/:entityId': 'staff:knk.admin.content',
+      '/dashboard': AREA, '/dashboard/:entityName': AREA,
+      '/forms': 'staff:knk.admin.content', '/forms/:entityName': AREA,
+      '/forms/:entityName/edit/:entityId': AREA,
       '/admin/form-configurations/new': 'staff:knk.admin.content', '/admin/form-configurations/edit/:id': 'staff:knk.admin.content',
       '/admin/display-configurations/new': 'staff:knk.admin.content', '/admin/display-configurations/edit/:id': 'staff:knk.admin.content',
-      '/display/:entityName/:id': 'staff:knk.admin.content', '/admin/minecraft-catalog': 'staff:knk.admin.content',
+      '/display/:entityName/:id': AREA, '/admin/minecraft-catalog': 'staff:knk.admin.content',
       '/admin/lootboxes': 'staff:knk.admin.lootbox.manage', '/admin/discovery': 'staff:knk.admin.discovery',
       '/admin/roads': 'staff:knk.admin.road', '/admin/locations/orphans': 'staff:knk.admin.location.orphans',
       '/admin/users': 'staff:knk.admin.user.manage', '/admin/users/:id': 'staff:knk.admin.user.manage',
@@ -121,7 +126,17 @@ describe('route-meta table', () => {
   it('lists the bar links: Home, Leaderboards, Guides, Dashboard, Admin last (LW4-1)', () => {
     expect(TOP_NAV_ROUTES.map(route => route.id)).toEqual(['home', 'leaderboards', 'guides', 'dashboard', 'adminHome']);
     // The Dashboard link has the dashboard route's gate.
-    expect(ROUTES.dashboard.access).toEqual({ kind: 'staff', node: 'knk.admin.content' });
-    expect(TOP_NAV_NODES).toEqual(['knk.admin.content']);
+    expect(ROUTES.dashboard.access).toEqual({ kind: 'staffAny', nodes: AREA_NODES });
+    expect(TOP_NAV_NODES).toEqual([...AREA_NODES]);
+  });
+
+  it('opens a staffAny route for any one of its nodes (#280 decision 8)', () => {
+    const access = ROUTES.dashboard.access;
+    expect(nodesOf(access)).toEqual(AREA_NODES);
+    expect(routeAllowed(access, { 'knk.admin.world': 'allowed' })).toBe(true);
+    expect(routeAllowed(access, { 'knk.admin.content': 'denied', 'knk.admin.world': 'denied' })).toBe(false);
+    expect(routeAllowed(access, {})).toBe(false);
+    expect(routeAllowed(ROUTES.gameSettings.access, { 'knk.admin.config': 'allowed' })).toBe(true);
+    expect(routeAllowed(ROUTES.account.access, {})).toBe(true);
   });
 });

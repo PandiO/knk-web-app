@@ -1,27 +1,23 @@
 import type { ReactNode } from 'react';
 import { ColumnDefinition } from '../types/common';
-import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
+import { PagedQueryDto } from '../types/dtos/common/PagedQuery';
 import { cellText, reactNodeToText } from './tableCells';
 import { toCsv } from './csv';
+
+import { DashboardExportQueryDto, DashboardExportResponseDto } from '../apiClients/dashboardClient';
 
 /**
  * PandiO/knk-workspace#205 (export): the rows of a dashboard table as CSV.
  *
  * - **Columns:** the table's columns in table order (`PagedEntityTable` hands them to its selection bar), with the
  *   readable values the cells show (`cellText`).
- * - **Rows:** the selected rows, or with nothing selected the current search across all pages, in the current sort
- *   (`readSearchRows` pages through the list API).
- * - **Limit:** `EXPORT_ROW_LIMIT` rows; beyond that the result says `truncated`.
- *
- * The result of `readSearchRows` has the shape of the API's planned `POST api/Dashboard/export` answer
- * (`{ items, total, truncated }`, #280 DESIGN § 4.8), so link AM3 swaps the data source and keeps `buildTableCsv`.
+ * - **Rows** (#280 AM3): read on the server by `POST api/Dashboard/export` (knk.admin.export + the area node, one audit
+ *   entry): the selected ids, or with nothing selected the current search across all pages in the current sort.
+ * - **Limit:** `EXPORT_ROW_LIMIT` rows; beyond that the answer says `truncated`.
  */
 
 /** At most this many rows go into one file (#280 DESIGN § 4.8: the export endpoint's cap). */
 export const EXPORT_ROW_LIMIT = 10000;
-
-/** Rows asked per list request. Some list endpoints clamp to fewer; the paging follows what they return. */
-export const EXPORT_PAGE_SIZE = 100;
 
 export interface ExportRows<T> {
     items: T[];
@@ -31,72 +27,60 @@ export interface ExportRows<T> {
     truncated: boolean;
 }
 
-export interface ReadSearchOptions {
-    limit?: number;
-    pageSize?: number;
-    /** Rows read so far and the total, after each page. */
-    onProgress?: (read: number, total: number) => void;
-    /** Checked between pages; true stops the reading with an `ExportCancelledError`. */
-    isCancelled?: () => boolean;
-}
-
-export class ExportCancelledError extends Error {
-    constructor() {
-        super('Export cancelled');
-        this.name = 'ExportCancelledError';
-    }
-}
-
 const rowId = (row: unknown): string | undefined => {
     const id = (row as { id?: unknown } | null)?.id;
     return id === null || id === undefined ? undefined : String(id);
 };
 
 /**
- * Every row of `query`'s search (its search term, filters and sort; page and page size are the export's own), page
- * by page, up to `limit`. A row whose id an earlier page already held (rows added meanwhile shift the pages) is
- * skipped.
+ * The export endpoint's query from the table's (search term, filters, sort; page and page size are the export's own).
+ * Empty filters are left out and values sent as text, as the list search reads them.
  */
-export async function readSearchRows<T>(
-    search: (query: PagedQueryDto) => Promise<PagedResultDto<T>>,
-    query: PagedQueryDto,
-    { limit = EXPORT_ROW_LIMIT, pageSize = EXPORT_PAGE_SIZE, onProgress, isCancelled }: ReadSearchOptions = {}
-): Promise<ExportRows<T>> {
-    const items: T[] = [];
-    const seen = new Set<string>();
-    let total = 0;
-    let page = 1;
-    for (;;) {
-        if (isCancelled?.()) throw new ExportCancelledError();
-        const result = await search({ ...query, page, pageSize });
-        if (isCancelled?.()) throw new ExportCancelledError();
-        total = Math.max(result?.totalCount ?? 0, 0);
-        const pageItems = result?.items ?? [];
-        for (const row of pageItems) {
-            if (items.length >= limit) break;
-            const id = rowId(row);
-            if (id !== undefined) {
-                if (seen.has(id)) continue;
-                seen.add(id);
-            }
-            items.push(row);
-        }
-        onProgress?.(items.length, total);
-        const lastPage = result?.totalPages && result.totalPages > 0
-            ? result.totalPages
-            : Math.ceil(total / Math.max(result?.pageSize || pageSize, 1));
-        if (items.length >= limit || pageItems.length === 0 || page >= lastPage) break;
-        page += 1;
-    }
-    return { items, total: Math.max(total, items.length), truncated: total > items.length && items.length >= limit };
+export function exportQueryOf(query: PagedQueryDto): DashboardExportQueryDto {
+    const filters: Record<string, string> = {};
+    Object.entries(query.filters ?? {}).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') return;
+        filters[key] = String(value);
+    });
+    return {
+        searchTerm: query.searchTerm?.trim() ? query.searchTerm : null,
+        filters,
+        sortBy: query.sortBy ?? null,
+        sortDescending: query.sortDescending === true,
+    };
 }
 
-/** The selected rows as an export, capped at `limit` like a search. */
-export const selectionRows = <T,>(selected: readonly T[], limit = EXPORT_ROW_LIMIT): ExportRows<T> => ({
-    items: selected.slice(0, limit),
-    total: selected.length,
-    truncated: selected.length > limit,
-});
+/** The numeric ids of the selected rows, in the order they were ticked, each once. */
+export function selectedIds(selected: readonly unknown[]): number[] {
+    const ids: number[] = [];
+    selected.forEach(row => {
+        const id = Number(rowId(row));
+        if (Number.isInteger(id) && id > 0 && !ids.includes(id)) ids.push(id);
+    });
+    return ids;
+}
+
+/**
+ * The rows to export, read by the API (#280 AM3, DESIGN § 4.8):
+ * - **selection:** the ticked ids, re-read (current values), in the order they were ticked (LV2-3; LAM3-4);
+ * - **search** (nothing ticked): the whole current search in its sort, at most `EXPORT_ROW_LIMIT` rows.
+ */
+export async function readExportRows<T>(
+    exportRows: (scope: { ids?: number[]; query?: DashboardExportQueryDto }) => Promise<DashboardExportResponseDto<T>>,
+    selected: readonly unknown[],
+    query: PagedQueryDto
+): Promise<ExportRows<T>> {
+    const ids = selectedIds(selected).slice(0, EXPORT_ROW_LIMIT);
+    if (selected.length > 0) {
+        const answer = await exportRows({ ids });
+        const byId = new Map((answer?.items ?? []).map(row => [rowId(row), row]));
+        const items = ids.map(id => byId.get(String(id))).filter((row): row is T => row !== undefined);
+        return { items, total: selected.length, truncated: selected.length > EXPORT_ROW_LIMIT };
+    }
+    const answer = await exportRows({ query: exportQueryOf(query) });
+    const items = answer?.items ?? [];
+    return { items, total: Math.max(answer?.total ?? 0, items.length), truncated: answer?.truncated === true };
+}
 
 /** A column header as text (labels are strings; a node is read as text). */
 const headerText = (label: unknown): string =>

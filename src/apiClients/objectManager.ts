@@ -27,11 +27,13 @@ export const requestFailureToast = (err: unknown, controller: string): string | 
 export class ObjectManager {
     protected logger = logging.getLogger('ObjectManager');
     
-    invokeServiceCall(data: any, operation: string, controller: string, httpMethod: string, headers?: Record<string, string>): Promise<any> {
+    /** `timeoutMs` (default 15 s): when the promise gives up; a long server action (#280 export) asks for more. */
+    invokeServiceCall(data: any, operation: string, controller: string, httpMethod: string, headers?: Record<string, string>,
+                      timeoutMs: number = 15 * 1000): Promise<any> {
         return new Promise((resolve, reject) => {
             const timeoutId = setTimeout(() => {
                 reject(new Error("promise timeout"))
-            }, (15*1000));
+            }, timeoutMs);
             const args: InvokeServiceArgs = {
                 operation: operation,
                 controller: controller,

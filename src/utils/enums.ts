@@ -166,7 +166,9 @@ export enum Controllers {
     // Select / Unlink / Add on the entity detail page (PandiO/knk-workspace#188).
     Relationships = 'Relationships',
     // "Show details" of a refused delete: the rows that still use a record (PandiO/knk-workspace#44).
-    EntityReferences = 'EntityReferences'
+    EntityReferences = 'EntityReferences',
+    // Bulk delete and export of dashboard rows (PandiO/knk-workspace#280 AM3, #205).
+    Dashboard = 'Dashboard'
 }
 
 

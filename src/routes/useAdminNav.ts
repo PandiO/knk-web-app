@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { usePermissions } from '../hooks/useStaffAccess';
-import { ADMIN_GROUPS, ADMIN_NODES, AdminGroupId, nodeOf, RouteMeta, SIDEBAR_ROUTES } from './routeTable';
+import { ADMIN_GROUPS, ADMIN_NODES, AdminGroupId, RouteMeta, routeAllowed, SIDEBAR_ROUTES } from './routeTable';
 
 export type AdminNavGroup = { id: AdminGroupId; label: string; items: RouteMeta[] };
 
@@ -12,10 +12,7 @@ export type AdminNavGroup = { id: AdminGroupId; label: string; items: RouteMeta[
 export function useAdminNav(): { groups: AdminNavGroup[]; any: boolean; checking: boolean } {
   const statuses = usePermissions(ADMIN_NODES);
   return useMemo(() => {
-    const allowed = (route: RouteMeta) => {
-      const node = nodeOf(route.access);
-      return !node || statuses[node] === 'allowed';
-    };
+    const allowed = (route: RouteMeta) => routeAllowed(route.access, statuses);
     const groups = ADMIN_GROUPS
       .map(group => ({ id: group.id, label: group.label, items: SIDEBAR_ROUTES.filter(r => r.group === group.id && allowed(r)) }))
       .filter(group => group.items.length > 0);

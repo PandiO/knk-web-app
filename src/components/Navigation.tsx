@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { LogOut, UserCircle2, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { CONTENT_PERMISSION_NODE, usePermission, usePermissions } from '../hooks/useStaffAccess';
-import { ADMIN_HOME_ID, isWithin, nodeOf, RouteMeta, TOP_NAV_NODES, TOP_NAV_ROUTES } from '../routes/routeTable';
+import { ADMIN_HOME_ID, isWithin, RouteMeta, routeAllowed, TOP_NAV_NODES, TOP_NAV_ROUTES } from '../routes/routeTable';
 import { useRouteMeta } from '../routes/useRouteMeta';
 import { useAdminNav } from '../routes/useAdminNav';
 import { NavLayout, pickNavLayout } from './navLayout';
@@ -62,8 +62,7 @@ export function Navigation({ objectTypes }: Props) {
   const navLinks = TOP_NAV_ROUTES
     .filter(route => {
       if (route.id === ADMIN_HOME_ID) return adminNav.any;
-      const node = nodeOf(route.access);
-      return !node || topNavStatuses[node] === 'allowed';
+      return routeAllowed(route.access, topNavStatuses);
     })
     .map(toNavLink);
   // #95: the theme switcher (cogwheel) for everyone, unless REACT_APP_THEME_PICKER=off.

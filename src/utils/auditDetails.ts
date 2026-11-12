@@ -45,6 +45,9 @@ export const auditActionLabel = (entry: AuditLogEntryDto): string => {
     case 'MinecraftLinked': return 'Minecraft account linked';
     case 'MinecraftUnlinked': return 'Web login detached';
     case 'PlayerAdmitted': return 'Admitted by staff';
+    // PandiO/knk-workspace#280 (AuditAction 61, 62): dashboard bulk delete and export, recorded against the actor.
+    case 'DashboardBulkDelete': return 'Bulk delete on the dashboard';
+    case 'DashboardExport': return 'Dashboard export';
     default: return entry.action;
   }
 };
@@ -82,6 +85,8 @@ export function describeAuditDetails(entry: AuditLogEntryDto): string[] {
     case 'CurrencyTransferUnlocked': return details.previousReason ? [`Was locked for: ${details.previousReason}`] : [];
     case 'CurrencyPolicyChanged': return policyLines(details);
     case 'PrivateMessagesViewed': return privateMessagesViewedLines(details);
+    case 'DashboardBulkDelete': return dashboardBulkDeleteLines(details);
+    case 'DashboardExport': return dashboardExportLines(details);
     default: return [];
   }
 }
@@ -369,5 +374,28 @@ function privateMessagesViewedLines(d: Details): string[] {
   if (shown !== undefined) {
     lines.push(`${page !== undefined ? `Page ${page}, ` : ''}${shown} message${shown === 1 ? '' : 's'} shown`);
   }
+  return lines;
+}
+
+/** #280: `{ entityType, requested, count, ids, refused }` (DashboardActionService). */
+function dashboardBulkDeleteLines(d: Details): string[] {
+  const lines: string[] = [];
+  const count = num(d.count);
+  const refused = num(d.refused);
+  if (d.entityType) lines.push(`Type: ${d.entityType}`);
+  if (count !== undefined) lines.push(`Deleted: ${formatAmount(count)}${refused ? `, refused: ${formatAmount(refused)}` : ''}`);
+  if (Array.isArray(d.ids) && d.ids.length > 0) {
+    const shown = d.ids.slice(0, 20).join(', ');
+    lines.push(`IDs: ${shown}${d.ids.length > 20 ? ` … (+${d.ids.length - 20})` : ''}`);
+  }
+  return lines;
+}
+
+/** #280: `{ entityType, scope, count }` (DashboardActionService). */
+function dashboardExportLines(d: Details): string[] {
+  const lines: string[] = [];
+  if (d.entityType) lines.push(`Type: ${d.entityType}`);
+  const count = num(d.count);
+  if (count !== undefined) lines.push(`Rows: ${formatAmount(count)}${d.scope === 'selection' ? ' (selection)' : d.scope === 'search' ? ' (search)' : ''}`);
   return lines;
 }

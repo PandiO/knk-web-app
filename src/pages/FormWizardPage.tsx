@@ -47,6 +47,11 @@ import { useLeaveGuard } from '../hooks/useLeaveGuard';
 import { entitySetupTrail, formTrail } from '../utils/breadcrumbs';
 import { typeLabelFor } from '../utils/entityLabel';
 import { useEntityLabel } from '../hooks/useEntityLabel';
+import { CONTENT_PERMISSION_NODE, DELETE_PERMISSION_NODE, usePermission } from '../hooks/useStaffAccess';
+import { useAllNodesGate } from '../hooks/useActionGate';
+
+/** #280 (LV7-8, developer 2026-11-12): deleting a whole form or display configuration needs both. */
+const CONFIGURATION_DELETE_NODES = [CONTENT_PERMISSION_NODE, DELETE_PERMISSION_NODE];
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { 
@@ -372,6 +377,11 @@ export const FormWizardPage: React.FC<Props> = ({
     // configuration leaves the Entity setup page open with an error toast.
     const urlConfigId = searchParams.get('configId');
     const urlResumeId = searchParams.get('resume');
+    // #280: the wizard (New, New with, a draft, Edit) opens for any area node; the setup lists stay knk.admin.content.
+    const wizardRequested = shouldAutoOpen || !!urlConfigId || !!urlResumeId || !!entityId;
+    const setupStatus = usePermission(CONTENT_PERMISSION_NODE).status;
+    const configDeleteGate = useAllNodesGate(CONFIGURATION_DELETE_NODES);
+    const configDeleteReason = configDeleteGate.allowed || configDeleteGate.checking ? null : configDeleteGate.hint;
     useEffect(() => {
         if (entityId || showWizard || wizardConfig || !selectedTypeName) return;
         if (configsLoadedFor?.toLowerCase() !== selectedTypeName.toLowerCase()) return;
@@ -1104,6 +1114,23 @@ export const FormWizardPage: React.FC<Props> = ({
         );
     }
 
+    // #280: without knk.admin.content the type's setup (configurations, columns) isn't offered; the dashboard's New and
+    // Edit still open the wizard here.
+    if (!showWizard && !wizardRequested && setupStatus === 'denied') {
+        return (
+            <div className="mx-auto mt-16 max-w-md rounded-lg border border-line bg-surface p-8 text-center shadow-sm" role="status" data-testid="entity-setup-no-access">
+                <h1 className="text-lg font-semibold text-fg">Entity setup needs {CONTENT_PERMISSION_NODE}</h1>
+                <p className="mt-2 text-sm text-muted">
+                    Form and display configurations are managed with the <code className="rounded bg-surface-alt px-1 text-xs">{CONTENT_PERMISSION_NODE}</code> permission.
+                    You can still create and edit records from the dashboard.
+                </p>
+                <button type="button" className="btn-primary mt-6" onClick={() => navigate(selectedTypeName ? dashboardPath(selectedTypeName) : '/dashboard')}>
+                    Back to the dashboard
+                </button>
+            </div>
+        );
+    }
+
     // Notification logic (#71: a draft is not a form staff can use yet)
     const publishedConfigs = formConfigs.filter(cfg => !cfg.isDraft);
     const showNoConfigs = selectedTypeName && publishedConfigs.length === 0 && !showWizard;
@@ -1294,6 +1321,7 @@ export const FormWizardPage: React.FC<Props> = ({
                                                 onEdit={handleEditConfiguration}
                                                 onDuplicate={handleDuplicateConfiguration}
                                                 onDelete={handleFormConfigDelete}
+                                                deleteDisabledReason={configDeleteReason}
                                                 onCreate={handleCreateFormConfiguration}
                                                 onCreateDefault={handleCreateFormConfigurationAsDefault}
                                                 onExport={handleExportConfiguration}
@@ -1319,6 +1347,7 @@ export const FormWizardPage: React.FC<Props> = ({
                                                     onPublish={handleDisplayPublish}
                                                     onDuplicate={handleDuplicateDisplay}
                                                     onDelete={handleDisplayDelete}
+                                                    deleteDisabledReason={configDeleteReason}
                                                     onCreate={handleCreateDisplayConfiguration}
                                                     onCreateDefault={handleCreateDisplayConfigurationAsDefault}
                                                     onExport={handleExportDisplayConfiguration}

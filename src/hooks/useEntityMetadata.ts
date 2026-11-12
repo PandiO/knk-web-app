@@ -4,6 +4,8 @@ import { entityTypeConfigurationClient } from '../apiClients/entityTypeConfigura
 import { EntityMetadataDto, MergedEntityMetadata, EntityTypeConfigurationDto } from '../types/dtos/metadata/MetadataModels';
 import { useAuth } from '../contexts/AuthContext';
 import { failureReason } from '../utils/apiRefusalReason';
+import { useAnyAreaNode } from './useStaffAccess';
+import { publishLoadedMetadata } from './loadedEntityMetadata';
 
 type MetadataBundle = {
   baseMetadata: EntityMetadataDto[];
@@ -45,6 +47,8 @@ const fetchMetadataBundle = async (forceRefresh: boolean = false): Promise<Metad
     };
 
     metadataBundleCache = bundle;
+    // #280: for useLoadedEntityMetadata (a picker's "Create New" gate), which asks nothing itself.
+    publishLoadedMetadata(bundle.baseMetadata);
     if (forceRefresh) {
       bundleListeners.forEach(listener => listener(bundle));
     }
@@ -91,7 +95,14 @@ const fetchMetadataBundle = async (forceRefresh: boolean = false): Promise<Metad
  * ));
  */
 export function useEntityMetadata() {
-  const { isLoggedIn, isLoading: authLoading } = useAuth();
+  const { isLoggedIn: loggedIn, isLoading: authLoading } = useAuth();
+  // PandiO/knk-workspace#280 (LAM2-9): GET api/Metadata and the entity type configurations are form-runtime reads, open
+  // to holders of any area node only. A player without one would get a 403 on every page (App.tsx loads this for the
+  // nav's Create menu), so the metadata is loaded only once an area node answered yes. A failed check still loads it
+  // (the API decides); the answer is shared with the nav's own checks.
+  const areaAccess = useAnyAreaNode();
+  const areaChecking = loggedIn && areaAccess === 'checking';
+  const isLoggedIn = loggedIn && (areaAccess === 'allowed' || areaAccess === 'error');
   const [allMergedMetadata, setAllMergedMetadata] = useState<MergedEntityMetadata[]>([]);
   const [baseMetadata, setBaseMetadata] = useState<EntityMetadataDto[]>([]);
   const [configurations, setConfigurations] = useState<EntityTypeConfigurationDto[]>([]);
@@ -139,13 +150,16 @@ export function useEntityMetadata() {
 
   // Load metadata and configurations on mount
   useEffect(() => {
-    if (authLoading) {
+    if (authLoading || areaChecking) {
       setLoading(true);
       return;
     }
 
     if (!isLoggedIn) {
-      metadataBundleCache = null;
+      if (!loggedIn) {
+        metadataBundleCache = null;
+        publishLoadedMetadata([]);
+      }
       setLoading(false);
       setBaseMetadata([]);
       setConfigurations([]);
@@ -155,7 +169,7 @@ export function useEntityMetadata() {
     }
 
     void loadMetadata();
-  }, [authLoading, isLoggedIn, loadMetadata]);
+  }, [authLoading, areaChecking, isLoggedIn, loggedIn, loadMetadata]);
 
   /**
    * Get merged metadata for a specific entity by name.

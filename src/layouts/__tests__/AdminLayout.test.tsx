@@ -80,7 +80,11 @@ describe('admin layout', () => {
   it('hides the settings pages from a moderator without their nodes', () => {
     renderAt('/admin/users', 'knk.admin.user.manage');
 
-    expect(groupsIn(sidebar())).toEqual([{ group: 'Players & support', pages: ['Player moderation'] }]);
+    // #280 decision 8: knk.admin.user.manage is an area node (users, permission groups), so the dashboard is listed.
+    expect(groupsIn(sidebar())).toEqual([
+      { group: 'Content', pages: ['Dashboard'] },
+      { group: 'Players & support', pages: ['Player moderation'] },
+    ]);
   });
 
   it('keeps the parent page current and draws the trail on a page below it', () => {
@@ -102,6 +106,15 @@ describe('admin layout', () => {
     expect(trail()).toEqual(['Content', 'Dashboard', 'Entity setup']);
     expect(within(sidebar()).getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
     expect(document.title).toBe('Entity setup · Knights & Kings');
+  });
+
+  it('opens the dashboard for any area node and says which ones without (#280 decision 8)', () => {
+    const { unmount } = renderAt('/dashboard/Town', 'knk.admin.world');
+    expect(screen.getByText('page:dashboardType')).toBeInTheDocument();
+    unmount();
+    renderAt('/display/Town/4', 'knk.admin.config');
+    expect(screen.getByRole('heading', { name: 'Staff only' })).toBeInTheDocument();
+    expect(screen.getByText(/This page needs one of these permissions/)).toHaveTextContent('knk.admin.content, knk.admin.world');
   });
 
   it('gates each page on its node: "Staff only" without it', () => {
@@ -127,7 +140,7 @@ describe('admin layout', () => {
     fireEvent.click(button);
     expect(button).toHaveAttribute('aria-expanded', 'true');
     const panel = document.getElementById('admin-menu-panel')!;
-    expect(groupsIn(panel)).toEqual([{ group: 'World', pages: ['Road network'] }]);
+    expect(groupsIn(panel)).toEqual([{ group: 'Content', pages: ['Dashboard'] }, { group: 'World', pages: ['Road network'] }]);
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(document.getElementById('admin-menu-panel')).toBeNull();
     expect(button).toHaveFocus();
