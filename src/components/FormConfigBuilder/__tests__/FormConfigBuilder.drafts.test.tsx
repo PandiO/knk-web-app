@@ -107,10 +107,12 @@ it('Save stores a draft and stays in the builder', async () => {
     expect(screen.getByTestId('builder-status')).toHaveTextContent('Published · changes not published');
 });
 
-it('Save and close saves, then goes back to Entity setup', async () => {
+it('Save and close is off until something changes, then saves and goes back to Entity setup', async () => {
     client.saveDraft.mockResolvedValue(state({ hasUnpublishedChanges: true }));
     await renderBuilder();
+    expect(screen.getByRole('button', { name: 'Save and close' })).toBeDisabled();
     await userEvent.type(screen.getByLabelText('Description'), ' and more');
+    expect(screen.getByRole('button', { name: 'Save and close' })).toBeEnabled();
 
     await userEvent.click(screen.getByRole('button', { name: 'Save and close' }));
 

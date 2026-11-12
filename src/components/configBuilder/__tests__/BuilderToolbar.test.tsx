@@ -25,9 +25,27 @@ it('says where the configuration stands', () => {
     expect(statusText({ isNew: false, isPublished: true, hasUnpublishedChanges: false }, 'form').tone).toBe('success');
 });
 
+it('Save and Save and close need unsaved changes on a saved configuration, not on a new one', () => {
+    const { rerender } = render(<BuilderToolbar {...props()} />);
+    for (const name of ['Save', 'Save and close']) {
+        expect(screen.getByRole('button', { name })).toBeDisabled();
+        expect(screen.getByRole('button', { name })).toHaveAttribute('title', 'No unsaved changes.');
+    }
+
+    rerender(<BuilderToolbar {...props({ dirty: true })} />);
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Save and close' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Save and close' })).not.toHaveAttribute('title');
+
+    rerender(<BuilderToolbar {...props({ status: { isNew: true, isPublished: false, hasUnpublishedChanges: false } })} />);
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Save and close' })).toBeEnabled();
+});
+
 it('a missing write node disables the writes with the node, once', async () => {
     render(<BuilderToolbar {...props({ dirty: true, writeGate: { allowed: false, reason: 'Requires knk.admin.content' } })} />);
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save and close' })).toHaveAttribute('title', 'Requires knk.admin.content');
     expect(screen.getByRole('button', { name: /Publish/ })).toHaveAccessibleDescription('Save, Publish and Duplicate: Requires knk.admin.content');
     expect(screen.getByRole('button', { name: 'Preview' })).toBeEnabled();
 
@@ -45,5 +63,6 @@ it('busy disables every action and More runs the chosen one', async () => {
 
     rerender(<BuilderToolbar {...props({ dirty: true, busy: 'saving' })} />);
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save and close' })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Publish/ })).toBeDisabled();
 });

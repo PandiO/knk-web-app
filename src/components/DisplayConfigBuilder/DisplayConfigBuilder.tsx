@@ -406,11 +406,8 @@ export const DisplayConfigBuilder: React.FC = () => {
         }
     };
 
+    // Save and close is disabled without unsaved changes on a saved configuration (the toolbar's Save gate).
     const handleSaveAndClose = async () => {
-        if (!dirty && config.id) {
-            navigate(formsPagePath);
-            return;
-        }
         const state = await saveDraft();
         if (!state) return;
         leaveGuard.allowNextLeave();

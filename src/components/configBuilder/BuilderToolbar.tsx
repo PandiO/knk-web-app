@@ -165,8 +165,8 @@ export const BuilderToolbar: React.FC<BuilderToolbarProps> = ({
                     <button
                         type="button"
                         onClick={onSaveAndClose}
-                        disabled={!writeGate.allowed || isBusy}
-                        title={!writeGate.allowed && writeGate.reason ? writeGate.reason : undefined}
+                        disabled={!save.allowed || isBusy}
+                        title={!save.allowed && save.reason ? save.reason : undefined}
                         className="btn-secondary text-sm whitespace-nowrap disabled:opacity-50"
                     >
                         Save and close
