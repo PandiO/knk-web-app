@@ -20,8 +20,9 @@ jest.mock('react-router-dom', () => ({
     useLocation: () => ({ pathname: '/display/Town/4', search: '' }),
 }), { virtual: true });
 
-let mockHeld = new Set<string>(['knk.admin.world', 'knk.admin.delete']);
+let mockHeld = new Set<string>(['knk.admin.world', 'knk.admin.content', 'knk.admin.delete']);
 jest.mock('../../../hooks/useStaffAccess', () => ({
+    ...jest.requireActual('../../../hooks/useStaffAccess'),
     usePermissions: (nodes: string[]) => Object.fromEntries(nodes.map(node => [node, mockHeld.has(node) ? 'allowed' : 'denied'])),
     usePermission: (node: string) => ({ allowed: mockHeld.has(node), isChecking: false, status: mockHeld.has(node) ? 'allowed' : 'denied', retry: jest.fn() }),
 }));
@@ -97,7 +98,7 @@ const addStreet = () => within(screen.getByRole('region', { name: 'Streets' })).
 beforeEach(() => {
     jest.clearAllMocks();
     jest.useRealTimers();
-    mockHeld = new Set(['knk.admin.world', 'knk.admin.delete']);
+    mockHeld = new Set(['knk.admin.world', 'knk.admin.content', 'knk.admin.delete']);
     mockConfigError = null;
     mockDataError = null;
     mockEntity = {
@@ -199,7 +200,7 @@ describe('relationship actions (#188)', () => {
     });
 
     it('a staff account without knk.admin.delete sees Delete disabled with "Requires knk.admin.delete", Unlink still works', () => {
-        mockHeld = new Set(['knk.admin.world']);
+        mockHeld = new Set(['knk.admin.world', 'knk.admin.content']);
         renderPage();
         const button = within(streets()).getByRole('button', { name: 'Delete Main Street' });
         expect(button).toBeDisabled();
@@ -208,12 +209,37 @@ describe('relationship actions (#188)', () => {
         expect(within(streets()).getByRole('button', { name: 'Unlink Main Street' })).toBeEnabled();
     });
 
-    it('without the write node, Add and Unlink are disabled with "Requires knk.admin.world"', () => {
+    it('without the write node, Add and Unlink are disabled with "Requires knk.admin.world and knk.admin.content"', () => {
         mockHeld = new Set(['knk.admin.road']);
         renderPage();
         expect(within(screen.getByRole('region', { name: 'Streets' })).getByRole('button', { name: /Add…/ })).toBeDisabled();
-        expect(within(screen.getByRole('region', { name: 'Streets' })).getByTestId('action-hint')).toHaveTextContent('Add…: Requires knk.admin.world');
-        expect(within(streets()).getByRole('button', { name: 'Unlink Main Street' })).toHaveAttribute('title', 'Requires knk.admin.world');
+        expect(within(screen.getByRole('region', { name: 'Streets' })).getByTestId('action-hint'))
+            .toHaveTextContent('Add…: Requires knk.admin.world and knk.admin.content');
+        expect(within(streets()).getByRole('button', { name: 'Unlink Main Street' }))
+            .toHaveAttribute('title', 'Requires knk.admin.world and knk.admin.content');
+    });
+
+    it('#374: the area node without knk.admin.content disables Add and Unlink, Delete still works', () => {
+        mockHeld = new Set(['knk.admin.world', 'knk.admin.delete']);
+        renderPage();
+        expect(within(screen.getByRole('region', { name: 'Streets' })).getByRole('button', { name: /Add…/ })).toBeDisabled();
+        expect(within(screen.getByRole('region', { name: 'Streets' })).getByTestId('action-hint'))
+            .toHaveTextContent('Add…: Requires knk.admin.content');
+        expect(within(streets()).getByRole('button', { name: 'Unlink Main Street' })).toHaveAttribute('title', 'Requires knk.admin.content');
+        expect(within(streets()).getByRole('button', { name: 'Delete Main Street' })).toBeEnabled();
+    });
+
+    it('#374: an API that already lists knk.admin.content asks for it once', () => {
+        const streetsRelationship = mockMetadata[0].relationships!.find(r => r.property === 'streets')!;
+        const before = streetsRelationship.nodes;
+        streetsRelationship.nodes = ['knk.admin.world', 'knk.admin.content'];
+        try {
+            mockHeld = new Set(['knk.admin.world']);
+            renderPage();
+            expect(within(streets()).getByRole('button', { name: 'Unlink Main Street' })).toHaveAttribute('title', 'Requires knk.admin.content');
+        } finally {
+            streetsRelationship.nodes = before;
+        }
     });
 });
 

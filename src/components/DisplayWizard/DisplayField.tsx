@@ -15,6 +15,11 @@ type Props = DisplayFieldProps & {
    * a related section opens that record). A related-record field links to its own record instead.
    */
   recordLink?: { typeName?: string; id?: number };
+  /**
+   * #383: whether the viewer may save a hot edit (the type's edit nodes plus knk.admin.content). Not allowed: the pencil
+   * is greyed out with the hint ("Requires knk.admin.content"). Left out: allowed (the API decides).
+   */
+  editGate?: { allowed: boolean; hint: string | null };
 };
 
 /**
@@ -29,6 +34,7 @@ export const DisplayField: React.FC<Props> = ({
   onValueChange,
   parentEntityType,
   recordLink,
+  editGate,
 }) => {
   const { parseTemplate } = useTemplateParser();
   const links = useDetailLinks();
@@ -64,7 +70,11 @@ export const DisplayField: React.FC<Props> = ({
                   !!onValueChange &&
                   ['string', 'integer', 'number', 'boolean'].includes(fieldTypeLower);
 
+  const editBlocked = !!editGate && !editGate.allowed;
+  const editBlockedHint = editBlocked ? editGate?.hint ?? null : null;
+
   const handleEditStart = () => {
+    if (editBlocked) return;
     setEditError(null);
     setEditValue(displayValue === null || displayValue === undefined ? '' : String(displayValue));
     setIsEditing(true);
@@ -191,9 +201,10 @@ export const DisplayField: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={handleEditStart}
-                className="-mt-0.5 flex-shrink-0 rounded-md p-1 text-muted transition-colors hover:bg-info-soft hover:text-primary"
-                title="Edit this field"
-                aria-label={`Edit ${field.label}`}
+                disabled={editBlocked}
+                className="-mt-0.5 flex-shrink-0 rounded-md p-1 text-muted transition-colors hover:bg-info-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted"
+                title={editBlocked ? editBlockedHint ?? 'Checking permissions…' : 'Edit this field'}
+                aria-label={editBlockedHint ? `Edit ${field.label} – ${editBlockedHint}` : `Edit ${field.label}`}
               >
                 <Edit2 className="h-4 w-4" aria-hidden="true" />
               </button>

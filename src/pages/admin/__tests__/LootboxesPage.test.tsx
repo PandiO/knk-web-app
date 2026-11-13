@@ -15,6 +15,11 @@ import { LootboxClaimLogDto, LootboxOddsDto, LootboxTypeDto } from '../../../typ
 // useSearchParams keeps the query in component state, starting from mockInitialSearch (#39: ?tab=).
 let mockInitialSearch = '';
 const mockSetSearchParams = jest.fn();
+// #383: the lootbox toggle and Create New Street need the type's nodes and knk.admin.content; these tests hold them all.
+jest.mock('../../../hooks/useStaffAccess', () => ({
+  ...jest.requireActual('../../../hooks/useStaffAccess'),
+  usePermissions: (nodes: string[]) => Object.fromEntries(nodes.map(node => [node, 'allowed'])),
+}));
 jest.mock('react-router-dom', () => {
     const { useState } = jest.requireActual('react');
     return {

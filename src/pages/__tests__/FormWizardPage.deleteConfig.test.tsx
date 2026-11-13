@@ -141,12 +141,5 @@ describe('FormWizardPage: access (PandiO/knk-workspace#280)', () => {
         expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
         expect(formConfigClient.delete).not.toHaveBeenCalled();
     });
-
-    it('shows no setup lists without knk.admin.content, with a way back to the dashboard', async () => {
-        mockHeld = ['knk.admin.world'];
-        renderPage();
-        expect(await screen.findByTestId('entity-setup-no-access')).toHaveTextContent('Entity setup needs knk.admin.content');
-        expect(screen.queryByRole('button', { name: 'More actions for GateStructure - Default' })).not.toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Back to the dashboard' })).toBeInTheDocument();
-    });
+    // #371: without knk.admin.content the route refuses the page (routeTable.test), so the page's own notice is gone.
 });

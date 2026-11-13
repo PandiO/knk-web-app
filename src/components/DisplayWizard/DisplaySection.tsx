@@ -8,6 +8,7 @@ import { DisplaySectionProps, ActionButtonsConfigDto } from '../../types/dtos/di
 import { EntityMetadataDto, RelationshipMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { MinecraftIcon } from '../minecraft/MinecraftIcon';
 import { useAllNodesGate } from '../../hooks/useActionGate';
+import { changeNodesOf, withContentNode } from '../../hooks/useEntityAccess';
 import { findRelationship, metadataFor, relatedIdOf, relatedLabelOf } from './detailPage';
 import { formatNumber } from '../../utils/format';
 import { entityTypeFallbackLabel } from '../../utils/entityLabel';
@@ -17,7 +18,8 @@ type Props = DisplaySectionProps & {
   metadata?: EntityMetadataDto[];
 };
 
-/** Select/Add and Unlink of one relationship: what the API allows (with its reason), then the nodes (#280). */
+/** Select/Add and Unlink of one relationship: what the API allows (with its reason), then the nodes (#280; plus
+ * knk.admin.content since #374). */
 export function relationshipGate(
   allowedHere: boolean | undefined,
   reason: string | undefined,
@@ -77,8 +79,15 @@ export const DisplaySection: React.FC<Props> = ({
   const targetType = relationship?.storage === 'linkRow' ? relationship.relatedType : section.relatedEntityTypeName;
   const targetMeta = metadataFor(metadata, targetType);
   const targetLabel = targetMeta?.displayName || (targetType ? entityTypeFallbackLabel(targetType) : '');
-  const nodesGate = useAllNodesGate(relationship?.nodes);
+  // #374: Select / Unlink / Add change the record, so they need knk.admin.content too (an API with #374 lists it in
+  // `nodes` already; adding it here keeps the gate right against an older API).
+  const relationshipNodes = React.useMemo(() => (relationship ? withContentNode(relationship.nodes) : undefined), [relationship]);
+  const nodesGate = useAllNodesGate(relationshipNodes);
   const deleteNodes = useAllNodesGate(targetMeta?.actionNodes?.delete);
+  // #383: a field's hot edit saves through the type's update (PUT), which #374 gates: the type's edit nodes plus
+  // knk.admin.content (a user's keeps knk.admin.user.manage).
+  const hotEditNodes = React.useMemo(() => changeNodesOf(ownMeta, 'edit', entityTypeName), [ownMeta, entityTypeName]);
+  const hotEditGate = useAllNodesGate(hotEditNodes);
   const linkGate = relationshipGate(relationship?.canLink, relationship?.linkReason, nodesGate);
   const unlinkGate = relationshipGate(relationship?.canUnlink, relationship?.unlinkReason, nodesGate);
   const deleteGate = deleteGateOf(targetMeta, targetLabel, deleteNodes);
@@ -155,6 +164,7 @@ export const DisplaySection: React.FC<Props> = ({
                     entityId={entityId}
                     entityTypeName={entityTypeName}
                     onValueChange={isRelatedSingle ? undefined : onValueChange}
+                    editGate={hotEditGate}
                     parentEntityType={section.relatedEntityTypeName}
                     recordLink={isRelatedSingle && index === 0 ? { typeName: targetType, id: singleId } : undefined}
                   />
