@@ -370,7 +370,7 @@ export const StepConditionBuilder: React.FC<StepConditionBuilderProps> = ({
                                 placeholder="What the form says when this condition fails"
                                 aria-invalid={needsMessage}
                                 onChange={e => update(index, { errorMessage: e.target.value })}
-                                className={`block w-full rounded-md shadow-sm sm:text-sm ${
+                                className={`block w-full rounded-md px-2 py-1 shadow-sm sm:text-sm ${
                                     needsMessage ? 'border-danger' : 'border-field'
                                 } focus:border-primary focus:ring-primary`}
                             />
