@@ -157,6 +157,27 @@ export class DisplayConditionEvaluator {
 }
 
 /**
+ * The operators `ConditionEvaluator.evaluateCondition` understands, in the order the step condition
+ * builder offers them (PandiO/knk-workspace#88). The display-condition operators it ignores (In, NotIn,
+ * GreaterOrEqual, LessOrEqual, And, Or) are left out: a step condition with one of them never holds.
+ */
+export const STEP_CONDITION_OPERATORS: ConditionOperator[] = [
+    ConditionOperator.Equals,
+    ConditionOperator.NotEquals,
+    ConditionOperator.GreaterThan,
+    ConditionOperator.LessThan,
+    ConditionOperator.Contains,
+    ConditionOperator.IsEmpty,
+    ConditionOperator.IsNotEmpty
+];
+
+/** Step condition operators that compare against nothing. */
+export const STEP_CONDITION_NO_VALUE_OPERATORS: ConditionOperator[] = [
+    ConditionOperator.IsEmpty,
+    ConditionOperator.IsNotEmpty
+];
+
+/**
  * Handles the older StepCondition entry/completion gating, which decides whether a user may
  * proceed rather than what is shown.
  */
