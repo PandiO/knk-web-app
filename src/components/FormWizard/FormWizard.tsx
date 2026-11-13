@@ -3057,7 +3057,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         }
 
         // Moves to a step whose earlier steps all passed, the way Next does: save, tell the workflow, go.
-        const moveTo = async (toIndex: number, passed: number[], issues: StepJumpIssue[] = []): Promise<boolean> => {
+        const moveTo = async (toIndex: number, passed: number[]): Promise<boolean> => {
             setAllStepsData(data);
             setHiddenStash(reconciled.hiddenStash);
             const saved = await saveProgress(FormSubmissionStatus.InProgress);
@@ -3070,7 +3070,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             });
             setCompletedSteps(prev => new Set<number>([...Array.from(prev), ...passed]));
             setCurrentStepData(stepDataOf(toIndex));
-            showIssuesOnStep(issues);
+            showIssuesOnStep([]);
             setCurrentStepIndex(toIndex);
             return true;
         };
@@ -3092,6 +3092,30 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             return;
         }
 
+        // PandiO/knk-workspace#413: "Go to <step>" opens the step that needs attention straight away and saves
+        // the progress behind it. It used to wait for the save first, inside the dialog, which keeps its
+        // buttons (× and Close too) disabled while its action runs: a save the API was slow to answer
+        // locked the dialog for up to the request timeout (15 s), and a failed save closed it without moving.
+        // The steps before it passed every check, so nothing is skipped; a failed save shows in the banner
+        // and the next Next saves again.
+        const openStoppedStep = (toIndex: number, passed: number[], issues: StepJumpIssue[]) => {
+            setAllStepsData(data);
+            setHiddenStash(reconciled.hiddenStash);
+            setCompletedSteps(prev => new Set<number>([...Array.from(prev), ...passed]));
+            setCurrentStepData(stepDataOf(toIndex));
+            showIssuesOnStep(issues);
+            setCurrentStepIndex(toIndex);
+            void saveProgress(FormSubmissionStatus.InProgress).then(saved => {
+                if (!saved) return;
+                passed.forEach((from, index) => {
+                    try {
+                        const to = index + 1 < passed.length ? passed[index + 1] : toIndex;
+                        onStepAdvanced?.({ from, to, stepKey: computeStepKey(cfg.steps[from], from) });
+                    } catch {}
+                });
+            });
+        };
+
         const stopped = stop;
         const onCurrentStep = stopped.stepIndex === currentStepIndex;
         if (onCurrentStep) showIssuesOnStep(stopped.issues);
@@ -3107,7 +3131,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             goTo: onCurrentStep ? undefined : {
                 label: `Go to ${nameOf(stopped.stepIndex)}`,
                 run: async () => {
-                    await moveTo(stopped.stepIndex, path.slice(0, stopped.position), stopped.issues);
+                    openStoppedStep(stopped.stepIndex, path.slice(0, stopped.position), stopped.issues);
                 }
             }
         });

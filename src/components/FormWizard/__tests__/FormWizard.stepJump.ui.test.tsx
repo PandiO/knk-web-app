@@ -106,6 +106,7 @@ const nameFromEarlierStep: StepConditionDto = {
 
 const buildConfig = (options: {
     nameRequired?: boolean;
+    regionRequired?: boolean;
     regionConditions?: StepConditionDto[];
     detailsConditions?: StepConditionDto[];
 } = {}): FormConfigurationDto => ({
@@ -117,7 +118,7 @@ const buildConfig = (options: {
     steps: [
         step('0', 'Basics', [field(NAME_ID, 'Name', { isRequired: options.nameRequired ?? true })]),
         step('1', 'Region', [
-            field(REGION_ID, 'Region'),
+            field(REGION_ID, 'Region', { isRequired: options.regionRequired ?? false }),
             field(202, 'AllowEntry', { label: 'Allow entry', fieldType: FieldType.Boolean })
         ], options.regionConditions ?? []),
         step('2', 'Details', [field(301, 'Notes')], options.detailsConditions ?? [])
@@ -369,5 +370,92 @@ describe('FormWizard step jump (#68) and Entry conditions (#88)', () => {
         await onStep('Basics');
         await waitFor(() => expect(fieldValidationRuleClient.getByFormConfigurationId).toHaveBeenCalled());
         expect(fieldValidationRuleClient.validateFields).not.toHaveBeenCalled();
+    });
+});
+
+// PandiO/knk-workspace#413: the jump dialog's ×, Close and "Go to" kept working only while the save behind
+// "Go to" answered quickly: the dialog disables its buttons while its action runs, and "Go to" waited for the
+// save. Smoke test: New District, step 1 filled, step 2's Region empty, click step 3.
+describe('FormWizard step jump dialog with a slow or failing save (#413)', () => {
+    let toasts: jest.SpyInstance;
+    let consoleError: jest.SpyInstance;
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        toasts = jest.spyOn(logging.errorHandler, 'next').mockImplementation(() => undefined);
+        consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        (fieldValidationRuleClient.getByFormConfigurationId as jest.Mock).mockResolvedValue([]);
+        answerRules({});
+    });
+
+    afterEach(() => {
+        toasts.mockRestore();
+        consoleError.mockRestore();
+    });
+
+    const never = () => new Promise<never>(() => undefined);
+
+    const openJumpDialog = async () => {
+        fireEvent.click(stepButton('Step 3: Details'));
+        expect(await screen.findByText('"Region" needs your attention first:')).toBeInTheDocument();
+        return screen.getByRole('alertdialog');
+    };
+
+    const startOnBasics = async () => {
+        useConfig(buildConfig({ regionRequired: true }));
+        render(<FormWizard entityName="District" />);
+        await typeName('Old Quarter');
+    };
+
+    it.each([
+        ['the ×', 'Close dialog'],
+        ['Close', 'Close']
+    ])('%s closes the dialog, and it opens again on the next click', async (_label, buttonName) => {
+        (formSubmissionClient.create as jest.Mock).mockImplementation(never);
+        await startOnBasics();
+
+        let dialog = await openJumpDialog();
+        expect(within(dialog).getByRole('button', { name: buttonName })).toBeEnabled();
+        fireEvent.click(within(dialog).getByRole('button', { name: buttonName }));
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+        expect(screen.getByRole('heading', { level: 2, name: 'Basics' })).toBeInTheDocument();
+
+        dialog = await openJumpDialog();
+        expect(within(dialog).getByRole('button', { name: 'Go to Region' })).toBeEnabled();
+    });
+
+    it.each([
+        ['never answers', () => never()],
+        ['fails', () => Promise.reject(new Error('API down'))],
+        ['answers slowly', () => new Promise(resolve => setTimeout(() => resolve({ id: '55' }), 50))]
+    ])('Go to lands on the step with its issue shown when the save %s', async (_label, save) => {
+        (formSubmissionClient.create as jest.Mock).mockImplementation(save);
+        await startOnBasics();
+
+        const dialog = await openJumpDialog();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Go to Region' }));
+
+        await onStep('Region');
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+        // The field that stopped the jump is marked, with the summary.
+        expect(screen.getAllByText('Region is required').length).toBeGreaterThan(0);
+        expect(screen.getByText('Fix this field to continue')).toBeInTheDocument();
+        expect(formSubmissionClient.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('a failed save behind Go to says so in the banner, and the next Next saves again', async () => {
+        (formSubmissionClient.create as jest.Mock).mockRejectedValueOnce(new Error('API down'));
+        await startOnBasics();
+
+        const dialog = await openJumpDialog();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Go to Region' }));
+        await onStep('Region');
+        expect(await screen.findByText('Failed to save your progress. Please try again.')).toBeInTheDocument();
+
+        (formSubmissionClient.create as jest.Mock).mockImplementation(async (dto: Record<string, unknown>) => ({ ...dto, id: '55' }));
+        fireEvent.change(screen.getByLabelText(/^region/i), { target: { value: 'district_3' } });
+        fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
+        await onStep('Details');
+        expect(formSubmissionClient.create).toHaveBeenCalledTimes(2);
     });
 });
