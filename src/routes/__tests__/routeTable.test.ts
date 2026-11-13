@@ -46,7 +46,7 @@ describe('route-meta table', () => {
     const gates = Object.fromEntries(ROUTE_LIST.map(route => [route.path, route.access.kind === 'staff' || route.access.kind === 'owner'
       ? `${route.access.kind}:${route.access.node}`
       : route.access.kind === 'staffAny' ? `staffAny:${route.access.nodes.join('|')}` : route.access.kind]));
-    // #280 decision 8: the dashboard, detail page and form wizard for any area node.
+    // #280 decision 8: the dashboard and detail page for any area node; the form wizard knk.admin.content (#371).
     const AREA = 'staffAny:knk.admin.content|knk.admin.world|knk.kit.manage|knk.admin.lootbox.manage|knk.siege.admin.manage|knk.admin.road|knk.admin.user.manage';
     expect(gates).toEqual({
       '/': 'public', '/auth/register': 'public', '/auth/login': 'public', '/auth/forgot-password': 'public',
@@ -56,8 +56,8 @@ describe('route-meta table', () => {
       '/account': 'login', '/account/link': 'login', '/account/transactions': 'login',
       '/admin': 'login',
       '/dashboard': AREA, '/dashboard/:entityName': AREA,
-      '/forms': 'staff:knk.admin.content', '/forms/:entityName': AREA,
-      '/forms/:entityName/edit/:entityId': AREA,
+      '/forms': 'staff:knk.admin.content', '/forms/:entityName': 'staff:knk.admin.content',
+      '/forms/:entityName/edit/:entityId': 'staff:knk.admin.content',
       '/admin/form-configurations/new': 'staff:knk.admin.content', '/admin/form-configurations/edit/:id': 'staff:knk.admin.content',
       '/admin/display-configurations/new': 'staff:knk.admin.content', '/admin/display-configurations/edit/:id': 'staff:knk.admin.content',
       '/display/:entityName/:id': AREA, '/admin/minecraft-catalog': 'staff:knk.admin.content',
@@ -138,5 +138,19 @@ describe('route-meta table', () => {
     expect(routeAllowed(access, {})).toBe(false);
     expect(routeAllowed(ROUTES.gameSettings.access, { 'knk.admin.config': 'allowed' })).toBe(true);
     expect(routeAllowed(ROUTES.account.access, {})).toBe(true);
+  });
+
+  it('keeps the form wizard (new, New with, drafts, edit) on knk.admin.content (#371, reverts LAM3-1)', () => {
+    const worldOnly = { 'knk.admin.world': 'allowed', 'knk.admin.content': 'denied' } as const;
+    const contentOnly = { 'knk.admin.content': 'allowed' } as const;
+    ['/forms/Town', '/forms/Town?autoOpen=true', '/forms/Town/edit/7'].forEach(path => {
+      const route = matchRoute(path.split('?')[0])!.route;
+      expect(route.access).toEqual({ kind: 'staff', node: 'knk.admin.content' });
+      expect(routeAllowed(route.access, worldOnly)).toBe(false);
+      expect(routeAllowed(route.access, contentOnly)).toBe(true);
+    });
+    // The dashboard and the detail page stay open for the world-only account.
+    expect(routeAllowed(matchRoute('/dashboard/Town')!.route.access, worldOnly)).toBe(true);
+    expect(routeAllowed(matchRoute('/display/Town/7')!.route.access, worldOnly)).toBe(true);
   });
 });
