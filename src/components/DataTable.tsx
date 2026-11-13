@@ -17,6 +17,9 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from 'lucide-react';
  * - **Checkbox column (#205):** with `selection` the first column holds a checkbox per row and one in the header
  *   for the rows shown. A click anywhere in that cell toggles the row and never opens it, so the row links and the
  *   row click keep working beside it (the dashboard's bulk selection).
+ * - **Row lines (#404):** the lines between rows sit on the cells (`border-separate`, one bottom line per cell), never
+ *   on the `<tr>`: a row border shared the dividers' colour, so from the second row on a 4px left edge showed grey.
+ *   The selected row's green edge is a bar inside its first cell.
  *
  *     <DataTable
  *       caption="Players"
@@ -170,6 +173,8 @@ export function DataTable<T>({
     const cellPad = compact ? 'px-3 py-2' : 'px-6 py-4';
     const headPad = compact ? 'px-3 py-2' : 'px-6 py-3';
 
+    const bodyCellLine = 'border-b border-line';
+
     const ariaSort = (key: string): 'ascending' | 'descending' | 'none' =>
         sort?.key !== key ? 'none' : sort.descending ? 'descending' : 'ascending';
 
@@ -209,17 +214,18 @@ export function DataTable<T>({
                 } : undefined}
                 className={`transition-colors duration-150 ${
                     selected
-                        ? 'bg-success-soft hover:bg-success-muted border-l-4 border-success'
-                        : `${compact ? '' : 'border-l-4 border-transparent'} hover:bg-surface-alt`
+                        ? 'bg-success-soft hover:bg-success-muted'
+                        : 'hover:bg-surface-alt'
                 } ${clickable ? 'cursor-pointer' : ''}`}
             >
                 {selection && (
                     // The whole cell toggles the box; its clicks never reach the row (no navigation).
                     <td
-                        className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} w-px whitespace-nowrap align-middle`}
+                        className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} relative w-px whitespace-nowrap align-middle ${bodyCellLine}`}
                         onClick={(event) => event.stopPropagation()}
                         onAuxClick={(event) => event.stopPropagation()}
                     >
+                        {selected && <SelectedEdge />}
                         <label className="-m-2 flex cursor-pointer items-center justify-center p-2">
                             <input
                                 type="checkbox"
@@ -232,8 +238,9 @@ export function DataTable<T>({
                         </label>
                     </td>
                 )}
-                {columns.map(column => {
+                {columns.map((column, columnIndex) => {
                     const content = column.cell ? column.cell(row) : defaultCell(row, column.key);
+                    const edgeHere = selected && !selection && columnIndex === 0;
                     const isLinkCell = column.key === linkKey;
                     const lead = isLinkCell ? (
                         <>
@@ -246,8 +253,9 @@ export function DataTable<T>({
                             key={column.key}
                             className={`${cellPad} text-sm ${compact ? '' : 'whitespace-nowrap'} ${ALIGN[column.align ?? 'left']} ${
                                 selected ? 'text-fg font-medium' : isLinkCell ? 'text-fg' : 'text-muted'
-                            } ${column.className ?? ''}`}
+                            } ${edgeHere ? 'relative' : ''} ${bodyCellLine} ${column.className ?? ''}`}
                         >
+                            {edgeHere && <SelectedEdge />}
                             {isLinkCell && (rowLeading || leading || href) ? (
                                 <div className="flex items-center gap-2">
                                     {lead}
@@ -274,7 +282,7 @@ export function DataTable<T>({
                     );
                 })}
                 {rowActions && (
-                    <td className={`${cellPad} whitespace-nowrap text-right text-sm font-medium`}>
+                    <td className={`${cellPad} whitespace-nowrap text-right text-sm font-medium ${bodyCellLine}`}>
                         <div className="flex items-center justify-end gap-2">{rowActions(row)}</div>
                     </td>
                 )}
@@ -289,12 +297,13 @@ export function DataTable<T>({
                     <Loader2 className="h-8 w-8 text-primary animate-spin" aria-hidden="true" />
                 </div>
             ) : (
-                <table className="w-full min-w-full divide-y divide-line">
+                // #404: border-separate keeps every line on the cells, never on a row.
+                <table className="w-full min-w-full border-separate border-spacing-0">
                     {caption && <caption className="sr-only">{caption}</caption>}
                     <thead className="bg-surface-alt">
-                        <tr>
+                        <tr className="bg-surface-alt">
                             {selection && (
-                                <th scope="col" className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} w-px py-3 text-left align-middle`}>
+                                <th scope="col" className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} w-px py-3 text-left align-middle border-b border-line`}>
                                     {selection.onToggleAll ? (
                                         <input
                                             type="checkbox"
@@ -318,7 +327,7 @@ export function DataTable<T>({
                                     key={column.key}
                                     scope="col"
                                     aria-sort={column.sortable ? ariaSort(column.key) : undefined}
-                                    className={`${headPad} ${ALIGN[column.align ?? 'left']} text-xs font-medium text-muted uppercase tracking-wider ${
+                                    className={`${headPad} ${ALIGN[column.align ?? 'left']} border-b border-line text-xs font-medium text-muted uppercase tracking-wider ${
                                         column.sortable ? 'hover:bg-canvas transition-colors' : ''
                                     }`}
                                 >
@@ -339,13 +348,13 @@ export function DataTable<T>({
                                 </th>
                             ))}
                             {rowActions && (
-                                <th scope="col" className={`relative ${headPad}`}>
+                                <th scope="col" className={`relative ${headPad} border-b border-line`}>
                                     <span className="sr-only">Actions</span>
                                 </th>
                             )}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-line">
+                    <tbody className="[&>tr:last-child>td]:border-b-0">
                         {rowCount === 0 ? (
                             <tr>
                                 <td colSpan={columnCount} className={`${compact ? 'px-3 py-6' : 'px-6 py-12'} text-center text-sm text-muted`}>
@@ -358,7 +367,7 @@ export function DataTable<T>({
                                     <tr className={section.tone === 'warning' ? 'bg-warning-soft/60' : 'bg-surface-alt'}>
                                         <td
                                             colSpan={columnCount}
-                                            className={`${compact ? 'px-3' : 'px-6'} py-2 text-left text-xs font-semibold uppercase tracking-wider ${
+                                            className={`${compact ? 'px-3' : 'px-6'} ${bodyCellLine} py-2 text-left text-xs font-semibold uppercase tracking-wider ${
                                                 section.tone === 'warning' ? 'text-warning-strong' : 'text-muted'
                                             }`}
                                         >
@@ -375,3 +384,8 @@ export function DataTable<T>({
         </div>
     );
 }
+
+/** #404: the selected row's green edge, inside its first cell (a row border would collide with the row lines). */
+const SelectedEdge = () => (
+    <span aria-hidden="true" data-testid="selected-edge" className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-success" />
+);
