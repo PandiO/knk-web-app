@@ -27,6 +27,22 @@ the app sends API calls with `credentials: 'include'`. Serve the app and the API
 origin in production; in development the API's CORS settings must allow `http://localhost:3000`
 with credentials.
 
+## Tests
+
+```bash
+npx npm@11 ci          # install (the lock file is valid for npm 11 only)
+npm test               # Jest in watch mode
+npm run test:ci        # Jest once, as CI runs it
+npx tsc --noEmit       # type check (CI)
+npm run cypress:open   # Cypress E2E; start `npm start` first (the spec stubs the API)
+```
+
+CI (`.github/workflows/ci.yml`, job `build-and-test`) runs `test:ci`, the type check and `CI=true npm run build` on
+every push and pull request. Test helpers, the E2E spec and troubleshooting:
+[web app testing](https://github.com/PandiO/knk-workspace/blob/main/docs/guides/developer/web-app-testing.md) in
+knk-workspace, where all documentation lives
+([docs index](https://github.com/PandiO/knk-workspace/tree/main/docs)).
+
 ## Conventions
 
 ### Messages for refused operations and confirmations (KNG-169)
