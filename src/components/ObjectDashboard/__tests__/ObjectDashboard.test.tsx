@@ -11,6 +11,25 @@ import { fakeRealtime } from '../../../test-utils/fakeRealtime';
 import { LIVE_REFRESH_DEBOUNCE_MS } from '../../../realtime/liveUpdates';
 import { act } from '@testing-library/react';
 import { entityReferenceClient } from '../../../apiClients/entityReferenceClient';
+import { dashboardClient } from '../../../apiClients/dashboardClient';
+import { usePermission, usePermissions } from '../../../hooks/useStaffAccess';
+import { mockHeldNodes } from '../../../test-utils/permissions';
+import { toastRequests } from '../../../utils/toast';
+
+// #280: the dashboard asks for the type's nodes (actionNodes). Every test holds everything unless it says otherwise.
+jest.mock('../../../hooks/useStaffAccess', () => ({
+    ...jest.requireActual('../../../hooks/useStaffAccess'),
+    usePermission: jest.fn(),
+    usePermissions: jest.fn(),
+}));
+const holdAll = () => {
+    (usePermission as jest.Mock).mockImplementation(() => ({ allowed: true, isChecking: false, status: 'allowed', retry: jest.fn() }));
+    (usePermissions as jest.Mock).mockImplementation((nodes: readonly string[]) => Object.fromEntries(nodes.map(node => [node, 'allowed'])));
+};
+jest.mock('../../../apiClients/dashboardClient', () => ({
+    ...jest.requireActual('../../../apiClients/dashboardClient'),
+    dashboardClient: { bulkDelete: jest.fn(), export: jest.fn() },
+}));
 
 // virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
 const mockNavigate = jest.fn();
@@ -84,6 +103,7 @@ const getFormEntityNames = formConfigClient.getEntityNames as jest.Mock;
 
 // CRA resets mock implementations before each test: no other configurations and no drafts by default.
 beforeEach(() => {
+    holdAll();
     getFormConfigs.mockResolvedValue([]);
     getDrafts.mockResolvedValue([]);
     getFormEntityNames.mockResolvedValue([]);
@@ -826,5 +846,147 @@ describe('ObjectDashboard checkbox selection and bulk bar (PandiO/knk-workspace#
         rerender(<ObjectDashboard objectTypes={[]} />);
         await waitFor(() => expect(mockTableProps.entityTypeName).toBe('District'));
         expect(mockTableProps.selectedItems).toEqual([]);
+    });
+});
+
+
+// PandiO/knk-workspace#280 (AM3): types and actions follow the metadata's nodes.
+const accessMeta = (entityName: string, area: string, bulk = true) => ({
+    entityName, displayName: entityName, fields: [],
+    accessNode: area, readNodes: [area], deletable: true, bulkDeletable: bulk, exportable: true,
+    actionNodes: {
+        view: [area], create: [area], edit: [area], delete: [area, 'knk.admin.delete'],
+        ...(bulk ? { bulkDelete: [area, 'knk.admin.delete', 'knk.admin.delete.bulk'] } : {}),
+        export: [area, 'knk.admin.export'],
+    },
+});
+const accessMetadata = [
+    accessMeta('Town', 'knk.admin.world'),
+    accessMeta('Street', 'knk.admin.world'),
+    accessMeta('Category', 'knk.admin.content'),
+    accessMeta('User', 'knk.admin.user.manage', false),
+];
+const hold = (nodes: string[]) => mockHeldNodes({ usePermission: usePermission as jest.Mock, usePermissions: usePermissions as jest.Mock }, nodes);
+
+describe('ObjectDashboard access per type (PandiO/knk-workspace#280)', () => {
+    let toasts: Array<{ kind: string; message: string }>;
+    let subscription: { unsubscribe: () => void };
+    beforeEach(() => {
+        jest.clearAllMocks();
+        window.localStorage.clear();
+        mockMetadata = { baseMetadata: accessMetadata as never, loading: false };
+        mockParams = { entityName: 'Street' };
+        mockLocation = { pathname: '/dashboard/Street', search: '' };
+        getAll.mockResolvedValue([config('Street', true, false), config('Town', true, false), config('Category', true, false)]);
+        toasts = [];
+        subscription = toastRequests.subscribe(request => toasts.push({ kind: request.kind, message: request.message }));
+    });
+    afterEach(() => subscription.unsubscribe());
+
+    it('lists only the types of the areas the user holds and falls back from another area in the URL', async () => {
+        hold(['knk.admin.world']);
+        mockParams = { entityName: 'Category' };
+        mockLocation = { pathname: '/dashboard/Category', search: '' };
+        render(<ObjectDashboard objectTypes={[]} />);
+        await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/dashboard/Street', { replace: true }));
+        const labels = itemLabels(document.body).join(' ');
+        expect(labels).toMatch(/Street/);
+        expect(labels).toMatch(/Town/);
+        expect(labels).not.toMatch(/Category|User/);
+    });
+
+    it('disables New, Edit, Delete and the cogwheel with "Requires <node>", and hides the bulk Delete', async () => {
+        // A Staff-like account: the area node of users, nothing else.
+        hold(['knk.admin.user.manage']);
+        mockParams = { entityName: 'User' };
+        mockLocation = { pathname: '/dashboard/User', search: '' };
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        expect(screen.getByTestId('dashboard-new')).toBeEnabled();
+        expect(screen.getByLabelText('Delete – Requires knk.admin.delete')).toBeDisabled();
+        expect(screen.getByLabelText('Edit')).toBeEnabled();
+        expect(screen.getByLabelText('Configure User – Requires knk.admin.content')).toBeDisabled();
+        const state = { selected: [{ id: 7 }], clearSelection: jest.fn(), columns: [], query: { page: 1, pageSize: 10 }, totalCount: 1, loading: false };
+        const bar = mockTableProps.renderSelectionBar(state);
+        expect(bar.props.actions).toBeNull();
+        expect(bar.props.exportGate).toMatchObject({ allowed: false, hint: 'Requires knk.admin.export' });
+    });
+
+    it('disables New and Edit for a type whose area node is missing but which is still in view', async () => {
+        // Holds the view node but not its write nodes: a read node only (e.g. a cross-area page node).
+        (usePermissions as jest.Mock).mockImplementation((nodes: readonly string[]) => Object.fromEntries(nodes.map(node =>
+            [node, node === 'knk.admin.world' ? 'allowed' : 'denied'])));
+        mockMetadata = { baseMetadata: [{ ...accessMeta('Street', 'knk.admin.world'), actionNodes: {
+            view: ['knk.admin.world'], create: ['knk.admin.road'], edit: ['knk.admin.road'], delete: ['knk.admin.road', 'knk.admin.delete'],
+        } }] as never, loading: false };
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        expect(screen.getByTestId('dashboard-new')).toBeDisabled();
+        expect(screen.getByTestId('dashboard-create-hint')).toHaveTextContent('New Street: Requires knk.admin.road');
+        expect(screen.getByLabelText('Edit – Requires knk.admin.road')).toBeDisabled();
+        expect(screen.getByLabelText('Delete – Requires knk.admin.road and knk.admin.delete')).toBeDisabled();
+    });
+
+    it('bulk deletes the selection after a confirm naming the count and type, keeps the refused rows selected', async () => {
+        hold(['knk.admin.world', 'knk.admin.delete', 'knk.admin.delete.bulk', 'knk.admin.export']);
+        (dashboardClient.bulkDelete as jest.Mock).mockResolvedValue({
+            deleted: [7], refused: [{ id: 8, reason: "This street can't be deleted: it is still used by 1 structure.", code: 'InUse' }],
+        });
+        (entityReferenceClient.getRows as jest.Mock).mockResolvedValue({
+            entityTypeName: 'Street', id: 8, groups: [{
+                referencedBy: 'Structure.StreetId', entityType: 'Structure', count: 1, listed: true, readable: true,
+                nodes: ['knk.admin.world'], rows: [{ id: 3, label: 'Smithy' }], more: false,
+            }],
+        });
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        act(() => mockTableProps.onSelectionChange([{ id: 7, name: 'Main Street' }, { id: 8, name: 'Market Street' }]));
+        const state = { selected: mockTableProps.selectedItems, clearSelection: jest.fn(), columns: [], query: { page: 1, pageSize: 10 }, totalCount: 2, loading: false };
+        const { unmount } = render(<>{mockTableProps.renderSelectionBar(state)}</>);
+        fireEvent.click(screen.getByTestId('bulk-delete'));
+        const confirmDialog = await screen.findByRole('alertdialog', { name: 'Delete 2 Streets?' });
+        await act(async () => { fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Delete 2 Streets' })); });
+
+        expect(dashboardClient.bulkDelete).toHaveBeenCalledWith('Street', [7, 8]);
+        await waitFor(() => expect(mockTableProps.selectedItems).toEqual([{ id: 8, name: 'Market Street' }]));
+        const result = await screen.findByRole('alertdialog', { name: 'Deleted 1 of 2 Streets' });
+        expect(result).toHaveTextContent('Market Street');
+        expect(result).toHaveTextContent("This street can't be deleted: it is still used by 1 structure.");
+        fireEvent.click(within(result).getByRole('button', { name: 'Show what uses it' }));
+        expect(await within(result).findByText('Smithy')).toBeInTheDocument();
+        expect(toasts).toEqual([{ kind: 'warning', message: "Deleted 1 of 2 Streets; 1 weren't deleted." }]);
+        unmount();
+    });
+
+    it('sends a large selection in chunks of 100 and ends with a toast when all were deleted', async () => {
+        hold(['knk.admin.world', 'knk.admin.delete', 'knk.admin.delete.bulk']);
+        (dashboardClient.bulkDelete as jest.Mock).mockImplementation(async (_type: string, ids: number[]) => ({ deleted: ids, refused: [] }));
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        const rows = Array.from({ length: 150 }, (_, i) => ({ id: i + 1, name: `S${i + 1}` }));
+        act(() => mockTableProps.onSelectionChange(rows));
+        const state = { selected: rows, clearSelection: jest.fn(), columns: [], query: { page: 1, pageSize: 10 }, totalCount: 150, loading: false };
+        render(<>{mockTableProps.renderSelectionBar(state)}</>);
+        fireEvent.click(screen.getByTestId('bulk-delete'));
+        const confirmDialog = await screen.findByRole('alertdialog', { name: 'Delete 150 Streets?' });
+        await act(async () => { fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Delete 150 Streets' })); });
+        await waitFor(() => expect(mockTableProps.selectedItems).toEqual([]));
+        expect((dashboardClient.bulkDelete as jest.Mock).mock.calls.map(call => call[1].length)).toEqual([100, 50]);
+        expect(toasts).toEqual([{ kind: 'success', message: 'Deleted 150 Streets.' }]);
+        expect(screen.queryByTestId('bulk-delete-result')).not.toBeInTheDocument();
+    });
+
+    it('does nothing when the bulk confirm is cancelled', async () => {
+        hold(['knk.admin.world', 'knk.admin.delete', 'knk.admin.delete.bulk']);
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        act(() => mockTableProps.onSelectionChange([{ id: 7 }]));
+        const state = { selected: [{ id: 7 }], clearSelection: jest.fn(), columns: [], query: { page: 1, pageSize: 10 }, totalCount: 1, loading: false };
+        render(<>{mockTableProps.renderSelectionBar(state)}</>);
+        fireEvent.click(screen.getByTestId('bulk-delete'));
+        const confirmDialog = await screen.findByRole('alertdialog', { name: 'Delete 1 Street?' });
+        fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Cancel' }));
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+        expect(dashboardClient.bulkDelete).not.toHaveBeenCalled();
     });
 });

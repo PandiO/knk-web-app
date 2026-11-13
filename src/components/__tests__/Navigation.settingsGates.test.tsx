@@ -37,7 +37,7 @@ function renderNav(...nodes: string[]) {
 
 const barLinks = () => screen.getAllByRole('menuitem').map(item => item.textContent);
 
-// #30: the bar keeps the public links, Dashboard (LW4-1, knk.admin.content only) and one Admin link; the other
+// #30: the bar keeps the public links, Dashboard (LW4-1; any area node since #280) and one Admin link; the other
 // admin pages (with #185's gates, the node each page's API checks) are in the admin sidebar, see
 // layouts/__tests__/AdminLayout.test.tsx.
 describe('Navigation bar links (#30, #185)', () => {
@@ -49,9 +49,7 @@ describe('Navigation bar links (#30, #185)', () => {
   });
 
   it.each([
-    'knk.admin.user.manage',
     'knk.admin.config',
-    'knk.siege.admin.manage',
     'knk.admin.invites',
     'knk.admin.currency.history',
     'knk.admin.location.orphans',
@@ -60,8 +58,15 @@ describe('Navigation bar links (#30, #185)', () => {
     expect(barLinks()).toEqual(['Home', 'Leaderboards', 'Guides', 'Admin']);
   });
 
-  it('adds Dashboard and Admin for a holder of knk.admin.content (LW4-1)', () => {
-    renderNav('knk.admin.content');
+  it.each([
+    'knk.admin.content',
+    // #280 decision 8: any area node opens the dashboard.
+    'knk.admin.world',
+    'knk.admin.user.manage',
+    'knk.siege.admin.manage',
+    'knk.kit.manage',
+  ])('adds Dashboard and Admin for a holder of the area node %s (LW4-1, #280)', (node) => {
+    renderNav(node);
     expect(barLinks()).toEqual(['Home', 'Leaderboards', 'Guides', 'Dashboard', 'Admin']);
   });
 

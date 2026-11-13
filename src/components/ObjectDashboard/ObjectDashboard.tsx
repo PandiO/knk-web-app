@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronDown, Clock, Eye, Pencil, Plus, Settings, Trash2 } from 'lucide-react';
+import { useEntityAccess, useViewableTypes } from '../../hooks/useEntityAccess';
+import { CONTENT_PERMISSION_NODE, usePermission } from '../../hooks/useStaffAccess';
+import { gateHint } from '../../hooks/useActionGate';
+import { useConfirm } from '../../hooks/useConfirm';
+import { dashboardClient } from '../../apiClients/dashboardClient';
+import { BulkDeleteOutcome, countOf, runBulkDelete } from '../../utils/bulkDelete';
+import { selectedIds } from '../../utils/tableExport';
+import { entityDisplayLabel } from '../../utils/entityLabel';
+import { toast } from '../../utils/toast';
+import { BulkDeleteResultDialog } from './BulkDeleteResultDialog';
 import ObjectTypeExplorer, { ObjectTypeExplorerFilter } from '../ObjectTypeExplorer';
 import { PagedEntityTable } from '../PagedEntityTable/PagedEntityTable';
 // @ts-ignore: side-effect import for CSS without type declarations
@@ -26,7 +36,7 @@ import { FormSubmissionStatus } from '../../utils/enums';
 import { readLastDashboardType, writeLastDashboardType } from '../../utils/lastDashboardType';
 import { readDashboardFavourites, toggleFavourite, writeDashboardFavourites } from '../../utils/dashboardFavourites';
 import { describeActors, useLiveEntityChanges } from '../../realtime/liveUpdates';
-import { formatTime } from '../../utils/format';
+import { formatNumber, formatTime } from '../../utils/format';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
@@ -69,8 +79,12 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     // form's returnTo all land on it. Bare /dashboard opens the last viewed type, else the default.
     const { entityName: routeEntityName } = useParams<{ entityName?: string }>();
     const [selectedType, setSelectedType] = useState<string>(routeEntityName ?? '');
-    const { baseMetadata, loading: metadataLoading } = useEntityMetadata();
+    const { baseMetadata, loading: metadataLoadingOnly } = useEntityMetadata();
     const hasMetadata = baseMetadata.length > 0;
+    // PandiO/knk-workspace#280 decision 8: the dashboard lists only the types whose area node the user holds
+    // (`actionNodes.view`); a type of another area in the URL falls back like an unknown one.
+    const { types: viewableMetadata, checking: accessChecking } = useViewableTypes(baseMetadata);
+    const metadataLoading = metadataLoadingOnly || (hasMetadata && accessChecking);
     // null while loading or after a failure: no type is marked and View stays enabled.
     const [displayConfiguredEntities, setDisplayConfiguredEntities] = useState<Set<string> | null>(null);
     // True once the display configurations answered (or failed), so the default selection can
@@ -140,11 +154,11 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     const withoutDisplayConfiguration = useMemo<Set<string> | null>(() => {
         if (!displayConfiguredEntities) return null;
         return new Set(
-            baseMetadata
+            viewableMetadata
                 .map(metadata => metadata.entityName.toLowerCase())
                 .filter(name => !displayConfiguredEntities.has(name))
         );
-    }, [baseMetadata, displayConfiguredEntities]);
+    }, [viewableMetadata, displayConfiguredEntities]);
 
     useEffect(() => {
         setSelectedType(routeEntityName ?? '');
@@ -163,7 +177,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         // the metadata arrives (KNG-61 re-test).
         if (metadataLoading) return;
         if (hasMetadata) {
-            const selectedExists = baseMetadata.some(
+            const selectedExists = viewableMetadata.some(
                 metadata => metadata.entityName.toLowerCase() === selectedType.toLowerCase()
             );
 
@@ -171,8 +185,8 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                 writeLastDashboardType(selectedType);
                 return;
             }
-            if (!baseMetadata[0]?.entityName) return;
-            const lastViewed = findName(baseMetadata.map(metadata => metadata.entityName), readLastDashboardType());
+            if (!viewableMetadata[0]?.entityName) return;
+            const lastViewed = findName(viewableMetadata.map(metadata => metadata.entityName), readLastDashboardType());
             if (lastViewed) {
                 selectType(lastViewed, true);
                 return;
@@ -181,7 +195,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
             // configuration) re-opened the collapsed group on every visit. Wait for the grouping
             // and start on the first type of the "Entities" group instead.
             if (!displayConfigsSettled) return;
-            selectType(getDefaultEntityName(baseMetadata, displayConfiguredEntities), true);
+            selectType(getDefaultEntityName(viewableMetadata, displayConfiguredEntities), true);
             return;
         }
 
@@ -197,7 +211,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         selectType(lastViewed ?? objectTypes[0].id, true);
         // selectType only sets state and navigates; listing it would re-run this on every render.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [metadataLoading, hasMetadata, baseMetadata, objectTypes, selectedType, displayConfigsSettled, displayConfiguredEntities]);
+    }, [metadataLoading, hasMetadata, viewableMetadata, objectTypes, selectedType, displayConfigsSettled, displayConfiguredEntities]);
 
     // const fetchObjects = ({ type }: { type: string }) => {
     //     let list: any = [];
@@ -241,7 +255,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
 
     // A type from the URL is shown only once it's known; an unknown one is replaced by the fallback.
     const selectedIsKnown = hasMetadata
-        ? findName(baseMetadata.map(metadata => metadata.entityName), selectedType) !== null
+        ? !metadataLoading && findName(viewableMetadata.map(metadata => metadata.entityName), selectedType) !== null
         : findName(objectTypes.map(objectType => objectType.id), selectedType) !== null;
 
     // #183 (Realtime S4): another admin's save of this type refreshes the table quietly (debounced),
@@ -284,10 +298,22 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         navigate(newFormPath(selectedType, returnTo()));
     };
 
-    const typeLabel = baseMetadata.find(metadata => metadata.entityName.toLowerCase() === selectedType.toLowerCase())?.displayName
+    const selectedMeta = useMemo(
+        () => baseMetadata.find(metadata => metadata.entityName.toLowerCase() === selectedType.toLowerCase()),
+        [baseMetadata, selectedType]
+    );
+    const typeLabel = selectedMeta?.displayName
         || objectTypes.find(objectType => objectType.id.toLowerCase() === selectedType.toLowerCase())?.label
         || selectedType;
     const viewHint = 'No display configuration – set one up via ⚙';
+
+    // #280 decision 11: an action the user may not take is disabled with "Requires <node>" (the bulk Delete is hidden).
+    const access = useEntityAccess(selectedMeta, typeLabel);
+    const contentStatus = usePermission(CONTENT_PERMISSION_NODE).status;
+    const setupHint = gateHint(CONTENT_PERMISSION_NODE, contentStatus);
+    const canCreate = access.create.allowed;
+    const createHint = access.create.checking ? null : access.create.hint;
+    const [confirm, confirmModal] = useConfirm();
 
     // Feedback modal state
     const [modalOpen, setModalOpen] = useState(false);
@@ -307,69 +333,132 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
     const [selectedRows, setSelectedRows] = useState<any[]>([]);
     useEffect(() => setSelectedRows([]), [selectedType]);
 
-    const handleDelete = (entityTypeName: string, item: any) => {
-        const name = item?.name || item?.label || `ID ${item?.id}`;
-        setModalTitle('Confirm Deletion');
-        setModalMessage(`Are you sure you want to delete ${entityTypeName} ${name}? This action cannot be undone.`);
-        setModalStatus('info');
-        setModalContinueLabel('Delete');
-        setModalDetails(undefined);
+    // #205 bulk delete: running, and what happened to the rows that weren't deleted.
+    const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+    const [bulkOutcome, setBulkOutcome] = useState<BulkDeleteOutcome | null>(null);
+    const [bulkLabels, setBulkLabels] = useState<Map<number, string>>(new Map());
 
-        setModalOnContinue(() => async () => {
-            try {
-                const { getDeleteFunctionForEntity } = await import('../../utils/entityApiMapping');
-                const deleteFn = getDeleteFunctionForEntity(entityTypeName);
-                await deleteFn(item.id);
+    const showDeleteFailure = (entityTypeName: string, item: any, err: unknown) => {
+        setModalTitle('Delete Failed');
+        setModalMessage(apiRefusalReason(err) ?? 'An error occurred while deleting.');
+        setModalStatus('error');
+        setModalDetails(isReferenceRefusal(err)
+            ? refusedDeleteDetails(entityTypeName, item.id, {
+                typeLabel: typeLabelFor(baseMetadata),
+                returnTo: returnTo(),
+                onFollow: () => setModalOpen(false),
+            })
+            : undefined);
 
-                setModalTitle('Deleted');
-                setModalMessage(`${entityTypeName} ${name} was deleted successfully.`);
-                setModalStatus('success');
-                setModalContinueLabel('Close');
-                setModalOnContinue(undefined);
-                setModalOnSecondary(undefined);
-                setModalSecondaryLabel(undefined);
-                setSelectedType((prev) => prev);
-                setRefreshKey((prev) => prev + 1);
-                // #205: a deleted row leaves the selection.
-                setSelectedRows(previous => previous.filter(row => String(row?.id) !== String(item?.id)));
-            } catch (err) {
-                setModalTitle('Delete Failed');
-                setModalMessage(apiRefusalReason(err) ?? 'An error occurred while deleting.');
-                setModalStatus('error');
-                setModalDetails(isReferenceRefusal(err)
-                    ? refusedDeleteDetails(entityTypeName, item.id, {
-                        typeLabel: typeLabelFor(baseMetadata),
-                        returnTo: returnTo(),
-                        onFollow: () => setModalOpen(false),
-                    })
-                    : undefined);
-
-                const isCategory = entityTypeName.toLowerCase() === 'category';
-                if (isCategory) {
-                    // Offer a helpful action to view children or reassign
-                    setModalContinueLabel('View Children');
-                    setModalOnContinue(() => () => {
-                        setModalOpen(false);
-                        navigate(`/display/category/${item.id}`);
-                    });
-                    setModalSecondaryLabel('Reassign Parent');
-                    setModalOnSecondary(() => () => {
-                        setModalOpen(false);
-                        navigate(editFormPath('category', item.id, returnTo()));
-                    });
-                } else {
-                    setModalContinueLabel('Close');
-                    setModalOnContinue(undefined);
-                    setModalOnSecondary(undefined);
-                    setModalSecondaryLabel(undefined);
-                }
-                // Rethrow to signal modal to stay open (FeedbackModal awaits and only closes on success)
-                throw err;
-            }
-        });
-
+        const isCategory = entityTypeName.toLowerCase() === 'category';
+        if (isCategory) {
+            // Offer a helpful action to view children or reassign
+            setModalContinueLabel('View Children');
+            setModalOnContinue(() => () => {
+                setModalOpen(false);
+                navigate(`/display/category/${item.id}`);
+            });
+            setModalSecondaryLabel('Reassign Parent');
+            setModalOnSecondary(() => () => {
+                setModalOpen(false);
+                navigate(editFormPath('category', item.id, returnTo()));
+            });
+        } else {
+            setModalContinueLabel('Close');
+            setModalOnContinue(undefined);
+            setModalOnSecondary(undefined);
+            setModalSecondaryLabel(undefined);
+        }
         setModalOpen(true);
     };
+
+    // #280 DESIGN § 4.7: a single delete asks with useConfirm (danger); a refusal opens the error dialog with
+    // "Show what uses it" (#44).
+    const handleDelete = async (entityTypeName: string, item: any) => {
+        if (!access.delete.allowed) return;
+        const name = entityDisplayLabel(item, item?.id);
+        if (!(await confirm({
+            title: `Delete ${typeLabel} "${name}"?`,
+            message: "This can't be undone.",
+            confirmLabel: 'Delete',
+            danger: true,
+        }))) return;
+        try {
+            const { getDeleteFunctionForEntity } = await import('../../utils/entityApiMapping');
+            const deleteFn = getDeleteFunctionForEntity(entityTypeName);
+            await deleteFn(item.id);
+            toast.success(`${typeLabel} "${name}" was deleted.`);
+            setRefreshKey((prev) => prev + 1);
+            // #205: a deleted row leaves the selection.
+            setSelectedRows(previous => previous.filter(row => String(row?.id) !== String(item?.id)));
+        } catch (err) {
+            showDeleteFailure(entityTypeName, item, err);
+        }
+    };
+
+    // #205 bulk delete (#280 DESIGN § 4.7): confirm with the count and the type, then POST api/Dashboard/bulk-delete in
+    // chunks of 100. Deleted rows leave the selection, refused ones stay selected and are listed with their reasons.
+    const handleBulkDelete = async () => {
+        const entityTypeName = selectedType;
+        const rows = selectedRows;
+        const ids = selectedIds(rows);
+        if (ids.length === 0 || bulkProgress || !access.bulkDelete.allowed) return;
+        const what = countOf(ids.length, typeLabel);
+        if (!(await confirm({
+            title: `Delete ${what}?`,
+            message: `The ${what} you selected ${ids.length === 1 ? 'is' : 'are'} deleted one by one. `
+                + "Rows that are still in use are refused and stay selected. This can't be undone.",
+            confirmLabel: `Delete ${what}`,
+            danger: true,
+        }))) return;
+        const labels = new Map<number, string>();
+        rows.forEach(row => {
+            const id = Number(row?.id);
+            if (Number.isInteger(id)) labels.set(id, entityDisplayLabel(row, id));
+        });
+        setBulkLabels(labels);
+        setBulkProgress({ done: 0, total: ids.length });
+        try {
+            const outcome = await runBulkDelete(
+                ids,
+                chunk => dashboardClient.bulkDelete(entityTypeName, chunk),
+                (done, total) => setBulkProgress({ done, total })
+            );
+            const deleted = new Set(outcome.deleted.map(String));
+            setSelectedRows(previous => previous.filter(row => !deleted.has(String(row?.id))));
+            if (outcome.deleted.length > 0) setRefreshKey(prev => prev + 1);
+            const problems = outcome.refused.length + (outcome.notRun?.ids.length ?? 0);
+            if (problems === 0) {
+                toast.success(`Deleted ${countOf(outcome.deleted.length, typeLabel)}.`);
+            } else {
+                if (outcome.deleted.length > 0) {
+                    toast.warning(`Deleted ${formatNumber(outcome.deleted.length)} of ${what}; ${formatNumber(problems)} weren't deleted.`);
+                } else {
+                    toast.error(`No ${typeLabel} was deleted.`, {});
+                }
+                setBulkOutcome(outcome);
+            }
+        } finally {
+            setBulkProgress(null);
+        }
+    };
+
+    const selectedCount = selectedRows.length;
+    const bulkDeleteButton = access.bulkDelete.allowed && selectedCount > 0 ? (
+        <button
+            type="button"
+            onClick={() => void handleBulkDelete()}
+            disabled={!!bulkProgress}
+            className="btn-danger h-9 whitespace-nowrap"
+            data-testid="bulk-delete"
+            title={`Delete the ${countOf(selectedCount, typeLabel)} you selected`}
+        >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {bulkProgress
+                ? `Deleting… ${formatNumber(bulkProgress.done)} / ${formatNumber(bulkProgress.total)}`
+                : `Delete (${formatNumber(selectedCount)})`}
+        </button>
+    ) : null;
 
     return (
         // #195: pt-6 spaces both columns from the app's top header (the page wrapper's top padding
@@ -378,7 +467,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
             <div className="dashboard-sidebar">
                 <ObjectTypeExplorer
                     items={objectTypes}
-                    entityMetadata={baseMetadata}
+                    entityMetadata={viewableMetadata}
                     onSelect={(type) => selectType(type)}
                     selectedId={selectedType}
                     storageKey="dashboard"
@@ -402,13 +491,16 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                     <button
                                         type="button"
                                         onClick={handleNew}
-                                        className={`btn-primary h-9 min-w-0 whitespace-nowrap ${otherConfigs.length > 0 ? 'rounded-r-none' : ''}`}
-                                        title={`New ${typeLabel}`}
+                                        disabled={!canCreate}
+                                        className={`btn-primary h-9 min-w-0 whitespace-nowrap ${otherConfigs.length > 0 && canCreate ? 'rounded-r-none' : ''}`}
+                                        title={canCreate ? `New ${typeLabel}` : createHint ?? undefined}
+                                        aria-label={canCreate || !createHint ? undefined : `New ${typeLabel} – ${createHint}`}
+                                        data-testid="dashboard-new"
                                     >
                                         <Plus className="h-4 w-4" aria-hidden="true" />
                                         <span className="truncate">New {typeLabel}</span>
                                     </button>
-                                    {otherConfigs.length > 0 && (
+                                    {otherConfigs.length > 0 && canCreate && (
                                         // #177 follow-up: New with a form configuration other than the default.
                                         <DashboardHeaderMenu
                                             testId="dashboard-new-with"
@@ -451,9 +543,11 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                 <button
                                     type="button"
                                     onClick={() => navigate(entitySetupPath(selectedType))}
+                                    // Entity setup (form and display configurations) stays knk.admin.content (#280 § 4.7).
+                                    disabled={!!setupHint}
                                     className="btn-secondary h-9 w-9 flex-shrink-0 p-0"
-                                    aria-label={`Configure ${typeLabel}`}
-                                    title={`Configure ${typeLabel}: form and display configurations, default columns`}
+                                    aria-label={setupHint ? `Configure ${typeLabel} – ${setupHint}` : `Configure ${typeLabel}`}
+                                    title={setupHint ?? `Configure ${typeLabel}: form and display configurations, default columns`}
                                 >
                                     <Settings className="h-5 w-5" aria-hidden="true" />
                                 </button>
@@ -462,6 +556,14 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                     </div>
                     {metadataLoading && (
                         <div className="mb-4 text-sm text-muted">Loading entity metadata...</div>
+                    )}
+                    {createHint && selectedType && selectedIsKnown && (
+                        <p className="mb-3 text-xs text-muted" data-testid="dashboard-create-hint">New {typeLabel}: {createHint}</p>
+                    )}
+                    {!metadataLoading && hasMetadata && viewableMetadata.length === 0 && (
+                        <div className="mb-4 rounded-md border border-line bg-surface p-4 text-sm text-muted" role="status">
+                            None of the dashboard's types are in an area you can open. Ask an admin for an area permission.
+                        </div>
                     )}
                     <FeedbackModal
                         open={modalOpen}
@@ -475,6 +577,17 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                         secondaryLabel={modalSecondaryLabel}
                         details={modalStatus === 'error' ? modalDetails : undefined}
                         onClose={() => setModalOpen(false)}
+                    />
+                    {confirmModal}
+                    <BulkDeleteResultDialog
+                        open={bulkOutcome !== null}
+                        onClose={() => setBulkOutcome(null)}
+                        entityTypeName={selectedType}
+                        typeLabel={typeLabel}
+                        outcome={bulkOutcome}
+                        rowLabel={id => bulkLabels.get(id) ?? `${typeLabel} #${id}`}
+                        referenceTypeLabel={typeLabelFor(baseMetadata)}
+                        returnTo={returnTo()}
                     />
                     <p role="status" aria-live="polite" data-testid="dashboard-live-notice"
                         className={liveNotice ? 'mb-2 text-xs text-muted' : 'sr-only'}>
@@ -505,6 +618,9 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                     state={state}
                                     entityTypeName={selectedType}
                                     typeLabel={typeLabel}
+                                    exportGate={access.export}
+                                    actions={bulkDeleteButton}
+                                    busy={!!bulkProgress}
                                 />
                             )}
                             emptyState={(
@@ -513,6 +629,8 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                     <button
                                         type="button"
                                         onClick={handleNew}
+                                        disabled={!canCreate}
+                                        title={canCreate ? undefined : createHint ?? undefined}
                                         className="btn-primary inline-flex items-center gap-2"
                                     >
                                         <Plus className="h-4 w-4" aria-hidden="true" />
@@ -541,8 +659,10 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                             e.stopPropagation();
                                             handleEdit(selectedType, row);
                                         }}
-                                        className="p-2 text-muted hover:text-gray-600"
-                                        title="Edit"
+                                        disabled={!access.edit.allowed}
+                                        className="p-2 text-muted hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted"
+                                        title={access.edit.allowed || !access.edit.hint ? 'Edit' : access.edit.hint}
+                                        aria-label={access.edit.allowed || !access.edit.hint ? 'Edit' : `Edit – ${access.edit.hint}`}
                                     >
                                         <Pencil className="h-4 w-4" />
                                     </button>
@@ -551,10 +671,12 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            handleDelete(selectedType, row);
+                                            void handleDelete(selectedType, row);
                                         }}
-                                        className="p-2 text-muted hover:text-danger"
-                                        title="Delete"
+                                        disabled={!access.delete.allowed}
+                                        className="p-2 text-muted hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted"
+                                        title={access.delete.allowed || !access.delete.hint ? 'Delete' : access.delete.hint}
+                                        aria-label={access.delete.allowed || !access.delete.hint ? 'Delete' : `Delete – ${access.delete.hint}`}
                                     >
                                         <Trash2 className="h-4 w-4" />
                                     </button>

@@ -5,7 +5,8 @@ import {
   Settings, ShieldAlert, ShieldOff, SlidersHorizontal, Swords, Table2, Ticket, Trophy, Users,
 } from 'lucide-react';
 import {
-  CONTENT_PERMISSION_NODE, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE, STAFF_PERMISSION_NODE,
+  AREA_NODES, CONTENT_PERMISSION_NODE, PermissionStatus, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE,
+  STAFF_PERMISSION_NODE,
 } from '../hooks/useStaffAccess';
 import { LOOTBOX_ADMIN_NODE } from '../types/dtos/lootbox/LootboxDtos';
 import { DISCOVERY_ADMIN_NODE } from '../types/dtos/discovery/DiscoveryDtos';
@@ -34,11 +35,15 @@ import type { Breadcrumb } from '../utils/breadcrumbs';
 
 export type LayoutKind = 'public' | 'player' | 'admin';
 
-/** `staff` is StaffRoute (the node, "Staff only" without it); `owner` is OwnerRoute (exact grants, D24). */
+/**
+ * `staff` is StaffRoute (the node, "Staff only" without it); `staffAny` is StaffRoute with a list, any one of which
+ * opens the page (#280 decision 8: the dashboard for any area node); `owner` is OwnerRoute (exact grants, D24).
+ */
 export type RouteAccess =
   | { kind: 'public' }
   | { kind: 'login' }
   | { kind: 'staff'; node: string }
+  | { kind: 'staffAny'; nodes: readonly string[] }
   | { kind: 'owner'; node: string };
 
 export const ADMIN_GROUPS = [
@@ -81,6 +86,13 @@ function defineRoutes<K extends string>(defs: Record<K, RouteDef>): Record<K, Ro
 const PUBLIC: RouteAccess = { kind: 'public' };
 const LOGIN: RouteAccess = { kind: 'login' };
 const staff = (node: string): RouteAccess => ({ kind: 'staff', node });
+const staffAny = (nodes: readonly string[]): RouteAccess => ({ kind: 'staffAny', nodes });
+/**
+ * PandiO/knk-workspace#280 decision 8: the dashboard, an entity's detail page and the form wizard (new, edit, resume)
+ * open for any area node; each type's actions follow its own nodes on the page. Entity setup's lists, the builders and
+ * the Minecraft catalogue stay on knk.admin.content.
+ */
+const DASHBOARD_ACCESS = staffAny(AREA_NODES);
 const owner = (node: string): RouteAccess => ({ kind: 'owner', node });
 
 export const ROUTES = defineRoutes({
@@ -116,25 +128,28 @@ export const ROUTES = defineRoutes({
   // --- Admin console: grouped sidebar + breadcrumbs. Every node is the one the page's API checks. ---
   adminHome: { path: '/admin', layout: 'admin', access: LOGIN, title: 'Admin', topNav: { icon: LayoutGrid } },
 
-  // Content (alpha hardening WP9.1: knk.admin.content, which the API enforces on the writes too).
+  // Content (alpha hardening WP9.1: knk.admin.content, which the API enforces on the writes too). The dashboard,
+  // detail page and form wizard: any area node (#280 decision 8).
   // LW4-1 (developer's decision 2026-11-06): also in the bar, for holders of its node; current on its children.
   dashboard: {
-    path: '/dashboard', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Dashboard', group: 'content',
+    path: '/dashboard', layout: 'admin', access: DASHBOARD_ACCESS, title: 'Dashboard', group: 'content',
     sidebar: { icon: Table2, description: 'Browse, create and edit the world and content entities.' },
     topNav: { icon: Table2 },
   },
   // #177 link 1 (#58): the selected type in the URL; bare /dashboard reopens the last one.
-  dashboardType: { path: '/dashboard/:entityName', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Dashboard', group: 'content', parent: 'dashboard' },
+  dashboardType: { path: '/dashboard/:entityName', layout: 'admin', access: DASHBOARD_ACCESS, title: 'Dashboard', group: 'content', parent: 'dashboard' },
   // Entity setup (#177 decision 4; no link since #197: the dashboard's ⚙ per type). The page draws the trail.
   entitySetup: { path: '/forms', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Entity setup', group: 'content', parent: 'dashboard', breadcrumbs: 'page' },
-  entitySetupType: { path: '/forms/:entityName', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Entity setup', group: 'content', parent: 'dashboard', breadcrumbs: 'page' },
-  entityEdit: { path: '/forms/:entityName/edit/:entityId', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Entity setup', group: 'content', parent: 'dashboard', breadcrumbs: 'page' },
+  // #280: also the dashboard's New / New with / Drafts (?autoOpen, ?configId, ?resume) for any area node; the page
+  // shows the setup lists to knk.admin.content holders only.
+  entitySetupType: { path: '/forms/:entityName', layout: 'admin', access: DASHBOARD_ACCESS, title: 'Entity setup', group: 'content', parent: 'dashboard', breadcrumbs: 'page' },
+  entityEdit: { path: '/forms/:entityName/edit/:entityId', layout: 'admin', access: DASHBOARD_ACCESS, title: 'Entity setup', group: 'content', parent: 'dashboard', breadcrumbs: 'page' },
   formBuilderNew: { path: '/admin/form-configurations/new', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Form builder', group: 'content', parent: 'entitySetup' },
   formBuilderEdit: { path: '/admin/form-configurations/edit/:id', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Form builder', group: 'content', parent: 'entitySetup' },
   displayBuilderNew: { path: '/admin/display-configurations/new', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Display builder', group: 'content', parent: 'entitySetup' },
   displayBuilderEdit: { path: '/admin/display-configurations/edit/:id', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Display builder', group: 'content', parent: 'entitySetup' },
   // The detail page (#81) draws "Dashboard › Town › Cinix" from returnTo and sets the entity's name as title.
-  entityDetail: { path: '/display/:entityName/:id', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Details', group: 'content', parent: 'dashboard', breadcrumbs: 'page' },
+  entityDetail: { path: '/display/:entityName/:id', layout: 'admin', access: DASHBOARD_ACCESS, title: 'Details', group: 'content', parent: 'dashboard', breadcrumbs: 'page' },
   // KNG-200 phase 3: server scans, the audit, merges and icon overrides (knk.admin.content).
   minecraftCatalog: {
     path: '/admin/minecraft-catalog', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Minecraft catalogue', group: 'content',
@@ -285,9 +300,24 @@ export function trailFor(route: RouteMeta | null | undefined): Breadcrumb[] {
   ];
 }
 
-/** The node a route needs, if any (for the sidebar's checks). */
+/** The node a route needs, if any (for the sidebar's checks); for `staffAny` the first of its list. */
 export function nodeOf(access: RouteAccess): string | undefined {
+  if (access.kind === 'staffAny') return access.nodes[0];
   return access.kind === 'staff' || access.kind === 'owner' ? access.node : undefined;
+}
+
+/** Every node a route's check asks about (a `staffAny` route: all of its list, any one opens it). */
+export function nodesOf(access: RouteAccess): readonly string[] {
+  if (access.kind === 'staffAny') return access.nodes;
+  const node = nodeOf(access);
+  return node ? [node] : [];
+}
+
+/** Whether the answers in `statuses` open a route (no node: yes; `staffAny`: any one allowed). */
+export function routeAllowed(access: RouteAccess, statuses: Record<string, PermissionStatus>): boolean {
+  if (access.kind === 'staffAny') return access.nodes.some(node => statuses[node] === 'allowed');
+  const node = nodeOf(access);
+  return !node || statuses[node] === 'allowed';
 }
 
 /** The pages of the admin sidebar, in group and table order. */
@@ -295,9 +325,7 @@ export const SIDEBAR_ROUTES: RouteMeta[] = ADMIN_GROUPS.flatMap(group =>
   ROUTE_LIST.filter(route => route.group === group.id && route.sidebar));
 
 /** Every node a sidebar page needs: checked once per login for the sidebar, the overview and the bar's Admin link. */
-export const ADMIN_NODES: string[] = Array.from(new Set(
-  SIDEBAR_ROUTES.map(route => nodeOf(route.access)).filter((node): node is string => !!node),
-));
+export const ADMIN_NODES: string[] = Array.from(new Set(SIDEBAR_ROUTES.flatMap(route => nodesOf(route.access))));
 
 /** The id of the /admin overview: its bar link is current on the admin pages no other bar link covers. */
 export const ADMIN_HOME_ID = 'adminHome';
@@ -312,6 +340,4 @@ export const TOP_NAV_ROUTES: RouteMeta[] = [
 ];
 
 /** The nodes the bar's own links need (the Dashboard's); the Admin link follows the sidebar's nodes. */
-export const TOP_NAV_NODES: string[] = Array.from(new Set(
-  TOP_NAV_ROUTES.map(route => nodeOf(route.access)).filter((node): node is string => !!node),
-));
+export const TOP_NAV_NODES: string[] = Array.from(new Set(TOP_NAV_ROUTES.flatMap(route => nodesOf(route.access))));

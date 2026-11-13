@@ -1,88 +1,51 @@
 import React from 'react';
-import { PagedQueryDto, PagedResultDto } from '../../types/dtos/common/PagedQuery';
+import { PagedQueryDto } from '../../types/dtos/common/PagedQuery';
 import { ColumnDefinition } from '../../types/common';
-import { buildTableCsv, ExportCancelledError, readSearchRows, selectionRows } from '../tableExport';
+import { buildTableCsv, exportQueryOf, readExportRows, selectedIds } from '../tableExport';
 import { cellText, reactNodeToText } from '../tableCells';
 
-// PandiO/knk-workspace#205: the export's rows (selection, or the search across all pages) and its CSV text.
+// PandiO/knk-workspace#205: the export's rows (selection, or the search across all pages; #280 AM3 through the API) and its CSV text.
 
 type Row = { id: number; name?: string | null; [key: string]: unknown };
 
-/** A list API over `total` rows named Row 1…; `clamp` mimics an endpoint that serves fewer per page. */
-const fakeSearch = (total: number, clamp?: number) => jest.fn(async (query: PagedQueryDto): Promise<PagedResultDto<Row>> => {
-    const size = clamp ? Math.min(query.pageSize, clamp) : query.pageSize;
-    const start = (query.page - 1) * size;
-    const items = Array.from({ length: Math.max(0, Math.min(size, total - start)) }, (_, i) => ({ id: start + i + 1, name: `Row ${start + i + 1}` }));
-    return { items, totalCount: total, page: query.page, pageSize: size, totalPages: Math.ceil(total / size) };
+const baseQuery: PagedQueryDto = { page: 3, pageSize: 10, searchTerm: 'north', sortBy: 'name', sortDescending: true, filters: { CategoryId: '4', Empty: '', Gone: null, Flag: true } };
+
+describe('exportQueryOf (#280 AM3)', () => {
+    it('sends the search, the non-empty filters as text and the sort, never the page', () => {
+        expect(exportQueryOf(baseQuery)).toEqual({
+            searchTerm: 'north', filters: { CategoryId: '4', Flag: 'true' }, sortBy: 'name', sortDescending: true,
+        });
+        expect(exportQueryOf({ page: 1, pageSize: 10, searchTerm: '  ' })).toEqual({
+            searchTerm: null, filters: {}, sortBy: null, sortDescending: false,
+        });
+    });
 });
 
-const baseQuery: PagedQueryDto = { page: 3, pageSize: 10, searchTerm: 'north', sortBy: 'name', sortDescending: true, filters: { CategoryId: '4' } };
-
-describe('readSearchRows (#205)', () => {
-    it('reads every page of the search in its sort and filters, from page 1', async () => {
-        const search = fakeSearch(250);
-        const progress = jest.fn();
-        const result = await readSearchRows(search, baseQuery, { onProgress: progress });
-        expect(result.items).toHaveLength(250);
-        expect(result).toMatchObject({ total: 250, truncated: false });
-        expect(search).toHaveBeenCalledTimes(3);
-        expect(search.mock.calls.map(([q]) => q.page)).toEqual([1, 2, 3]);
-        search.mock.calls.forEach(([q]) => expect(q).toMatchObject({
-            pageSize: 100, searchTerm: 'north', sortBy: 'name', sortDescending: true, filters: { CategoryId: '4' },
-        }));
-        expect(progress).toHaveBeenLastCalledWith(250, 250);
+describe('readExportRows (#280 AM3: POST api/Dashboard/export)', () => {
+    it('exports the whole search through the endpoint with the table query', async () => {
+        const call = jest.fn(async () => ({ items: [{ id: 1 }, { id: 2 }] as Row[], total: 12000, truncated: true }));
+        const result = await readExportRows<Row>(call, [], baseQuery);
+        expect(call).toHaveBeenCalledWith({ query: exportQueryOf(baseQuery) });
+        expect(result).toEqual({ items: [{ id: 1 }, { id: 2 }], total: 12000, truncated: true });
     });
 
-    it('follows an endpoint that clamps the page size', async () => {
-        const search = fakeSearch(120, 50);
-        const result = await readSearchRows(search, baseQuery);
-        expect(result.items.map(r => r.id)).toEqual(Array.from({ length: 120 }, (_, i) => i + 1));
-        expect(search).toHaveBeenCalledTimes(3);
-    });
-
-    it('stops at the limit and says the result is truncated', async () => {
-        const search = fakeSearch(10050);
-        const result = await readSearchRows(search, baseQuery);
-        expect(result.items).toHaveLength(10000);
-        expect(result).toMatchObject({ total: 10050, truncated: true });
-        expect(search).toHaveBeenCalledTimes(100);
-        const small = await readSearchRows(fakeSearch(30), baseQuery, { limit: 25, pageSize: 10 });
-        expect(small).toMatchObject({ total: 30, truncated: true });
-        expect(small.items).toHaveLength(25);
-    });
-
-    it('skips a row an earlier page already held (pages shifted by an insert)', async () => {
-        const pages: Row[][] = [[{ id: 1 }, { id: 2 }], [{ id: 2 }, { id: 3 }]];
-        const search = jest.fn(async (q: PagedQueryDto) => ({ items: pages[q.page - 1] ?? [], totalCount: 4, page: q.page, pageSize: 2, totalPages: 2 }));
-        const result = await readSearchRows(search, baseQuery, { pageSize: 2 });
-        expect(result.items.map(r => r.id)).toEqual([1, 2, 3]);
+    it('re-reads a selection by id and keeps the order it was ticked in', async () => {
+        const call = jest.fn(async () => ({ items: [{ id: 1, name: 'A2' }, { id: 3, name: 'C2' }, { id: 7, name: 'G2' }] as Row[], total: 3, truncated: false }));
+        const ticked = [{ id: 7, name: 'G' }, { id: 1, name: 'A' }, { id: 7, name: 'G' }, { id: 3, name: 'C' }, { id: 9, name: 'gone' }];
+        const result = await readExportRows<Row>(call, ticked, baseQuery);
+        expect(call).toHaveBeenCalledWith({ ids: [7, 1, 3, 9] });
+        // 9 was deleted meanwhile: left out; the current values are used.
+        expect(result.items.map(row => row.name)).toEqual(['G2', 'A2', 'C2']);
         expect(result.truncated).toBe(false);
     });
 
-    it('ends on an empty page and on an empty search', async () => {
-        const search = jest.fn(async (q: PagedQueryDto) => ({ items: [], totalCount: 0, page: q.page, pageSize: 100, totalPages: 0 }));
-        await expect(readSearchRows(search, baseQuery)).resolves.toEqual({ items: [], total: 0, truncated: false });
-        expect(search).toHaveBeenCalledTimes(1);
+    it('passes a refusal on', async () => {
+        const call = jest.fn(async () => { throw Object.assign(new Error('nope'), { status: 403 }); });
+        await expect(readExportRows<Row>(call, [], baseQuery)).rejects.toThrow('nope');
     });
 
-    it('stops with ExportCancelledError when cancelled between pages', async () => {
-        const search = fakeSearch(500);
-        let cancel = false;
-        const promise = readSearchRows(search, baseQuery, { onProgress: () => { cancel = true; }, isCancelled: () => cancel });
-        await expect(promise).rejects.toBeInstanceOf(ExportCancelledError);
-        expect(search).toHaveBeenCalledTimes(1);
-    });
-
-    it('passes on a failed request', async () => {
-        const search = jest.fn(async () => { throw Object.assign(new Error('nope'), { status: 403 }); });
-        await expect(readSearchRows(search, baseQuery)).rejects.toThrow('nope');
-    });
-});
-
-describe('selectionRows (#205)', () => {
-    it('keeps the selection in its order and caps it', () => {
-        expect(selectionRows([{ id: 2 }, { id: 1 }])).toEqual({ items: [{ id: 2 }, { id: 1 }], total: 2, truncated: false });
-        expect(selectionRows([{ id: 1 }, { id: 2 }, { id: 3 }], 2)).toEqual({ items: [{ id: 1 }, { id: 2 }], total: 3, truncated: true });
+    it('takes each positive id once', () => {
+        expect(selectedIds([{ id: 2 }, { id: '3' }, { id: 2 }, { id: null }, { id: -1 }, {}])).toEqual([2, 3]);
     });
 });
 

@@ -184,3 +184,15 @@ describe('auditActionLabel', () => {
     expect(auditActionLabel(entry('SomethingNew' as AuditLogEntryDto['action'], null))).toBe('SomethingNew');
   });
 });
+
+// PandiO/knk-workspace#280 (AM3): the dashboard's bulk delete and export entries.
+describe('dashboard audit entries', () => {
+  it('labels them and lists the type, the counts and the ids', () => {
+    expect(auditActionLabel(entry('DashboardBulkDelete', null))).toBe('Bulk delete on the dashboard');
+    expect(auditActionLabel(entry('DashboardExport', null))).toBe('Dashboard export');
+    expect(describeAuditDetails(entry('DashboardBulkDelete', { entityType: 'Street', requested: 3, count: 2, ids: [4, 9], refused: 1 })))
+      .toEqual(['Type: Street', 'Deleted: 2, refused: 1', 'IDs: 4, 9']);
+    expect(describeAuditDetails(entry('DashboardExport', { entityType: 'Town', scope: 'search', count: 1500 })))
+      .toEqual(['Type: Town', 'Rows: 1,500 (search)']);
+  });
+});

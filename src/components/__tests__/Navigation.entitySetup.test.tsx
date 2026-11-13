@@ -94,8 +94,9 @@ describe('Navigation: Dashboard and Admin in the bar, no Entity setup link (#197
     expect(screen.getByRole('menuitem', { name: 'Leaderboards' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('without the content node: no Dashboard link, Admin current on a dashboard URL ("Staff only" inside the layout)', () => {
-    mockHeldNodes(mocks, ['knk.admin.user.manage']);
+  it('without an area node: no Dashboard link, Admin current on a dashboard URL ("Staff only" inside the layout)', () => {
+    // #280 decision 8: any area node opens the dashboard; knk.admin.config (Game settings) is not one.
+    mockHeldNodes(mocks, ['knk.admin.config']);
     const { container } = renderNavAt('/dashboard/Town');
 
     expect(screen.queryByRole('menuitem', { name: 'Dashboard' })).not.toBeInTheDocument();

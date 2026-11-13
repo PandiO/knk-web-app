@@ -3,6 +3,8 @@ import { Search, Check, PlusCircle } from 'lucide-react';
 import { PagedQueryDto, PagedResultDto } from '../../types/dtos/common/PagedQuery';
 import { getSearchFunctionForEntity } from '../../utils/entityApiMapping';
 import { logging } from '../../utils';
+import { readRefusalMessage } from '../../utils/readRefusal';
+import { entityTypeFallbackLabel } from '../../utils/entityLabel';
 import { ColumnDefinition } from '../../types/common';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
 import { buildPinnedSection, FilterScopes, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
@@ -473,7 +475,8 @@ export function PagedEntityTable<T extends Record<string, any>>({
             // A failed request a later one has replaced says nothing about the current results.
             if (!isLatest()) return;
             console.error('Failed to fetch data:', err);
-            setError('Failed to load data');
+            // #280: a refused read says whose access it needs instead of "Failed to load data".
+            setError(readRefusalMessage(err, entityTypeFallbackLabel(entityTypeName)) ?? 'Failed to load data');
             logging.errorHandler.next(`ErrorMessage.${entityTypeName}.LoadFailed`);
         } finally {
             if (isLatest()) setLoading(false);

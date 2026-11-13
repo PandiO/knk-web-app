@@ -1,4 +1,5 @@
 import React from 'react';
+import { useCreateAllowed } from '../../hooks/useEntityAccess';
 import { FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
 import { Calendar, Plus, Minus, X, CheckCircle2, AlertTriangle, Loader2, Info, Pencil, Gamepad2, WifiOff } from 'lucide-react';
@@ -940,7 +941,9 @@ const ObjectField: React.FC<FieldRendererProps> = ({
     pickerFilters
 }) => {
     const pickerUnavailableReason = pickerFilters?.unavailableReason;
-    const canCreate = field.canCreate !== false; // default true if not specified
+    // #280 DESIGN § 4.6.3: "Create New" only with the related type's create nodes.
+    const createAllowed = useCreateAllowed(field.objectType);
+    const canCreate = field.canCreate !== false && createAllowed; // default true if not specified
     // KNG-136: entities this form session created, pinned in the picker.
     const sessionPins = useSessionPinnedRows(field.objectType);
     const configuredDisplayFields = useDefaultDisplayFields(field.objectType);
@@ -1137,7 +1140,9 @@ const ListField: React.FC<FieldRendererProps> = ({
     const listElementType = field.elementType || FieldType.String;
     const isObjectList = field.objectType != null;
     const { ownedChildCollection } = parseListFieldSettings(field.settingsJson);
-    const canCreate = field.canCreate !== false;
+    // #280 DESIGN § 4.6.3: "Create New" only with the related type's create nodes.
+    const createAllowed = useCreateAllowed(field.objectType);
+    const canCreate = field.canCreate !== false && createAllowed;
     // KNG-136: entities this form session created, pinned in the picker.
     const sessionPins = useSessionPinnedRows(field.objectType);
 

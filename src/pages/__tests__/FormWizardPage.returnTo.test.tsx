@@ -164,3 +164,11 @@ describe('FormWizardPage returnTo (#177 link 1)', () => {
         await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/dashboard'));
     });
 });
+
+// #280: the page asks whether the user holds knk.admin.content (setup lists) and knk.admin.delete (configuration
+// deletes); these tests hold both.
+jest.mock('../../hooks/useStaffAccess', () => ({
+    ...jest.requireActual('../../hooks/useStaffAccess'),
+    usePermission: () => ({ allowed: true, isChecking: false, status: 'allowed', retry: () => undefined }),
+    usePermissions: (nodes: readonly string[]) => Object.fromEntries(nodes.map(node => [node, 'allowed'])),
+}));
