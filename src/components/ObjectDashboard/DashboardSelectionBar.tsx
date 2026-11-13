@@ -2,12 +2,9 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { Download, X } from 'lucide-react';
 import { SelectionBarState } from '../PagedEntityTable/PagedEntityTable';
 import { EntityGate } from '../../hooks/useEntityAccess';
-import { dashboardClient } from '../../apiClients/dashboardClient';
-import { buildTableCsv, EXPORT_ROW_LIMIT, ExportRows, readExportRows } from '../../utils/tableExport';
-import { csvFileName, downloadCsv } from '../../utils/csv';
+import { EXPORT_ROW_LIMIT } from '../../utils/tableExport';
 import { formatNumber } from '../../utils/format';
-import { toast } from '../../utils/toast';
-import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { exportDashboardRows } from './dashboardExport';
 
 /**
  * PandiO/knk-workspace#205 (export): the dashboard's bulk bar above the table.
@@ -72,31 +69,15 @@ export function DashboardSelectionBar<T extends Record<string, any>>({
         cancelled.current = false;
         setProgress({ total: count > 0 ? count : totalCount });
         try {
-            const rows: ExportRows<T> = await readExportRows<T>(
-                scope => dashboardClient.export<T>(entityTypeName, scope), selected, query);
-            // Cancel can't stop the server's read; it drops the answer.
-            if (cancelled.current) {
-                if (mounted.current) toast.info('Export cancelled');
-                return;
-            }
-            if (rows.items.length === 0) {
-                toast.info(`Nothing to export: no ${typeLabel} rows match the search.`);
-                return;
-            }
-            downloadCsv(csvFileName(entityTypeName), buildTableCsv(columns, rows.items));
-            if (rows.truncated) {
-                toast.warning(
-                    `Exported the first ${formatNumber(rows.items.length)} of ${formatNumber(rows.total)} ${typeLabel} rows: `
-                    + `an export holds at most ${formatNumber(EXPORT_ROW_LIMIT)}. Narrow the search to export the rest.`,
-                    { durationMs: null }
-                );
-            } else {
-                toast.success(`Exported ${formatNumber(rows.items.length)} ${typeLabel} row${rows.items.length === 1 ? '' : 's'}`);
-            }
-        } catch (error) {
-            if (cancelled.current) return;
-            console.error('Export failed', error);
-            toast.error(`Export failed: ${apiRefusalReason(error) ?? `the ${typeLabel} rows could not be loaded.`}`, {});
+            await exportDashboardRows<T>({
+                entityTypeName,
+                typeLabel,
+                columns,
+                selected,
+                query,
+                isCancelled: () => cancelled.current,
+                cancelledNotice: () => mounted.current,
+            });
         } finally {
             if (mounted.current) setProgress(null);
         }

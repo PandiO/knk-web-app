@@ -13,6 +13,7 @@ import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
 import { DataTable, DataTableColumn, DataTableSection, nextSort } from '../DataTable';
 import { Pager } from '../Pager';
 import { renderCellValue } from '../../utils/tableCells';
+import { ContextMenuItem } from '../ContextMenu';
 
 /** KNG-263: entities whose table offers a Category filter (a category includes its children). */
 const CATEGORY_FILTER_ENTITIES = new Set(['itemblueprint']);
@@ -230,6 +231,15 @@ export interface PagedEntityTableProps<T> {
      * and the search's total.
      */
     renderSelectionBar?: (state: SelectionBarState<T>) => React.ReactNode;
+
+    /**
+     * PandiO/knk-workspace#406: the items of a row's right-click menu (DataTable's `rowContextMenu`), given the row and
+     * the same state as `renderSelectionBar` (so an action can take the selection when the row is ticked, and Export
+     * the table's columns).
+     */
+    rowContextMenu?: (row: T, state: SelectionBarState<T>) => ContextMenuItem[];
+    /** The menu's accessible name for a row; default "Actions for <name>". */
+    rowContextMenuLabel?: (row: T) => string;
 }
 
 /** What `renderSelectionBar` gets (#205). */
@@ -278,7 +288,9 @@ export function PagedEntityTable<T extends Record<string, any>>({
     onQueryChange,
     rowHref,
     selectionStyle = 'row',
-    renderSelectionBar
+    renderSelectionBar,
+    rowContextMenu,
+    rowContextMenuLabel,
 }: PagedEntityTableProps<T>) {
     const { baseMetadata, allMergedMetadata } = useEntityMetadata();
 
@@ -601,6 +613,15 @@ export function PagedEntityTable<T extends Record<string, any>>({
         return name ? `Select ${name}` : (row as any)?.id != null ? `Select ID ${(row as any).id}` : 'Select row';
     };
 
+    const selectionBarState: SelectionBarState<T> = {
+        selected: internalSelection,
+        clearSelection,
+        columns: effectiveColumns,
+        query,
+        totalCount: data.totalCount,
+        loading,
+    };
+
     const pageKeys = uniqueRowKeys(section.pageItems.map((row, index) => tableRowKey(row, entityTypeName, index)));
     const tableSections: DataTableSection<T>[] = [
         {
@@ -653,14 +674,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 </div>
             )}
 
-            {renderSelectionBar?.({
-                selected: internalSelection,
-                clearSelection,
-                columns: effectiveColumns,
-                query,
-                totalCount: data.totalCount,
-                loading,
-            })}
+            {renderSelectionBar?.(selectionBarState)}
 
             {/* Selection Info Banner - changed: conditionally render based on showSelectionBanner prop */}
             {showSelectionBanner && selectionConfig.mode !== 'none' && internalSelection.length > 0 && (
@@ -712,6 +726,9 @@ export function PagedEntityTable<T extends Record<string, any>>({
                 rowActions={rowActions.length > 0 ? (row => rowActions.map((action, actionIndex) => (
                     <React.Fragment key={actionIndex}>{action(row)}</React.Fragment>
                 ))) : undefined}
+                rowContextMenu={rowContextMenu ? (row => rowContextMenu(row, selectionBarState)) : undefined}
+                rowContextMenuLabel={row => rowContextMenuLabel?.(row)
+                    ?? `Actions for ${(row as any)?.name ?? (row as any)?.displayName ?? (row as any)?.label ?? `ID ${(row as any)?.id ?? ''}`.trim()}`}
                 empty={emptyState && !query.searchTerm && !hasActiveFilters(query.filters) ? emptyState : 'No results found'}
             />
 
