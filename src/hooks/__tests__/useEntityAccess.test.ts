@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { accessNodesOf, entityAccessOf, useCreateAllowed, useViewableTypes, withContentNode } from '../useEntityAccess';
+import { accessNodesOf, changeNodesOf, entityAccessOf, useCreateAllowed, useTypeChangeGate, useViewableTypes, withContentNode } from '../useEntityAccess';
 import { PermissionStatus, usePermissions } from '../useStaffAccess';
 
 jest.mock('../useStaffAccess', () => ({
@@ -158,5 +158,44 @@ describe('useViewableTypes', () => {
         const { result } = renderHook(() => useViewableTypes(metadata as never[]));
         expect(result.current.types.map((m: any) => m.entityName)).toEqual(['Town', 'Legacy']);
         expect(result.current.checking).toBe(false);
+    });
+});
+
+describe('changeNodesOf (#383: non-form saves through a gated create/update)', () => {
+    it('adds knk.admin.content to the type\'s create and edit nodes', () => {
+        expect(changeNodesOf({ entityName: 'Street', ...town }, 'create')).toEqual(['knk.admin.world', 'knk.admin.content']);
+        expect(changeNodesOf({ entityName: 'Town', ...town }, 'edit')).toEqual(['knk.admin.world', 'knk.admin.content']);
+    });
+
+    it('does not add it twice against an API with #374', () => {
+        const lootbox = { ...town, actionNodes: { ...town.actionNodes, edit: ['knk.admin.lootbox.manage', 'knk.admin.content'] } };
+        expect(changeNodesOf(lootbox, 'edit', 'LootboxType')).toEqual(['knk.admin.lootbox.manage', 'knk.admin.content']);
+    });
+
+    it('falls back to the area node, and to knk.admin.content alone without access fields', () => {
+        const noEdit = { ...town, actionNodes: { view: ['knk.admin.world'] } };
+        expect(changeNodesOf(noEdit, 'edit', 'Town')).toEqual(['knk.admin.world', 'knk.admin.content']);
+        expect(changeNodesOf(undefined, 'create', 'Street')).toEqual(['knk.admin.content']);
+    });
+
+    it('leaves a user\'s edit on its own nodes (User is exempt in the API)', () => {
+        expect(changeNodesOf({ entityName: 'User', ...user }, 'edit')).toEqual(['knk.admin.user.manage']);
+    });
+});
+
+describe('useTypeChangeGate (#383)', () => {
+    afterEach(() => { mockLoadedMetadata.current = []; });
+
+    it('says "Requires knk.admin.content" to an area holder without it', () => {
+        mockLoadedMetadata.current = [{ entityName: 'Street', ...town }];
+        (usePermissions as jest.Mock).mockImplementation((nodes: string[]) => held('knk.admin.world')(nodes));
+        expect(renderHook(() => useTypeChangeGate('street', 'create')).result.current)
+            .toMatchObject({ allowed: false, hint: 'Requires knk.admin.content' });
+    });
+
+    it('allows the area node plus knk.admin.content', () => {
+        mockLoadedMetadata.current = [{ entityName: 'Street', ...town }];
+        (usePermissions as jest.Mock).mockImplementation((nodes: string[]) => held('knk.admin.world', 'knk.admin.content')(nodes));
+        expect(renderHook(() => useTypeChangeGate('Street', 'create')).result.current).toMatchObject({ allowed: true, hint: null });
     });
 });

@@ -12,6 +12,11 @@ interface SearchableDropdownProps {
   onSelect: (id: number | null) => void;
   /** Adds a "Create New" row; leave out for a pick-only dropdown. */
   onCreateNew?: () => void;
+  /**
+   * #383: why "Create New" can't be used ("Requires knk.admin.content"); the row stays visible but greyed out, with the
+   * reason under it (decision 11). Null or left out: the row works.
+   */
+  createNewDisabledReason?: string | null;
   label: string;
   loading?: boolean;
   error?: string;
@@ -23,6 +28,7 @@ export function SearchableDropdown({
   selectedId,
   onSelect,
   onCreateNew,
+  createNewDisabledReason = null,
   label,
   loading = false,
   error,
@@ -76,6 +82,7 @@ export function SearchableDropdown({
       case 'Enter':
         e.preventDefault();
         if (onCreateNew && highlightedIndex === filteredInstances.length) {
+          if (createNewDisabledReason) break;
           onCreateNew();
         } else if (filteredInstances[highlightedIndex]) {
           onSelect(filteredInstances[highlightedIndex].id);
@@ -180,7 +187,7 @@ export function SearchableDropdown({
               </div>
             ))}
 
-            {onCreateNew && (
+            {onCreateNew && !createNewDisabledReason && (
             <button
               type="button"
               className={`
@@ -196,6 +203,18 @@ export function SearchableDropdown({
             >
               <Plus className="h-4 w-4 mr-2" />
               Create New {label}
+            </button>
+            )}
+            {onCreateNew && createNewDisabledReason && (
+            <button
+              type="button"
+              disabled
+              title={createNewDisabledReason}
+              className="w-full text-left relative py-2 pl-3 pr-9 text-muted cursor-not-allowed"
+              onMouseEnter={() => setHighlightedIndex(filteredInstances.length)}
+            >
+              <span className="flex items-center"><Plus className="h-4 w-4 mr-2" />Create New {label}</span>
+              <span className="block pl-6 text-xs">{createNewDisabledReason}</span>
             </button>
             )}
           </div>
