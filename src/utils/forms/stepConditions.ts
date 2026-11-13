@@ -95,6 +95,19 @@ export const serializeStepCondition = (rows: DependencyCondition[], logic: 'AND'
         logic
     });
 
+const COMPARABLE_FIELD_TYPES: FieldType[] = [
+    FieldType.String, FieldType.Integer, FieldType.Decimal, FieldType.Boolean, FieldType.DateTime, FieldType.Enum
+];
+
+/**
+ * The operators a rule on this field can use. A field that holds an object or a list (a picked
+ * entity, a List, a material / enchantment picker, banner layers) can't be compared with a typed
+ * value (Equals is ===), so only "is empty" / "is not empty" make sense for it. An unknown field
+ * (renamed or removed) keeps every operator, so the stored rule stays readable.
+ */
+export const stepConditionOperatorsFor = (field: FormFieldDto | undefined): ConditionOperator[] =>
+    !field || COMPARABLE_FIELD_TYPES.includes(field.fieldType) ? STEP_CONDITION_OPERATORS : STEP_CONDITION_NO_VALUE_OPERATORS;
+
 /** The value a new or re-pointed rule starts with, in the picked field's own type (Equals compares with ===). */
 export const defaultStepConditionValue = (field: FormFieldDto | undefined): unknown =>
     field?.fieldType === FieldType.Boolean ? true : null;

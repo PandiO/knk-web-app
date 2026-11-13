@@ -8,7 +8,7 @@ import {
 } from '../../types/dtos/forms/FormModels';
 import { FieldMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { ConditionOperator, FieldType } from '../../utils/enums';
-import { STEP_CONDITION_NO_VALUE_OPERATORS, STEP_CONDITION_OPERATORS } from '../../utils/conditionEvaluator';
+import { STEP_CONDITION_NO_VALUE_OPERATORS } from '../../utils/conditionEvaluator';
 import { SourceFieldOption } from '../../utils/forms/displayConditionSources';
 import {
     STEP_CONDITION_OPERATOR_LABELS,
@@ -18,6 +18,7 @@ import {
     parseStepConditionJson,
     serializeStepCondition,
     stepConditionCountLabel,
+    stepConditionOperatorsFor,
     stepConditionNeedsMessage
 } from '../../utils/forms/stepConditions';
 
@@ -95,7 +96,7 @@ export const StepConditionBuilder: React.FC<StepConditionBuilderProps> = ({
         if (!field) return null;
         return {
             fieldName: field.fieldName,
-            operator: ConditionOperator.Equals,
+            operator: stepConditionOperatorsFor(field)[0],
             value: defaultStepConditionValue(field),
             ...(fromPrevious ? { fromPreviousStep: true } : {})
         };
@@ -198,6 +199,7 @@ export const StepConditionBuilder: React.FC<StepConditionBuilderProps> = ({
                     const name = `Condition ${index + 1} rule ${rowIndex + 1}`;
                     const options = fieldsFor(row.fromPreviousStep);
                     const known = options.some(f => f.fieldName === row.fieldName);
+                    const operators = stepConditionOperatorsFor(options.find(f => f.fieldName === row.fieldName));
                     return (
                         <div key={rowIndex} className="space-y-1">
                             <div className="flex flex-wrap items-center gap-2">
@@ -207,7 +209,13 @@ export const StepConditionBuilder: React.FC<StepConditionBuilderProps> = ({
                                     value={row.fieldName}
                                     onChange={e => {
                                         const field = options.find(f => f.fieldName === e.target.value);
-                                        setRow(rowIndex, { ...row, fieldName: e.target.value, value: defaultStepConditionValue(field) });
+                                        const allowed = stepConditionOperatorsFor(field);
+                                        setRow(rowIndex, {
+                                            ...row,
+                                            fieldName: e.target.value,
+                                            operator: allowed.includes(row.operator) ? row.operator : allowed[0],
+                                            value: defaultStepConditionValue(field)
+                                        });
                                     }}
                                     className={`flex-1 min-w-[10rem] rounded-md shadow-sm sm:text-sm ${
                                         known ? 'border-field' : 'border-danger text-danger-strong'
@@ -225,8 +233,9 @@ export const StepConditionBuilder: React.FC<StepConditionBuilderProps> = ({
                                     onChange={e => setRow(rowIndex, { ...row, operator: e.target.value as ConditionOperator })}
                                     className="rounded-md border-field shadow-sm sm:text-sm"
                                 >
-                                    {STEP_CONDITION_OPERATORS.map(op => (
-                                        <option key={op} value={op}>{STEP_CONDITION_OPERATOR_LABELS[op]}</option>
+                                    {/* A stored operator the field can't use stays visible, so it can be changed. */}
+                                    {(operators.includes(row.operator) ? operators : [row.operator, ...operators]).map(op => (
+                                        <option key={op} value={op}>{STEP_CONDITION_OPERATOR_LABELS[op] ?? op}</option>
                                     ))}
                                 </select>
 
@@ -250,9 +259,10 @@ export const StepConditionBuilder: React.FC<StepConditionBuilderProps> = ({
                                     onChange={e => {
                                         const fromPrevious = e.target.checked;
                                         const field = fieldsFor(fromPrevious)[0];
+                                        const allowed = stepConditionOperatorsFor(field);
                                         setRow(rowIndex, {
                                             fieldName: field?.fieldName ?? row.fieldName,
-                                            operator: row.operator,
+                                            operator: allowed.includes(row.operator) ? row.operator : allowed[0],
                                             value: defaultStepConditionValue(field),
                                             ...(fromPrevious ? { fromPreviousStep: true } : {})
                                         });

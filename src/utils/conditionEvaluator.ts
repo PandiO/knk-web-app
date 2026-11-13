@@ -171,6 +171,9 @@ export const STEP_CONDITION_OPERATORS: ConditionOperator[] = [
     ConditionOperator.IsNotEmpty
 ];
 
+const isStepValueEmpty = (value: unknown): boolean =>
+    value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
+
 /** Step condition operators that compare against nothing. */
 export const STEP_CONDITION_NO_VALUE_OPERATORS: ConditionOperator[] = [
     ConditionOperator.IsEmpty,
@@ -202,10 +205,11 @@ export class ConditionEvaluator {
                 return Number(value) < Number(condition.value);
             case ConditionOperator.Contains:
                 return String(value).includes(String(condition.value));
+            // An emptied List / BannerLayers field holds [], which is empty too (PandiO/knk-workspace#88).
             case ConditionOperator.IsEmpty:
-                return value === null || value === undefined || value === '';
+                return isStepValueEmpty(value);
             case ConditionOperator.IsNotEmpty:
-                return value !== null && value !== undefined && value !== '';
+                return !isStepValueEmpty(value);
             default:
                 return false;
         }

@@ -181,6 +181,45 @@ describe('StepConditionBuilder (#88)', () => {
         expect(last(onChange)[0].conditionJson).toBe(handWritten);
     });
 
+    it('offers only is empty / is not empty for a field that holds an entity or a list', () => {
+        const onChange = jest.fn();
+        render(
+            <StepConditionBuilder
+                stepLabel="Step"
+                conditions={[{
+                    conditionType: 'Completion', errorMessage: 'x', isActive: true,
+                    conditionJson: '{"conditions":[{"fieldName":"Notes","operator":"Equals","value":"a"}],"logic":"AND"}'
+                }]}
+                stepFields={[field('Notes', 'Notes'), field('Town', 'Town', FieldType.Object), field('Tags', 'Tags', FieldType.List)]}
+                earlierFields={[]}
+                metadataFields={[]}
+                onChange={onChange}
+            />
+        );
+
+        // Picking the Object field moves the rule off Equals, which could never match a picked entity.
+        fireEvent.change(screen.getByLabelText('Condition 1 rule 1: field'), { target: { value: 'Town' } });
+        expect(JSON.parse(last(onChange)[0].conditionJson).conditions[0]).toEqual({ fieldName: 'Town', operator: 'IsEmpty' });
+    });
+
+    it('lists only the two operators for a stored rule on a List field', () => {
+        render(
+            <StepConditionBuilder
+                stepLabel="Step"
+                conditions={[{
+                    conditionType: 'Completion', errorMessage: 'x', isActive: true,
+                    conditionJson: '{"conditions":[{"fieldName":"Tags","operator":"IsNotEmpty"}],"logic":"AND"}'
+                }]}
+                stepFields={[field('Tags', 'Tags', FieldType.List)]}
+                earlierFields={[]}
+                metadataFields={[]}
+                onChange={jest.fn()}
+            />
+        );
+        const operators = within(screen.getByLabelText('Condition 1 rule 1: operator')).getAllByRole('option').map(o => (o as HTMLOptionElement).value);
+        expect(operators).toEqual(['IsEmpty', 'IsNotEmpty']);
+    });
+
     it('removes a rule and a condition', () => {
         const onChange = jest.fn();
         render(<Harness onChange={onChange} />);

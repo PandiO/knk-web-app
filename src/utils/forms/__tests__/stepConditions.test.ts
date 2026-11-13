@@ -125,6 +125,18 @@ describe('firstFailedStepCondition', () => {
         expect(firstFailedStepCondition(step([withoutFlag as StepConditionDto]), 'Completion', {}, {})).not.toBeNull();
     });
 
+    it('counts an emptied list as empty', () => {
+        const hasTags = condition({
+            conditionJson: serializeStepCondition([{ fieldName: 'Tags', operator: ConditionOperator.IsNotEmpty, value: null }])
+        });
+        expect(firstFailedStepCondition(step([hasTags]), 'Completion', { Tags: [] }, {})).toBe(hasTags);
+        expect(firstFailedStepCondition(step([hasTags]), 'Completion', { Tags: [{ id: 1 }] }, {})).toBeNull();
+        const noTags = condition({
+            conditionJson: serializeStepCondition([{ fieldName: 'Tags', operator: ConditionOperator.IsEmpty, value: null }])
+        });
+        expect(firstFailedStepCondition(step([noTags]), 'Completion', { Tags: [] }, {})).toBeNull();
+    });
+
     it('reads an earlier step for a rule marked fromPreviousStep', () => {
         const entry = condition({
             conditionType: 'Entry',
