@@ -1,0 +1,39 @@
+# Unit tests, type check and production build on every push and pull request.
+# The lock file is valid for npm 11 only (see CLAUDE.md), so install with npx npm@11.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (npm 11)
+        run: npx --yes npm@11 ci
+
+      - name: Unit tests
+        run: npm run test:ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Production build
+        run: npm run build
+        env:
+          CI: true
