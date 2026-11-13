@@ -7,7 +7,7 @@ import { DisplayAction } from '../types/dtos/displayConfig/DisplayModels';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useEntityMetadata } from '../hooks/useEntityMetadata';
 import { useConfirm } from '../hooks/useConfirm';
-import { buildReturnTo, dashboardPath, displayPath, entityEditPath, newFormPath, readReturnTo } from '../utils/returnTo';
+import { buildReturnTo, dashboardPath, displayPath, editOpensFormWizard, entityEditPath, newFormPath, readReturnTo } from '../utils/returnTo';
 import { detailTrail } from '../utils/breadcrumbs';
 import { entityDisplayLabel, typeLabelFor } from '../utils/entityLabel';
 import { getDeleteFunctionForEntity } from '../utils/entityApiMapping';
@@ -16,6 +16,7 @@ import { toast } from '../utils/toast';
 import { describeActors, useLiveEntityChanges } from '../realtime/liveUpdates';
 import { formatTime } from '../utils/format';
 import { useAllNodesGate } from '../hooks/useActionGate';
+import { withContentNode } from '../hooks/useEntityAccess';
 import { FeedbackModal } from '../components/FeedbackModal';
 import { refusedDeleteDetails } from '../components/ReferenceDetails';
 import { isReferenceRefusal } from '../utils/referenceDetails';
@@ -52,7 +53,13 @@ export const DisplayWizardPage: React.FC = () => {
     () => baseMetadata?.find(meta => meta.entityName.toLowerCase() === (entityName ?? '').toLowerCase()),
     [baseMetadata, entityName]
   );
-  const editGate = useAllNodesGate(typeMeta?.actionNodes?.edit);
+  // #371: Edit opens the form wizard, which needs knk.admin.content on top of the type's edit nodes (a user's Edit opens
+  // the player profile instead).
+  const editNodes = useMemo(
+    () => (editOpensFormWizard(entityName) ? withContentNode(typeMeta?.actionNodes?.edit) : typeMeta?.actionNodes?.edit),
+    [entityName, typeMeta]
+  );
+  const editGate = useAllNodesGate(editNodes);
   const deleteGate = useAllNodesGate(typeMeta?.actionNodes?.delete);
   const typeLabel = entityName ? labelFor(entityName) : '';
   useLiveEntityChanges(entityName && numericId != null ? entityName : null, change => {

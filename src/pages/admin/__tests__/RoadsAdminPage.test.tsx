@@ -10,6 +10,11 @@ import { minecraftMaterialRefClient } from '../../../apiClients/minecraftMateria
 import { RoadEdgeDto, RoadNetworkMetaDto, RoadProfileDto, RoadTileDto } from '../../../types/dtos/road/RoadDtos';
 
 // virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
+// #383: the lootbox toggle and Create New Street need the type's nodes and knk.admin.content; these tests hold them all.
+jest.mock('../../../hooks/useStaffAccess', () => ({
+  ...jest.requireActual('../../../hooks/useStaffAccess'),
+  usePermissions: (nodes: string[]) => Object.fromEntries(nodes.map(node => [node, 'allowed'])),
+}));
 jest.mock('react-router-dom', () => ({
   Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode }) => <a href={to} {...rest}>{children}</a>,
 }), { virtual: true });
