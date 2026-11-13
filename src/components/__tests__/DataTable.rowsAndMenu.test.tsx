@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { DataTable, DataTableColumn } from '../DataTable';
 
-// PandiO/knk-workspace#404 (row lines).
+// PandiO/knk-workspace#404 (row lines), #405 (sticky actions/checkbox columns).
 
 interface Town { id: number; name: string }
 
@@ -42,5 +42,59 @@ describe('DataTable row lines (#404)', () => {
         const checkboxCell = within(bodyRows()[0]).getAllByRole('cell')[0];
         expect(within(checkboxCell).getByTestId('selected-edge')).toBeInTheDocument();
         expect(within(checkboxCell).getByTestId('row-select')).toBeInTheDocument();
+    });
+});
+
+describe('DataTable sticky columns (#405)', () => {
+    it('keeps the actions column on the right and the checkbox column on the left, with the row background', () => {
+        render(
+            <DataTable
+                columns={columns}
+                rows={towns}
+                rowKey={t => String(t.id)}
+                selection={{ isSelected: () => false, onToggle: jest.fn(), onToggleAll: jest.fn() }}
+                rowActions={t => <button type="button" aria-label={`Edit ${t.name}`}>E</button>}
+            />
+        );
+        const header = screen.getAllByRole('columnheader');
+        expect(header[0]).toHaveClass('sticky', 'left-0', 'bg-inherit');
+        expect(header[header.length - 1]).toHaveClass('sticky', 'right-0', 'bg-inherit');
+        expect(header[header.length - 1]).toHaveTextContent('Actions');
+        for (const row of bodyRows()) {
+            const cells = within(row).getAllByRole('cell');
+            // Opaque: a colour of its own (the page background's translucency skips .sticky, #231).
+            expect(cells[0]).toHaveClass('sticky', 'left-0', 'bg-surface');
+            expect(cells[cells.length - 1]).toHaveClass('sticky', 'right-0', 'bg-surface');
+        }
+        expect(screen.getAllByTestId('row-actions')).toHaveLength(3);
+        expect(screen.getByRole('button', { name: 'Edit Southgate' })).toBeInTheDocument();
+    });
+
+    it('shows the edge shadows only while columns are scrolled under the sticky ones', () => {
+        render(
+            <DataTable
+                columns={columns}
+                rows={towns}
+                rowKey={t => String(t.id)}
+                selection={{ isSelected: () => false, onToggle: jest.fn() }}
+                rowActions={() => <button type="button">E</button>}
+            />
+        );
+        const scroller = screen.getByTestId('data-table-scroll');
+        const actionsCell = () => screen.getAllByTestId('row-actions')[0];
+        const checkboxCell = () => within(bodyRows()[0]).getAllByRole('cell')[0];
+        expect(actionsCell()).not.toHaveClass('shadow-sticky-right');
+
+        Object.defineProperty(scroller, 'scrollWidth', { configurable: true, value: 1200 });
+        Object.defineProperty(scroller, 'clientWidth', { configurable: true, value: 400 });
+        scroller.scrollLeft = 0;
+        fireEvent.scroll(scroller);
+        expect(actionsCell()).toHaveClass('shadow-sticky-right');
+        expect(checkboxCell()).not.toHaveClass('shadow-sticky-left');
+
+        scroller.scrollLeft = 800;
+        fireEvent.scroll(scroller);
+        expect(actionsCell()).not.toHaveClass('shadow-sticky-right');
+        expect(checkboxCell()).toHaveClass('shadow-sticky-left');
     });
 });

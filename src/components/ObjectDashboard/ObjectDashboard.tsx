@@ -39,6 +39,16 @@ import { describeActors, useLiveEntityChanges } from '../../realtime/liveUpdates
 import { formatNumber, formatTime } from '../../utils/format';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
+
+/** #405: whether a row action may be used, and why not ("Requires <node>"). */
+type RowActionGate = { allowed: boolean; hint: string | null };
+
+/** A row action's accessible name: "Edit", or "Edit – Requires knk.admin.edit" while it is disabled. */
+const gatedLabel = (label: string, gate: RowActionGate) => (gate.allowed || !gate.hint ? label : `${label} – ${gate.hint}`);
+
+const ROW_ACTION_BUTTON = 'inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors '
+    + 'hover:bg-surface-alt focus:outline-none focus-visible:ring-2 focus-visible:ring-primary '
+    + 'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted';
 type Props = { objectTypes: ObjectType[] };
 
 /** Lower-cased names of entity types that have a published (non-draft) default display configuration. */
@@ -460,6 +470,12 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         </button>
     ) : null;
 
+    // #405: the row actions' gates, for the buttons in the sticky actions column.
+    // #280 decision 11: disabled with "Requires <node>", not hidden. View needs a display configuration (no node).
+    const viewGate: RowActionGate = { allowed: canView(selectedType), hint: canView(selectedType) ? null : viewHint };
+    const editGate = access.edit;
+    const deleteGate = access.delete;
+
     return (
         // #195: pt-6 spaces both columns from the app's top header (the page wrapper's top padding
         // is exactly the header's height), so the explorer, the title row and the table start lower.
@@ -638,47 +654,52 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                     </button>
                                 </div>
                             )}
+                            // #405: compact icon buttons in the sticky actions column (title = tooltip, aria-label
+                            // with the reason while disabled).
                             rowActions={[
                                 (row) => (
                                     <button
+                                        type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleView(selectedType, row);
                                         }}
-                                        disabled={!canView(selectedType)}
-                                        className="p-2 text-muted hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-gray-400"
-                                        title={canView(selectedType) ? 'View' : viewHint}
-                                        aria-label={canView(selectedType) ? 'View' : `View – ${viewHint}`}
+                                        disabled={!viewGate.allowed}
+                                        className={`${ROW_ACTION_BUTTON} hover:text-fg`}
+                                        title={viewGate.hint ?? 'View'}
+                                        aria-label={gatedLabel('View', viewGate)}
                                     >
-                                        <Eye className="h-4 w-4" />
+                                        <Eye className="h-4 w-4" aria-hidden="true" />
                                     </button>
                                 ),
                                 (row) => (
                                     <button
+                                        type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleEdit(selectedType, row);
                                         }}
-                                        disabled={!access.edit.allowed}
-                                        className="p-2 text-muted hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted"
-                                        title={access.edit.allowed || !access.edit.hint ? 'Edit' : access.edit.hint}
-                                        aria-label={access.edit.allowed || !access.edit.hint ? 'Edit' : `Edit – ${access.edit.hint}`}
+                                        disabled={!editGate.allowed}
+                                        className={`${ROW_ACTION_BUTTON} hover:text-fg`}
+                                        title={editGate.allowed || !editGate.hint ? 'Edit' : editGate.hint}
+                                        aria-label={gatedLabel('Edit', editGate)}
                                     >
-                                        <Pencil className="h-4 w-4" />
+                                        <Pencil className="h-4 w-4" aria-hidden="true" />
                                     </button>
                                 ),
                                 (row) => (
                                     <button
+                                        type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             void handleDelete(selectedType, row);
                                         }}
-                                        disabled={!access.delete.allowed}
-                                        className="p-2 text-muted hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted"
-                                        title={access.delete.allowed || !access.delete.hint ? 'Delete' : access.delete.hint}
-                                        aria-label={access.delete.allowed || !access.delete.hint ? 'Delete' : `Delete – ${access.delete.hint}`}
+                                        disabled={!deleteGate.allowed}
+                                        className={`${ROW_ACTION_BUTTON} hover:text-danger`}
+                                        title={deleteGate.allowed || !deleteGate.hint ? 'Delete' : deleteGate.hint}
+                                        aria-label={gatedLabel('Delete', deleteGate)}
                                     >
-                                        <Trash2 className="h-4 w-4" />
+                                        <Trash2 className="h-4 w-4" aria-hidden="true" />
                                     </button>
                                 )
                             ]}

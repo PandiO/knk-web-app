@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from 'lucide-react';
 
 /**
@@ -20,6 +20,9 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from 'lucide-react';
  * - **Row lines (#404):** the lines between rows sit on the cells (`border-separate`, one bottom line per cell), never
  *   on the `<tr>`: a row border shared the dividers' colour, so from the second row on a 4px left edge showed grey.
  *   The selected row's green edge is a bar inside its first cell.
+ * - **Sticky columns (#405):** the actions column sticks to the right edge and the checkbox column to the left while
+ *   the other columns scroll under them. Both have the row's opaque background and, only while something is scrolled
+ *   under them, a soft shadow on their inner edge.
  *
  *     <DataTable
  *       caption="Players"
@@ -98,7 +101,7 @@ export interface DataTableProps<T> {
     selection?: DataTableSelection<T>;
     /** Shown before every row's content in the link column (after `leading`), e.g. a check mark. */
     rowLeading?: (row: T) => React.ReactNode;
-    /** Buttons in a last, unlabelled "Actions" column. */
+    /** Buttons in a last, unlabelled "Actions" column, kept in view on the right (#405). */
     rowActions?: (row: T) => React.ReactNode;
     /** Shown across the table when there are no rows. */
     empty?: React.ReactNode;
@@ -173,6 +176,37 @@ export function DataTable<T>({
     const cellPad = compact ? 'px-3 py-2' : 'px-6 py-4';
     const headPad = compact ? 'px-3 py-2' : 'px-6 py-3';
 
+    // #405: which sticky edge has columns scrolled under it (each then shows its shadow).
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [scrolledUnder, setScrolledUnder] = useState({ left: false, right: false });
+    const measureScroll = useCallback(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const left = el.scrollLeft > 0;
+        const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+        setScrolledUnder(previous => (previous.left === left && previous.right === right ? previous : { left, right }));
+    }, []);
+    useEffect(() => {
+        measureScroll();
+        const el = scrollRef.current;
+        if (!el || typeof ResizeObserver === 'undefined') return undefined;
+        const observer = new ResizeObserver(measureScroll);
+        observer.observe(el);
+        const table = el.querySelector('table');
+        if (table) observer.observe(table);
+        return () => observer.disconnect();
+    }, [measureScroll, loading, rowCount, columns.length]);
+
+    // #405: sticky cells are opaque so the scrolled columns pass under them. The header's take its solid row colour;
+    // a body cell gets the row's colour as its own class (`.sticky.bg-surface` stays solid under the page
+    // background's translucent surfaces, #231), following the row's hover through `group`.
+    const stickyLeft = `sticky left-0 z-10 ${scrolledUnder.left ? 'shadow-sticky-left' : ''}`;
+    const stickyRight = `sticky right-0 z-10 ${scrolledUnder.right ? 'shadow-sticky-right' : ''}`;
+    const stickyLeftCell = `${stickyLeft} bg-inherit`;
+    const stickyRightCell = `${stickyRight} bg-inherit`;
+    const stickyBodyBg = (selected: boolean) => selected
+        ? 'bg-success-soft group-hover:bg-success-muted'
+        : 'bg-surface group-hover:bg-surface-alt';
     const bodyCellLine = 'border-b border-line';
 
     const ariaSort = (key: string): 'ascending' | 'descending' | 'none' =>
@@ -187,6 +221,7 @@ export function DataTable<T>({
 
     const renderRow = ({ key, row, leading }: DataTableRow<T>) => {
         const selected = isRowSelected?.(row) ?? selection?.isSelected(row) ?? false;
+        const stickyBg = stickyBodyBg(selected);
         const href = rowHref?.(row);
         const clickable = !!onRowClick || !!href;
         const openInNewTab = () => {
@@ -212,7 +247,7 @@ export function DataTable<T>({
                     event.preventDefault();
                     openInNewTab();
                 } : undefined}
-                className={`transition-colors duration-150 ${
+                className={`group transition-colors duration-150 ${
                     selected
                         ? 'bg-success-soft hover:bg-success-muted'
                         : 'hover:bg-surface-alt'
@@ -221,7 +256,7 @@ export function DataTable<T>({
                 {selection && (
                     // The whole cell toggles the box; its clicks never reach the row (no navigation).
                     <td
-                        className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} relative w-px whitespace-nowrap align-middle ${bodyCellLine}`}
+                        className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} relative w-px whitespace-nowrap align-middle ${bodyCellLine} ${stickyLeft} ${stickyBg}`}
                         onClick={(event) => event.stopPropagation()}
                         onAuxClick={(event) => event.stopPropagation()}
                     >
@@ -282,8 +317,11 @@ export function DataTable<T>({
                     );
                 })}
                 {rowActions && (
-                    <td className={`${cellPad} whitespace-nowrap text-right text-sm font-medium ${bodyCellLine}`}>
-                        <div className="flex items-center justify-end gap-2">{rowActions(row)}</div>
+                    <td
+                        className={`${compact ? 'px-2 py-1' : 'px-3 py-2'} w-px whitespace-nowrap text-right text-sm font-medium ${bodyCellLine} ${stickyRight} ${stickyBg}`}
+                        data-testid="row-actions"
+                    >
+                        <div className="flex items-center justify-end gap-1">{rowActions(row)}</div>
                     </td>
                 )}
             </tr>
@@ -291,19 +329,19 @@ export function DataTable<T>({
     };
 
     return (
-        <div className={`w-full overflow-x-auto ${className}`}>
+        <div ref={scrollRef} onScroll={measureScroll} data-testid="data-table-scroll" className={`w-full overflow-x-auto ${className}`}>
             {loading ? (
                 <div className="flex items-center justify-center py-12" role="status" aria-label="Loading">
                     <Loader2 className="h-8 w-8 text-primary animate-spin" aria-hidden="true" />
                 </div>
             ) : (
-                // #404: border-separate keeps every line on the cells, never on a row.
+                // #404: border-separate keeps every line on the cells, so sticky cells (#405) carry their own lines.
                 <table className="w-full min-w-full border-separate border-spacing-0">
                     {caption && <caption className="sr-only">{caption}</caption>}
                     <thead className="bg-surface-alt">
                         <tr className="bg-surface-alt">
                             {selection && (
-                                <th scope="col" className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} w-px py-3 text-left align-middle border-b border-line`}>
+                                <th scope="col" className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} w-px py-3 text-left align-middle border-b border-line ${stickyLeftCell}`}>
                                     {selection.onToggleAll ? (
                                         <input
                                             type="checkbox"
@@ -348,7 +386,7 @@ export function DataTable<T>({
                                 </th>
                             ))}
                             {rowActions && (
-                                <th scope="col" className={`relative ${headPad} border-b border-line`}>
+                                <th scope="col" className={`${compact ? 'px-2' : 'px-3'} w-px border-b border-line ${stickyRightCell}`}>
                                     <span className="sr-only">Actions</span>
                                 </th>
                             )}
