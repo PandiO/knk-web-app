@@ -157,6 +157,30 @@ export class DisplayConditionEvaluator {
 }
 
 /**
+ * The operators `ConditionEvaluator.evaluateCondition` understands, in the order the step condition
+ * builder offers them (PandiO/knk-workspace#88). The display-condition operators it ignores (In, NotIn,
+ * GreaterOrEqual, LessOrEqual, And, Or) are left out: a step condition with one of them never holds.
+ */
+export const STEP_CONDITION_OPERATORS: ConditionOperator[] = [
+    ConditionOperator.Equals,
+    ConditionOperator.NotEquals,
+    ConditionOperator.GreaterThan,
+    ConditionOperator.LessThan,
+    ConditionOperator.Contains,
+    ConditionOperator.IsEmpty,
+    ConditionOperator.IsNotEmpty
+];
+
+const isStepValueEmpty = (value: unknown): boolean =>
+    value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
+
+/** Step condition operators that compare against nothing. */
+export const STEP_CONDITION_NO_VALUE_OPERATORS: ConditionOperator[] = [
+    ConditionOperator.IsEmpty,
+    ConditionOperator.IsNotEmpty
+];
+
+/**
  * Handles the older StepCondition entry/completion gating, which decides whether a user may
  * proceed rather than what is shown.
  */
@@ -181,10 +205,11 @@ export class ConditionEvaluator {
                 return Number(value) < Number(condition.value);
             case ConditionOperator.Contains:
                 return String(value).includes(String(condition.value));
+            // An emptied List / BannerLayers field holds [], which is empty too (PandiO/knk-workspace#88).
             case ConditionOperator.IsEmpty:
-                return value === null || value === undefined || value === '';
+                return isStepValueEmpty(value);
             case ConditionOperator.IsNotEmpty:
-                return value !== null && value !== undefined && value !== '';
+                return !isStepValueEmpty(value);
             default:
                 return false;
         }

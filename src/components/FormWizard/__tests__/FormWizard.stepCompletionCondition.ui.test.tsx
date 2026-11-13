@@ -174,7 +174,7 @@ describe('FormWizard step completion condition (KNG-186)', () => {
         expect(screen.queryByRole('button', { name: /^submit$/i })).not.toBeInTheDocument();
     });
 
-    it('an Entry condition is not checked on Next', async () => {
+    it('a step\'s own Entry condition is not checked when leaving it (it guards entering, #88)', async () => {
         (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(buildConfig([mustAgree({ conditionType: 'Entry' })]));
 
         render(<FormWizard entityName="PermissionGroup" />);

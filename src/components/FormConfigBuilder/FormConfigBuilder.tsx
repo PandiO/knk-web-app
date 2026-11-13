@@ -7,6 +7,7 @@ import { metadataClient } from '../../apiClients/metadataClient';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { logging } from '../../utils';
 import { StepEditor } from './StepEditor';
+import { stepConditionsPublishProblem } from '../../utils/forms/stepConditions';
 import { getManyToManyStepIssues } from '../../utils/forms/manyToManyStepValidation';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -350,6 +351,9 @@ export const FormConfigBuilder: React.FC = () => {
             if (m2mIssues.length > 0) {
                 return `Step ${step.order + 1} (${step.stepName}) has many-to-many configuration issues: ${m2mIssues.map(i => i.message).join(' ')}`;
             }
+            // PandiO/knk-workspace#88: a draft may hold an unfinished condition, the published form may not.
+            const conditionProblem = stepConditionsPublishProblem(step);
+            if (conditionProblem) return conditionProblem;
         }
 
         const projectionCycles = detectProjectionCycles(

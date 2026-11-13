@@ -35,6 +35,8 @@ interface FeedbackModalProps {
     danger?: boolean;
     /** "Show details" (#44): fetched only on request. */
     details?: FeedbackDetails;
+    /** More than one line of text under the message, e.g. a list of what failed (PandiO/knk-workspace#68). */
+    children?: React.ReactNode;
 }
 
 const ICON: Record<FeedbackStatus, JSX.Element> = {
@@ -67,7 +69,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     secondaryLabel,
     cancelLabel = 'Close',
     danger = false,
-    details
+    details,
+    children
 }) => {
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
     const [busy, setBusy] = useState(false);
@@ -178,7 +181,12 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                 </>
             }
         >
-            {details ? <DetailsDisclosure details={details} /> : undefined}
+            {children || details ? (
+                <>
+                    {children}
+                    {details ? <DetailsDisclosure details={details} /> : null}
+                </>
+            ) : undefined}
         </Dialog>
     );
 };

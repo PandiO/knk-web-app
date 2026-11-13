@@ -141,15 +141,19 @@ describe('FormWizard validation result log (KNG-269)', () => {
 
     it('Next validates the step in one request naming the draft, and a result answered from the log says when it really ran', async () => {
         resumedDraft();
-        (fieldValidationRuleClient.validateFields as jest.Mock).mockResolvedValue(batchAnswer(cachedFailure()));
+        // PandiO/knk-workspace#68: a resumed draft runs its rules once when it has loaded; that run passes here.
+        (fieldValidationRuleClient.validateFields as jest.Mock)
+            .mockResolvedValueOnce(batchAnswer({ isValid: true, isBlocking: true }))
+            .mockResolvedValue(batchAnswer(cachedFailure()));
 
         render(<FormWizard entityName="District" existingProgressId="55" />);
         await screen.findByDisplayValue('Old Quarter');
+        await waitFor(() => expect(fieldValidationRuleClient.validateFields).toHaveBeenCalledTimes(1));
 
         clickNext();
 
-        await waitFor(() => expect(fieldValidationRuleClient.validateFields).toHaveBeenCalledTimes(1));
-        expect(fieldValidationRuleClient.validateFields).toHaveBeenCalledWith(expect.objectContaining({
+        await waitFor(() => expect(fieldValidationRuleClient.validateFields).toHaveBeenCalledTimes(2));
+        expect(fieldValidationRuleClient.validateFields).toHaveBeenLastCalledWith(expect.objectContaining({
             fields: [{ fieldId: NAME_FIELD_ID, fieldValue: 'Old Quarter' }],
             subjectType: 'FormSubmissionProgress',
             subjectId: 55
