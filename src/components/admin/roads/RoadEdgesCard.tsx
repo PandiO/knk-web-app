@@ -18,6 +18,7 @@ import {
   formatRoadFlags,
 } from '../../../types/dtos/road/RoadDtos';
 import { apiRefusalReason } from '../../../utils/apiRefusalReason';
+import { useTypeChangeGate } from '../../../hooks/useEntityAccess';
 
 // docs/specs/navigation/DESIGN.md §3.6 / §7.1 D-E - the edge table: every road stretch of the
 // world, server-paged (POST api/road-edges/search), with the review actions an admin does from
@@ -94,6 +95,9 @@ export const RoadEdgesCard: React.FC<{
   /** A street label changed: the page reloads the labelled-streets list. */
   onStreetsChanged?: () => Promise<void> | void;
 }> = ({ world, tiles, profiles, streets, tileId, onTileCleared, onStreetsChanged }) => {
+  // #383: "Create New Street" saves through POST api/Streets, which needs the Street create nodes and
+  // knk.admin.content since #374; greyed out with "Requires …" without them. The edge save (knk.admin.road) is unchanged.
+  const streetCreateGate = useTypeChangeGate('Street', 'create');
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState<number>(EDGE_PAGE_SIZES[0]);
   const [sortBy, setSortBy] = React.useState<SortBy>('id');
@@ -239,6 +243,7 @@ export const RoadEdgesCard: React.FC<{
   };
 
   const createStreet = async () => {
+    if (!streetCreateGate.allowed) return;
     const name = newStreetName.trim();
     if (!name) {
       setCreateError('Street name is required.');
@@ -282,11 +287,12 @@ export const RoadEdgesCard: React.FC<{
                 selectedId={draft.streetId ?? undefined}
                 onSelect={(id) => setDraft({ ...draft, streetId: id })}
                 onCreateNew={() => { setCreatingStreet(true); setCreateError(null); }}
+                createNewDisabledReason={streetCreateGate.allowed ? null : streetCreateGate.hint ?? 'Checking permissions…'}
                 loading={allStreets === null && !streetsError}
                 error={streetsError ?? undefined}
               />
             </div>
-            {creatingStreet && (
+            {creatingStreet && streetCreateGate.allowed && (
               <div className="mt-2 flex flex-wrap items-end gap-2" data-testid="create-street-form">
                 <label className="block text-xs text-gray-600">
                   New street name

@@ -8,7 +8,7 @@ import { DisplaySectionProps, ActionButtonsConfigDto } from '../../types/dtos/di
 import { EntityMetadataDto, RelationshipMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { MinecraftIcon } from '../minecraft/MinecraftIcon';
 import { useAllNodesGate } from '../../hooks/useActionGate';
-import { withContentNode } from '../../hooks/useEntityAccess';
+import { changeNodesOf, withContentNode } from '../../hooks/useEntityAccess';
 import { findRelationship, metadataFor, relatedIdOf, relatedLabelOf } from './detailPage';
 import { formatNumber } from '../../utils/format';
 import { entityTypeFallbackLabel } from '../../utils/entityLabel';
@@ -84,6 +84,10 @@ export const DisplaySection: React.FC<Props> = ({
   const relationshipNodes = React.useMemo(() => (relationship ? withContentNode(relationship.nodes) : undefined), [relationship]);
   const nodesGate = useAllNodesGate(relationshipNodes);
   const deleteNodes = useAllNodesGate(targetMeta?.actionNodes?.delete);
+  // #383: a field's hot edit saves through the type's update (PUT), which #374 gates: the type's edit nodes plus
+  // knk.admin.content (a user's keeps knk.admin.user.manage).
+  const hotEditNodes = React.useMemo(() => changeNodesOf(ownMeta, 'edit', entityTypeName), [ownMeta, entityTypeName]);
+  const hotEditGate = useAllNodesGate(hotEditNodes);
   const linkGate = relationshipGate(relationship?.canLink, relationship?.linkReason, nodesGate);
   const unlinkGate = relationshipGate(relationship?.canUnlink, relationship?.unlinkReason, nodesGate);
   const deleteGate = deleteGateOf(targetMeta, targetLabel, deleteNodes);
@@ -160,6 +164,7 @@ export const DisplaySection: React.FC<Props> = ({
                     entityId={entityId}
                     entityTypeName={entityTypeName}
                     onValueChange={isRelatedSingle ? undefined : onValueChange}
+                    editGate={hotEditGate}
                     parentEntityType={section.relatedEntityTypeName}
                     recordLink={isRelatedSingle && index === 0 ? { typeName: targetType, id: singleId } : undefined}
                   />

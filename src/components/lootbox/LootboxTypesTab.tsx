@@ -4,6 +4,7 @@ import { AlertTriangle, Loader2, Pencil, Percent, Plus, RefreshCcw } from 'lucid
 import { lootboxTypeClient } from '../../apiClients/lootboxTypeClient';
 import { LootboxOddsDto, LootboxTypeDto } from '../../types/dtos/lootbox/LootboxDtos';
 import { useConfirm } from '../../hooks/useConfirm';
+import { useTypeChangeGate } from '../../hooks/useEntityAccess';
 import type { ConfirmOptions } from '../../hooks/useConfirm';
 import { apiErrorMessage, coveringBoxStars, coveringBoxStarsOf, emptyWindowStars, poolCountsByStars, reachableItemStars, starLabel } from '../../utils/lootbox';
 
@@ -45,6 +46,9 @@ export const LootboxTypesTab: React.FC<Props> = ({ onShowOdds }) => {
     const [togglingId, setTogglingId] = React.useState<number | null>(null);
     const [rowError, setRowError] = React.useState<{ id: number; text: string } | null>(null);
     const [confirm, confirmModal] = useConfirm();
+    // #383: the toggle saves through PUT api/LootboxTypes/{id}, which needs the type's edit nodes and
+    // knk.admin.content since #374; greyed out with "Requires …" without them.
+    const toggleGate = useTypeChangeGate('LootboxType', 'edit');
 
     // The pool sizes come from the odds preview - the same pool rules the claim rolls with - a
     // couple of box grades per type, enough to cover every item grade its windows reach. One batch
@@ -99,7 +103,7 @@ export const LootboxTypesTab: React.FC<Props> = ({ onShowOdds }) => {
     // PUT replaces the grade weights, pool entries and enchant rolls too, so it sends the type as
     // freshly read with only Enabled flipped.
     const toggleEnabled = async (type: LootboxTypeDto) => {
-        if (!type.id) return;
+        if (!type.id || !toggleGate.allowed) return;
         if (!(await confirm(typeToggleQuestion(type)))) return;
         setTogglingId(type.id);
         setRowError(null);
@@ -159,6 +163,10 @@ export const LootboxTypesTab: React.FC<Props> = ({ onShowOdds }) => {
 
             {error && <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
+            {toggleGate.hint && types.length > 0 && (
+                <p id="lootbox-toggle-hint" className="text-xs text-muted">Enable/Disable: {toggleGate.hint}</p>
+            )}
+
             {loading && types.length === 0 ? (
                 <div className="flex items-center justify-center py-12 text-gray-500">
                     <Loader2 className="h-6 w-6 mr-2 animate-spin" /> Loading lootbox types…
@@ -189,9 +197,11 @@ export const LootboxTypesTab: React.FC<Props> = ({ onShowOdds }) => {
                                         <button
                                             type="button"
                                             onClick={() => void toggleEnabled(type)}
-                                            disabled={togglingId === type.id}
+                                            disabled={togglingId === type.id || !toggleGate.allowed}
                                             aria-label={`${type.enabled ? 'Disable' : 'Enable'} ${type.name}`}
-                                            className={`rounded-full px-2 py-0.5 text-xs font-medium disabled:opacity-50 ${type.enabled ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                            title={toggleGate.hint ?? undefined}
+                                            aria-describedby={toggleGate.hint ? 'lootbox-toggle-hint' : undefined}
+                                            className={`rounded-full px-2 py-0.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${type.enabled ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                                         >
                                             {togglingId === type.id ? '…' : type.enabled ? 'Enabled' : 'Disabled'}
                                         </button>

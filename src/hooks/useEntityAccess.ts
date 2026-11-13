@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { EntityMetadataDto } from '../types/dtos/metadata/MetadataModels';
 import { editOpensFormWizard } from '../utils/returnTo';
 import { useLoadedEntityMetadata } from './loadedEntityMetadata';
-import { describeAllNodes } from './useActionGate';
+import { describeAllNodes, useAllNodesGate } from './useActionGate';
 import {
     anyNodeStatus, CONTENT_PERMISSION_NODE, DELETE_BULK_PERMISSION_NODE, DELETE_PERMISSION_NODE, EXPORT_PERMISSION_NODE, PermissionStatus, usePermissions,
 } from './useStaffAccess';
@@ -215,4 +215,31 @@ export function useCreateAllowed(entityTypeName: string | null | undefined): boo
     );
     const statuses = usePermissions(nodes);
     return !nodes.some(node => statuses[node] === 'denied');
+}
+
+/**
+ * #383 (developer 2026-11-13: grey them out): the nodes a save **outside** the form wizard needs when it goes through a
+ * type's primary create or update, which #374 gates in the API (`RequireDashboardChange`): the metadata's
+ * `actionNodes.create`/`edit` (else the area node), plus `knk.admin.content` (`withContentNode`). Not for a user's edit
+ * (User is exempt in the API and keeps `knk.admin.user.manage`). Without access fields: `knk.admin.content` only.
+ */
+export function changeNodesOf(meta: AccessMeta | null | undefined, action: 'create' | 'edit', entityTypeName?: string | null): string[] {
+    const own = hasAccessFields(meta) ? actionNodesOf(meta, action) ?? viewNodesOf(meta) ?? [] : [];
+    const typeName = entityTypeName ?? meta?.entityName;
+    return action === 'edit' && !editOpensFormWizard(typeName) ? own : withContentNode(own);
+}
+
+/**
+ * #383: the gate of a non-form save (the lootbox Types tab's Enable/Disable, the roads page's Create New Street, the
+ * detail page's hot edit) through `entityTypeName`'s create or update, from the loaded metadata: disabled with
+ * "Requires knk.admin.content" (and any missing type node) without them, like New and Edit (#371, decision 11).
+ */
+export function useTypeChangeGate(entityTypeName: string | null | undefined, action: 'create' | 'edit') {
+    const baseMetadata = useLoadedEntityMetadata();
+    const nodes = useMemo(() => {
+        const wanted = (entityTypeName ?? '').toLowerCase();
+        const meta = baseMetadata.find(candidate => candidate.entityName.toLowerCase() === wanted);
+        return changeNodesOf(meta, action, entityTypeName);
+    }, [baseMetadata, entityTypeName, action]);
+    return useAllNodesGate(nodes);
 }
