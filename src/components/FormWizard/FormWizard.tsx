@@ -64,12 +64,13 @@ import { validateListFieldCount } from '../../utils/forms/listFieldValidation';
 import { checkFieldValidations } from '../../utils/forms/fieldRuleValidation';
 import { FormErrorSummary, FormErrorSummaryItem, wizardFieldContainerId } from './FormErrorSummary';
 import { WizardStepProgress, WizardStepTitle } from './WizardStepHeader';
-import { firstFailedStepCondition, stepConditionMessage } from '../../utils/forms/stepConditions';
+import { failedStepConditionFieldNames, firstFailedStepCondition, stepConditionMessage } from '../../utils/forms/stepConditions';
 import {
     StepJumpIssue,
     StepJumpNote,
     classifyRuleResult,
     manyToManyEntryIssues,
+    StepConditionMark,
     stepJumpIssueText
 } from '../../utils/forms/stepJumpCheck';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
@@ -161,6 +162,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     const valuesSnapshotRef = useRef<string>('');
     // PandiO/knk-workspace#88: a failed step condition, said above the Next/Submit button (and in a toast).
     const [conditionError, setConditionError] = useState<string | null>(null);
+    // PandiO/knk-workspace#414: the failed conditions whose fields the step marks, while they still fail.
+    const [conditionMarks, setConditionMarks] = useState<{ stepIndex: number; marks: StepConditionMark[] } | null>(null);
     // PandiO/knk-workspace#68: what a click on a step in the progress strip found.
     const [jumpFeedback, setJumpFeedback] = useState<{
         status: 'error' | 'info';
@@ -1029,6 +1032,21 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         visibility.visibleStepIndices[visibility.visibleStepIndices.length - 1] === currentStepIndex;
     // #109 (CRUD-5): editing an existing entity can be saved from any step.
     const showSaveNow = !!entityId && !isLastVisibleStep;
+    // PandiO/knk-workspace#414: a failed step condition's message on the fields it reads, the way a field rule's
+    // message shows on its field. Worked out on every render from the values as they are now, so a mark
+    // goes away as soon as the condition holds. A field's own error comes first.
+    const conditionFieldErrors: { [fieldName: string]: string } = {};
+    if (conditionMarks && conditionMarks.stepIndex === currentStepIndex) {
+        const liveData: AllStepsData = { ...allStepsData, [currentStepIndex]: currentStepData };
+        conditionMarks.marks.forEach(({ condition, entryOf }) => {
+            const stepData = entryOf === undefined ? currentStepData : (liveData[entryOf] || {});
+            failedStepConditionFieldNames(condition, stepData, liveData).forEach(fieldName => {
+                if (visibleFieldNamesForCurrentStep.has(fieldName) && !conditionFieldErrors[fieldName]) {
+                    conditionFieldErrors[fieldName] = stepConditionMessage(condition);
+                }
+            });
+        });
+    }
     const errorSummaryItems: FormErrorSummaryItem[] = showErrorSummary
         ? visibleOrderedFields
             .filter(field => !!errors[field.fieldName])
@@ -2745,6 +2763,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         // Step completion conditions. A condition is active unless the API says it was switched off
         // (KNG-186: the API sent false for every condition until 2026-10-23, so none ever ran).
         setConditionError(null);
+        setConditionMarks(null);
         const failedCompletion = firstFailedStepCondition(
             currentStep,
             'Completion',
@@ -2752,6 +2771,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             { ...allStepsData, [currentStepIndex]: currentStepData }
         );
         if (failedCompletion) {
+            setConditionMarks({ stepIndex: currentStepIndex, marks: [{ condition: failedCompletion }] });
             refuseForCondition(stepConditionMessage(failedCompletion));
             return;
         }
@@ -2805,6 +2825,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 updatedAllData
             );
             if (failedEntry) {
+                setConditionMarks({ stepIndex: currentStepIndex, marks: [{ condition: failedEntry, entryOf: nextIndex }] });
                 refuseForCondition(stepConditionMessage(failedEntry));
                 return;
             }
@@ -2929,6 +2950,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     const goToEarlierStep = (targetIndex: number) => {
         setError(null);
         setConditionError(null);
+        setConditionMarks(null);
         // Persist normalized current step before going back
         const syncedAllData = syncSharedFieldValues(
             config!,
@@ -3006,6 +3028,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         let stop: { position: number; stepIndex: number; issues: StepJumpIssue[] } | null = null;
 
         setConditionError(null);
+        setConditionMarks(null);
         for (let position = 0; position < path.length - 1 && !stop; position++) {
             const stepIndex = path[position];
             const step = cfg.steps[stepIndex];
@@ -3025,7 +3048,9 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             }
 
             const failedCompletion = firstFailedStepCondition(step, 'Completion', stepData, data);
-            if (failedCompletion) issues.push({ message: stepConditionMessage(failedCompletion) });
+            if (failedCompletion) {
+                issues.push({ message: stepConditionMessage(failedCompletion), condition: { condition: failedCompletion } });
+            }
 
             // The rules run again on the values as they are now; nothing in the fields changes.
             const results = await runValidationsForStep(step, data, stepIndex, { quiet: true });
@@ -3050,7 +3075,10 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 const next = path[position + 1];
                 const failedEntry = firstFailedStepCondition(cfg.steps[next], 'Entry', stepDataOf(next), data);
                 if (failedEntry) {
-                    issues.push({ message: `"${nameOf(next)}" can't be opened yet: ${stepConditionMessage(failedEntry)}` });
+                    issues.push({
+                        message: `"${nameOf(next)}" can't be opened yet: ${stepConditionMessage(failedEntry)}`,
+                        condition: { condition: failedEntry, entryOf: next }
+                    });
                 }
             }
             if (issues.length > 0) stop = { position, stepIndex, issues };
@@ -3070,7 +3098,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             });
             setCompletedSteps(prev => new Set<number>([...Array.from(prev), ...passed]));
             setCurrentStepData(stepDataOf(toIndex));
-            showIssuesOnStep([]);
+            showIssuesOnStep([], toIndex);
             setCurrentStepIndex(toIndex);
             return true;
         };
@@ -3103,7 +3131,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             setHiddenStash(reconciled.hiddenStash);
             setCompletedSteps(prev => new Set<number>([...Array.from(prev), ...passed]));
             setCurrentStepData(stepDataOf(toIndex));
-            showIssuesOnStep(issues);
+            showIssuesOnStep(issues, toIndex);
             setCurrentStepIndex(toIndex);
             void saveProgress(FormSubmissionStatus.InProgress).then(saved => {
                 if (!saved) return;
@@ -3118,7 +3146,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
 
         const stopped = stop;
         const onCurrentStep = stopped.stepIndex === currentStepIndex;
-        if (onCurrentStep) showIssuesOnStep(stopped.issues);
+        if (onCurrentStep) showIssuesOnStep(stopped.issues, currentStepIndex);
         setJumpFeedback({
             status: 'error',
             title: `Can't go to "${nameOf(targetIndex)}" yet`,
@@ -3138,8 +3166,11 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     };
 
     // What stopped a jump, shown on the step it stopped at: field messages on their fields and in the
-    // summary, step-level ones (a condition, a many-to-many entry) above the Next button.
-    const showIssuesOnStep = (issues: StepJumpIssue[]) => {
+    // summary, step-level ones (a condition, a many-to-many entry) above the Next button, and a condition's
+    // message on the fields it reads too (#414).
+    const showIssuesOnStep = (issues: StepJumpIssue[], stepIndex: number) => {
+        const marks = issues.flatMap(issue => (issue.condition ? [issue.condition] : []));
+        setConditionMarks(marks.length > 0 ? { stepIndex, marks } : null);
         const fieldErrors: { [fieldName: string]: string } = {};
         issues.forEach(issue => {
             if (issue.fieldName && !fieldErrors[issue.fieldName]) fieldErrors[issue.fieldName] = issue.message;
@@ -3287,6 +3318,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         // KNG-132: shown as soon as the points disagree, not only on Next.
                         const fieldError = errors[field.fieldName]
                             ?? gateGeometryFieldError(entityName, field.fieldName, currentStepData)
+                            ?? conditionFieldErrors[field.fieldName]
                             ?? undefined;
                         const hasFieldError = !!fieldError;
                         const fieldContainerClass = hasFieldError

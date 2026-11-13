@@ -459,3 +459,142 @@ describe('FormWizard step jump dialog with a slow or failing save (#413)', () =>
         expect(formSubmissionClient.create).toHaveBeenCalledTimes(2);
     });
 });
+
+// PandiO/knk-workspace#414: a failed step condition marks the fields it reads, in red with its message, like a
+// field rule does; the mark goes away as soon as the condition holds.
+describe('FormWizard: a failed step condition marks its fields (#414)', () => {
+    let toasts: jest.SpyInstance;
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        toasts = jest.spyOn(logging.errorHandler, 'next').mockImplementation(() => undefined);
+        (fieldValidationRuleClient.getByFormConfigurationId as jest.Mock).mockResolvedValue([]);
+        (formSubmissionClient.create as jest.Mock).mockImplementation(async (dto: Record<string, unknown>) => ({ ...dto, id: '55' }));
+        (formSubmissionClient.update as jest.Mock).mockImplementation(async (dto: Record<string, unknown>) => dto);
+        answerRules({});
+    });
+
+    afterEach(() => toasts.mockRestore());
+
+    const MESSAGE = 'Pick a region or allow entry.';
+    const completion = (rows: object[], logic: 'AND' | 'OR' = 'AND'): StepConditionDto => ({
+        id: '20',
+        conditionType: 'Completion',
+        conditionJson: JSON.stringify({ conditions: rows, logic }),
+        errorMessage: MESSAGE,
+        isActive: true
+    });
+    const regionSet = { fieldName: 'Region', operator: ConditionOperator.IsNotEmpty };
+    const entryAllowed = { fieldName: 'AllowEntry', operator: ConditionOperator.Equals, value: true };
+
+    const box = (fieldName: string) => document.getElementById(`wizard-field-${fieldName}`)!;
+    const expectMarked = (fieldName: string, message: string) => {
+        expect(within(box(fieldName)).getByText(message)).toBeInTheDocument();
+        expect(box(fieldName)).toHaveClass('border-danger-line');
+    };
+    const expectNotMarked = (fieldName: string, message: string) => {
+        expect(within(box(fieldName)).queryByText(message)).not.toBeInTheDocument();
+        expect(box(fieldName)).not.toHaveClass('border-danger-line');
+    };
+    const next = () => fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
+
+    const openRegionStep = async (conditions: StepConditionDto[]) => {
+        useConfig(buildConfig({ regionConditions: conditions }));
+        render(<FormWizard entityName="District" />);
+        await typeName('Old Quarter');
+        next();
+        await onStep('Region');
+    };
+
+    it('one rule: Next marks its field, and the mark goes when the condition holds', async () => {
+        await openRegionStep([mustAllowEntry]);
+        expectNotMarked('AllowEntry', ALLOW_MESSAGE);
+
+        next();
+
+        await waitFor(() => expectMarked('AllowEntry', ALLOW_MESSAGE));
+        expectNotMarked('Region', ALLOW_MESSAGE);
+        // The step-level message stays above the button as before.
+        expect(screen.getByTestId('wizard-condition-error')).toHaveTextContent(ALLOW_MESSAGE);
+
+        fireEvent.click(screen.getByRole('checkbox'));
+        expectNotMarked('AllowEntry', ALLOW_MESSAGE);
+    });
+
+    it('all rules (AND): only the rules that fail mark their field', async () => {
+        await openRegionStep([completion([regionSet, entryAllowed], 'AND')]);
+        fireEvent.click(screen.getByRole('checkbox'));
+
+        next();
+
+        await waitFor(() => expectMarked('Region', MESSAGE));
+        expectNotMarked('AllowEntry', MESSAGE);
+
+        fireEvent.change(screen.getByLabelText(/^region/i), { target: { value: 'district_3' } });
+        expectNotMarked('Region', MESSAGE);
+    });
+
+    it('any rule (OR): every field is marked, and both marks go when one rule holds', async () => {
+        await openRegionStep([completion([regionSet, entryAllowed], 'OR')]);
+
+        next();
+
+        await waitFor(() => expectMarked('Region', MESSAGE));
+        expectMarked('AllowEntry', MESSAGE);
+
+        fireEvent.click(screen.getByRole('checkbox'));
+        expectNotMarked('Region', MESSAGE);
+        expectNotMarked('AllowEntry', MESSAGE);
+    });
+
+    it('an Entry condition of the next step marks the field of this step it reads', async () => {
+        const regionFromEarlierStep: StepConditionDto = {
+            id: '21',
+            conditionType: 'Entry',
+            conditionJson: JSON.stringify({ conditions: [{ ...regionSet, fromPreviousStep: true }], logic: 'AND' }),
+            errorMessage: 'Pick the region first.',
+            isActive: true
+        };
+        useConfig(buildConfig({ detailsConditions: [regionFromEarlierStep] }));
+        render(<FormWizard entityName="District" />);
+        await typeName('Old Quarter');
+        next();
+        await onStep('Region');
+
+        next();
+
+        await waitFor(() => expectMarked('Region', 'Pick the region first.'));
+        fireEvent.change(screen.getByLabelText(/^region/i), { target: { value: 'district_3' } });
+        expectNotMarked('Region', 'Pick the region first.');
+    });
+
+    it('a jump stopped by a condition: Go to lands with the field marked', async () => {
+        useConfig(buildConfig({ regionConditions: [mustAllowEntry] }));
+        render(<FormWizard entityName="District" />);
+        await typeName('Old Quarter');
+
+        fireEvent.click(stepButton('Step 3: Details'));
+        fireEvent.click(await screen.findByRole('button', { name: 'Go to Region' }));
+
+        await onStep('Region');
+        expectMarked('AllowEntry', ALLOW_MESSAGE);
+        fireEvent.click(screen.getByRole('checkbox'));
+        expectNotMarked('AllowEntry', ALLOW_MESSAGE);
+    });
+
+    it('a jump stopped on the current step marks the field there; going back clears the marks', async () => {
+        await openRegionStep([mustAllowEntry]);
+
+        fireEvent.click(stepButton('Step 3: Details'));
+
+        expect(await screen.findByText('Finish "Region" first:')).toBeInTheDocument();
+        expectMarked('AllowEntry', ALLOW_MESSAGE);
+        fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+        fireEvent.click(stepButton('Step 1: Basics'));
+        await onStep('Basics');
+        fireEvent.click(stepButton('Step 2: Region'));
+        await onStep('Region');
+        expectNotMarked('AllowEntry', ALLOW_MESSAGE);
+    });
+});

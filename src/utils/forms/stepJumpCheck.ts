@@ -1,4 +1,4 @@
-import { FormFieldDto, FormStepDto } from '../../types/dtos/forms/FormModels';
+import { FormFieldDto, FormStepDto, StepConditionDto } from '../../types/dtos/forms/FormModels';
 import { ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 
 /**
@@ -12,6 +12,17 @@ export interface StepJumpIssue {
     fieldName?: string;
     label?: string;
     message: string;
+    /** A failed step condition (PandiO/knk-workspace#414): the step marks the fields it reads. */
+    condition?: StepConditionMark;
+}
+
+/**
+ * A failed step condition the step on screen marks its fields for (PandiO/knk-workspace#414). `entryOf` is the
+ * index of the step whose Entry condition it is; without it, it is the shown step's own Completion condition.
+ */
+export interface StepConditionMark {
+    condition: StepConditionDto;
+    entryOf?: number;
 }
 
 /** Issues of one step, for the dialog's lists. */
