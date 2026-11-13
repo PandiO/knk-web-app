@@ -1,12 +1,13 @@
 import { renderHook } from '@testing-library/react';
-import { accessNodesOf, entityAccessOf, useViewableTypes } from '../useEntityAccess';
+import { accessNodesOf, entityAccessOf, useCreateAllowed, useViewableTypes, withContentNode } from '../useEntityAccess';
 import { PermissionStatus, usePermissions } from '../useStaffAccess';
 
 jest.mock('../useStaffAccess', () => ({
     ...jest.requireActual('../useStaffAccess'),
     usePermissions: jest.fn(),
 }));
-jest.mock('../loadedEntityMetadata', () => ({ useLoadedEntityMetadata: () => [] }));
+const mockLoadedMetadata: { current: unknown[] } = { current: [] };
+jest.mock('../loadedEntityMetadata', () => ({ useLoadedEntityMetadata: () => mockLoadedMetadata.current }));
 
 // PandiO/knk-workspace#280 (DESIGN § 4.7 web app): the gates of one type from its metadata.
 
@@ -41,19 +42,45 @@ describe('entityAccessOf', () => {
         expect(['view', 'read', 'create', 'edit', 'delete', 'bulkDelete', 'export'].map(a => (access as any)[a].allowed)).toEqual(Array(7).fill(true));
     });
 
-    it('gives an area holder without the action nodes create and edit, with hints for the rest (Staff-like)', () => {
+    it('gives an area holder without the action nodes view and read, but create and edit only with knk.admin.content (#371)', () => {
         const access = entityAccessOf(town, statusesFor(town, 'knk.admin.world'), 'Town');
-        expect(access.view.allowed && access.create.allowed && access.edit.allowed && access.read.allowed).toBe(true);
+        expect(access.view.allowed && access.read.allowed).toBe(true);
+        expect(access.create).toMatchObject({ allowed: false, hint: 'Requires knk.admin.content' });
+        expect(access.edit).toMatchObject({ allowed: false, hint: 'Requires knk.admin.content' });
         expect(access.delete).toMatchObject({ allowed: false, hint: 'Requires knk.admin.delete' });
         expect(access.bulkDelete).toMatchObject({ allowed: false, hint: 'Requires knk.admin.delete and knk.admin.delete.bulk' });
         expect(access.export).toMatchObject({ allowed: false, hint: 'Requires knk.admin.export' });
+    });
+
+    it('gives the area node plus knk.admin.content create and edit (#371)', () => {
+        const access = entityAccessOf(town, statusesFor(town, 'knk.admin.world', 'knk.admin.content'), 'Town');
+        expect(access.create.allowed && access.edit.allowed).toBe(true);
+        expect(access.create.nodes).toEqual(['knk.admin.world', 'knk.admin.content']);
+    });
+
+    it('keeps the type\'s own create and edit nodes for a content-only account (#371)', () => {
+        const access = entityAccessOf(town, statusesFor(town, 'knk.admin.content'), 'Town');
+        expect(access.create).toMatchObject({ allowed: false, hint: 'Requires knk.admin.world' });
+        expect(access.edit).toMatchObject({ allowed: false, hint: 'Requires knk.admin.world' });
+    });
+
+    it('keeps a user\'s Edit (the player profile) on the user node, but New needs knk.admin.content (#371)', () => {
+        const access = entityAccessOf({ entityName: 'User', ...user } as never, held('knk.admin.user.manage')(accessNodesOf([user])), 'User');
+        expect(access.edit.allowed).toBe(true);
+        expect(access.create).toMatchObject({ allowed: false, hint: 'Requires knk.admin.content' });
+    });
+
+    it('keeps delete and export on their own nodes without knk.admin.content (#371)', () => {
+        const access = entityAccessOf(town, statusesFor(town, 'knk.admin.world', 'knk.admin.delete', 'knk.admin.export'), 'Town');
+        expect(access.delete.allowed && access.export.allowed).toBe(true);
+        expect(access.edit.allowed).toBe(false);
     });
 
     it('lets a read node alone read, but not view, create or edit', () => {
         const access = entityAccessOf(town, statusesFor(town, 'knk.admin.config'));
         expect(access.read.allowed).toBe(true);
         expect(access.view).toMatchObject({ allowed: false, hint: 'Requires knk.admin.world' });
-        expect(access.create.hint).toBe('Requires knk.admin.world');
+        expect(access.create.hint).toBe('Requires knk.admin.world and knk.admin.content');
     });
 
     it('says which read nodes would do', () => {
@@ -70,7 +97,7 @@ describe('entityAccessOf', () => {
 
     it('asks for the fallback action nodes too when the metadata leaves an action out', () => {
         const partial = { accessNode: 'knk.admin.world', actionNodes: { edit: ['knk.admin.world'] } };
-        expect(accessNodesOf([partial])).toEqual(['knk.admin.delete', 'knk.admin.delete.bulk', 'knk.admin.export', 'knk.admin.world']);
+        expect(accessNodesOf([partial])).toEqual(['knk.admin.content', 'knk.admin.delete', 'knk.admin.delete.bulk', 'knk.admin.export', 'knk.admin.world']);
         const access = entityAccessOf(partial, held('knk.admin.world', 'knk.admin.export')(accessNodesOf([partial])));
         expect(access.export.allowed).toBe(true);
         expect(access.delete).toMatchObject({ allowed: false, hint: 'Requires knk.admin.delete' });
@@ -78,10 +105,45 @@ describe('entityAccessOf', () => {
 
     it('waits while a check runs and leaves an API before #280 to decide', () => {
         expect(entityAccessOf(town, {}).delete).toMatchObject({ allowed: false, checking: true, hint: null });
-        const old = entityAccessOf({}, { 'knk.admin.export': 'allowed' });
+        const old = entityAccessOf({}, { 'knk.admin.export': 'allowed', 'knk.admin.content': 'allowed' });
         expect(old.known).toBe(false);
-        expect(old.create.allowed && old.delete.allowed && old.export.allowed).toBe(true);
+        expect(old.create.allowed && old.edit.allowed && old.delete.allowed && old.export.allowed).toBe(true);
         expect(old.bulkDelete.allowed).toBe(false);
+        // #371: the wizard needs knk.admin.content even when the API has no access fields.
+        const oldNoContent = entityAccessOf({}, { 'knk.admin.export': 'allowed', 'knk.admin.content': 'denied' });
+        expect(oldNoContent.create).toMatchObject({ allowed: false, hint: 'Requires knk.admin.content' });
+        expect(oldNoContent.delete.allowed).toBe(true);
+    });
+});
+
+describe('withContentNode (#371)', () => {
+    it('adds knk.admin.content once and keeps the order', () => {
+        expect(withContentNode(['knk.admin.world'])).toEqual(['knk.admin.world', 'knk.admin.content']);
+        expect(withContentNode(['knk.admin.content', 'knk.admin.world'])).toEqual(['knk.admin.content', 'knk.admin.world']);
+        expect(withContentNode(undefined)).toEqual(['knk.admin.content']);
+        expect(withContentNode(['', 'knk.kit.manage'])).toEqual(['knk.kit.manage', 'knk.admin.content']);
+    });
+});
+
+describe('useCreateAllowed (picker Create New, #371)', () => {
+    afterEach(() => { mockLoadedMetadata.current = []; });
+
+    it('hides Create New for an area holder without knk.admin.content', () => {
+        mockLoadedMetadata.current = [{ entityName: 'Town', ...town }];
+        (usePermissions as jest.Mock).mockImplementation((nodes: string[]) => held('knk.admin.world')(nodes));
+        expect(renderHook(() => useCreateAllowed('town')).result.current).toBe(false);
+    });
+
+    it('shows Create New with the area node and knk.admin.content', () => {
+        mockLoadedMetadata.current = [{ entityName: 'Town', ...town }];
+        (usePermissions as jest.Mock).mockImplementation((nodes: string[]) => held('knk.admin.world', 'knk.admin.content')(nodes));
+        expect(renderHook(() => useCreateAllowed('town')).result.current).toBe(true);
+    });
+
+    it('asks for knk.admin.content for a type without access fields too', () => {
+        mockLoadedMetadata.current = [{ entityName: 'Legacy' }];
+        (usePermissions as jest.Mock).mockImplementation((nodes: string[]) => held()(nodes));
+        expect(renderHook(() => useCreateAllowed('Legacy')).result.current).toBe(false);
     });
 });
 

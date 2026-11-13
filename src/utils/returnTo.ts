@@ -119,8 +119,13 @@ export function entitySetupPath(entityTypeName?: string | null): string {
  * 2026-10-26); the generic User form stays for create until #72/#148 are fixed. Everything else
  * opens its edit form, coming back to `returnTo`.
  */
+/** Whether Edit of this type opens the form wizard; users are edited on the player profile (#177 decision 2026-10-26). */
+export function editOpensFormWizard(entityTypeName: string | null | undefined): boolean {
+  return (entityTypeName ?? '').toLowerCase() !== 'user';
+}
+
 export function entityEditPath(entityTypeName: string, entityId: string | number, returnTo?: string | null): string {
-  if (entityTypeName.toLowerCase() === 'user') {
+  if (!editOpensFormWizard(entityTypeName)) {
     return `/admin/users/${encodeURIComponent(String(entityId))}`;
   }
   return editFormPath(entityTypeName, entityId, returnTo);

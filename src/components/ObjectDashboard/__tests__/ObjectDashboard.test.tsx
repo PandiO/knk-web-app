@@ -902,7 +902,9 @@ describe('ObjectDashboard access per type (PandiO/knk-workspace#280)', () => {
         mockLocation = { pathname: '/dashboard/User', search: '' };
         render(<ObjectDashboard objectTypes={[]} />);
         await screen.findByTestId('table');
-        expect(screen.getByTestId('dashboard-new')).toBeEnabled();
+        // #371: New opens the form wizard (knk.admin.content); Edit of a user opens the player profile and stays.
+        expect(screen.getByTestId('dashboard-new')).toBeDisabled();
+        expect(screen.getByTestId('dashboard-create-hint')).toHaveTextContent('New User: Requires knk.admin.content');
         expect(screen.getByLabelText('Delete – Requires knk.admin.delete')).toBeDisabled();
         expect(screen.getByLabelText('Edit')).toBeEnabled();
         expect(screen.getByLabelText('Configure User – Requires knk.admin.content')).toBeDisabled();
@@ -922,9 +924,43 @@ describe('ObjectDashboard access per type (PandiO/knk-workspace#280)', () => {
         render(<ObjectDashboard objectTypes={[]} />);
         await screen.findByTestId('table');
         expect(screen.getByTestId('dashboard-new')).toBeDisabled();
-        expect(screen.getByTestId('dashboard-create-hint')).toHaveTextContent('New Street: Requires knk.admin.road');
-        expect(screen.getByLabelText('Edit – Requires knk.admin.road')).toBeDisabled();
+        expect(screen.getByTestId('dashboard-create-hint')).toHaveTextContent('New Street: Requires knk.admin.road and knk.admin.content');
+        expect(screen.getByLabelText('Edit – Requires knk.admin.road and knk.admin.content')).toBeDisabled();
         expect(screen.getByLabelText('Delete – Requires knk.admin.road and knk.admin.delete')).toBeDisabled();
+    });
+
+    it('disables New, New with and Edit for a world-only account with "Requires knk.admin.content" (#371)', async () => {
+        hold(['knk.admin.world', 'knk.admin.delete', 'knk.admin.export']);
+        getFormConfigs.mockResolvedValue([
+            { id: '1', configurationName: 'Street form', isDefault: true, entityTypeName: 'Street', steps: [] },
+            { id: '9', configurationName: 'Quick street', isDefault: false, entityTypeName: 'Street', steps: [] },
+        ]);
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        expect(screen.getByTestId('dashboard-new')).toBeDisabled();
+        expect(screen.getByTestId('dashboard-create-hint')).toHaveTextContent('New Street: Requires knk.admin.content');
+        await waitFor(() => expect(getFormConfigs).toHaveBeenCalledWith('Street', false));
+        await act(async () => { await Promise.resolve(); });
+        expect(screen.queryByRole('button', { name: 'New Street with another form' })).not.toBeInTheDocument();
+        expect(screen.getByLabelText('Edit – Requires knk.admin.content')).toBeDisabled();
+        // Delete and export keep their own nodes.
+        expect(screen.getByLabelText('Delete')).toBeEnabled();
+        const state = { selected: [{ id: 7 }], clearSelection: jest.fn(), columns: [], query: { page: 1, pageSize: 10 }, totalCount: 1, loading: false };
+        expect(mockTableProps.renderSelectionBar(state).props.exportGate).toMatchObject({ allowed: true });
+    });
+
+    it('enables New and Edit for the area node plus knk.admin.content (#371)', async () => {
+        hold(['knk.admin.world', 'knk.admin.content']);
+        getFormConfigs.mockResolvedValue([
+            { id: '1', configurationName: 'Street form', isDefault: true, entityTypeName: 'Street', steps: [] },
+            { id: '9', configurationName: 'Quick street', isDefault: false, entityTypeName: 'Street', steps: [] },
+        ]);
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        expect(await screen.findByRole('button', { name: 'New Street with another form' })).toBeEnabled();
+        expect(screen.getByTestId('dashboard-new')).toBeEnabled();
+        expect(screen.queryByTestId('dashboard-create-hint')).not.toBeInTheDocument();
+        expect(screen.getByLabelText('Edit')).toBeEnabled();
     });
 
     it('bulk deletes the selection after a confirm naming the count and type, keeps the refused rows selected', async () => {

@@ -88,9 +88,10 @@ const LOGIN: RouteAccess = { kind: 'login' };
 const staff = (node: string): RouteAccess => ({ kind: 'staff', node });
 const staffAny = (nodes: readonly string[]): RouteAccess => ({ kind: 'staffAny', nodes });
 /**
- * PandiO/knk-workspace#280 decision 8: the dashboard, an entity's detail page and the form wizard (new, edit, resume)
- * open for any area node; each type's actions follow its own nodes on the page. Entity setup's lists, the builders and
- * the Minecraft catalogue stay on knk.admin.content.
+ * PandiO/knk-workspace#280 decision 8: the dashboard and an entity's detail page open for any area node; each type's
+ * actions follow its own nodes on the page. The form wizard (new, edit, resume), Entity setup's lists, the builders and
+ * the Minecraft catalogue stay on knk.admin.content (#371, developer 2026-11-13: area staff work with the content
+ * available and don't change forms; reverts AM3's LAM3-1).
  */
 const DASHBOARD_ACCESS = staffAny(AREA_NODES);
 const owner = (node: string): RouteAccess => ({ kind: 'owner', node });
@@ -140,10 +141,9 @@ export const ROUTES = defineRoutes({
   dashboardType: { path: '/dashboard/:entityName', layout: 'admin', access: DASHBOARD_ACCESS, title: 'Dashboard', group: 'content', parent: 'dashboard' },
   // Entity setup (#177 decision 4; no link since #197: the dashboard's ⚙ per type). The page draws the trail.
   entitySetup: { path: '/forms', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Entity setup', group: 'content', parent: 'dashboard', breadcrumbs: 'page' },
-  // #280: also the dashboard's New / New with / Drafts (?autoOpen, ?configId, ?resume) for any area node; the page
-  // shows the setup lists to knk.admin.content holders only.
-  entitySetupType: { path: '/forms/:entityName', layout: 'admin', access: DASHBOARD_ACCESS, title: 'Entity setup', group: 'content', parent: 'dashboard', breadcrumbs: 'page' },
-  entityEdit: { path: '/forms/:entityName/edit/:entityId', layout: 'admin', access: DASHBOARD_ACCESS, title: 'Entity setup', group: 'content', parent: 'dashboard', breadcrumbs: 'page' },
+  // Also the dashboard's New / New with / Drafts (?autoOpen, ?configId, ?resume): knk.admin.content only (#371).
+  entitySetupType: { path: '/forms/:entityName', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Entity setup', group: 'content', parent: 'dashboard', breadcrumbs: 'page' },
+  entityEdit: { path: '/forms/:entityName/edit/:entityId', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Entity setup', group: 'content', parent: 'dashboard', breadcrumbs: 'page' },
   formBuilderNew: { path: '/admin/form-configurations/new', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Form builder', group: 'content', parent: 'entitySetup' },
   formBuilderEdit: { path: '/admin/form-configurations/edit/:id', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Form builder', group: 'content', parent: 'entitySetup' },
   displayBuilderNew: { path: '/admin/display-configurations/new', layout: 'admin', access: staff(CONTENT_PERMISSION_NODE), title: 'Display builder', group: 'content', parent: 'entitySetup' },

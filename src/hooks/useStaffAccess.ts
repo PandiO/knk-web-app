@@ -51,8 +51,9 @@ export const DELETE_BULK_PERMISSION_NODE = 'knk.admin.delete.bulk';
 
 /**
  * The area nodes of the dashboard access model (#280 DESIGN § 4.1, knk-web-api `DashboardAccess.AreaNodes`, LAM2-4):
- * each one means view, create and edit of its area's types. Holding **any** of them opens the dashboard, the detail
- * page and the form wizard (decision 8), and the API's form-runtime reads (metadata, configurations) answer for it.
+ * each one means view, create and edit of its area's types. Holding **any** of them opens the dashboard and the detail
+ * page (decision 8), and the API's form-runtime reads (metadata, configurations) answer for it. In the web app create
+ * and edit (the form wizard) also need knk.admin.content (#371, developer 2026-11-13).
  * The API doesn't list them; keep this in step with the registry.
  */
 export const AREA_NODES: readonly string[] = [
