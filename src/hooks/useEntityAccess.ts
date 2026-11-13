@@ -64,7 +64,9 @@ export function actionNodesOf(meta: AccessMeta | null | undefined, action: strin
 
 /**
  * #371 (developer 2026-11-13): create and edit go through the form wizard, which stays on `knk.admin.content`, so the
- * web app asks for it on top of the type's own create/edit nodes. Adds it once; keeps the order of `nodes`.
+ * web app asks for it on top of the type's own create/edit nodes. Adds it once; keeps the order of `nodes`. Since #374
+ * the API lists `knk.admin.content` in `actionNodes.create`/`edit` and in a relationship's `nodes` itself, so this is a
+ * no-op against it; it stays so the gates are right against an API without #374 (either can deploy first).
  */
 export function withContentNode(nodes: readonly string[] | null | undefined): string[] {
     const list = (nodes ?? []).filter(Boolean);
