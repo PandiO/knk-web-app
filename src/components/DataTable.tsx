@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from 'lucide-react';
+import { ContextMenu, ContextMenuItem } from './ContextMenu';
 
 /**
  * PandiO/knk-workspace#187 (X-9): the one table the web app's lists are built from. It draws; the caller
@@ -23,6 +24,9 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from 'lucide-react';
  * - **Sticky columns (#405):** the actions column sticks to the right edge and the checkbox column to the left while
  *   the other columns scroll under them. Both have the row's opaque background and, only while something is scrolled
  *   under them, a soft shadow on their inner edge.
+ * - **Context menu (#406):** with `rowContextMenu` a right-click on a row (or Shift+F10 / the context-menu key while
+ *   something in it has the focus) opens `ContextMenu` with the row's items; Ctrl/Cmd + right-click keeps the
+ *   browser's own menu.
  *
  *     <DataTable
  *       caption="Players"
@@ -103,6 +107,10 @@ export interface DataTableProps<T> {
     rowLeading?: (row: T) => React.ReactNode;
     /** Buttons in a last, unlabelled "Actions" column, kept in view on the right (#405). */
     rowActions?: (row: T) => React.ReactNode;
+    /** The items of the row's right-click menu (#406); none (or an empty list) keeps the browser's menu. */
+    rowContextMenu?: (row: T) => ContextMenuItem[];
+    /** The menu's accessible name for a row; default "Row actions". */
+    rowContextMenuLabel?: (row: T) => string;
     /** Shown across the table when there are no rows. */
     empty?: React.ReactNode;
     /** A spinner in place of the table. */
@@ -157,6 +165,8 @@ export function DataTable<T>({
     selection,
     rowLeading,
     rowActions,
+    rowContextMenu,
+    rowContextMenuLabel,
     empty,
     loading = false,
     density = 'comfortable',
@@ -197,6 +207,25 @@ export function DataTable<T>({
         return () => observer.disconnect();
     }, [measureScroll, loading, rowCount, columns.length]);
 
+    // #406: the open right-click menu: its row, where it opens and what gets the focus back after Escape.
+    const [menu, setMenu] = useState<{ row: T; items: ContextMenuItem[]; x: number; y: number; opener: HTMLElement | null } | null>(null);
+    const openMenu = (row: T, x: number, y: number, opener: HTMLElement | null): boolean => {
+        const items = rowContextMenu?.(row) ?? [];
+        if (items.length === 0) return false;
+        setMenu({ row, items, x, y, opener });
+        return true;
+    };
+    const closeMenu = (returnFocus: boolean) => {
+        const opener = menu?.opener;
+        setMenu(null);
+        if (returnFocus && opener && document.contains(opener)) opener.focus();
+    };
+    /** Where a keyboard-opened menu goes: under the focused control, or the row's start. */
+    const keyboardAnchor = (row: HTMLElement, focused: HTMLElement | null) => {
+        const rect = (focused && row.contains(focused) ? focused : row).getBoundingClientRect();
+        return { x: rect.left, y: rect.bottom };
+    };
+
     // #405: sticky cells are opaque so the scrolled columns pass under them. The header's take its solid row colour;
     // a body cell gets the row's colour as its own class (`.sticky.bg-surface` stays solid under the page
     // background's translucent surfaces, #231), following the row's hover through `group`.
@@ -204,9 +233,9 @@ export function DataTable<T>({
     const stickyRight = `sticky right-0 z-10 ${scrolledUnder.right ? 'shadow-sticky-right' : ''}`;
     const stickyLeftCell = `${stickyLeft} bg-inherit`;
     const stickyRightCell = `${stickyRight} bg-inherit`;
-    const stickyBodyBg = (selected: boolean) => selected
+    const stickyBodyBg = (selected: boolean, menuOpen: boolean) => selected
         ? 'bg-success-soft group-hover:bg-success-muted'
-        : 'bg-surface group-hover:bg-surface-alt';
+        : menuOpen ? 'bg-surface-alt' : 'bg-surface group-hover:bg-surface-alt';
     const bodyCellLine = 'border-b border-line';
 
     const ariaSort = (key: string): 'ascending' | 'descending' | 'none' =>
@@ -221,16 +250,34 @@ export function DataTable<T>({
 
     const renderRow = ({ key, row, leading }: DataTableRow<T>) => {
         const selected = isRowSelected?.(row) ?? selection?.isSelected(row) ?? false;
-        const stickyBg = stickyBodyBg(selected);
+        const stickyBg = stickyBodyBg(selected, menu?.row === row);
         const href = rowHref?.(row);
         const clickable = !!onRowClick || !!href;
         const openInNewTab = () => {
             if (href) window.open(href, '_blank', 'noopener');
         };
+        const contextMenuProps = rowContextMenu ? {
+            onContextMenu: (event: React.MouseEvent<HTMLTableRowElement>) => {
+                // Ctrl/Cmd + right-click: the browser's own menu (copy the link, inspect, ...).
+                if (event.ctrlKey || event.metaKey) return;
+                const keyboard = event.clientX === 0 && event.clientY === 0;
+                const at = keyboard
+                    ? keyboardAnchor(event.currentTarget, document.activeElement as HTMLElement | null)
+                    : { x: event.clientX, y: event.clientY };
+                if (openMenu(row, at.x, at.y, (document.activeElement as HTMLElement | null) ?? null)) event.preventDefault();
+            },
+            onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+                if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return;
+                const focused = document.activeElement as HTMLElement | null;
+                const at = keyboardAnchor(event.currentTarget, focused);
+                if (openMenu(row, at.x, at.y, focused)) event.preventDefault();
+            },
+        } : {};
         return (
             <tr
                 key={key}
                 data-row-key={key}
+                {...contextMenuProps}
                 onClick={(event) => {
                     // With a link, its own click (and other controls') isn't the row's.
                     if (href && isFromInteractiveElement(event)) return;
@@ -250,7 +297,7 @@ export function DataTable<T>({
                 className={`group transition-colors duration-150 ${
                     selected
                         ? 'bg-success-soft hover:bg-success-muted'
-                        : 'hover:bg-surface-alt'
+                        : menu?.row === row ? 'bg-surface-alt' : 'hover:bg-surface-alt'
                 } ${clickable ? 'cursor-pointer' : ''}`}
             >
                 {selection && (
@@ -418,6 +465,14 @@ export function DataTable<T>({
                         ))}
                     </tbody>
                 </table>
+            )}
+            {menu && (
+                <ContextMenu
+                    position={{ x: menu.x, y: menu.y }}
+                    items={menu.items}
+                    label={rowContextMenuLabel?.(menu.row) ?? 'Row actions'}
+                    onClose={closeMenu}
+                />
             )}
         </div>
     );

@@ -2,8 +2,9 @@ import React from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { DataTable, DataTableColumn } from '../DataTable';
+import { ContextMenuItem } from '../ContextMenu';
 
-// PandiO/knk-workspace#404 (row lines), #405 (sticky actions/checkbox columns).
+// PandiO/knk-workspace#404 (row lines), #405 (sticky actions/checkbox columns), #406 (row context menu).
 
 interface Town { id: number; name: string }
 
@@ -96,5 +97,144 @@ describe('DataTable sticky columns (#405)', () => {
         fireEvent.scroll(scroller);
         expect(actionsCell()).not.toHaveClass('shadow-sticky-right');
         expect(checkboxCell()).toHaveClass('shadow-sticky-left');
+    });
+});
+
+describe('DataTable row context menu (#406)', () => {
+    const view = jest.fn();
+    const remove = jest.fn();
+    const items = (town: Town): ContextMenuItem[] => [
+        { key: 'view', label: 'View', onSelect: () => view(town) },
+        { key: 'edit', label: 'Edit', onSelect: jest.fn(), disabled: true, hint: 'Requires knk.admin.content' },
+        { key: 'delete', label: 'Delete', onSelect: () => remove(town), danger: true },
+    ];
+    const renderMenuTable = (menu: (town: Town) => ContextMenuItem[] = items) => render(
+        <div>
+            <button type="button">outside</button>
+            <DataTable
+                columns={columns}
+                rows={towns}
+                rowKey={t => String(t.id)}
+                rowHref={t => `/display/town/${t.id}`}
+                onRowClick={jest.fn()}
+                rowContextMenu={menu}
+                rowContextMenuLabel={t => `Actions for ${t.name}`}
+            />
+        </div>
+    );
+
+    beforeEach(() => {
+        view.mockReset();
+        remove.mockReset();
+    });
+
+    it('opens on a right-click with the row\'s items and focuses the first; the browser menu is suppressed', () => {
+        renderMenuTable();
+        const notCancelled = fireEvent.contextMenu(bodyRows()[1], { clientX: 120, clientY: 80 });
+        expect(notCancelled).toBe(false);
+        const menu = screen.getByRole('menu', { name: 'Actions for Southgate' });
+        expect(within(menu).getAllByRole('menuitem').map(item => item.textContent)).toEqual([
+            'View', 'EditRequires knk.admin.content', 'Delete',
+        ]);
+        expect(within(menu).getAllByRole('menuitem')[0]).toHaveFocus();
+        expect(menu).toHaveStyle({ left: '120px', top: '80px' });
+    });
+
+    it('keeps the browser menu for Ctrl or Cmd + right-click', () => {
+        renderMenuTable();
+        expect(fireEvent.contextMenu(bodyRows()[0], { clientX: 10, clientY: 10, ctrlKey: true })).toBe(true);
+        expect(fireEvent.contextMenu(bodyRows()[0], { clientX: 10, clientY: 10, metaKey: true })).toBe(true);
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('keeps the browser menu for a row without items', () => {
+        renderMenuTable(() => []);
+        expect(fireEvent.contextMenu(bodyRows()[0], { clientX: 10, clientY: 10 })).toBe(true);
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('chooses an item with a click and closes', () => {
+        renderMenuTable();
+        fireEvent.contextMenu(bodyRows()[2], { clientX: 5, clientY: 5 });
+        fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+        expect(remove).toHaveBeenCalledWith(towns[2]);
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('shows a disabled item with its reason and does not run it', () => {
+        renderMenuTable();
+        fireEvent.contextMenu(bodyRows()[0], { clientX: 5, clientY: 5 });
+        const edit = screen.getByRole('menuitem', { name: /Edit/ });
+        expect(edit).toHaveAttribute('aria-disabled', 'true');
+        expect(edit).toHaveTextContent('Requires knk.admin.content');
+        fireEvent.click(edit);
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+    });
+
+    it('opens from the keyboard with Shift+F10 or the context-menu key, moves with the arrows and chooses with Enter', () => {
+        renderMenuTable();
+        const link = within(bodyRows()[1]).getByRole('link', { name: 'Southgate' });
+        link.focus();
+        fireEvent.keyDown(link, { key: 'F10', shiftKey: true });
+        const menu = screen.getByRole('menu', { name: 'Actions for Southgate' });
+        const [first, second, third] = within(menu).getAllByRole('menuitem');
+        expect(first).toHaveFocus();
+        fireEvent.keyDown(first, { key: 'ArrowDown' });
+        expect(second).toHaveFocus();
+        fireEvent.keyDown(second, { key: 'Enter' }); // disabled: nothing happens
+        expect(screen.getByRole('menu')).toBeInTheDocument();
+        fireEvent.keyDown(second, { key: 'ArrowDown' });
+        expect(third).toHaveFocus();
+        fireEvent.keyDown(third, { key: 'ArrowDown' });
+        expect(first).toHaveFocus();
+        fireEvent.keyDown(first, { key: 'ArrowUp' });
+        expect(third).toHaveFocus();
+        fireEvent.keyDown(third, { key: 'Home' });
+        expect(first).toHaveFocus();
+        fireEvent.keyDown(first, { key: 'Enter' });
+        expect(view).toHaveBeenCalledWith(towns[1]);
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
+        link.focus();
+        fireEvent.keyDown(link, { key: 'ContextMenu' });
+        expect(screen.getByRole('menu', { name: 'Actions for Southgate' })).toBeInTheDocument();
+    });
+
+    it('closes with Escape and gives the focus back to the row', () => {
+        renderMenuTable();
+        const link = within(bodyRows()[0]).getByRole('link', { name: 'Northwatch' });
+        link.focus();
+        fireEvent.keyDown(link, { key: 'ContextMenu' });
+        fireEvent.keyDown(screen.getAllByRole('menuitem')[0], { key: 'Escape' });
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+        expect(link).toHaveFocus();
+    });
+
+    it('closes on a click outside, on scrolling and on a right-click elsewhere', () => {
+        renderMenuTable();
+        fireEvent.contextMenu(bodyRows()[0], { clientX: 5, clientY: 5 });
+        fireEvent.mouseDown(screen.getByRole('button', { name: 'outside' }));
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
+        fireEvent.contextMenu(bodyRows()[0], { clientX: 5, clientY: 5 });
+        act(() => { window.dispatchEvent(new Event('scroll')); });
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
+        fireEvent.contextMenu(bodyRows()[0], { clientX: 5, clientY: 5 });
+        fireEvent.mouseDown(bodyRows()[2]);
+        fireEvent.contextMenu(bodyRows()[2], { clientX: 50, clientY: 50 });
+        expect(screen.getByRole('menu', { name: 'Actions for Eastholm' })).toBeInTheDocument();
+        expect(screen.getAllByRole('menu')).toHaveLength(1);
+    });
+
+    it('does not open the row when the menu is used', () => {
+        const onRowClick = jest.fn();
+        render(
+            <DataTable columns={columns} rows={towns} rowKey={t => String(t.id)} onRowClick={onRowClick} rowContextMenu={items} />
+        );
+        fireEvent.contextMenu(bodyRows()[0], { clientX: 5, clientY: 5 });
+        fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
+        expect(onRowClick).not.toHaveBeenCalled();
+        expect(view).toHaveBeenCalledWith(towns[0]);
     });
 });

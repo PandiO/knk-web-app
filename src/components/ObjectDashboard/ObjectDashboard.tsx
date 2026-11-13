@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ChevronDown, Clock, Eye, Pencil, Plus, Settings, Trash2 } from 'lucide-react';
+import { ChevronDown, Clock, Download, Eye, Pencil, Plus, Settings, Trash2 } from 'lucide-react';
 import { useEntityAccess, useViewableTypes } from '../../hooks/useEntityAccess';
 import { CONTENT_PERMISSION_NODE, usePermission } from '../../hooks/useStaffAccess';
 import { gateHint } from '../../hooks/useActionGate';
@@ -32,6 +32,9 @@ import { PagedQueryDto } from '../../types/dtos/common/PagedQuery';
 import { useDashboardFormOptions } from '../../hooks/useDashboardFormOptions';
 import { DashboardHeaderMenu } from './DashboardHeaderMenu';
 import { DashboardSelectionBar } from './DashboardSelectionBar';
+import { exportDashboardRows } from './dashboardExport';
+import { ContextMenuItem } from '../ContextMenu';
+import { SelectionBarState } from '../PagedEntityTable/PagedEntityTable';
 import { FormSubmissionStatus } from '../../utils/enums';
 import { readLastDashboardType, writeLastDashboardType } from '../../utils/lastDashboardType';
 import { readDashboardFavourites, toggleFavourite, writeDashboardFavourites } from '../../utils/dashboardFavourites';
@@ -40,11 +43,17 @@ import { formatNumber, formatTime } from '../../utils/format';
 
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 
-/** #405: whether a row action may be used, and why not ("Requires <node>"). */
+/** #405/#406: whether a row action may be used, and why not ("Requires <node>"); one per action for button and menu. */
 type RowActionGate = { allowed: boolean; hint: string | null };
 
 /** A row action's accessible name: "Edit", or "Edit – Requires knk.admin.edit" while it is disabled. */
 const gatedLabel = (label: string, gate: RowActionGate) => (gate.allowed || !gate.hint ? label : `${label} – ${gate.hint}`);
+
+/** A menu item's disabled state and hint from its gate; still checking reads "Checking permission…". */
+const menuGate = (gate: RowActionGate & { checking?: boolean }) => ({
+    disabled: !gate.allowed,
+    hint: gate.allowed ? null : gate.hint ?? (gate.checking ? 'Checking permission…' : null),
+});
 
 const ROW_ACTION_BUTTON = 'inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors '
     + 'hover:bg-surface-alt focus:outline-none focus-visible:ring-2 focus-visible:ring-primary '
@@ -470,11 +479,61 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         </button>
     ) : null;
 
-    // #405: the row actions' gates, for the buttons in the sticky actions column.
+    // #405/#406: the row actions' gates, shared by the buttons in the sticky actions column and the right-click menu.
     // #280 decision 11: disabled with "Requires <node>", not hidden. View needs a display configuration (no node).
     const viewGate: RowActionGate = { allowed: canView(selectedType), hint: canView(selectedType) ? null : viewHint };
     const editGate = access.edit;
     const deleteGate = access.delete;
+
+    /**
+     * #406: a row's right-click menu. With the row ticked (and more rows ticked), Delete and Export take the whole
+     * selection (Delete then needs the bulk delete nodes, as the bar's "Delete (n)"); View and Edit open the clicked row.
+     */
+    const rowContextMenu = (row: any, state: SelectionBarState<any>): ContextMenuItem[] => {
+        const rowTicked = state.selected.some(item => item?.id != null && String(item.id) === String(row?.id));
+        const onSelection = rowTicked && state.selected.length > 1;
+        const targets = onSelection ? state.selected : [row];
+        const what = countOf(targets.length, typeLabel);
+        const deleteItemGate = onSelection ? access.bulkDelete : deleteGate;
+        const busyDeleting = onSelection && !!bulkProgress;
+        return [
+            {
+                key: 'view',
+                label: 'View',
+                icon: <Eye className="h-4 w-4" />,
+                onSelect: () => handleView(selectedType, row),
+                ...menuGate(viewGate),
+            },
+            {
+                key: 'edit',
+                label: 'Edit',
+                icon: <Pencil className="h-4 w-4" />,
+                onSelect: () => handleEdit(selectedType, row),
+                ...menuGate(editGate),
+            },
+            {
+                key: 'delete',
+                label: onSelection ? `Delete ${what}` : 'Delete',
+                icon: <Trash2 className="h-4 w-4" />,
+                danger: true,
+                onSelect: () => void (onSelection ? handleBulkDelete() : handleDelete(selectedType, row)),
+                ...(busyDeleting ? { disabled: true, hint: 'A delete is running' } : menuGate(deleteItemGate)),
+            },
+            {
+                key: 'export',
+                label: onSelection ? `Export ${what} as CSV` : 'Export as CSV',
+                icon: <Download className="h-4 w-4" />,
+                onSelect: () => void exportDashboardRows({
+                    entityTypeName: selectedType,
+                    typeLabel,
+                    columns: state.columns,
+                    selected: targets,
+                    query: state.query,
+                }),
+                ...menuGate(access.export),
+            },
+        ];
+    };
 
     return (
         // #195: pt-6 spaces both columns from the app's top header (the page wrapper's top padding
@@ -703,6 +762,9 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                     </button>
                                 )
                             ]}
+                            // #406: right-click (Shift+F10, the context-menu key) on a row: the same actions plus Export.
+                            rowContextMenu={rowContextMenu}
+                            rowContextMenuLabel={(row) => `Actions for ${entityDisplayLabel(row, row?.id)}`}
                         />
                     )}
                 </div>
