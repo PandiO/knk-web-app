@@ -39,8 +39,15 @@ export function accessMetadata(entityName: string, area: string, bulkDeletable =
 }
 
 export const metadata: EntityMetadataDto[] = [
-  accessMetadata('Town', WORLD),
-  accessMetadata('Street', WORLD),
+  {
+    ...accessMetadata('Town', WORLD),
+    lookupGettable: true,
+    // Since #374 the API asks the area node and knk.admin.content for link changes.
+    relationships: [
+      { property: 'streets', relatedType: 'Street', kind: 'collection', storage: 'many', canLink: true, canUnlink: true, nodes: [WORLD, CONTENT] },
+    ],
+  },
+  { ...accessMetadata('Street', WORLD), lookupSearchable: true, lookupGettable: true },
   accessMetadata('Category', CONTENT),
   accessMetadata('User', USERS, false),
 ];

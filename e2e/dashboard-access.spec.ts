@@ -5,6 +5,8 @@ import { mockContentDefaults } from './fixtures/content';
 import { CONTENT, mockDashboardTypes, USERS, WORLD } from './fixtures/dashboardAccess';
 import type { FormConfigurationDto } from '../src/types/dtos/forms/FormModels';
 import type { BulkDeleteResponseDto } from '../src/apiClients/dashboardClient';
+import type { EntityReferenceRowsDto } from '../src/apiClients/entityReferenceClient';
+import type { DisplayConfigurationDto } from '../src/types/dtos/displayConfig/DisplayModels';
 
 /**
  * Who opens the dashboard and which actions they get (PandiO/knk-workspace#280 AM3, #205, #371): the explorer
@@ -144,6 +146,49 @@ test.describe('as an admin', () => {
     await expect(page.getByRole('row').filter({ hasText: 'Main Street' })).toHaveCount(0);
     await expect(page.getByRole('row').filter({ hasText: 'Harbour Road' }).getByRole('checkbox')).toBeChecked();
     expect((api.calls('POST', 'Dashboard/bulk-delete')[0].body as { entityType: string; ids: number[] })).toEqual({ entityType: 'Street', ids: [1, 2, 3] });
+  });
+
+  test('a delete refused as in use: "Show what uses it" loads the list only on request, links the record, and Hide keeps it', async ({ page, api }) => {
+    mockDashboardTypes(api);
+    api.on('DELETE', 'Streets/1', {
+      status: 409,
+      body: { error: 'Conflict', code: 'DbConstraint', message: "This street can't be deleted: it is still used by 1 structure." },
+    });
+    api.json<EntityReferenceRowsDto>('GET', 'EntityReferences/Street/1/rows', {
+      entityTypeName: 'Street',
+      id: 1,
+      groups: [{ referencedBy: 'Structure.StreetId', entityType: 'Structure', count: 1, listed: true, readable: true, nodes: [WORLD], rows: [{ id: 3, label: 'Smithy' }], more: false }],
+    });
+    api.json<DisplayConfigurationDto>('GET', 'DisplayConfigurations/entity/Structure', { name: 'Structure display', entityTypeName: 'Structure', isDefault: true, isDraft: false, sections: [] });
+    api.json('GET', 'Structures/3', { id: 3, name: 'Smithy' });
+    await page.goto('/dashboard/Street');
+
+    await page.getByRole('row').filter({ hasText: 'Main Street' }).getByRole('button', { name: 'Delete', exact: true }).click();
+    await page.getByRole('alertdialog', { name: 'Delete Street "Main Street"?' }).getByRole('button', { name: 'Delete' }).click();
+    const failed = page.getByRole('alertdialog', { name: 'Delete Failed' });
+    await expect(failed).toContainText("This street can't be deleted: it is still used by 1 structure.");
+    expect(api.calls('GET', 'EntityReferences/Street/1/rows')).toHaveLength(0);
+
+    await failed.getByRole('button', { name: 'Show what uses it' }).click();
+    await expect(failed.getByRole('link', { name: 'Smithy' })).toBeVisible();
+    await failed.getByRole('button', { name: 'Hide details' }).click();
+    await failed.getByRole('button', { name: 'Show what uses it' }).click();
+    await expect(failed.getByRole('link', { name: 'Smithy' })).toBeVisible();
+    expect(api.calls('GET', 'EntityReferences/Street/1/rows')).toHaveLength(1);
+
+    await failed.getByRole('link', { name: 'Smithy' }).click();
+    await expect(page).toHaveURL(/\/display\/Structure\/3/);
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  });
+
+  test('a delete that fails for another reason has no "Show what uses it"', async ({ page, api }) => {
+    mockDashboardTypes(api);
+    api.on('DELETE', 'Streets/1', { status: 500, body: { error: 'ServerError' } });
+    await page.goto('/dashboard/Street');
+    await page.getByRole('row').filter({ hasText: 'Main Street' }).getByRole('button', { name: 'Delete', exact: true }).click();
+    await page.getByRole('alertdialog', { name: 'Delete Street "Main Street"?' }).getByRole('button', { name: 'Delete' }).click();
+    await expect(page.getByText(/error occurred while deleting/i).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Show what uses it' })).toHaveCount(0);
   });
 
   test('on User there is no bulk Delete, one at a time only', async ({ page, api }) => {
