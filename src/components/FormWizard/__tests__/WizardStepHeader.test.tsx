@@ -165,3 +165,48 @@ describe('WizardStepTitle (KNG-137)', () => {
         expect(screen.getByRole('heading', { name: 'Edit Street' })).toBeInTheDocument();
     });
 });
+
+describe('WizardStepProgress with clickable steps (PandiO/knk-workspace#68)', () => {
+    const steps = [
+        { key: 1, name: 'Basics', isDone: true, isCurrent: false },
+        { key: 2, name: 'Region', isDone: false, isCurrent: true },
+        { key: 3, name: 'Details', isDone: false, isCurrent: false }
+    ];
+
+    it('renders every step as a button, with the current one marked, and reports the clicked position', () => {
+        const onStepClick = jest.fn();
+        render(<WizardStepProgress steps={steps} onStepClick={onStepClick} />);
+
+        const current = screen.getByRole('button', { name: 'Step 2: Region' });
+        expect(current).toHaveAttribute('aria-current', 'step');
+        expect(screen.getByRole('button', { name: 'Step 1: Basics' })).not.toHaveAttribute('aria-current');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Step 3: Details' }));
+        expect(onStepClick).toHaveBeenCalledWith(2);
+    });
+
+    it('makes the steps in the narrow-screen list buttons too', () => {
+        const onStepClick = jest.fn();
+        render(<WizardStepProgress steps={steps} onStepClick={onStepClick} />);
+        fireEvent.click(screen.getByRole('button', { name: /step 2 of 3/i }));
+
+        const list = screen.getByRole('list', { name: 'All form steps' });
+        const buttons = within(list).getAllByRole('button');
+        expect(buttons).toHaveLength(3);
+        expect(buttons[1]).toHaveAttribute('aria-current', 'step');
+        fireEvent.click(buttons[0]);
+        expect(onStepClick).toHaveBeenCalledWith(0);
+    });
+
+    it('disables the steps while the form is saving', () => {
+        render(<WizardStepProgress steps={steps} onStepClick={jest.fn()} disabled />);
+        expect(screen.getByRole('button', { name: 'Step 3: Details' })).toBeDisabled();
+    });
+
+    it('stays a plain list without a click handler', () => {
+        render(<WizardStepProgress steps={steps} />);
+        expect(screen.queryByRole('button', { name: 'Step 3: Details' })).not.toBeInTheDocument();
+        expect(screen.getByRole('listitem', { name: 'Step 2: Region' })).toHaveAttribute('aria-current', 'step');
+    });
+});
+

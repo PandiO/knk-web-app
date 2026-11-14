@@ -141,6 +141,22 @@ it('Publish asks with what changes for staff, then publishes the saved copy', as
     expect(client.getBuilderState).toHaveBeenCalledTimes(2);
 });
 
+it('Publish refuses a "before leaving" step condition without a message; Save keeps it in the draft (#88)', async () => {
+    const working = { ...published, steps: [{ ...published.steps[0], conditions: [{
+        conditionType: 'Completion' as const, errorMessage: '', isActive: true,
+        conditionJson: '{"conditions":[{"fieldName":"Name","operator":"IsNotEmpty"}],"logic":"AND"}',
+    }] }] };
+    client.getBuilderState.mockResolvedValue(state({ configuration: working, hasUnpublishedChanges: true }));
+    client.saveDraft.mockResolvedValue(state({ configuration: working, hasUnpublishedChanges: true }));
+    await renderBuilder();
+
+    await userEvent.click(screen.getByRole('button', { name: /Publish/ }));
+
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Step "General" has a "before leaving" condition without a message'));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(client.publish).not.toHaveBeenCalled();
+});
+
 it('a refused Publish keeps the dialog open with the reason', async () => {
     client.getBuilderState.mockResolvedValue(state({ hasUnpublishedChanges: true }));
     client.publish.mockRejectedValue({ status: 400, response: "Can't publish: Field 'Ghost' is not a property of Town." });

@@ -16,6 +16,8 @@ import { metadataClient } from '../../apiClients/metadataClient';
 import { getManyToManyStepIssues } from '../../utils/forms/manyToManyStepValidation';
 import { DisplayConditionBuilder } from './DisplayConditionBuilder';
 import { fieldsBeforeField, fieldsBeforeStep } from '../../utils/forms/displayConditionSources';
+import { StepConditionBuilder } from './StepConditionBuilder';
+import { orderFormFields } from '../../utils/forms/formVisibility';
 import { DisplayConditionTargetType } from '../../utils/enums';
 
 interface Props {
@@ -542,6 +544,16 @@ export const StepEditor: React.FC<Props> = ({
                         onChange={groups => onUpdate({ ...step, displayConditionGroups: groups })}
                     />
                 )}
+
+                {/* PandiO/knk-workspace#88: Completion / Entry conditions, saved with the step in the draft. */}
+                <StepConditionBuilder
+                    stepLabel={`Step "${step.stepName || 'Untitled'}"`}
+                    conditions={step.conditions || []}
+                    stepFields={orderFormFields(step)}
+                    earlierFields={formConfiguration ? fieldsBeforeStep(formConfiguration, stepIndex) : []}
+                    metadataFields={metadataFields}
+                    onChange={conditions => onUpdate({ ...step, conditions })}
+                />
 
                 <div className="flex items-center">
                     <input

@@ -24,6 +24,21 @@ export interface StepStripOverflow {
     right: boolean;
 }
 
+/**
+ * PandiO/knk-workspace#68: with `onStepClick` every step is a button (the current one carries
+ * `aria-current="step"`). The wizard decides whether the step can be reached and says why not, so a
+ * step that can't be reached yet is still focusable and explains itself when it is activated.
+ */
+export interface WizardStepNavigation {
+    /** Called with the step's position in `steps`. */
+    onStepClick?: (position: number) => void;
+    /** While the form is saving: the steps can't be clicked. */
+    disabled?: boolean;
+}
+
+const stepTitle = (step: WizardStepProgressItem, label: string): string =>
+    step.isCurrent ? `${label} (current step)` : `Go to ${label.charAt(0).toLowerCase()}${label.slice(1)}`;
+
 /** Sub-pixel rounding in scroll metrics would otherwise flash a fade at the strip's ends. */
 const OVERFLOW_TOLERANCE_PX = 2;
 
@@ -58,7 +73,11 @@ export function compactStepLabel(steps: WizardStepProgressItem[]): string {
  * The label is a disclosure button that shows every step as a list under the bar (done, current,
  * still to do), so the whole form can be overseen on a phone too; it closes again on a step change.
  */
-const CompactStepHeader: React.FC<{ steps: WizardStepProgressItem[] }> = ({ steps }) => {
+const CompactStepHeader: React.FC<{ steps: WizardStepProgressItem[] } & WizardStepNavigation> = ({
+    steps,
+    onStepClick,
+    disabled
+}) => {
     const currentIndex = Math.max(0, steps.findIndex(step => step.isCurrent));
     const label = compactStepLabel(steps);
     const percent = steps.length > 0 ? Math.round(((currentIndex + 1) / steps.length) * 100) : 0;
@@ -99,14 +118,11 @@ const CompactStepHeader: React.FC<{ steps: WizardStepProgressItem[] }> = ({ step
                 >
                     {steps.map((step, position) => {
                         const name = step.name?.trim() || `Step ${position + 1}`;
-                        return (
-                            <li
-                                key={step.key}
-                                aria-current={step.isCurrent ? 'step' : undefined}
-                                className={`flex items-center gap-3 px-3 py-2 text-sm ${
-                                    step.isCurrent ? 'bg-primary/5 font-semibold text-fg' : 'text-gray-600'
-                                }`}
-                            >
+                        const rowClass = `flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${
+                            step.isCurrent ? 'bg-primary/5 font-semibold text-fg' : 'text-gray-600'
+                        }`;
+                        const row = (
+                            <>
                                 <span
                                     className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                                         step.isDone
@@ -119,6 +135,26 @@ const CompactStepHeader: React.FC<{ steps: WizardStepProgressItem[] }> = ({ step
                                     {step.isDone ? <Check className="h-3.5 w-3.5" aria-label="done" /> : position + 1}
                                 </span>
                                 <span className="min-w-0 break-words">{name}</span>
+                            </>
+                        );
+                        if (onStepClick) {
+                            return (
+                                <li key={step.key}>
+                                    <button
+                                        type="button"
+                                        aria-current={step.isCurrent ? 'step' : undefined}
+                                        disabled={disabled}
+                                        onClick={() => onStepClick(position)}
+                                        className={`${rowClass} hover:bg-surface-alt focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary disabled:opacity-60`}
+                                    >
+                                        {row}
+                                    </button>
+                                </li>
+                            );
+                        }
+                        return (
+                            <li key={step.key} aria-current={step.isCurrent ? 'step' : undefined} className={rowClass}>
+                                {row}
                             </li>
                         );
                     })}
@@ -134,7 +170,11 @@ const CompactStepHeader: React.FC<{ steps: WizardStepProgressItem[] }> = ({ step
  * scrolls the strip sideways (the current step is kept in view, fades and ‹ › buttons show only on
  * a side that hides steps); below `sm` a compact "Step 3 of 9 · Name" header replaces the circles.
  */
-export const WizardStepProgress: React.FC<{ steps: WizardStepProgressItem[] }> = ({ steps }) => {
+export const WizardStepProgress: React.FC<{ steps: WizardStepProgressItem[] } & WizardStepNavigation> = ({
+    steps,
+    onStepClick,
+    disabled
+}) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const listRef = useRef<HTMLOListElement>(null);
     const currentRef = useRef<HTMLLIElement>(null);
@@ -210,7 +250,7 @@ export const WizardStepProgress: React.FC<{ steps: WizardStepProgressItem[] }> =
 
     return (
         <div className="mx-auto mb-6 w-full max-w-3xl">
-            <CompactStepHeader steps={steps} />
+            <CompactStepHeader steps={steps} onStepClick={onStepClick} disabled={disabled} />
             <div data-testid="wizard-step-circles" className="relative hidden sm:block">
                 <div
                     ref={scrollRef}
@@ -225,38 +265,55 @@ export const WizardStepProgress: React.FC<{ steps: WizardStepProgressItem[] }> =
                         {steps.map((step, position) => {
                             const name = step.name?.trim() || '';
                             const label = name ? `Step ${position + 1}: ${name}` : `Step ${position + 1}`;
+                            const circle = (
+                                <>
+                                    <div
+                                        className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex flex-shrink-0 items-center justify-center text-sm font-semibold transition-colors ${
+                                            step.isDone
+                                                ? 'bg-green-500 text-white'
+                                                : step.isCurrent
+                                                ? 'bg-primary text-primary-fg'
+                                                : 'bg-gray-200 text-gray-600'
+                                        }`}
+                                    >
+                                        {step.isDone ? <Check className="h-4 w-4 md:h-5 md:w-5" /> : position + 1}
+                                    </div>
+                                    {name && (
+                                        <span
+                                            data-testid="wizard-step-name"
+                                            className={`hidden md:block mt-1 max-w-[7rem] truncate text-center text-xs ${
+                                                step.isCurrent ? 'font-semibold text-fg' : 'text-muted'
+                                            }`}
+                                        >
+                                            {name}
+                                        </span>
+                                    )}
+                                </>
+                            );
                             return (
                                 <li
                                     key={step.key}
                                     ref={step.isCurrent ? currentRef : undefined}
-                                    title={name || undefined}
-                                    aria-label={label}
-                                    aria-current={step.isCurrent ? 'step' : undefined}
+                                    title={onStepClick ? undefined : name || undefined}
+                                    aria-label={onStepClick ? undefined : label}
+                                    aria-current={!onStepClick && step.isCurrent ? 'step' : undefined}
                                     className="flex flex-shrink-0 items-start gap-2 md:gap-3 snap-center"
                                 >
-                                    <div className="flex flex-col items-center min-w-0">
-                                        <div
-                                            className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex flex-shrink-0 items-center justify-center text-sm font-semibold transition-colors ${
-                                                step.isDone
-                                                    ? 'bg-green-500 text-white'
-                                                    : step.isCurrent
-                                                    ? 'bg-primary text-primary-fg'
-                                                    : 'bg-gray-200 text-gray-600'
-                                            }`}
+                                    {onStepClick ? (
+                                        <button
+                                            type="button"
+                                            aria-label={label}
+                                            aria-current={step.isCurrent ? 'step' : undefined}
+                                            title={stepTitle(step, label)}
+                                            disabled={disabled}
+                                            onClick={() => onStepClick(position)}
+                                            className="group flex flex-col items-center min-w-0 rounded-md p-0.5 focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-default disabled:opacity-60 [&:not(:disabled)]:hover:opacity-80"
                                         >
-                                            {step.isDone ? <Check className="h-4 w-4 md:h-5 md:w-5" /> : position + 1}
-                                        </div>
-                                        {name && (
-                                            <span
-                                                data-testid="wizard-step-name"
-                                                className={`hidden md:block mt-1 max-w-[7rem] truncate text-center text-xs ${
-                                                    step.isCurrent ? 'font-semibold text-fg' : 'text-muted'
-                                                }`}
-                                            >
-                                                {name}
-                                            </span>
-                                        )}
-                                    </div>
+                                            {circle}
+                                        </button>
+                                    ) : (
+                                        <div className="flex flex-col items-center min-w-0">{circle}</div>
+                                    )}
                                     {position < steps.length - 1 && (
                                         <div
                                             aria-hidden="true"
