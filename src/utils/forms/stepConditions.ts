@@ -176,3 +176,22 @@ export const firstFailedStepCondition = (
 
 export const stepConditionMessage = (condition: StepConditionDto): string =>
     (condition.errorMessage || '').trim() || DEFAULT_STEP_CONDITION_MESSAGE[condition.conditionType];
+
+/**
+ * PandiO/knk-workspace#414: the fields to mark when a condition fails, i.e. the fields of its rules that don't
+ * hold. "All" (AND) marks only the rules that fail; "any" (OR) fails only when every rule fails, so it marks
+ * them all; a single rule marks its field. Empty when the condition holds or its JSON can't be read.
+ */
+export const failedStepConditionFieldNames = (
+    condition: StepConditionDto,
+    stepData: StepData,
+    allStepsData: AllStepsData
+): string[] => {
+    if (ConditionEvaluator.evaluateConditions(condition.conditionJson, stepData, allStepsData)) return [];
+    const parsed = parseStepConditionJson(condition.conditionJson);
+    if (!parsed) return [];
+    const names = parsed.conditions
+        .filter(row => !ConditionEvaluator.evaluateCondition(row, stepData, allStepsData))
+        .map(row => row.fieldName);
+    return Array.from(new Set(names));
+};
