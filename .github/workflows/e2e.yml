@@ -1,0 +1,62 @@
+# End-to-end tests (Playwright, Chromium only) against the production build with a mocked API:
+# every /api request is answered by the specs (e2e/support/mockApi.ts), so no API or database runs
+# here. The HTML report is uploaded on every run, the traces and screenshots when a test fails.
+# PandiO/knk-workspace#423; see knk-workspace docs/guides/developer/ci.md and web-app-testing.md.
+name: End-to-end tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (npm 11)
+        run: npx --yes npm@11 ci
+
+      - name: Type check the specs and mocks
+        run: npm run typecheck:e2e
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Production build
+        run: npm run build
+        env:
+          CI: true
+
+      - name: End-to-end tests
+        run: npx playwright test
+        env:
+          CI: true
+
+      - name: Upload the HTML report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload traces and screenshots of failed tests
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 14
