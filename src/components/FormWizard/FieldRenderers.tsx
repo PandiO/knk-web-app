@@ -174,6 +174,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
                 validationResult={validationResult}
                 pending={validationPending}
                 onRetryValidation={field.isReadOnly ? undefined : onRetryValidation}
+                fieldHasError={!!error}
             />
         </fieldset>
     );
@@ -340,7 +341,17 @@ export const parseListFieldSettings = (settingsJson?: string): { ownedChildColle
     }
 };
 
-const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pending?: boolean; onRetryValidation?: () => void }> = ({ validationResult, pending, onRetryValidation }) => {
+/**
+ * A validation rule's answer under the field. PandiO/knk-workspace#488: while the field shows its message (`fieldHasError`:
+ * required, format, a blocking rule, a step condition), a blocking or unchecked rule's text is not said a second time
+ * here; its Re-check button stays. A warning keeps its own line: it never stops the form.
+ */
+const ValidationFeedback: React.FC<{
+    validationResult?: ValidationResultDto;
+    pending?: boolean;
+    onRetryValidation?: () => void;
+    fieldHasError?: boolean;
+}> = ({ validationResult, pending, onRetryValidation, fieldHasError }) => {
     // KNG-269: a result the API answered from its log of an earlier run says so, with that run's age,
     // and offers a Re-check that runs the rule for real.
     const checkedAgo = validationResult?.metadata?.fromCache ? describeCheckedAgo(validationResult.metadata.executedAt) : null;
@@ -370,6 +381,12 @@ const ValidationFeedback: React.FC<{ validationResult?: ValidationResultDto; pen
     if (!validationResult) return null;
 
     const message = interpolatePlaceholders(validationResult.message, validationResult.placeholders);
+
+    const blocksOrUnchecked = !validationResult.isValid
+        && (validationResult.isBlocking || !!validationResult.metadata?.failureReason);
+    if (fieldHasError && (blocksOrUnchecked || validationResult.isValid)) {
+        return retryButton ? <div className="flex items-center justify-end text-xs">{checkedNote}{retryButton}</div> : null;
+    }
 
     if (validationResult.isValid) {
         if (!message) return null;
@@ -780,13 +797,14 @@ const BooleanField: React.FC<FieldRendererProps> = ({ field, value, onChange, er
                 {field.label}
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
-            {error && <p className="ml-2 text-sm field-error">{error}</p>}
         </div>
         {field.description && (
             <p id={`${field.fieldName}-description`} className="ml-6 mt-1 text-xs text-muted">
                 {field.description}
             </p>
         )}
+        {/* #488: under the field, like every other field type's message (it was next to the label). */}
+        {error && <p className="mt-1 text-sm field-error">{error}</p>}
     </div>
 );
 

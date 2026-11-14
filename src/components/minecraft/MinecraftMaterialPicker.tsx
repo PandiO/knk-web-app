@@ -115,7 +115,7 @@ export const MinecraftMaterialPicker: React.FC<MinecraftMaterialPickerProps> = (
                 showSelectionBanner={false}
             />
 
-            {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+            {error && <p className="mt-1 text-sm field-error">{error}</p>}
         </div>
     );
 };

@@ -71,7 +71,8 @@ import {
     classifyRuleResult,
     manyToManyEntryIssues,
     StepConditionMark,
-    stepJumpIssueText
+    stepJumpIssueText,
+    refusalToastText
 } from '../../utils/forms/stepJumpCheck';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { withManyToManyCarrierFields } from '../../utils/forms/manyToManyCarrierField';
@@ -160,10 +161,10 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     // Submit / Save changes. The progress save behind Next does not re-take it (link 5 fix round).
     const [dirtyBaseline, setDirtyBaseline] = useState<string | null>(null);
     const valuesSnapshotRef = useRef<string>('');
-    // PandiO/knk-workspace#88: a failed step condition, said above the Next/Submit button (and in a toast).
-    const [conditionError, setConditionError] = useState<string | null>(null);
-    // PandiO/knk-workspace#414: the failed conditions whose fields the step marks, while they still fail.
-    const [conditionMarks, setConditionMarks] = useState<{ stepIndex: number; marks: StepConditionMark[] } | null>(null);
+    // PandiO/knk-workspace#488: what stopped Next, Submit or a jump on this step beyond a field's own message: the
+    // failed step conditions (#88; their fields are marked, #414) and a many-to-many step's entries. Both are
+    // worked out again on every render from the values as they are now, so they go away as soon as they hold.
+    const [stepIssues, setStepIssues] = useState<{ stepIndex: number; marks: StepConditionMark[]; entries: boolean } | null>(null);
     // PandiO/knk-workspace#68: what a click on a step in the progress strip found.
     const [jumpFeedback, setJumpFeedback] = useState<{
         status: 'error' | 'info';
@@ -1036,21 +1037,37 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     // message shows on its field. Worked out on every render from the values as they are now, so a mark
     // goes away as soon as the condition holds. A field's own error comes first.
     const conditionFieldErrors: { [fieldName: string]: string } = {};
-    if (conditionMarks && conditionMarks.stepIndex === currentStepIndex) {
+    // PandiO/knk-workspace#488: the summary at the top lists each problem once: the fields' own messages, then each
+    // failed condition (linked to the first field it marks; text only when it reads no field of this step) and the
+    // many-to-many entries (linked to the entries).
+    const stepLevelSummaryItems: FormErrorSummaryItem[] = [];
+    if (stepIssues && stepIssues.stepIndex === currentStepIndex) {
         const liveData: AllStepsData = { ...allStepsData, [currentStepIndex]: currentStepData };
-        conditionMarks.marks.forEach(({ condition, entryOf }) => {
+        stepIssues.marks.forEach(({ condition, entryOf }, index) => {
             const stepData = entryOf === undefined ? currentStepData : (liveData[entryOf] || {});
-            failedStepConditionFieldNames(condition, stepData, liveData).forEach(fieldName => {
-                if (visibleFieldNamesForCurrentStep.has(fieldName) && !conditionFieldErrors[fieldName]) {
-                    conditionFieldErrors[fieldName] = stepConditionMessage(condition);
-                }
+            if (ConditionEvaluator.evaluateConditions(condition.conditionJson, stepData, liveData)) return;
+            const message = stepConditionMessage(condition);
+            const marked = failedStepConditionFieldNames(condition, stepData, liveData)
+                .filter(fieldName => visibleFieldNamesForCurrentStep.has(fieldName));
+            marked.forEach(fieldName => {
+                if (!conditionFieldErrors[fieldName]) conditionFieldErrors[fieldName] = message;
             });
+            stepLevelSummaryItems.push({ key: `condition-${index}`, fieldName: marked[0], message });
         });
+        if (stepIssues.entries && currentStep?.isManyToManyRelationship) {
+            const propertyName = currentStep.relatedEntityPropertyName || 'relationships';
+            manyToManyEntryIssues(currentStep, currentStepData[propertyName]).forEach((issue, index) => {
+                stepLevelSummaryItems.push({ key: `entry-${index}`, fieldName: propertyName, message: stepJumpIssueText(issue) });
+            });
+        }
     }
     const errorSummaryItems: FormErrorSummaryItem[] = showErrorSummary
-        ? visibleOrderedFields
-            .filter(field => !!errors[field.fieldName])
-            .map(field => ({ fieldName: field.fieldName, label: field.label, message: errors[field.fieldName] }))
+        ? [
+            ...visibleOrderedFields
+                .filter(field => !!errors[field.fieldName])
+                .map(field => ({ key: `field-${field.fieldName}`, fieldName: field.fieldName, message: errors[field.fieldName] })),
+            ...stepLevelSummaryItems
+        ]
         : [];
 
     // PandiO/knk-workspace#68: a pre-filled form (an entity being edited, a resumed draft) gets its rules run
@@ -2479,7 +2496,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         setErrorSummaryKey(key => key + 1);
     };
 
-    const validateStep = (): boolean => {
+    /** The current step's field messages (required, format, a blocking rule's last answer), shown on the fields. */
+    const validateStep = (): { [fieldName: string]: string } => {
         const newErrors: { [fieldName: string]: string } = {};
         let isValid = true;
 
@@ -2523,7 +2541,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             setError(null);
             setShowErrorSummary(false);
         }
-        return isValid;
+        return newErrors;
     };
 
     const getProgressData = (): FormSubmissionProgressDto | null => {
@@ -2747,23 +2765,28 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         return null;
     };
 
-    // A failed step condition: above the Next/Submit button and in the banner (they stay), and a toast.
-    const refuseForCondition = (message: string) => {
-        setConditionError(message);
-        setError(message);
-        logging.errorHandler.next(message);
+    /**
+     * PandiO/knk-workspace#488: a refused Next, Submit or Save. Every kind of failure shows in the same three
+     * places: once in the summary at the top, once on its field (or only in the summary when it has no field on
+     * this step), and one toast. Nothing above the button and no banner: the banner is for a save that failed.
+     */
+    const refuseOnStep = (issues: StepJumpIssue[]) => {
+        showIssuesOnStep(issues, currentStepIndex);
+        logging.errorHandler.next(refusalToastText(issues));
     };
 
     const advance = async (submitNow: boolean) => {
-        if (!validateStep()) {
-            refuseWithSummary();
-            return;
+        setStepIssues(null);
+        // The checks that need no request, together, so the summary lists them all at once (#488): the fields
+        // (required, format, a blocking rule's last answer), a many-to-many step's entries, and the step's
+        // completion condition. A condition is active unless the API says it was switched off (KNG-186).
+        const fieldErrors = validateStep();
+        const issues: StepJumpIssue[] = visibleOrderedFields
+            .filter(field => !!fieldErrors[field.fieldName])
+            .map(field => ({ fieldName: field.fieldName, label: field.label, message: fieldErrors[field.fieldName] }));
+        if (currentStep?.isManyToManyRelationship) {
+            issues.push(...manyToManyEntryIssues(currentStep, currentStepData[currentStep.relatedEntityPropertyName || 'relationships']));
         }
-
-        // Step completion conditions. A condition is active unless the API says it was switched off
-        // (KNG-186: the API sent false for every condition until 2026-10-23, so none ever ran).
-        setConditionError(null);
-        setConditionMarks(null);
         const failedCompletion = firstFailedStepCondition(
             currentStep,
             'Completion',
@@ -2771,8 +2794,10 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             { ...allStepsData, [currentStepIndex]: currentStepData }
         );
         if (failedCompletion) {
-            setConditionMarks({ stepIndex: currentStepIndex, marks: [{ condition: failedCompletion }] });
-            refuseForCondition(stepConditionMessage(failedCompletion));
+            issues.push({ message: stepConditionMessage(failedCompletion), condition: { condition: failedCompletion } });
+        }
+        if (issues.length > 0) {
+            refuseOnStep(issues);
             return;
         }
 
@@ -2790,20 +2815,20 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         const validationResultsForStep = await runValidationsForStep(currentStep!, updatedAllData, currentStepIndex);
         const blockingResults = validationResultsForStep.filter(r => !r.result.isValid && r.result.isBlocking);
         if (blockingResults.length > 0) {
-            setError('Please resolve validation errors before continuing.');
-            // #109: the rule's message on its field and in the summary.
-            setErrors(prev => {
-                const next = { ...prev };
-                blockingResults.forEach(({ fieldId, result }) => {
-                    const field = currentStep!.fields.find(f => Number(f.id) === fieldId);
-                    if (field) {
-                        next[field.fieldName] =
-                            interpolatePlaceholders(result.message, result.placeholders) || `${field.label} failed validation`;
-                    }
-                });
-                return next;
+            // #109: the rule's message on its field and in the summary; a rule that could not be checked too,
+            // since it holds Next back (#488).
+            const ruleIssues: StepJumpIssue[] = [];
+            blockingResults.forEach(({ fieldId, result }) => {
+                const field = currentStep!.fields.find(f => Number(f.id) === fieldId);
+                if (field && visibleFieldNamesForCurrentStep.has(field.fieldName)) {
+                    ruleIssues.push({
+                        fieldName: field.fieldName,
+                        label: field.label,
+                        message: interpolatePlaceholders(result.message, result.placeholders) || `${field.label} failed validation`
+                    });
+                }
             });
-            refuseWithSummary();
+            refuseOnStep(ruleIssues.length > 0 ? ruleIssues : [{ message: 'A check on this step failed.' }]);
             return;
         }
 
@@ -2825,8 +2850,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 updatedAllData
             );
             if (failedEntry) {
-                setConditionMarks({ stepIndex: currentStepIndex, marks: [{ condition: failedEntry, entryOf: nextIndex }] });
-                refuseForCondition(stepConditionMessage(failedEntry));
+                refuseOnStep([{ message: stepConditionMessage(failedEntry), condition: { condition: failedEntry, entryOf: nextIndex } }]);
                 return;
             }
         }
@@ -2837,9 +2861,10 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 // Show the step that holds the problem, with its messages.
                 setCurrentStepIndex(invalid.stepIndex);
                 setCurrentStepData(invalid.stepData);
+                setStepIssues(null);
                 setErrors(invalid.errors);
-                setError(`Fix "${config!.steps[invalid.stepIndex].stepName}" before saving.`);
                 refuseWithSummary();
+                logging.errorHandler.next(`Fix "${config!.steps[invalid.stepIndex].stepName}" before saving.`);
                 return;
             }
         }
@@ -2949,8 +2974,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
     // Going back never checks anything: the current step's values are kept as they are.
     const goToEarlierStep = (targetIndex: number) => {
         setError(null);
-        setConditionError(null);
-        setConditionMarks(null);
+        setStepIssues(null);
         // Persist normalized current step before going back
         const syncedAllData = syncSharedFieldValues(
             config!,
@@ -3027,8 +3051,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         const unavailable: StepJumpNote[] = [];
         let stop: { position: number; stepIndex: number; issues: StepJumpIssue[] } | null = null;
 
-        setConditionError(null);
-        setConditionMarks(null);
+        setStepIssues(null);
         for (let position = 0; position < path.length - 1 && !stop; position++) {
             const stepIndex = path[position];
             const step = cfg.steps[stepIndex];
@@ -3165,20 +3188,19 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         });
     };
 
-    // What stopped a jump, shown on the step it stopped at: field messages on their fields and in the
-    // summary, step-level ones (a condition, a many-to-many entry) above the Next button, and a condition's
-    // message on the fields it reads too (#414).
+    // What stopped Next, Submit or a jump, shown on the step it stopped at (#488), the same way for every kind:
+    // a field's message on its field and in the summary; a condition in the summary and on the fields it reads
+    // (#414); a many-to-many entry in the summary. A jump that stopped says so in its dialog instead of a toast.
     const showIssuesOnStep = (issues: StepJumpIssue[], stepIndex: number) => {
         const marks = issues.flatMap(issue => (issue.condition ? [issue.condition] : []));
-        setConditionMarks(marks.length > 0 ? { stepIndex, marks } : null);
+        const entries = issues.some(issue => !issue.fieldName && !issue.condition);
+        setStepIssues(marks.length > 0 || entries ? { stepIndex, marks, entries } : null);
         const fieldErrors: { [fieldName: string]: string } = {};
         issues.forEach(issue => {
             if (issue.fieldName && !fieldErrors[issue.fieldName]) fieldErrors[issue.fieldName] = issue.message;
         });
-        const stepLevel = issues.filter(issue => !issue.fieldName).map(stepJumpIssueText);
         setErrors(fieldErrors);
-        setConditionError(stepLevel.length > 0 ? stepLevel.join(' ') : null);
-        if (Object.keys(fieldErrors).length > 0) {
+        if (issues.length > 0) {
             refuseWithSummary();
         } else {
             setShowErrorSummary(false);
@@ -3248,7 +3270,8 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
             <div className="px-6 md:px-8 py-6 md:py-8 space-y-6">
                 <FormErrorSummary items={errorSummaryItems} focusKey={errorSummaryKey} />
                 {currentStep.isManyToManyRelationship ? (
-                    /* Many-to-Many Relationship Step */
+                    /* Many-to-Many Relationship Step; the summary's entry items link here (#488). */
+                    <div id={wizardFieldContainerId(currentStep.relatedEntityPropertyName || 'relationships')}>
                     <ManyToManyRelationshipEditor
                         step={currentStep}
                         value={currentStepData[currentStep.relatedEntityPropertyName || 'relationships'] || []}
@@ -3263,6 +3286,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         validationResults={validationResults}
                         onValidateField={handleValidateJoinEntityField}
                     />
+                    </div>
                 ) : (
                     /* Standard Field-Based Step */
                     visibleOrderedFields.map(field => {
@@ -3490,17 +3514,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                 }}
                 className="sticky bottom-0 z-20 rounded-b-lg border-t border-line bg-surface/95 px-6 md:px-8 py-3 shadow-[0_-4px_8px_-6px_rgba(0,0,0,0.15)]"
             >
-                {/* PandiO/knk-workspace#88: a failed step condition stays here after its toast is gone. */}
-                {conditionError && (
-                    <p
-                        role="alert"
-                        data-testid="wizard-condition-error"
-                        className="mb-2 flex items-start gap-2 text-sm text-danger-strong md:justify-end"
-                    >
-                        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-danger" aria-hidden="true" />
-                        <span>{conditionError}</span>
-                    </p>
-                )}
+                {/* PandiO/knk-workspace#488: no message above the buttons; the summary at the top lists what stopped Next. */}
                 <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-between">
                     <div className="flex flex-col gap-2 md:flex-row md:items-center">
                         {footerStart}
