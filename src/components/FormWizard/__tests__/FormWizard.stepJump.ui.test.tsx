@@ -443,6 +443,43 @@ describe('FormWizard step jump dialog with a slow or failing save (#413)', () =>
         expect(formSubmissionClient.create).toHaveBeenCalledTimes(1);
     });
 
+    // Retest 2026-11-14: Go to, back to step 1, click step 3 again: the dialog opened with every button disabled.
+    // React's StrictMode (the dev server) left the dialog's "busy" state set after Go to.
+    it.each([
+        ['', false],
+        [' (StrictMode, as on the dev server)', true]
+    ])('Go to, back to step 1, jump again: the dialog works again%s', async (_label, strict) => {
+        (formSubmissionClient.create as jest.Mock).mockImplementation(async (dto: Record<string, unknown>) => ({ ...dto, id: '55' }));
+        (formSubmissionClient.update as jest.Mock).mockImplementation(async (dto: Record<string, unknown>) => dto);
+        useConfig(buildConfig({ regionRequired: true }));
+        const ui = <FormWizard entityName="District" />;
+        render(strict ? <React.StrictMode>{ui}</React.StrictMode> : ui);
+        await typeName('Old Quarter');
+
+        fireEvent.click(within(await openJumpDialog()).getByRole('button', { name: 'Go to Region' }));
+        await onStep('Region');
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+
+        fireEvent.click(screen.getByRole('button', { name: /^previous$/i }));
+        await onStep('Basics');
+
+        let dialog = await openJumpDialog();
+        expect(within(dialog).getByRole('button', { name: 'Close dialog' })).toBeEnabled();
+        expect(within(dialog).getByRole('button', { name: 'Close' })).toBeEnabled();
+        expect(within(dialog).getByRole('button', { name: 'Go to Region' })).toBeEnabled();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+
+        // And by the strip, Go to once more.
+        dialog = await openJumpDialog();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Go to Region' }));
+        await onStep('Region');
+        fireEvent.click(stepButton('Step 1: Basics'));
+        await onStep('Basics');
+        dialog = await openJumpDialog();
+        expect(within(dialog).getByRole('button', { name: 'Go to Region' })).toBeEnabled();
+    });
+
     it('a failed save behind Go to says so in the banner, and the next Next saves again', async () => {
         (formSubmissionClient.create as jest.Mock).mockRejectedValueOnce(new Error('API down'));
         await startOnBasics();
