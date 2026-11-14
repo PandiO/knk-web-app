@@ -79,3 +79,12 @@ export const manyToManyEntryIssues = (step: FormStepDto, entries: unknown): Step
 /** "Region: Region is required" / a step-level message as it is. */
 export const stepJumpIssueText = (issue: StepJumpIssue): string =>
     issue.label && !issue.message.startsWith(issue.label) ? `${issue.label}: ${issue.message}` : issue.message;
+
+/**
+ * PandiO/knk-workspace#488: the one toast of a refused Next, Submit or Save. One problem says what it is; more say
+ * how many, and the summary at the top lists them.
+ */
+export const refusalToastText = (issues: StepJumpIssue[]): string =>
+    issues.length === 1
+        ? stepJumpIssueText(issues[0])
+        : `Fix the ${issues.length} problems on this step to continue.`;

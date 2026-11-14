@@ -7,6 +7,7 @@ import { fieldValidationRuleClient } from '../../../apiClients/fieldValidationRu
 import { getFetchByIdFunctionForEntity } from '../../../utils/entityApiMapping';
 import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../../../types/dtos/forms/FormModels';
 import { FieldType } from '../../../utils/enums';
+import { logging } from '../../../utils';
 
 // KNG-164: a required List field let Next/Submit through with an empty list and never read
 // minSelection/maxSelection, so "a Street needs at least one District" wasn't enforced.
@@ -112,6 +113,23 @@ describe('FormWizard required / min / max List (KNG-164)', () => {
         expect(screen.getByRole('link', { name: 'Districts is required: select at least 1 District' })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /^submit$/i })).not.toBeInTheDocument();
         expect(formSubmissionClient.create).not.toHaveBeenCalled();
+    });
+
+    it('a required list (#488): once in the summary, once under the field, one toast, nothing above Next', async () => {
+        const toasts = jest.spyOn(logging.errorHandler, 'next').mockImplementation(() => undefined);
+        (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue(streetConfig());
+        render(<FormWizard entityName="Street" />);
+        fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'High Street' } });
+        clickNext();
+
+        const message = 'Districts is required: select at least 1 District';
+        expect(await screen.findByRole('link', { name: message })).toBeInTheDocument();
+        expect(screen.getAllByText(message)).toHaveLength(2);
+        expect(screen.getByText(message, { selector: 'p' })).toHaveClass('field-error');
+        expect(toasts).toHaveBeenCalledTimes(1);
+        expect(toasts).toHaveBeenCalledWith(message);
+        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
+        toasts.mockRestore();
     });
 
     it('blocks Next when the list holds [] (the bug: [] counted as present)', async () => {

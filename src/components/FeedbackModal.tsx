@@ -74,8 +74,22 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 }) => {
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
     const [busy, setBusy] = useState(false);
+    // PandiO/knk-workspace#413: set again in the effect, not only in useRef: React's StrictMode (`npm start`)
+    // mounts, unmounts and mounts every component once more, and a cleanup-only effect left this false for good,
+    // so `busy` was never cleared after the first action and the next opening had every button disabled.
     const mounted = useRef(true);
-    useEffect(() => () => { mounted.current = false; }, []);
+    useEffect(() => {
+        mounted.current = true;
+        return () => { mounted.current = false; };
+    }, []);
+    // Each opening is a new question: an action still running from an earlier opening neither keeps the buttons
+    // disabled nor closes this one when it ends (#413). The parent may close the dialog before its action ends.
+    const opening = useRef(0);
+    useEffect(() => {
+        if (!open) return;
+        opening.current += 1;
+        setBusy(false);
+    }, [open]);
     // With a details button in the body, focus still starts on the footer's first button (#44).
     const firstFooterButton = useRef<HTMLButtonElement>(null);
 
@@ -113,16 +127,18 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
     const handleContinue = async () => {
         if (busy) return;
+        const thisOpening = opening.current;
+        const current = () => mounted.current && opening.current === thisOpening;
         setBusy(true);
         try {
             if (onContinue) {
                 await onContinue();
             }
-            onClose();
+            if (current()) onClose();
         } catch {
             // Keep modal open to show error feedback set by parent
         } finally {
-            if (mounted.current) setBusy(false);
+            if (current()) setBusy(false);
         }
     };
 
@@ -203,7 +219,10 @@ const DetailsDisclosure: React.FC<{ details: FeedbackDetails }> = ({ details }) 
     const [state, setState] = useState<DetailsState>({ kind: 'idle' });
     const regionId = useId();
     const alive = useRef(true);
-    useEffect(() => () => { alive.current = false; }, []);
+    useEffect(() => {
+        alive.current = true;
+        return () => { alive.current = false; };
+    }, []);
 
     const load = async () => {
         setState({ kind: 'loading' });
