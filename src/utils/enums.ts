@@ -117,6 +117,7 @@ export enum Controllers {
     PrivateMessageLog = 'private-message-log',
     PermissionGroups = 'PermissionGroups',
     PermissionHolders = 'PermissionHolders',
+    PermissionGrants = 'PermissionGrants',
     // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.3)
     LootboxTypes = 'LootboxTypes',
     LootboxSpecialEntries = 'LootboxSpecialEntries',
