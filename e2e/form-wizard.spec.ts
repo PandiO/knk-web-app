@@ -42,7 +42,7 @@ test.beforeEach(async ({ page, api }) => {
 test('a required field blocks the next step', async ({ page, api }) => {
   await page.getByRole('button', { name: 'Next' }).click();
 
-  const summary = page.getByRole('alert').filter({ hasText: 'Fix this field to continue' });
+  const summary = page.getByRole('alert').filter({ hasText: 'Fix this problem to continue' });
   await expect(summary).toBeVisible();
   // The summary links to the field, and the field shows the same message under it.
   await expect(summary.getByRole('link', { name: 'Name is required' })).toHaveAttribute('href', '#wizard-field-Name');
