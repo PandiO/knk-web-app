@@ -143,6 +143,8 @@ const stepButton = (label: string) => screen.getByRole('button', { name: label }
 const onStep = (name: string) => waitFor(() => expect(screen.getByRole('heading', { level: 2, name })).toBeInTheDocument());
 const typeName = async (value: string) => fireEvent.change(await screen.findByLabelText(/^name/i), { target: { value } });
 const jumpDialog = () => screen.getByTestId('wizard-jump-feedback');
+/** The summary at the top of the step (#109, #488). */
+const summary = () => screen.getByRole('alert', { name: /^fix (this problem|these \d+ problems) to continue$/i });
 
 describe('FormWizard step jump (#68) and Entry conditions (#88)', () => {
     let toasts: jest.SpyInstance;
@@ -224,8 +226,9 @@ describe('FormWizard step jump (#68) and Entry conditions (#88)', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Go to Region' }));
 
         await onStep('Region');
-        // The reason stays on the step, above the Next button.
-        expect(screen.getByTestId('wizard-condition-error')).toHaveTextContent(ALLOW_MESSAGE);
+        // The reason stays on the step: in the summary and on the field it reads, not above the Next button (#488).
+        expect(within(summary()).getByRole('link', { name: ALLOW_MESSAGE })).toBeInTheDocument();
+        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
         await waitFor(() => expect(screen.queryByTestId('wizard-jump-feedback')).not.toBeInTheDocument());
     });
 
@@ -302,7 +305,10 @@ describe('FormWizard step jump (#68) and Entry conditions (#88)', () => {
         fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
 
         await waitFor(() => expect(toasts).toHaveBeenCalledWith(ENTRY_MESSAGE));
-        expect(screen.getByTestId('wizard-condition-error')).toHaveTextContent(ENTRY_MESSAGE);
+        // Name is not on this step: the summary says it, as text (#488).
+        expect(within(summary()).getByText(ENTRY_MESSAGE)).toBeInTheDocument();
+        expect(within(summary()).queryByRole('link')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
         expect(screen.getByRole('heading', { level: 2, name: 'Region' })).toBeInTheDocument();
 
         // With a name it opens.
@@ -310,10 +316,10 @@ describe('FormWizard step jump (#68) and Entry conditions (#88)', () => {
         await typeName('Old Quarter');
         fireEvent.click(stepButton('Step 3: Details'));
         await onStep('Details');
-        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
-    it('Next: a failed Completion condition is shown above the button as well as in the toast', async () => {
+    it('Next: a failed Completion condition is shown in the summary, on its field and in one toast', async () => {
         useConfig(buildConfig({ regionConditions: [mustAllowEntry] }));
         render(<FormWizard entityName="District" />);
         await typeName('Old Quarter');
@@ -322,12 +328,14 @@ describe('FormWizard step jump (#68) and Entry conditions (#88)', () => {
 
         fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
         await waitFor(() => expect(toasts).toHaveBeenCalledWith(ALLOW_MESSAGE));
-        expect(screen.getByTestId('wizard-condition-error')).toHaveTextContent(ALLOW_MESSAGE);
+        expect(toasts).toHaveBeenCalledTimes(1);
+        expect(within(summary()).getByRole('link', { name: ALLOW_MESSAGE })).toBeInTheDocument();
+        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('checkbox'));
         fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
         await onStep('Details');
-        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
     it('a resumed draft runs the rules of every step once when it has loaded', async () => {
@@ -439,7 +447,7 @@ describe('FormWizard step jump dialog with a slow or failing save (#413)', () =>
         await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
         // The field that stopped the jump is marked, with the summary.
         expect(screen.getAllByText('Region is required').length).toBeGreaterThan(0);
-        expect(screen.getByText('Fix this field to continue')).toBeInTheDocument();
+        expect(screen.getByText('Fix this problem to continue')).toBeInTheDocument();
         expect(formSubmissionClient.create).toHaveBeenCalledTimes(1);
     });
 
@@ -551,8 +559,8 @@ describe('FormWizard: a failed step condition marks its fields (#414)', () => {
 
         await waitFor(() => expectMarked('AllowEntry', ALLOW_MESSAGE));
         expectNotMarked('Region', ALLOW_MESSAGE);
-        // The step-level message stays above the button as before.
-        expect(screen.getByTestId('wizard-condition-error')).toHaveTextContent(ALLOW_MESSAGE);
+        // Nothing above the button any more (#488).
+        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('checkbox'));
         expectNotMarked('AllowEntry', ALLOW_MESSAGE);

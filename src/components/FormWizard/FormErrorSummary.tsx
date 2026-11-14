@@ -2,8 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import { AlertCircle } from 'lucide-react';
 
 export interface FormErrorSummaryItem {
-    fieldName: string;
-    label: string;
+    key: string;
+    /** The field the item links to; without one (a condition that reads no field of this step) it is text. */
+    fieldName?: string;
     message: string;
 }
 
@@ -30,7 +31,8 @@ interface Props {
 }
 
 /**
- * #109 (CRUD-8): what keeps the step from going on, each item a link to its field. Takes the focus
+ * #109 (CRUD-8): what keeps the step from going on, each item a link to its field. PandiO/knk-workspace#488: every
+ * kind of problem is listed here once (a field's message, a failed step condition, a many-to-many entry). Takes the focus
  * when a Next or Save was refused, so a screen reader reads it and the page scrolls to it.
  */
 export const FormErrorSummary: React.FC<Props> = ({ items, focusKey }) => {
@@ -59,21 +61,25 @@ export const FormErrorSummary: React.FC<Props> = ({ items, focusKey }) => {
                 <AlertCircle className="mr-2 mt-0.5 h-5 w-5 flex-shrink-0 text-danger" aria-hidden="true" />
                 <div>
                     <h2 id="wizard-error-summary-title" className="text-sm font-semibold text-danger-strong">
-                        {items.length === 1 ? 'Fix this field to continue' : `Fix these ${items.length} fields to continue`}
+                        {items.length === 1 ? 'Fix this problem to continue' : `Fix these ${items.length} problems to continue`}
                     </h2>
                     <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-danger-strong">
-                        {items.map(item => (
-                            <li key={item.fieldName}>
-                                <a
-                                    href={`#${wizardFieldContainerId(item.fieldName)}`}
-                                    className="underline hover:text-red-900"
-                                    onClick={event => {
-                                        event.preventDefault();
-                                        focusWizardField(item.fieldName);
-                                    }}
-                                >
-                                    {item.message}
-                                </a>
+                        {items.map(({ key, fieldName, message }) => (
+                            <li key={key}>
+                                {fieldName ? (
+                                    <a
+                                        href={`#${wizardFieldContainerId(fieldName)}`}
+                                        className="underline hover:text-red-900"
+                                        onClick={event => {
+                                            event.preventDefault();
+                                            focusWizardField(fieldName);
+                                        }}
+                                    >
+                                        {message}
+                                    </a>
+                                ) : (
+                                    message
+                                )}
                             </li>
                         ))}
                     </ul>
