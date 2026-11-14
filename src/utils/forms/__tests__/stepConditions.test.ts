@@ -3,6 +3,7 @@ import { ConditionOperator, FieldType } from '../../enums';
 import {
     defaultStepConditionValue,
     describeStepCondition,
+    failedStepConditionFieldNames,
     firstFailedStepCondition,
     parseStepConditionJson,
     serializeStepCondition,
@@ -144,5 +145,45 @@ describe('firstFailedStepCondition', () => {
         });
         expect(firstFailedStepCondition(step([entry]), 'Entry', {}, { 0: { Name: '' } })).toBe(entry);
         expect(firstFailedStepCondition(step([entry]), 'Entry', {}, { 0: { Name: 'Castle' } })).toBeNull();
+    });
+});
+
+describe('failedStepConditionFieldNames (PandiO/knk-workspace#414)', () => {
+    const rows = (logic: 'AND' | 'OR') => condition({
+        conditionJson: serializeStepCondition([
+            { fieldName: 'Region', operator: ConditionOperator.IsNotEmpty, value: null },
+            { fieldName: 'AllowEntry', operator: ConditionOperator.Equals, value: true }
+        ], logic)
+    });
+
+    it('a single rule that fails names its field', () => {
+        const single = condition({
+            conditionJson: serializeStepCondition([{ fieldName: 'Name', operator: ConditionOperator.IsNotEmpty, value: null }])
+        });
+        expect(failedStepConditionFieldNames(single, { Name: '' }, {})).toEqual(['Name']);
+        expect(failedStepConditionFieldNames(single, { Name: 'Old Quarter' }, {})).toEqual([]);
+    });
+
+    it('all (AND): only the rules that fail', () => {
+        expect(failedStepConditionFieldNames(rows('AND'), { Region: null, AllowEntry: true }, {})).toEqual(['Region']);
+        expect(failedStepConditionFieldNames(rows('AND'), { Region: null, AllowEntry: false }, {})).toEqual(['Region', 'AllowEntry']);
+        expect(failedStepConditionFieldNames(rows('AND'), { Region: 'r', AllowEntry: true }, {})).toEqual([]);
+    });
+
+    it('any (OR): every field when all fail, none when one holds', () => {
+        expect(failedStepConditionFieldNames(rows('OR'), { Region: null, AllowEntry: false }, {})).toEqual(['Region', 'AllowEntry']);
+        expect(failedStepConditionFieldNames(rows('OR'), { Region: null, AllowEntry: true }, {})).toEqual([]);
+    });
+
+    it('a rule on an earlier step reads its value from there', () => {
+        const earlier = condition({
+            conditionJson: serializeStepCondition([{ fieldName: 'Name', operator: ConditionOperator.IsNotEmpty, value: null, fromPreviousStep: true }])
+        });
+        expect(failedStepConditionFieldNames(earlier, {}, { 0: { Name: '' } })).toEqual(['Name']);
+        expect(failedStepConditionFieldNames(earlier, {}, { 0: { Name: 'x' } })).toEqual([]);
+    });
+
+    it('JSON it cannot read marks nothing', () => {
+        expect(failedStepConditionFieldNames(condition({ conditionJson: 'not json' }), {}, {})).toEqual([]);
     });
 });

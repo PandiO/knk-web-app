@@ -22,8 +22,14 @@ branches, issue, plan and tracker.
 - Test (watch mode): `npm test`
 - Test (CI, non-interactive): `npm run test:ci`
 - Coverage: `npm run test:coverage`
-- E2E tests (Cypress): `npm run test:e2e` (or `npm run cypress:open` for the
-  interactive runner)
+- E2E tests (Playwright, in `next` since PandiO/knk-workspace#423; Cypress
+  until then): `npm run test:e2e` builds and runs `e2e/*.spec.ts` in
+  Chromium against `build/` with a mocked API; `npx playwright test` reuses
+  the build, `npm run test:e2e:ui` opens the UI mode, `npm run typecheck:e2e`
+  checks the DTO-typed mocks. In a cloud session set
+  `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium` (don't run
+  `playwright install` there) and pass `--trace off` unless debugging.
+  Guide: knk-workspace `docs/guides/developer/web-app-testing.md` § 3.
 - Lint: there is no dedicated `npm run lint` script. ESLint runs
   automatically during `npm start`/`npm run build` via the `eslintConfig`
   block embedded in `package.json` (extends `react-app`, `react-app/jest`,

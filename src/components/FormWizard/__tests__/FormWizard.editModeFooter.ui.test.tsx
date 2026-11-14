@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FormWizard } from '../FormWizard';
+import { logging } from '../../../utils';
 import { formConfigClient } from '../../../apiClients/formConfigClient';
 import { formSubmissionClient } from '../../../apiClients/formSubmissionClient';
 import { fieldValidationRuleClient } from '../../../apiClients/fieldValidationRuleClient';
@@ -138,7 +139,7 @@ describe('FormWizard footer, dirty flag and validation (#109)', () => {
         fireEvent.click(within(footer()).getByRole('button', { name: /^next$/i }));
 
         const summary = await screen.findByRole('alert');
-        expect(within(summary).getByText('Fix this field to continue')).toBeInTheDocument();
+        expect(within(summary).getByText('Fix this problem to continue')).toBeInTheDocument();
         await waitFor(() => expect(summary).toHaveFocus());
         fireEvent.click(within(summary).getByRole('link', { name: 'Name is required' }));
         expect(screen.getByLabelText(/^Name/)).toHaveFocus();
@@ -181,6 +182,7 @@ describe('FormWizard footer, dirty flag and validation (#109)', () => {
         });
 
         it('shows the step that would refuse the save instead of saving', async () => {
+            const toasts = jest.spyOn(logging.errorHandler, 'next').mockImplementation(() => undefined);
             (getFetchByIdFunctionForEntity as jest.Mock).mockReturnValue(jest.fn().mockResolvedValue({ ...entity, motto: '' }));
             const onComplete = jest.fn();
             render(<FormWizard entityName="town" entityId="4" onComplete={onComplete} />);
@@ -191,9 +193,12 @@ describe('FormWizard footer, dirty flag and validation (#109)', () => {
             const summary = await screen.findByRole('alert');
             expect(within(summary).getByRole('link', { name: 'Motto is required' })).toBeInTheDocument();
             expect(screen.getByLabelText(/^Motto/)).toBeInTheDocument();
-            expect(screen.getByText('Fix "Details" before saving.')).toBeInTheDocument();
+            // #488: said in the toast; no banner.
+            expect(toasts).toHaveBeenCalledWith('Fix "Details" before saving.');
+            expect(screen.queryByText('Fix "Details" before saving.')).not.toBeInTheDocument();
             await act(async () => undefined);
             expect(onComplete).not.toHaveBeenCalled();
+            toasts.mockRestore();
             // The last step submits as before: no extra Save button there.
             expect(screen.queryByRole('button', { name: /save changes/i })).not.toBeInTheDocument();
         });

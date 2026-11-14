@@ -27,6 +27,28 @@ the app sends API calls with `credentials: 'include'`. Serve the app and the API
 origin in production; in development the API's CORS settings must allow `http://localhost:3000`
 with credentials.
 
+## Tests
+
+```bash
+npx npm@11 ci          # install (the lock file is valid for npm 11 only)
+npm test               # Jest in watch mode
+npm run test:ci        # Jest once, as CI runs it
+npx tsc --noEmit       # type check (CI)
+npm run test:e2e       # Playwright end-to-end tests: builds, serves build/ and mocks the API
+npm run test:e2e:ui    # the same specs in Playwright's UI mode (after a build)
+npm run typecheck:e2e  # type check the specs and their DTO-typed mocks (CI)
+```
+
+The end-to-end tests need Chromium once: `npx playwright install chromium` (or set `PLAYWRIGHT_CHROMIUM_PATH` to an
+installed Chromium). They mock every API call, so no API or database is needed.
+
+CI (`.github/workflows/ci.yml`, job `build-and-test`) runs `test:ci`, the type check and `CI=true npm run build` on
+every push and pull request; `.github/workflows/e2e.yml` (job `e2e`) runs the end-to-end tests in Chromium. Test
+helpers, the E2E specs and troubleshooting:
+[web app testing](https://github.com/PandiO/knk-workspace/blob/main/docs/guides/developer/web-app-testing.md) in
+knk-workspace, where all documentation lives
+([docs index](https://github.com/PandiO/knk-workspace/tree/main/docs)).
+
 ## Conventions
 
 ### Messages for refused operations and confirmations (KNG-169)

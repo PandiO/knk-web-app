@@ -106,6 +106,7 @@ const nameFromEarlierStep: StepConditionDto = {
 
 const buildConfig = (options: {
     nameRequired?: boolean;
+    regionRequired?: boolean;
     regionConditions?: StepConditionDto[];
     detailsConditions?: StepConditionDto[];
 } = {}): FormConfigurationDto => ({
@@ -117,7 +118,7 @@ const buildConfig = (options: {
     steps: [
         step('0', 'Basics', [field(NAME_ID, 'Name', { isRequired: options.nameRequired ?? true })]),
         step('1', 'Region', [
-            field(REGION_ID, 'Region'),
+            field(REGION_ID, 'Region', { isRequired: options.regionRequired ?? false }),
             field(202, 'AllowEntry', { label: 'Allow entry', fieldType: FieldType.Boolean })
         ], options.regionConditions ?? []),
         step('2', 'Details', [field(301, 'Notes')], options.detailsConditions ?? [])
@@ -142,6 +143,8 @@ const stepButton = (label: string) => screen.getByRole('button', { name: label }
 const onStep = (name: string) => waitFor(() => expect(screen.getByRole('heading', { level: 2, name })).toBeInTheDocument());
 const typeName = async (value: string) => fireEvent.change(await screen.findByLabelText(/^name/i), { target: { value } });
 const jumpDialog = () => screen.getByTestId('wizard-jump-feedback');
+/** The summary at the top of the step (#109, #488). */
+const summary = () => screen.getByRole('alert', { name: /^fix (this problem|these \d+ problems) to continue$/i });
 
 describe('FormWizard step jump (#68) and Entry conditions (#88)', () => {
     let toasts: jest.SpyInstance;
@@ -223,8 +226,9 @@ describe('FormWizard step jump (#68) and Entry conditions (#88)', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Go to Region' }));
 
         await onStep('Region');
-        // The reason stays on the step, above the Next button.
-        expect(screen.getByTestId('wizard-condition-error')).toHaveTextContent(ALLOW_MESSAGE);
+        // The reason stays on the step: in the summary and on the field it reads, not above the Next button (#488).
+        expect(within(summary()).getByRole('link', { name: ALLOW_MESSAGE })).toBeInTheDocument();
+        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
         await waitFor(() => expect(screen.queryByTestId('wizard-jump-feedback')).not.toBeInTheDocument());
     });
 
@@ -301,7 +305,10 @@ describe('FormWizard step jump (#68) and Entry conditions (#88)', () => {
         fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
 
         await waitFor(() => expect(toasts).toHaveBeenCalledWith(ENTRY_MESSAGE));
-        expect(screen.getByTestId('wizard-condition-error')).toHaveTextContent(ENTRY_MESSAGE);
+        // Name is not on this step: the summary says it, as text (#488).
+        expect(within(summary()).getByText(ENTRY_MESSAGE)).toBeInTheDocument();
+        expect(within(summary()).queryByRole('link')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
         expect(screen.getByRole('heading', { level: 2, name: 'Region' })).toBeInTheDocument();
 
         // With a name it opens.
@@ -309,10 +316,10 @@ describe('FormWizard step jump (#68) and Entry conditions (#88)', () => {
         await typeName('Old Quarter');
         fireEvent.click(stepButton('Step 3: Details'));
         await onStep('Details');
-        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
-    it('Next: a failed Completion condition is shown above the button as well as in the toast', async () => {
+    it('Next: a failed Completion condition is shown in the summary, on its field and in one toast', async () => {
         useConfig(buildConfig({ regionConditions: [mustAllowEntry] }));
         render(<FormWizard entityName="District" />);
         await typeName('Old Quarter');
@@ -321,12 +328,14 @@ describe('FormWizard step jump (#68) and Entry conditions (#88)', () => {
 
         fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
         await waitFor(() => expect(toasts).toHaveBeenCalledWith(ALLOW_MESSAGE));
-        expect(screen.getByTestId('wizard-condition-error')).toHaveTextContent(ALLOW_MESSAGE);
+        expect(toasts).toHaveBeenCalledTimes(1);
+        expect(within(summary()).getByRole('link', { name: ALLOW_MESSAGE })).toBeInTheDocument();
+        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('checkbox'));
         fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
         await onStep('Details');
-        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
     it('a resumed draft runs the rules of every step once when it has loaded', async () => {
@@ -369,5 +378,268 @@ describe('FormWizard step jump (#68) and Entry conditions (#88)', () => {
         await onStep('Basics');
         await waitFor(() => expect(fieldValidationRuleClient.getByFormConfigurationId).toHaveBeenCalled());
         expect(fieldValidationRuleClient.validateFields).not.toHaveBeenCalled();
+    });
+});
+
+// PandiO/knk-workspace#413: the jump dialog's ×, Close and "Go to" kept working only while the save behind
+// "Go to" answered quickly: the dialog disables its buttons while its action runs, and "Go to" waited for the
+// save. Smoke test: New District, step 1 filled, step 2's Region empty, click step 3.
+describe('FormWizard step jump dialog with a slow or failing save (#413)', () => {
+    let toasts: jest.SpyInstance;
+    let consoleError: jest.SpyInstance;
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        toasts = jest.spyOn(logging.errorHandler, 'next').mockImplementation(() => undefined);
+        consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        (fieldValidationRuleClient.getByFormConfigurationId as jest.Mock).mockResolvedValue([]);
+        answerRules({});
+    });
+
+    afterEach(() => {
+        toasts.mockRestore();
+        consoleError.mockRestore();
+    });
+
+    const never = () => new Promise<never>(() => undefined);
+
+    const openJumpDialog = async () => {
+        fireEvent.click(stepButton('Step 3: Details'));
+        expect(await screen.findByText('"Region" needs your attention first:')).toBeInTheDocument();
+        return screen.getByRole('alertdialog');
+    };
+
+    const startOnBasics = async () => {
+        useConfig(buildConfig({ regionRequired: true }));
+        render(<FormWizard entityName="District" />);
+        await typeName('Old Quarter');
+    };
+
+    it.each([
+        ['the ×', 'Close dialog'],
+        ['Close', 'Close']
+    ])('%s closes the dialog, and it opens again on the next click', async (_label, buttonName) => {
+        (formSubmissionClient.create as jest.Mock).mockImplementation(never);
+        await startOnBasics();
+
+        let dialog = await openJumpDialog();
+        expect(within(dialog).getByRole('button', { name: buttonName })).toBeEnabled();
+        fireEvent.click(within(dialog).getByRole('button', { name: buttonName }));
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+        expect(screen.getByRole('heading', { level: 2, name: 'Basics' })).toBeInTheDocument();
+
+        dialog = await openJumpDialog();
+        expect(within(dialog).getByRole('button', { name: 'Go to Region' })).toBeEnabled();
+    });
+
+    it.each([
+        ['never answers', () => never()],
+        ['fails', () => Promise.reject(new Error('API down'))],
+        ['answers slowly', () => new Promise(resolve => setTimeout(() => resolve({ id: '55' }), 50))]
+    ])('Go to lands on the step with its issue shown when the save %s', async (_label, save) => {
+        (formSubmissionClient.create as jest.Mock).mockImplementation(save);
+        await startOnBasics();
+
+        const dialog = await openJumpDialog();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Go to Region' }));
+
+        await onStep('Region');
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+        // The field that stopped the jump is marked, with the summary.
+        expect(screen.getAllByText('Region is required').length).toBeGreaterThan(0);
+        expect(screen.getByText('Fix this problem to continue')).toBeInTheDocument();
+        expect(formSubmissionClient.create).toHaveBeenCalledTimes(1);
+    });
+
+    // Retest 2026-11-14: Go to, back to step 1, click step 3 again: the dialog opened with every button disabled.
+    // React's StrictMode (the dev server) left the dialog's "busy" state set after Go to.
+    it.each([
+        ['', false],
+        [' (StrictMode, as on the dev server)', true]
+    ])('Go to, back to step 1, jump again: the dialog works again%s', async (_label, strict) => {
+        (formSubmissionClient.create as jest.Mock).mockImplementation(async (dto: Record<string, unknown>) => ({ ...dto, id: '55' }));
+        (formSubmissionClient.update as jest.Mock).mockImplementation(async (dto: Record<string, unknown>) => dto);
+        useConfig(buildConfig({ regionRequired: true }));
+        const ui = <FormWizard entityName="District" />;
+        render(strict ? <React.StrictMode>{ui}</React.StrictMode> : ui);
+        await typeName('Old Quarter');
+
+        fireEvent.click(within(await openJumpDialog()).getByRole('button', { name: 'Go to Region' }));
+        await onStep('Region');
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+
+        fireEvent.click(screen.getByRole('button', { name: /^previous$/i }));
+        await onStep('Basics');
+
+        let dialog = await openJumpDialog();
+        expect(within(dialog).getByRole('button', { name: 'Close dialog' })).toBeEnabled();
+        expect(within(dialog).getByRole('button', { name: 'Close' })).toBeEnabled();
+        expect(within(dialog).getByRole('button', { name: 'Go to Region' })).toBeEnabled();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+
+        // And by the strip, Go to once more.
+        dialog = await openJumpDialog();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Go to Region' }));
+        await onStep('Region');
+        fireEvent.click(stepButton('Step 1: Basics'));
+        await onStep('Basics');
+        dialog = await openJumpDialog();
+        expect(within(dialog).getByRole('button', { name: 'Go to Region' })).toBeEnabled();
+    });
+
+    it('a failed save behind Go to says so in the banner, and the next Next saves again', async () => {
+        (formSubmissionClient.create as jest.Mock).mockRejectedValueOnce(new Error('API down'));
+        await startOnBasics();
+
+        const dialog = await openJumpDialog();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Go to Region' }));
+        await onStep('Region');
+        expect(await screen.findByText('Failed to save your progress. Please try again.')).toBeInTheDocument();
+
+        (formSubmissionClient.create as jest.Mock).mockImplementation(async (dto: Record<string, unknown>) => ({ ...dto, id: '55' }));
+        fireEvent.change(screen.getByLabelText(/^region/i), { target: { value: 'district_3' } });
+        fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
+        await onStep('Details');
+        expect(formSubmissionClient.create).toHaveBeenCalledTimes(2);
+    });
+});
+
+// PandiO/knk-workspace#414: a failed step condition marks the fields it reads, in red with its message, like a
+// field rule does; the mark goes away as soon as the condition holds.
+describe('FormWizard: a failed step condition marks its fields (#414)', () => {
+    let toasts: jest.SpyInstance;
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        toasts = jest.spyOn(logging.errorHandler, 'next').mockImplementation(() => undefined);
+        (fieldValidationRuleClient.getByFormConfigurationId as jest.Mock).mockResolvedValue([]);
+        (formSubmissionClient.create as jest.Mock).mockImplementation(async (dto: Record<string, unknown>) => ({ ...dto, id: '55' }));
+        (formSubmissionClient.update as jest.Mock).mockImplementation(async (dto: Record<string, unknown>) => dto);
+        answerRules({});
+    });
+
+    afterEach(() => toasts.mockRestore());
+
+    const MESSAGE = 'Pick a region or allow entry.';
+    const completion = (rows: object[], logic: 'AND' | 'OR' = 'AND'): StepConditionDto => ({
+        id: '20',
+        conditionType: 'Completion',
+        conditionJson: JSON.stringify({ conditions: rows, logic }),
+        errorMessage: MESSAGE,
+        isActive: true
+    });
+    const regionSet = { fieldName: 'Region', operator: ConditionOperator.IsNotEmpty };
+    const entryAllowed = { fieldName: 'AllowEntry', operator: ConditionOperator.Equals, value: true };
+
+    const box = (fieldName: string) => document.getElementById(`wizard-field-${fieldName}`)!;
+    const expectMarked = (fieldName: string, message: string) => {
+        expect(within(box(fieldName)).getByText(message)).toBeInTheDocument();
+        expect(box(fieldName)).toHaveClass('border-danger-line');
+    };
+    const expectNotMarked = (fieldName: string, message: string) => {
+        expect(within(box(fieldName)).queryByText(message)).not.toBeInTheDocument();
+        expect(box(fieldName)).not.toHaveClass('border-danger-line');
+    };
+    const next = () => fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
+
+    const openRegionStep = async (conditions: StepConditionDto[]) => {
+        useConfig(buildConfig({ regionConditions: conditions }));
+        render(<FormWizard entityName="District" />);
+        await typeName('Old Quarter');
+        next();
+        await onStep('Region');
+    };
+
+    it('one rule: Next marks its field, and the mark goes when the condition holds', async () => {
+        await openRegionStep([mustAllowEntry]);
+        expectNotMarked('AllowEntry', ALLOW_MESSAGE);
+
+        next();
+
+        await waitFor(() => expectMarked('AllowEntry', ALLOW_MESSAGE));
+        expectNotMarked('Region', ALLOW_MESSAGE);
+        // Nothing above the button any more (#488).
+        expect(screen.queryByTestId('wizard-condition-error')).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('checkbox'));
+        expectNotMarked('AllowEntry', ALLOW_MESSAGE);
+    });
+
+    it('all rules (AND): only the rules that fail mark their field', async () => {
+        await openRegionStep([completion([regionSet, entryAllowed], 'AND')]);
+        fireEvent.click(screen.getByRole('checkbox'));
+
+        next();
+
+        await waitFor(() => expectMarked('Region', MESSAGE));
+        expectNotMarked('AllowEntry', MESSAGE);
+
+        fireEvent.change(screen.getByLabelText(/^region/i), { target: { value: 'district_3' } });
+        expectNotMarked('Region', MESSAGE);
+    });
+
+    it('any rule (OR): every field is marked, and both marks go when one rule holds', async () => {
+        await openRegionStep([completion([regionSet, entryAllowed], 'OR')]);
+
+        next();
+
+        await waitFor(() => expectMarked('Region', MESSAGE));
+        expectMarked('AllowEntry', MESSAGE);
+
+        fireEvent.click(screen.getByRole('checkbox'));
+        expectNotMarked('Region', MESSAGE);
+        expectNotMarked('AllowEntry', MESSAGE);
+    });
+
+    it('an Entry condition of the next step marks the field of this step it reads', async () => {
+        const regionFromEarlierStep: StepConditionDto = {
+            id: '21',
+            conditionType: 'Entry',
+            conditionJson: JSON.stringify({ conditions: [{ ...regionSet, fromPreviousStep: true }], logic: 'AND' }),
+            errorMessage: 'Pick the region first.',
+            isActive: true
+        };
+        useConfig(buildConfig({ detailsConditions: [regionFromEarlierStep] }));
+        render(<FormWizard entityName="District" />);
+        await typeName('Old Quarter');
+        next();
+        await onStep('Region');
+
+        next();
+
+        await waitFor(() => expectMarked('Region', 'Pick the region first.'));
+        fireEvent.change(screen.getByLabelText(/^region/i), { target: { value: 'district_3' } });
+        expectNotMarked('Region', 'Pick the region first.');
+    });
+
+    it('a jump stopped by a condition: Go to lands with the field marked', async () => {
+        useConfig(buildConfig({ regionConditions: [mustAllowEntry] }));
+        render(<FormWizard entityName="District" />);
+        await typeName('Old Quarter');
+
+        fireEvent.click(stepButton('Step 3: Details'));
+        fireEvent.click(await screen.findByRole('button', { name: 'Go to Region' }));
+
+        await onStep('Region');
+        expectMarked('AllowEntry', ALLOW_MESSAGE);
+        fireEvent.click(screen.getByRole('checkbox'));
+        expectNotMarked('AllowEntry', ALLOW_MESSAGE);
+    });
+
+    it('a jump stopped on the current step marks the field there; going back clears the marks', async () => {
+        await openRegionStep([mustAllowEntry]);
+
+        fireEvent.click(stepButton('Step 3: Details'));
+
+        expect(await screen.findByText('Finish "Region" first:')).toBeInTheDocument();
+        expectMarked('AllowEntry', ALLOW_MESSAGE);
+        fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+        fireEvent.click(stepButton('Step 1: Basics'));
+        await onStep('Basics');
+        fireEvent.click(stepButton('Step 2: Region'));
+        await onStep('Region');
+        expectNotMarked('AllowEntry', ALLOW_MESSAGE);
     });
 });

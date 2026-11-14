@@ -1,4 +1,4 @@
-import { FormFieldDto, FormStepDto } from '../../types/dtos/forms/FormModels';
+import { FormFieldDto, FormStepDto, StepConditionDto } from '../../types/dtos/forms/FormModels';
 import { ValidationResultDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
 
 /**
@@ -12,6 +12,17 @@ export interface StepJumpIssue {
     fieldName?: string;
     label?: string;
     message: string;
+    /** A failed step condition (PandiO/knk-workspace#414): the step marks the fields it reads. */
+    condition?: StepConditionMark;
+}
+
+/**
+ * A failed step condition the step on screen marks its fields for (PandiO/knk-workspace#414). `entryOf` is the
+ * index of the step whose Entry condition it is; without it, it is the shown step's own Completion condition.
+ */
+export interface StepConditionMark {
+    condition: StepConditionDto;
+    entryOf?: number;
 }
 
 /** Issues of one step, for the dialog's lists. */
@@ -68,3 +79,12 @@ export const manyToManyEntryIssues = (step: FormStepDto, entries: unknown): Step
 /** "Region: Region is required" / a step-level message as it is. */
 export const stepJumpIssueText = (issue: StepJumpIssue): string =>
     issue.label && !issue.message.startsWith(issue.label) ? `${issue.label}: ${issue.message}` : issue.message;
+
+/**
+ * PandiO/knk-workspace#488: the one toast of a refused Next, Submit or Save. One problem says what it is; more say
+ * how many, and the summary at the top lists them.
+ */
+export const refusalToastText = (issues: StepJumpIssue[]): string =>
+    issues.length === 1
+        ? stepJumpIssueText(issues[0])
+        : `Fix the ${issues.length} problems on this step to continue.`;
