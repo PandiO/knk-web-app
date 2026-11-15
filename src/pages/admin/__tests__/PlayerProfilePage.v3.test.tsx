@@ -10,15 +10,17 @@ import { fakeRealtime } from '../../../test-utils/fakeRealtime';
 
 // PandiO/knk-workspace#119 (V3): the staff player profile's status strip, tabs, freeze/unfreeze with a reason,
 // the per-player timeline and the paged audit log; actions disabled with "Requires <node>" without their node.
+// #565: the frozen state from the summary, the unfreeze reason, game sessions in the timeline, Kick and Ban.
 
 jest.mock('react-router-dom', () => jest.requireActual('react-router'), { virtual: true });
 jest.mock('../../../apiClients/userManagementClient', () => ({
     userManagementClient: {
         getProfileSummary: jest.fn(),
         getAuditLog: jest.fn(),
-        getFreezeState: jest.fn(),
         freeze: jest.fn(),
         unfreeze: jest.fn(),
+        kick: jest.fn(),
+        ban: jest.fn(),
         toggleVanishMode: jest.fn(),
     },
 }));
@@ -33,6 +35,10 @@ jest.mock('../../../apiClients/kitClient', () => ({
 }));
 jest.mock('../../../apiClients/currencyClient', () => ({
     currencyClient: { getTransferLock: jest.fn(), getLedger: jest.fn() },
+}));
+const mockGetSessions = jest.fn();
+jest.mock('../../../apiClients/statisticsClient', () => ({
+    StatisticsClient: { getInstance: () => ({ getSessions: (...args: unknown[]) => mockGetSessions(...args) }) },
 }));
 // The nodes the viewer holds (exact, no wildcards here).
 let mockHeld = new Set<string>();
@@ -69,7 +75,14 @@ const fullSummary = (overrides: Record<string, unknown> = {}) => ({
     ...overrides,
 });
 
-const frozenEntry = { id: 90, timestamp: '2026-11-08T07:30:00', action: 'PlayerFrozen', targetUserId: 3, actorUsername: 'Mod', details: '{"reason":"Griefing spawn"}' };
+/** #565: the summary's account as frozen (or not) by the API. */
+const withFreeze = (frozen: boolean, reason: string | null = null, extra: Record<string, unknown> = {}) => fullSummary({
+    account: {
+        ...fullSummary().account, isFrozen: frozen, frozenReason: frozen ? reason : null,
+        frozenAt: frozen ? '2026-11-08T07:30:00' : null, frozenByUserId: frozen ? 9 : null, frozenByUsername: frozen ? 'Mod' : null,
+        ...extra,
+    },
+});
 
 let LocationProbe: React.FC;
 let lastSearch = '';
@@ -92,24 +105,21 @@ const renderProfile = (path = '/admin/users/3', hub?: ReturnType<typeof fakeReal
 
 beforeEach(() => {
     jest.clearAllMocks();
-    mockHeld = new Set(['knk.freeze', 'knk.unfreeze', 'knk.admin.user.group', 'knk.admin.user.perm', 'knk.kit.give', 'knk.admin.currency.lock', 'knk.admin.currency.history']);
-    um.getProfileSummary.mockResolvedValue(fullSummary());
-    um.getFreezeState.mockResolvedValue({ isFrozen: false, frozenReason: null });
-    um.getAuditLog.mockImplementation((q: { action?: string }) => Promise.resolve(q.action === 'PlayerFrozen'
-        ? { items: [frozenEntry], totalCount: 1, pageNumber: 1, pageSize: 1 }
-        : { items: [], totalCount: 0, pageNumber: 1, pageSize: 25 }));
+    mockHeld = new Set(['knk.freeze', 'knk.unfreeze', 'knk.kick', 'knk.ban', 'knk.admin.user.group', 'knk.admin.user.perm', 'knk.kit.give', 'knk.admin.currency.lock', 'knk.admin.currency.history']);
+    um.getProfileSummary.mockResolvedValue(withFreeze(false));
+    um.getAuditLog.mockResolvedValue({ items: [], totalCount: 0, pageNumber: 1, pageSize: 25 });
     um.freeze.mockResolvedValue(undefined);
     um.unfreeze.mockResolvedValue(undefined);
+    um.kick.mockResolvedValue({ actionId: 'a1', userId: 3, gameServers: 1 });
+    um.ban.mockResolvedValue({ actionId: 'a2', userId: 3, gameServers: 1 });
+    mockGetSessions.mockResolvedValue({ items: [], totalCount: 0, pageNumber: 1, pageSize: 25 });
     cc.getTransferLock.mockResolvedValue({ locked: false, reason: null, lockedAt: null });
     cc.getLedger.mockResolvedValue({ items: [], totalCount: 0, pageNumber: 1, pageSize: 25 });
 });
 
 describe('status strip (#119)', () => {
     it('shows online, mode, frozen, payments locked, premium and the flags, with since/by/why while frozen', async () => {
-        um.getProfileSummary.mockResolvedValue(fullSummary({
-            account: { ...fullSummary().account, isActive: false, admitted: false, emailVerified: false },
-        }));
-        um.getFreezeState.mockResolvedValue({ isFrozen: true, frozenReason: 'Griefing spawn' });
+        um.getProfileSummary.mockResolvedValue(withFreeze(true, 'Griefing spawn', { isActive: false, admitted: false, emailVerified: false }));
         cc.getTransferLock.mockResolvedValue({ locked: true, reason: 'Duping', lockedAt: '2026-11-07T10:00:00' });
         renderProfile();
 
@@ -125,8 +135,18 @@ describe('status strip (#119)', () => {
 
         const banner = await screen.findByTestId('frozen-banner');
         await waitFor(() => expect(banner).toHaveTextContent('by Mod'));
+        expect(banner).toHaveTextContent('since');
         expect(banner).toHaveTextContent('Reason: Griefing spawn');
-        expect(um.getAuditLog).toHaveBeenCalledWith({ targetUserId: 3, action: 'PlayerFrozen', pageSize: 1 });
+        // #565: since when and by whom come with the summary: no audit lookup per profile load.
+        expect(um.getAuditLog).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'PlayerFrozen' }));
+    });
+
+    it('shows the frozen state of an older API (no frozenAt) without since and by', async () => {
+        um.getProfileSummary.mockResolvedValue(fullSummary({ account: { ...fullSummary().account, isFrozen: true, frozenReason: 'Old' } }));
+        renderProfile();
+        const banner = await screen.findByTestId('frozen-banner');
+        expect(banner).toHaveTextContent('Reason: Old');
+        expect(banner).not.toHaveTextContent('since');
     });
 
     it('says when there is no Minecraft account and shows no presence badge then', async () => {
@@ -148,7 +168,7 @@ describe('freeze and unfreeze (#119)', () => {
         expect(within(dialog).getByRole('alert')).toHaveTextContent('Enter a reason.');
         expect(um.freeze).not.toHaveBeenCalled();
 
-        um.getFreezeState.mockResolvedValue({ isFrozen: true, frozenReason: 'Griefing spawn' });
+        um.getProfileSummary.mockResolvedValue(withFreeze(true, 'Griefing spawn'));
         fireEvent.change(within(dialog).getByLabelText(/Reason/), { target: { value: '  Griefing spawn ' } });
         await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Freeze' })); });
 
@@ -158,16 +178,25 @@ describe('freeze and unfreeze (#119)', () => {
         expect(await screen.findByTestId('unfreeze-button')).toBeInTheDocument();
     });
 
-    it('unfreezes after a plain confirm (the API stores no unfreeze reason yet)', async () => {
-        um.getFreezeState.mockResolvedValue({ isFrozen: true, frozenReason: 'x' });
+    it('unfreezes with an optional reason (#565), sent to the API', async () => {
+        um.getProfileSummary.mockResolvedValue(withFreeze(true, 'x'));
         renderProfile();
         fireEvent.click(await screen.findByTestId('unfreeze-button'));
         const dialog = await screen.findByRole('alertdialog', { name: 'Unfreeze Steve?' });
-        expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument();
-        um.getFreezeState.mockResolvedValue({ isFrozen: false, frozenReason: null });
+        fireEvent.change(within(dialog).getByLabelText(/Reason/), { target: { value: ' Appeal accepted ' } });
+        um.getProfileSummary.mockResolvedValue(withFreeze(false));
+        await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Unfreeze' })); });
+        expect(um.unfreeze).toHaveBeenCalledWith(3, 'Appeal accepted');
+        expect(await screen.findByTestId('freeze-button')).toBeInTheDocument();
+    });
+
+    it('unfreezes without a reason when none is given', async () => {
+        um.getProfileSummary.mockResolvedValue(withFreeze(true, 'x'));
+        renderProfile();
+        fireEvent.click(await screen.findByTestId('unfreeze-button'));
+        const dialog = await screen.findByRole('alertdialog', { name: 'Unfreeze Steve?' });
         await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Unfreeze' })); });
         expect(um.unfreeze).toHaveBeenCalledWith(3, undefined);
-        expect(await screen.findByTestId('freeze-button')).toBeInTheDocument();
     });
 
     it('shows the API refusal and keeps the state when the freeze fails', async () => {
@@ -189,6 +218,10 @@ describe('freeze and unfreeze (#119)', () => {
         const button = await screen.findByTestId('freeze-button');
         expect(button).toBeDisabled();
         expect(button).toHaveAccessibleDescription('Requires knk.freeze');
+        expect(screen.getByTestId('kick-button')).toBeDisabled();
+        expect(screen.getByTestId('kick-button')).toHaveAccessibleDescription('Requires knk.kick');
+        expect(screen.getByTestId('ban-button')).toBeDisabled();
+        expect(screen.getByTestId('ban-button')).toHaveAccessibleDescription('Requires knk.ban');
 
         fireEvent.click(screen.getByRole('tab', { name: 'Permissions' }));
         expect(screen.getByRole('button', { name: /Assign/ })).toBeDisabled();
@@ -226,12 +259,16 @@ describe('tabs (#119)', () => {
         expect(lastSearch).toBe('');
     });
 
-    it('opens the tab named in the URL; Moderation holds freeze, mode, access and the kick/ban note', async () => {
+    it('opens the tab named in the URL; Moderation holds freeze, mode, access and Kick / Ban (#565)', async () => {
         renderProfile('/admin/users/3?tab=moderation');
         expect(await screen.findByTestId('freeze-card')).toHaveTextContent('Not frozen');
         expect(screen.getByRole('group', { name: 'Mode' })).toBeInTheDocument();
         expect(screen.getByText('Access card')).toBeInTheDocument();
-        expect(screen.getByText(/Kick and ban are game commands/)).toBeInTheDocument();
+        const card = screen.getByTestId('kickban-card');
+        expect(card).toHaveTextContent('/pardon');
+        expect(within(card).getByRole('button', { name: 'Kick…' })).toBeEnabled();
+        expect(within(card).getByRole('button', { name: 'Ban…' })).toBeEnabled();
+        expect(screen.queryByText(/The web app can.t send them yet/)).not.toBeInTheDocument();
     });
 
     it('does not crash on a thin summary and shows every tab', async () => {
@@ -261,7 +298,7 @@ describe('live updates (#119 with #183)', () => {
         await screen.findByTestId('freeze-button');
         expect(um.getProfileSummary).toHaveBeenCalledTimes(1);
 
-        um.getFreezeState.mockResolvedValue({ isFrozen: true, frozenReason: 'In game' });
+        um.getProfileSummary.mockResolvedValue(withFreeze(true, 'In game'));
         act(() => hub.emit('EntityChanged', { type: 'User', id: 3, op: 'Updated', actorUserId: 7, actorName: 'Other' }));
         expect(await screen.findByTestId('status-frozen', {}, { timeout: 2000 })).toBeInTheDocument();
         expect(um.getProfileSummary).toHaveBeenCalledTimes(2);
@@ -277,23 +314,30 @@ describe('Activity: timeline and paged audit log (#119)', () => {
     const entry = (id: number, timestamp: string, action = 'GroupAssigned', details: string | null = null) =>
         ({ id, timestamp, action, targetUserId: 3, actorUsername: 'Mod', details });
 
-    it('merges the audit log and the balance history newest first, with filter chips', async () => {
+    it('merges the audit log, the game sessions and the balance history newest first, with filter chips', async () => {
         um.getAuditLog.mockImplementation((q: { action?: string; pageNumber?: number }) => Promise.resolve(q.action
             ? { items: [], totalCount: 0 }
             : { items: [entry(2, '2026-11-08T12:00:00', 'PlayerFrozen', '{"reason":"Spam"}'), entry(1, '2026-11-08T09:00:00')], totalCount: 2 }));
         cc.getLedger.mockResolvedValue({ items: [{ entryId: 5, transactionId: 5, publicId: 'tx5', createdAt: '2026-11-08T10:00:00', userId: 3,
             currency: 'Coins', operation: 'Add', amount: 500, balanceBefore: 0, balanceAfter: 500, kind: 'AdminGrant', reasonCode: '', reason: 'Lost items',
             initiator: 'Admin', initiatorUsername: 'Mod' }], totalCount: 1 });
+        mockGetSessions.mockResolvedValue({ items: [{ sessionKey: 's1', startedAt: '2026-11-08T11:00:00', endedAt: '2026-11-08T11:45:00',
+            endReason: 'Kick', serverId: 'survival', activeSeconds: 2400 }], totalCount: 1, pageNumber: 1, pageSize: 25 });
         renderProfile('/admin/users/3?tab=activity');
 
         const timeline = await screen.findByTestId('timeline');
-        await waitFor(() => expect(within(timeline).getAllByTestId('timeline-event')).toHaveLength(3));
+        await waitFor(() => expect(within(timeline).getAllByTestId('timeline-event')).toHaveLength(4));
         expect(within(timeline).getAllByTestId('timeline-event').map(li => li.querySelector('p')?.textContent))
-            .toEqual(['Player frozen', '+500 coins', 'Group assigned']);
+            .toEqual(['Player frozen', 'Played on survival', '+500 coins', 'Group assigned']);
         expect(cc.getLedger).toHaveBeenCalledWith({ userId: 3, sort: 'createdAt', dir: 'desc', page: 1, pageSize: 25 });
-        expect(screen.getByTestId('timeline-sources')).toHaveTextContent('From the audit log and the balance history.');
+        expect(mockGetSessions).toHaveBeenCalledWith(3, 1, 25);
+        expect(within(timeline).getAllByTestId('timeline-event')[1]).toHaveTextContent('Active 40 min');
+        expect(within(timeline).getAllByTestId('timeline-event')[1]).toHaveTextContent('Kicked');
+        expect(screen.getByTestId('timeline-sources')).toHaveTextContent('From the audit log, the game sessions and the balance history.');
 
         fireEvent.click(screen.getByRole('button', { name: 'Moderation', pressed: true }));
+        expect(within(screen.getByTestId('timeline')).getAllByTestId('timeline-event')).toHaveLength(3);
+        fireEvent.click(screen.getByRole('button', { name: 'Game sessions', pressed: true }));
         expect(within(screen.getByTestId('timeline')).getAllByTestId('timeline-event')).toHaveLength(2);
         expect(screen.getByRole('button', { name: 'Moderation', pressed: false })).toBeInTheDocument();
     });
@@ -320,5 +364,62 @@ describe('Activity: timeline and paged audit log (#119)', () => {
 
         fireEvent.change(screen.getByLabelText('Action'), { target: { value: 'PlayerFrozen' } });
         await waitFor(() => expect(um.getAuditLog).toHaveBeenCalledWith({ targetUserId: 3, action: 'PlayerFrozen', pageNumber: 1, pageSize: 25 }));
+    });
+});
+
+describe('kick and ban (#565)', () => {
+    it('kicks with an optional reason and a toast', async () => {
+        const success = jest.spyOn(toast, 'success');
+        renderProfile();
+        fireEvent.click(await screen.findByTestId('kick-button'));
+        const dialog = await screen.findByRole('alertdialog', { name: 'Kick Steve?' });
+        fireEvent.change(within(dialog).getByLabelText(/Reason/), { target: { value: ' AFK farming ' } });
+        await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Kick' })); });
+        expect(um.kick).toHaveBeenCalledWith(3, 'AFK farming');
+        expect(success).toHaveBeenCalledWith('Steve is being kicked');
+    });
+
+    it('kicks without a reason when none is given', async () => {
+        renderProfile();
+        fireEvent.click(await screen.findByTestId('kick-button'));
+        const dialog = await screen.findByRole('alertdialog', { name: 'Kick Steve?' });
+        await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Kick' })); });
+        expect(um.kick).toHaveBeenCalledWith(3, undefined);
+    });
+
+    it('bans only with a reason, says it is permanent and lifted with /pardon', async () => {
+        const success = jest.spyOn(toast, 'success');
+        renderProfile();
+        fireEvent.click(await screen.findByTestId('ban-button'));
+        const dialog = await screen.findByRole('alertdialog', { name: 'Ban Steve permanently?' });
+        expect(dialog).toHaveTextContent('permanent');
+        expect(dialog).toHaveTextContent('/pardon in game');
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Ban permanently' }));
+        expect(within(dialog).getByRole('alert')).toHaveTextContent('Enter a reason.');
+        expect(um.ban).not.toHaveBeenCalled();
+
+        fireEvent.change(within(dialog).getByLabelText(/Reason/), { target: { value: 'X-ray' } });
+        await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Ban permanently' })); });
+        expect(um.ban).toHaveBeenCalledWith(3, 'X-ray');
+        expect(success).toHaveBeenCalledWith('Steve is banned');
+    });
+
+    it('shows the API refusal in a toast (no game server connected)', async () => {
+        const error = jest.spyOn(toast, 'error');
+        jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        um.kick.mockRejectedValue({ status: 503, response: { error: 'NoGameServerConnected', message: 'No game server is connected.' } });
+        renderProfile();
+        fireEvent.click(await screen.findByTestId('kick-button'));
+        const dialog = await screen.findByRole('alertdialog', { name: 'Kick Steve?' });
+        await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Kick' })); });
+        expect(error).toHaveBeenCalledWith('Could not kick Steve: No game server is connected.', {});
+    });
+
+    it('offers no Kick or Ban for an account without Minecraft', async () => {
+        um.getProfileSummary.mockResolvedValue(fullSummary({ account: { ...fullSummary().account, uuid: null } }));
+        renderProfile('/admin/users/3?tab=moderation');
+        expect(await screen.findByText(/nothing to kick or ban in game/)).toBeInTheDocument();
+        expect(screen.queryByTestId('kick-button')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('ban-button')).not.toBeInTheDocument();
     });
 });

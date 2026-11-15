@@ -206,3 +206,17 @@ export const formatStatisticsDate = (iso?: string | null): string => {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
 };
+
+/** Why a game session ended (knk-web-api PlayerSessionEndReason); null while it is open. */
+export type PlayerSessionEndReason = 'Quit' | 'ServerStop' | 'Kick' | 'Timeout';
+
+/** One game session (GET api/statistics/users/{id}/sessions, staff with knk.admin.user.manage; #565). */
+export interface PlayerSessionDto {
+  sessionKey: string;
+  startedAt: string;
+  endedAt?: string | null;
+  endReason?: PlayerSessionEndReason | null;
+  /** The game server's name, as the plugin reports it. */
+  serverId: string;
+  activeSeconds: number;
+}

@@ -1,4 +1,11 @@
-import { describePlayerSearchTerm, normalizePlayerSearchTerm, parsePlayerSort, PLAYER_SORT_KEYS } from '../playerSearch';
+import {
+    describePlayerSearchTerm,
+    normalizePlayerSearchTerm,
+    parsePlayerSort,
+    parsePlayerStateFilters,
+    PLAYER_SORT_KEYS,
+    playerStateFiltersToApi,
+} from '../playerSearch';
 import { clearRecentPlayers, readRecentPlayers, rememberRecentPlayer, RECENT_PLAYERS_LIMIT } from '../recentPlayers';
 
 // PandiO/knk-workspace#119 (MOD-5): player search and recent players on the moderation page.
@@ -24,9 +31,10 @@ describe('normalizePlayerSearchTerm', () => {
     it('reads only sorts the server knows from the URL', () => {
         expect(parsePlayerSort('coins', 'desc')).toEqual({ key: 'coins', descending: true });
         expect(parsePlayerSort('username', 'asc')).toEqual({ key: 'username', descending: false });
-        expect(parsePlayerSort('experiencePoints', 'desc')).toBeNull();
+        expect(parsePlayerSort('experiencePoints', 'desc')).toEqual({ key: 'experiencePoints', descending: true }); // #565
+        expect(parsePlayerSort('uuid', 'desc')).toBeNull();
         expect(parsePlayerSort(null, null)).toBeNull();
-        expect(Object.values(PLAYER_SORT_KEYS)).toEqual(['username', 'email', 'coins']);
+        expect(Object.values(PLAYER_SORT_KEYS)).toEqual(['username', 'email', 'lastseenat', 'coins', 'experiencepoints']);
     });
 });
 
@@ -67,3 +75,16 @@ describe('recent players', () => {
         }
     });
 });
+
+describe('state filters (#565)', () => {
+    it('reads true / false from the URL and ignores anything else', () => {
+        expect(parsePlayerStateFilters(new URLSearchParams('online=true&frozen=false&paymentsLocked=maybe'))).toEqual({ online: true, frozen: false });
+        expect(parsePlayerStateFilters(new URLSearchParams(''))).toEqual({});
+    });
+
+    it('sends the set filters as the API keys, nothing when none is set', () => {
+        expect(playerStateFiltersToApi({ online: true, paymentsLocked: false })).toEqual({ online: 'true', paymentsLocked: 'false' });
+        expect(playerStateFiltersToApi({})).toBeUndefined();
+    });
+});
+

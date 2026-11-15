@@ -18,7 +18,6 @@ jest.mock('../../../apiClients/userManagementClient', () => ({
   userManagementClient: {
     getProfileSummary: jest.fn(),
     getAuditLog: jest.fn(),
-    getFreezeState: jest.fn(),
     freeze: jest.fn(),
     unfreeze: jest.fn(),
   },
@@ -72,7 +71,6 @@ jest.mock('../../../components/currency/AdjustBalanceCard', () => ({
 
 const mockedSummary = userManagementClient.getProfileSummary as jest.Mock;
 const mockedAuditLog = userManagementClient.getAuditLog as jest.Mock;
-const mockedFreezeState = userManagementClient.getFreezeState as jest.Mock;
 
 const summaryFor = (id: number): UserProfileSummaryDto => ({
   account: {
@@ -123,7 +121,6 @@ describe('PlayerProfilePage (KNG-39)', () => {
     mockLive.privateMessages = 0;
     mockedSummary.mockImplementation((id: number) => Promise.resolve(summaryFor(id)));
     mockedAuditLog.mockResolvedValue({ items: [], totalCount: 0, pageNumber: 1, pageSize: 20 });
-    mockedFreezeState.mockResolvedValue({ isFrozen: false, frozenReason: null });
   });
 
   // #119: Discoveries is on the Activity tab, Private messages on the Privacy tab (only the open tab is mounted).
@@ -163,7 +160,6 @@ describe('PlayerProfilePage online badge (#183)', () => {
   beforeEach(() => {
     mockedSummary.mockReset();
     mockedAuditLog.mockResolvedValue({ items: [], totalCount: 0, pageNumber: 1, pageSize: 20 });
-    mockedFreezeState.mockResolvedValue({ isFrozen: false, frozenReason: null });
   });
 
   const renderLive = (hub: ReturnType<typeof fakeRealtime>) => render(

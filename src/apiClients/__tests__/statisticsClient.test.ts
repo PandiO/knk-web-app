@@ -32,6 +32,11 @@ describe('StatisticsClient', () => {
     expect(invokeSpy).toHaveBeenLastCalledWith(null, 'catalog', Controllers.Statistics, HttpMethod.Get);
   });
 
+  it('pages the game sessions (#565)', async () => {
+    await client.getSessions(7, 2, 25);
+    expect(invokeSpy).toHaveBeenCalledWith({ page: 2, pageSize: 25 }, 'users/7/sessions', Controllers.Statistics, HttpMethod.Get);
+  });
+
   it('pages the title history', async () => {
     await client.getTitleHistory(7, 2, 10);
     expect(invokeSpy).toHaveBeenCalledWith({ page: 2, pageSize: 10 }, 'users/7/title-history', Controllers.Statistics, HttpMethod.Get);

@@ -2,10 +2,12 @@ import React from 'react';
 import { History, Loader2 } from 'lucide-react';
 import { userManagementClient } from '../../../apiClients/userManagementClient';
 import { currencyClient } from '../../../apiClients/currencyClient';
+import { StatisticsClient } from '../../../apiClients/statisticsClient';
 import { formatDateTime } from '../../../utils/format';
 import {
     auditToTimelineEvent,
     ledgerToTimelineEvent,
+    sessionToTimelineEvent,
     TIMELINE_CATEGORIES,
     TimelineCategory,
     TimelineEvent,
@@ -32,8 +34,8 @@ interface Props {
 
 /**
  * #119 (MOD-3): one player's history in one list, newest first: the audit log about them (moderation,
- * permissions, titles, kits, discoveries…) and, for holders of knk.admin.currency.history, every balance change
- * of their ledger. Filter chips narrow what was loaded; "Load older" reads further back.
+ * permissions, titles, kits, discoveries…), their game sessions (#565) and, for holders of
+ * knk.admin.currency.history, every balance change of their ledger. Filter chips narrow what was loaded; "Load older" reads further back.
  */
 export const PlayerTimeline: React.FC<Props> = ({ userId, includeLedger, refreshToken = 0 }) => {
     const [events, setEvents] = React.useState<TimelineEvent[]>([]);
@@ -43,7 +45,7 @@ export const PlayerTimeline: React.FC<Props> = ({ userId, includeLedger, refresh
     const [hidden, setHidden] = React.useState<Set<TimelineCategory>>(() => new Set());
     const mergerRef = React.useRef<TimelineMerger | null>(null);
 
-    const sourceLabel = (id: string) => (id === 'ledger' ? 'balance history' : 'audit log');
+    const sourceLabel = (id: string) => (id === 'ledger' ? 'balance history' : id === 'sessions' ? 'game sessions' : 'audit log');
 
     const readMore = React.useCallback(async (merger: TimelineMerger, replace: boolean) => {
         setLoading(true);
@@ -73,6 +75,14 @@ export const PlayerTimeline: React.FC<Props> = ({ userId, includeLedger, refresh
                 },
             });
         }
+        // #565: game sessions (GET api/statistics/users/{id}/sessions, knk.admin.user.manage like this page).
+        sources.push({
+            id: 'sessions',
+            fetchPage: async (page, pageSize) => {
+                const result = await StatisticsClient.getInstance().getSessions(userId, page, pageSize);
+                return { events: (result?.items ?? []).map(sessionToTimelineEvent), totalCount: result?.totalCount ?? 0 };
+            },
+        });
         const merger = new TimelineMerger(sources, TIMELINE_BATCH);
         mergerRef.current = merger;
         void readMore(merger, true);
@@ -114,9 +124,9 @@ export const PlayerTimeline: React.FC<Props> = ({ userId, includeLedger, refresh
                 </div>
             </div>
             <p className="mb-3 text-xs text-muted" data-testid="timeline-sources">
-                From the audit log{includeLedger ? ' and the balance history' : ''}. {includeLedger
+                From the audit log{includeLedger ? ', the game sessions and the balance history' : ' and the game sessions'}.{includeLedger
                     ? ''
-                    : 'Balance changes need knk.admin.currency.history. '}Game sessions are not in it yet.
+                    : ' Balance changes need knk.admin.currency.history.'}
             </p>
             {errors.map(e => <p key={e} className="mb-2 text-sm field-error" role="alert">{e}</p>)}
             {events.length === 0 && loading ? (
@@ -138,7 +148,9 @@ export const PlayerTimeline: React.FC<Props> = ({ userId, includeLedger, refresh
                                 <p className="mt-0.5 text-xs text-muted">
                                     {TIMELINE_CATEGORIES.find(c => c.key === event.category)?.label}
                                     {' · '}
-                                    {event.actor ? <>by <span className="font-medium">{event.actor}</span></> : <span className="italic">system</span>}
+                                    {event.source === 'sessions'
+                                        ? 'in game'
+                                        : event.actor ? <>by <span className="font-medium">{event.actor}</span></> : <span className="italic">system</span>}
                                 </p>
                                 {event.lines.map((line, i) => (
                                     <p key={i} className="mt-0.5 break-words text-xs text-fg">{line}</p>

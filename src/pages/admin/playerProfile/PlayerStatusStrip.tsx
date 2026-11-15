@@ -1,9 +1,10 @@
 import React from 'react';
-import { EyeOff, Loader2, Lock, RefreshCcw, Snowflake, Sun } from 'lucide-react';
+import { Ban, DoorOpen, EyeOff, Loader2, Lock, RefreshCcw, Snowflake, Sun } from 'lucide-react';
 import { ActiveMode, UserProfileSummaryDto } from '../../../types/dtos/userManagement/UserProfileSummaryDtos';
 import { TransferLockDto } from '../../../types/dtos/currency/CurrencyDtos';
 import { formatDateTime } from '../../../utils/format';
 import { PlayerFreeze } from './usePlayerFreeze';
+import { PlayerKickBan } from './usePlayerKickBan';
 
 type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
@@ -40,6 +41,8 @@ export const GatedHint: React.FC<{ id: string; hint: string | null }> = ({ id, h
 interface Props {
     summary: UserProfileSummaryDto;
     freeze: PlayerFreeze;
+    /** #565: Kick and Ban next to Freeze (only for a player with a Minecraft account). */
+    kickBan?: PlayerKickBan;
     transferLock: TransferLockDto | null;
     onReload: () => void;
     reloading?: boolean;
@@ -47,14 +50,16 @@ interface Props {
 
 /**
  * #119 (MOD-4, MOD-3 phase 1): the profile header's status strip. What staff need at a glance (online, mode,
- * frozen, payments locked, premium tier and the account flags) as chips, with Freeze / Unfreeze next to them and,
- * while frozen, since when, by whom and why.
+ * frozen, payments locked, premium tier and the account flags) as chips, with Freeze / Unfreeze, Kick and Ban (#565)
+ * next to them and, while frozen, since when, by whom and why (from the profile summary since #565).
  */
-export const PlayerStatusStrip: React.FC<Props> = ({ summary, freeze, transferLock, onReload, reloading = false }) => {
+export const PlayerStatusStrip: React.FC<Props> = ({ summary, freeze, kickBan, transferLock, onReload, reloading = false }) => {
     const { account, groups } = summary;
     const presence = summary.presence;
     const frozen = freeze.state?.isFrozen === true;
     const hintId = React.useId();
+    const kickHintId = React.useId();
+    const banHintId = React.useId();
     const gate = frozen ? freeze.unfreezeGate : freeze.freezeGate;
     const activePremium = groups.filter(g => g.isPremiumTier && g.isActive);
     const premiumName = account.premiumTierName ?? activePremium[0]?.permissionGroupName ?? null;
@@ -130,6 +135,40 @@ export const PlayerStatusStrip: React.FC<Props> = ({ summary, freeze, transferLo
                             <GatedHint id={hintId} hint={gate.hint} />
                         </>
                     )}
+                    {kickBan && account.uuid && (
+                        <>
+                            <button
+                                type="button"
+                                className="btn-secondary text-sm"
+                                disabled={!kickBan.kickGate.allowed || kickBan.busy !== null}
+                                title={kickBan.kickGate.hint ?? undefined}
+                                aria-describedby={kickBan.kickGate.hint ? kickHintId : undefined}
+                                onClick={() => void kickBan.kick()}
+                                data-testid="kick-button"
+                            >
+                                {kickBan.busy === 'kick'
+                                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                                    : <DoorOpen className="mr-2 h-4 w-4" aria-hidden="true" />}
+                                Kick
+                            </button>
+                            <GatedHint id={kickHintId} hint={kickBan.kickGate.hint} />
+                            <button
+                                type="button"
+                                className="btn-danger text-sm"
+                                disabled={!kickBan.banGate.allowed || kickBan.busy !== null}
+                                title={kickBan.banGate.hint ?? undefined}
+                                aria-describedby={kickBan.banGate.hint ? banHintId : undefined}
+                                onClick={() => void kickBan.ban()}
+                                data-testid="ban-button"
+                            >
+                                {kickBan.busy === 'ban'
+                                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                                    : <Ban className="mr-2 h-4 w-4" aria-hidden="true" />}
+                                Ban
+                            </button>
+                            <GatedHint id={banHintId} hint={kickBan.banGate.hint} />
+                        </>
+                    )}
                     <button type="button" className="btn-secondary text-sm" onClick={onReload} disabled={reloading}>
                         <RefreshCcw className={`mr-2 h-4 w-4 ${reloading ? 'animate-spin' : ''}`} aria-hidden="true" />
                         Reload
@@ -140,8 +179,8 @@ export const PlayerStatusStrip: React.FC<Props> = ({ summary, freeze, transferLo
                 <div role="status" className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger-strong" data-testid="frozen-banner">
                     <p className="font-medium">
                         Frozen
-                        {freeze.frozenEntry && <> since {formatDateTime(freeze.frozenEntry.timestamp)}</>}
-                        {freeze.frozenEntry && <> by {freeze.frozenEntry.actorUsername ?? 'the game server or the system'}</>}
+                        {freeze.state?.frozenAt && <> since {formatDateTime(freeze.state.frozenAt)}</>}
+                        {freeze.state?.frozenAt && <> by {freeze.state.frozenByUsername ?? 'the game server or the system'}</>}
                     </p>
                     <p className="mt-0.5 break-words">Reason: {freeze.state?.frozenReason?.trim() || 'none recorded'}</p>
                 </div>
