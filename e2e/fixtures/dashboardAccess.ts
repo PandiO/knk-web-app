@@ -14,6 +14,8 @@ import type { MockApi } from '../support/mockApi';
 export const WORLD = 'knk.admin.world';
 export const CONTENT = 'knk.admin.content';
 export const USERS = 'knk.admin.user.manage';
+/** #409: why a town's streets can't be linked on the town (the API's `RelationshipCatalog.Derived` reason). */
+export const TOWN_STREETS_REASON = 'Streets are managed on the district: open a district to add or remove them.';
 
 /** The metadata the API sends for a type of `area` (DashboardAccess registry): view, create, edit, delete, export. */
 export function accessMetadata(entityName: string, area: string, bulkDeletable = true): EntityMetadataDto {
@@ -42,9 +44,13 @@ export const metadata: EntityMetadataDto[] = [
   {
     ...accessMetadata('Town', WORLD),
     lookupGettable: true,
-    // Since #374 the API asks the area node and knk.admin.content for link changes.
+    // #409: a town's streets are derived from its districts (read-only, the reason is the hint). Since #374 the API asks
+    // the area node and knk.admin.content for link changes.
     relationships: [
-      { property: 'streets', relatedType: 'Street', kind: 'collection', storage: 'many', canLink: true, canUnlink: true, nodes: [WORLD, CONTENT] },
+      {
+        property: 'streets', relatedType: 'Street', kind: 'collection', storage: 'derived', canLink: false, canUnlink: false,
+        linkReason: TOWN_STREETS_REASON, unlinkReason: TOWN_STREETS_REASON, nodes: [WORLD, CONTENT],
+      },
     ],
   },
   { ...accessMetadata('Street', WORLD), lookupSearchable: true, lookupGettable: true },
