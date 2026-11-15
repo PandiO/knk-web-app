@@ -2,7 +2,7 @@ import React from 'react';
 import { userManagementClient } from '../../../apiClients/userManagementClient';
 import { ActionGate, useActionGate } from '../../../hooks/useActionGate';
 import { ConfirmFn, ConfirmWithReasonFn } from '../../../hooks/useConfirm';
-import { AuditLogEntryDto, PlayerFreezeStateDto } from '../../../types/dtos/userManagement/UserProfileSummaryDtos';
+import { PlayerFreezeStateDto, ProfileAccountDto } from '../../../types/dtos/userManagement/UserProfileSummaryDtos';
 import { apiRefusalReason } from '../../../utils/apiRefusalReason';
 import { toast } from '../../../utils/toast';
 
@@ -14,84 +14,69 @@ export const UNFREEZE_NODE = 'knk.unfreeze';
 export const FREEZE_REASON_MAX_LENGTH = 200;
 
 /**
- * Whether `PUT api/Users/{id}/unfreeze` stores a reason. It takes no body today, so the unfreeze confirm asks no
- * reason (one that is dropped would be a lie). When the API stores one (V3 report, "API needs"), set this to true:
- * the confirm then asks for an optional reason and `unfreeze` sends it.
+ * Whether `PUT api/Users/{id}/unfreeze` stores a reason. Since #565 it takes an optional `{ reason }` and writes it into
+ * the PlayerUnfrozen audit entry, so the unfreeze confirm asks for an optional reason and `unfreeze` sends it.
  */
-export const UNFREEZE_TAKES_REASON = false;
+export const UNFREEZE_TAKES_REASON = true;
 
 export interface PlayerFreeze {
-    /** null until read, or when the read failed (`error`). */
+    /** null until the profile summary is read (or when it failed). */
     state: PlayerFreezeStateDto | null;
-    /** The latest PlayerFrozen audit entry while frozen: when and by whom. */
-    frozenEntry: AuditLogEntryDto | null;
+    /** True until the summary is read. */
     loading: boolean;
     error: string | null;
     busy: boolean;
     freezeGate: ActionGate;
     unfreezeGate: ActionGate;
+    /** Reads the profile summary again (the frozen state comes with it). */
     reload: () => Promise<void>;
     freeze: () => Promise<void>;
     unfreeze: () => Promise<void>;
 }
 
+/** #565: the frozen state from the profile summary's account (since when and by whom: absent from an older API). */
+export function freezeStateOf(account: ProfileAccountDto | null | undefined): PlayerFreezeStateDto | null {
+    if (!account) return null;
+    return {
+        isFrozen: account.isFrozen === true,
+        frozenReason: account.frozenReason ?? null,
+        frozenAt: account.frozenAt ?? null,
+        frozenByUserId: account.frozenByUserId ?? null,
+        frozenByUsername: account.frozenByUsername ?? null,
+    };
+}
+
 /**
  * #119 (MOD-3): the player's frozen state and the Freeze / Unfreeze actions of the profile (status strip and the
  * Moderation tab). Freeze asks a required reason in the shared confirm (`confirmWithReason`, made for this case in
- * #33); it is saved on the player, in the audit log, and the game applies the freeze at once (#179).
+ * #33); it is saved on the player, in the audit log, and the game applies the freeze at once (#179). Since #565 the
+ * state, since when and by whom, comes with the profile summary (`account`), so the profile makes no extra read of
+ * the user or the audit log; unfreeze asks an optional reason for the audit log.
  */
 export function usePlayerFreeze(options: {
     userId: number;
     username: string;
+    /** The profile summary's account; null while it loads. */
+    account: ProfileAccountDto | null;
+    /** True while the summary is read for the first time. */
+    loading?: boolean;
+    /** Reads the profile summary again. */
+    reloadSummary: () => Promise<void>;
     confirm: ConfirmFn;
     confirmWithReason: ConfirmWithReasonFn;
-    /** After a change: re-read the timeline, audit log and summary. */
+    /** After a change: re-read the timeline and audit log. */
     onChanged: () => void;
 }): PlayerFreeze {
-    const { userId, username, confirm, confirmWithReason, onChanged } = options;
+    const { userId, username, account, loading = false, reloadSummary, confirm, confirmWithReason, onChanged } = options;
     const freezeGate = useActionGate(FREEZE_NODE);
     const unfreezeGate = useActionGate(UNFREEZE_NODE);
-    const [state, setState] = React.useState<PlayerFreezeStateDto | null>(null);
-    const [frozenEntry, setFrozenEntry] = React.useState<AuditLogEntryDto | null>(null);
-    const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState<string | null>(null);
     const [busy, setBusy] = React.useState(false);
-    const latest = React.useRef(0);
+    const state = React.useMemo(() => freezeStateOf(account), [account]);
 
     const reload = React.useCallback(async () => {
         if (!Number.isFinite(userId) || userId <= 0) return;
-        const call = ++latest.current;
-        setLoading(true);
-        try {
-            const next = await userManagementClient.getFreezeState(userId);
-            let entry: AuditLogEntryDto | null = null;
-            if (next.isFrozen) {
-                try {
-                    const page = await userManagementClient.getAuditLog({ targetUserId: userId, action: 'PlayerFrozen', pageSize: 1 });
-                    entry = page?.items?.[0] ?? null;
-                } catch (err) {
-                    console.error('Failed to read when the player was frozen:', err);
-                }
-            }
-            if (call !== latest.current) return;
-            setState(next);
-            setFrozenEntry(entry);
-            setError(null);
-        } catch (err) {
-            if (call !== latest.current) return;
-            console.error('Failed to read the frozen state:', err);
-            setState(null);
-            setError('Could not read whether this player is frozen.');
-        } finally {
-            if (call === latest.current) setLoading(false);
-        }
-    }, [userId]);
-
-    React.useEffect(() => {
-        setState(null);
-        setFrozenEntry(null);
-        void reload();
-    }, [reload]);
+        await reloadSummary();
+    }, [userId, reloadSummary]);
 
     const freeze = async () => {
         if (busy || !freezeGate.allowed) return;
@@ -130,7 +115,7 @@ export function usePlayerFreeze(options: {
         if (UNFREEZE_TAKES_REASON) {
             reason = await confirmWithReason({
                 title: `Unfreeze ${username}?`, message, confirmLabel: 'Unfreeze',
-                reason: { required: false, label: 'Reason', hint: 'Saved in the audit log.', maxLength: FREEZE_REASON_MAX_LENGTH },
+                reason: { required: false, label: 'Reason (optional)', hint: 'Saved in the audit log.', maxLength: FREEZE_REASON_MAX_LENGTH },
             });
             if (reason === null) return;
         } else if (!(await confirm({ title: `Unfreeze ${username}?`, message, confirmLabel: 'Unfreeze' }))) {
@@ -150,5 +135,5 @@ export function usePlayerFreeze(options: {
         }
     };
 
-    return { state, frozenEntry, loading, error, busy, freezeGate, unfreezeGate, reload, freeze, unfreeze };
+    return { state, loading: loading && !state, error: null, busy, freezeGate, unfreezeGate, reload, freeze, unfreeze };
 }

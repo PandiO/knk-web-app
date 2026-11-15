@@ -8,7 +8,7 @@ import {
   AuditSubjectType,
   BalanceAdjustmentResultDto,
   GrantNodeRequest,
-  PlayerFreezeStateDto,
+  PlayerModerationResultDto,
   UserPermissionGroupDto,
   UserProfileSummaryDto,
 } from '../types/dtos/userManagement/UserProfileSummaryDtos';
@@ -70,23 +70,26 @@ class UserManagementClient extends ObjectManager {
   }
 
   // #119: freeze and unfreeze from the player profile. PUT api/Users/{id}/freeze needs knk.freeze and a reason
-  // (stored on the user and in the PlayerFrozen audit entry); /unfreeze needs knk.unfreeze and takes no body, so
-  // an unfreeze has no reason yet (API need, see the V3 report). Both push UserFrozenChanged to the game (#179).
+  // (stored on the user and in the PlayerFrozen audit entry); /unfreeze needs knk.unfreeze and takes an optional
+  // reason since #565 (only in the PlayerUnfrozen audit entry). Both push UserFrozenChanged to the game (#179). The
+  // frozen state, since when and by whom, comes with the profile summary's account (#565).
   freeze(userId: number, reason: string): Promise<void> {
     return this.invokeServiceCall({ reason }, `${userId}/freeze`, Controllers.Users, HttpMethod.Put);
   }
 
-  // `reason` only once the API stores one (UNFREEZE_TAKES_REASON in pages/admin/playerProfile/usePlayerFreeze.ts).
   unfreeze(userId: number, reason?: string): Promise<void> {
     return this.invokeServiceCall(reason ? { reason } : null, `${userId}/unfreeze`, Controllers.Users, HttpMethod.Put);
   }
 
-  // The frozen state isn't in the profile summary; GET api/Users/{id} (UserDto) carries isFrozen and
-  // frozenReason (not when or by whom: the profile reads that from the latest PlayerFrozen audit entry).
-  async getFreezeState(userId: number): Promise<PlayerFreezeStateDto> {
-    const user: { isFrozen?: boolean | null; frozenReason?: string | null } | null =
-      await this.invokeServiceCall(null, `${userId}`, Controllers.Users, HttpMethod.Get);
-    return { isFrozen: user?.isFrozen === true, frozenReason: user?.frozenReason ?? null };
+  // #565: kick (knk.kick, reason optional, the player must be online) and ban (knk.ban, reason required; permanent
+  // on the game server's ban list, unban is /pardon in game). The API audits them and sends PlayerKick / PlayerBan to
+  // the game servers; it answers 503 NoGameServerConnected while none is connected.
+  kick(userId: number, reason?: string): Promise<PlayerModerationResultDto> {
+    return this.invokeServiceCall(reason ? { reason } : null, `${userId}/kick`, Controllers.Users, HttpMethod.Post);
+  }
+
+  ban(userId: number, reason: string): Promise<PlayerModerationResultDto> {
+    return this.invokeServiceCall({ reason }, `${userId}/ban`, Controllers.Users, HttpMethod.Post);
   }
 
   // Developer request 2026-09-25: a web quick action for the same coins/gems/XP adjustment the

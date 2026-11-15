@@ -54,4 +54,10 @@ export interface UserListDto {
   isActive: boolean;
   isOnline: boolean;
   lastSeenAt?: string | null;
+  /** PandiO/knk-workspace#565: admin-frozen; absent from an older API. */
+  isFrozen?: boolean;
+  /** #565: payments (transfers) locked by staff; absent from an older API. */
+  paymentsLocked?: boolean;
+  /** #565: when the account was created; absent from an older API. */
+  createdAt?: string | null;
 }

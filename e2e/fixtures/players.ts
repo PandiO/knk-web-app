@@ -2,6 +2,7 @@ import type { UserListDto } from '../../src/types/dtos/auth/UserDtos';
 import type { PagedQueryDto, PagedResultDto } from '../../src/types/dtos/common/PagedQuery';
 import type { LedgerLineDto, LedgerPageDto, TransferLockDto } from '../../src/types/dtos/currency/CurrencyDtos';
 import type { KitAvailabilityDto } from '../../src/types/dtos/kit/KitDtos';
+import type { PlayerSessionDto, StatisticsPagedResultDto } from '../../src/types/dtos/statistics/StatisticsDtos';
 import type { PermissionGroupDto } from '../../src/types/dtos/userManagement/PermissionGroupDto';
 import type { PermissionGrantDto } from '../../src/types/dtos/userManagement/PermissionGrantDto';
 import type {
@@ -10,6 +11,7 @@ import type {
   AuditLogPagedResultDto,
   EffectivePermissionEntryDto,
   GrantNodeRequest,
+  PlayerModerationResultDto,
   UserProfileSummaryDto,
 } from '../../src/types/dtos/userManagement/UserProfileSummaryDtos';
 import type { MockApi } from '../support/mockApi';
@@ -17,7 +19,9 @@ import type { MockApi } from '../support/mockApi';
 /**
  * The staff player profile (`/admin/users/:id`) and the moderation list (`/admin/users`), typed with the
  * app's DTOs (PandiO/knk-workspace#119, backfill #511). `mockPlayerProfile` keeps the frozen state, so a
- * freeze or unfreeze the page sends is what the next read returns.
+ * freeze or unfreeze the page sends is what the next read returns. Since #565 the frozen state (since when, by whom)
+ * is in the profile summary's account, the game sessions have their own read, and kick / ban are answered (202) or
+ * refused as the API would.
  */
 
 export const playerId = 42;
@@ -98,9 +102,20 @@ export function ledgerLine(entryId: number, createdAt: string, amount: number, r
 
 export interface PlayerProfileMock {
   summary?: UserProfileSummaryDto;
-  frozen?: { reason: string } | null;
+  /** #565: `at` and `by` are the summary's frozenAt / frozenByUsername (defaults: a fixed time, "Mod"). */
+  frozen?: { reason: string; at?: string; by?: string } | null;
   audit?: AuditLogEntryDto[];
   ledger?: LedgerLineDto[];
+  /** #565: the player's game sessions (newest first, as the API sends them). */
+  sessions?: PlayerSessionDto[];
+  /** #565: how the API answers a kick or ban: 202 (default) or a refusal. */
+  kickBanRefusal?: { status: number; error: string; message: string };
+}
+
+/** #565: one game session of player 42. */
+export function gameSession(key: string, startedAt: string, endedAt: string | null, endReason: PlayerSessionDto['endReason'],
+  activeSeconds: number, serverId = 'survival'): PlayerSessionDto {
+  return { sessionKey: key, startedAt, endedAt, endReason, serverId, activeSeconds };
 }
 
 /** Every call the profile page makes for player 42, answered from `state`; freeze/unfreeze change the state. */
@@ -109,12 +124,28 @@ export function mockPlayerProfile(api: MockApi, state: PlayerProfileMock = {}): 
   let frozen = state.frozen ?? null;
   const audit = [...(state.audit ?? [])];
   const ledger = state.ledger ?? [];
+  const sessions = state.sessions ?? [];
   let nextAuditId = 1000;
 
-  api.json<UserProfileSummaryDto>('GET', `Users/${playerId}/profile-summary`, summary);
-  api.on<{ id: number; username: string; isFrozen: boolean; frozenReason: string | null }>('GET', `Users/${playerId}`, () => ({
-    body: { id: playerId, username: summary.account.username, isFrozen: frozen !== null, frozenReason: frozen?.reason ?? null },
+  // #565: the frozen state, since when and by whom, comes with the summary (no GET Users/42, no audit lookup).
+  api.on<UserProfileSummaryDto>('GET', `Users/${playerId}/profile-summary`, () => ({
+    body: {
+      ...summary,
+      account: {
+        ...summary.account,
+        isFrozen: frozen !== null,
+        frozenReason: frozen?.reason ?? null,
+        frozenAt: frozen ? frozen.at ?? '2026-11-08T07:30:00' : null,
+        frozenByUserId: frozen ? 9 : null,
+        frozenByUsername: frozen ? frozen.by ?? 'Mod' : null,
+      },
+    },
   }));
+  api.on<StatisticsPagedResultDto<PlayerSessionDto>>('GET', `statistics/users/${playerId}/sessions`, ({ query }) => {
+    const page = Number(query.get('page') ?? 1);
+    const pageSize = Number(query.get('pageSize') ?? 20);
+    return { body: { items: sessions.slice((page - 1) * pageSize, page * pageSize), totalCount: sessions.length, pageNumber: page, pageSize } };
+  });
   api.json<KitAvailabilityDto[]>('GET', 'Kits/available', kits);
   api.json<TransferLockDto>('GET', `currency/admin/users/${playerId}/transfer-lock`, { userId: playerId, locked: false });
   api.json<PermissionGroupDto[]>('GET', /^PermissionGroups\/?$/, groups);
@@ -137,15 +168,29 @@ export function mockPlayerProfile(api: MockApi, state: PlayerProfileMock = {}): 
 
   api.on('PUT', `Users/${playerId}/freeze`, ({ body }) => {
     const reason = (body as { reason?: string } | undefined)?.reason ?? '';
-    frozen = { reason };
+    frozen = { reason, at: new Date().toISOString().replace('Z', ''), by: 'Alex' };
     audit.push(auditEntry(nextAuditId++, 'PlayerFrozen', new Date().toISOString(), JSON.stringify({ reason })));
     return { status: 204 };
   });
-  api.on('PUT', `Users/${playerId}/unfreeze`, () => {
+  api.on('PUT', `Users/${playerId}/unfreeze`, ({ body }) => {
     frozen = null;
-    audit.push(auditEntry(nextAuditId++, 'PlayerUnfrozen', new Date().toISOString()));
+    const reason = (body as { reason?: string } | undefined)?.reason ?? null;
+    audit.push(auditEntry(nextAuditId++, 'PlayerUnfrozen', new Date().toISOString(), JSON.stringify({ reason })));
     return { status: 204 };
   });
+
+  // #565: kick and ban (202 with the action id, or the refusal the test asks for); each accepted one is audited.
+  for (const [verb, action] of [['kick', 'PlayerKicked'], ['ban', 'PlayerBanned']] as const) {
+    api.on<PlayerModerationResultDto | { error: string; message: string }>('POST', `Users/${playerId}/${verb}`, ({ body }) => {
+      if (state.kickBanRefusal) {
+        return { status: state.kickBanRefusal.status, body: { error: state.kickBanRefusal.error, message: state.kickBanRefusal.message } };
+      }
+      const reason = (body as { reason?: string } | undefined)?.reason ?? null;
+      audit.push(auditEntry(nextAuditId++, action, new Date().toISOString(),
+        JSON.stringify(verb === 'ban' ? { reason, permanent: true } : { reason })));
+      return { status: 202, body: { actionId: `action-${nextAuditId}`, userId: playerId, gameServers: 1 } };
+    });
+  }
 }
 
 /** A node player 42 holds directly (`granted` false: a direct deny). */
@@ -205,9 +250,19 @@ export function mockPlayerSearch(api: MockApi, rows: UserListDto[]): void {
     const pageNumber = query.pageNumber ?? query.page ?? 1;
     const term = (query.searchTerm ?? '').toLowerCase();
     let items = rows.filter(r => !term || [r.username, r.email ?? '', r.uuid ?? ''].some(v => v.toLowerCase().includes(term)));
+    // #565: the state filters ("true" / "false").
+    const filters = (query.filters ?? {}) as Record<string, string>;
+    const flag = (name: string) => (filters[name] === 'true' ? true : filters[name] === 'false' ? false : undefined);
+    const online = flag('online');
+    const frozen = flag('frozen');
+    const locked = flag('paymentsLocked');
+    items = items.filter(r => (online === undefined || r.isOnline === online)
+      && (frozen === undefined || (r.isFrozen ?? false) === frozen)
+      && (locked === undefined || (r.paymentsLocked ?? false) === locked));
     if (query.sortBy) {
-      const key = query.sortBy.charAt(0).toLowerCase() + query.sortBy.slice(1);
-      const value = (r: UserListDto) => (r as unknown as Record<string, string | number>)[key];
+      // The API's keys are lower case (lastseenat, experiencepoints): find the row field that matches.
+      const key = Object.keys(rows[0] ?? {}).find(k => k.toLowerCase() === query.sortBy!.toLowerCase()) ?? query.sortBy;
+      const value = (r: UserListDto) => (r as unknown as Record<string, string | number>)[key] ?? '';
       items = [...items].sort((a, b) => (value(a) < value(b) ? -1 : value(a) > value(b) ? 1 : 0));
       if (query.sortDescending) items.reverse();
     }

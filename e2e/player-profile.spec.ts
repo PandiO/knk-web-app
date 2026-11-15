@@ -101,7 +101,7 @@ test.describe('as a moderator with every node', () => {
     expect(api.calls('PUT', `Users/${playerId}/freeze`).map(r => r.body)).toEqual([{ reason: 'Smoke test #119' }]);
   });
 
-  test('the Moderation tab holds the same freeze card; Unfreeze confirms without a reason', async ({ page, api }) => {
+  test('the Moderation tab holds the same freeze card; Unfreeze confirms with an optional reason (none given)', async ({ page, api }) => {
     mockPlayerProfile(api, { frozen: { reason: 'Griefing spawn' } });
     await page.goto(`${profileUrl}?tab=moderation`);
 
@@ -109,13 +109,14 @@ test.describe('as a moderator with every node', () => {
     await expect(panel.getByText(/Griefing spawn/).first()).toBeVisible();
     await panel.getByRole('button', { name: 'Unfreeze' }).click();
     const dialog = page.getByRole('alertdialog', { name: 'Unfreeze Steve?' });
-    await expect(dialog.getByLabel('Reason')).toHaveCount(0);
+    // #565: the reason is optional; left empty, the unfreeze sends no body.
+    await expect(dialog.getByLabel(/Reason/)).toBeVisible();
     await dialog.getByRole('button', { name: 'Unfreeze' }).click();
 
     await expect(page.getByText('Steve is unfrozen')).toBeVisible();
     await expect(page.getByText('Frozen', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Freeze' }).first()).toBeVisible();
-    expect(api.calls('PUT', `Users/${playerId}/unfreeze`)).toHaveLength(1);
+    expect(api.calls('PUT', `Users/${playerId}/unfreeze`).map(r => (r.body as { reason?: string } | undefined)?.reason)).toEqual([undefined]);
   });
 
   test('Activity merges audit entries and balance changes newest first; the Economy chip hides the coin lines', async ({ page, api }) => {
@@ -125,7 +126,7 @@ test.describe('as a moderator with every node', () => {
     });
     await page.goto(`${profileUrl}?tab=activity`);
 
-    await expect(page.getByText('From the audit log and the balance history.', { exact: false })).toBeVisible();
+    await expect(page.getByText('From the audit log, the game sessions and the balance history.', { exact: false })).toBeVisible();
     const coinLine = page.getByText('+500 coins');
     await expect(coinLine).toBeVisible();
     await expect(page.getByText('Event prize').first()).toBeVisible();

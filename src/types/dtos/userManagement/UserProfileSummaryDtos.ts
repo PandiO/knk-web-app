@@ -36,6 +36,16 @@ export interface ProfileAccountDto {
   isActive: boolean;
   /** May pass the game server's admission gate (KNG-214); absent from an older API. */
   admitted?: boolean;
+  /** Admin-frozen (PUT api/Users/{id}/freeze), with the reason. */
+  isFrozen?: boolean;
+  frozenReason?: string | null;
+  /**
+   * PandiO/knk-workspace#565: when and by whom the current freeze was set; null while not frozen. Absent (undefined)
+   * from an API before #565, which only had isFrozen and frozenReason.
+   */
+  frozenAt?: string | null;
+  frozenByUserId?: number | null;
+  frozenByUsername?: string | null;
 }
 
 export interface EffectivePermissionEntryDto {
@@ -97,10 +107,21 @@ export interface ProfilePresenceDto {
   lastSeenAt?: string | null;
 }
 
-/** #119: whether the player is frozen (GET api/Users/{id}: isFrozen, frozenReason). */
+/** #119, #565: whether the player is frozen, why, since when and by whom (from the profile summary's account). */
 export interface PlayerFreezeStateDto {
   isFrozen: boolean;
   frozenReason?: string | null;
+  frozenAt?: string | null;
+  frozenByUserId?: number | null;
+  frozenByUsername?: string | null;
+}
+
+/** Answer of POST api/Users/{id}/kick and /ban (202, #565). */
+export interface PlayerModerationResultDto {
+  actionId: string;
+  userId: number;
+  /** How many game servers were connected when it was sent. */
+  gameServers: number;
 }
 
 // docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 2.
@@ -163,7 +184,10 @@ export type AuditAction =
   // Minecraft linking and admission (KNG-214, knk-web-api AuditAction 40-42).
   | 'MinecraftLinked'
   | 'MinecraftUnlinked'
-  | 'PlayerAdmitted';
+  | 'PlayerAdmitted'
+  // Kick and ban from the web app (PandiO/knk-workspace#565, knk-web-api AuditAction 63, 64).
+  | 'PlayerKicked'
+  | 'PlayerBanned';
 
 export interface AuditLogEntryDto {
   id: number;

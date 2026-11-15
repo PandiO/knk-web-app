@@ -38,6 +38,7 @@ import { ProfileTab, ProfileTabs, tabId, tabPanelId } from './playerProfile/Prof
 import { PlayerTimeline } from './playerProfile/PlayerTimeline';
 import { PlayerAuditLog } from './playerProfile/PlayerAuditLog';
 import { usePlayerFreeze } from './playerProfile/usePlayerFreeze';
+import { usePlayerKickBan } from './playerProfile/usePlayerKickBan';
 import { EffectivePermissionsCard } from './playerProfile/EffectivePermissionsCard';
 
 // docs/specs/user-management/DESIGN.md §2 - a read-first composite dashboard for one player,
@@ -218,14 +219,18 @@ export const PlayerProfilePage: React.FC = () => {
     }, [load, bumpActivity]);
 
     const username = summary?.account.username ?? `User #${id}`;
-    const freeze = usePlayerFreeze({ userId, username, confirm, confirmWithReason, onChanged: bumpActivity });
-    const reloadFreeze = freeze.reload;
+    // #565: the frozen state (since when, by whom) comes with the profile summary; no extra read of the user or audit log.
+    const freeze = usePlayerFreeze({
+        userId, username, account: summary?.account ?? null, loading, reloadSummary: load, confirm, confirmWithReason,
+        onChanged: bumpActivity,
+    });
+    const kickBan = usePlayerKickBan({ userId, username, confirmWithReason, onChanged: bumpActivity });
 
     // #183 (S4): another staff member, or the game (/freeze in game), changed this user: read the profile again.
-    // A hub reconnect re-reads the frozen state and the activity (the presence handler above re-reads the badge).
-    useLiveEntityChanges('User', change => {
-        if (!change.reconnect || change.actors.length > 0) void load();
-        void reloadFreeze();
+    // A hub reconnect re-reads the summary (frozen state included) and the activity (the presence handler above
+    // re-reads the badge).
+    useLiveEntityChanges('User', () => {
+        void load();
         void loadTransferLock();
         bumpActivity();
     }, { id: Number.isFinite(userId) ? userId : null });
@@ -747,7 +752,8 @@ export const PlayerProfilePage: React.FC = () => {
                         <div className="min-w-0">
                             <p className="font-medium text-fg">
                                 {frozen
-                                    ? `Frozen${freeze.frozenEntry ? ` since ${formatDateTime(freeze.frozenEntry.timestamp)}` : ''}`
+                                    ? `Frozen${freeze.state?.frozenAt ? ` since ${formatDateTime(freeze.state.frozenAt)}` : ''}${freeze.state?.frozenAt
+                                        ? ` by ${freeze.state.frozenByUsername ?? 'the game server or the system'}` : ''}`
                                     : 'Not frozen'}
                             </p>
                             <p className="mt-0.5 break-words text-muted">
@@ -802,15 +808,46 @@ export const PlayerProfilePage: React.FC = () => {
             {/* Admission and web login: Admit / Detach web login (KNG-214) */}
             <PlayerAccessCard account={account} onChanged={refreshAfterAction} />
 
-            <section className={card} aria-labelledby="kickban-heading">
+            <section className={card} aria-labelledby="kickban-heading" data-testid="kickban-card">
                 <h2 id="kickban-heading" className={cardTitle}>
                     <Gavel className="mr-2 h-5 w-5" aria-hidden="true" />
                     Kick and ban
                 </h2>
-                <p className="text-sm text-muted">
-                    Kick and ban are game commands (<span className="font-mono">/kick</span>, <span className="font-mono">/ban</span>,
-                    or the player menu in game). The web app can&apos;t send them yet.
-                </p>
+                {account.uuid ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                        <p className="min-w-0 text-muted">
+                            Kick disconnects the player now (only while they are online). Ban is permanent: the game server
+                            puts them on its ban list and kicks them; only <span className="font-mono">/pardon</span> in game
+                            lifts it. Both are carried out by the game server and saved in the audit log.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                className="btn-secondary text-sm"
+                                disabled={!kickBan.kickGate.allowed || kickBan.busy !== null}
+                                title={kickBan.kickGate.hint ?? undefined}
+                                onClick={() => void kickBan.kick()}
+                            >
+                                {kickBan.busy === 'kick' && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+                                Kick…
+                            </button>
+                            {kickBan.kickGate.hint && <span className="text-xs text-muted">{kickBan.kickGate.hint}</span>}
+                            <button
+                                type="button"
+                                className="btn-danger text-sm"
+                                disabled={!kickBan.banGate.allowed || kickBan.busy !== null}
+                                title={kickBan.banGate.hint ?? undefined}
+                                onClick={() => void kickBan.ban()}
+                            >
+                                {kickBan.busy === 'ban' && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+                                Ban…
+                            </button>
+                            {kickBan.banGate.hint && <span className="text-xs text-muted">{kickBan.banGate.hint}</span>}
+                        </div>
+                    </div>
+                ) : (
+                    <p className="text-sm text-muted">This account has no Minecraft account, so there is nothing to kick or ban in game.</p>
+                )}
             </section>
         </>
     );
@@ -860,8 +897,9 @@ export const PlayerProfilePage: React.FC = () => {
                 <PlayerStatusStrip
                     summary={summary}
                     freeze={freeze}
+                    kickBan={kickBan}
                     transferLock={transferLock}
-                    onReload={() => { void refreshAfterAction(); void reloadFreeze(); void loadTransferLock(); }}
+                    onReload={() => { void refreshAfterAction(); void loadTransferLock(); }}
                     reloading={loading}
                 />
             </header>

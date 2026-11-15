@@ -89,9 +89,11 @@ describe('UserModerationPage search (#119)', () => {
         fireEvent.click(screen.getByRole('button', { name: /Next/ }));
         await waitFor(() => expect(lastQuery()).toEqual(expect.objectContaining({ sortBy: 'coins', sortDescending: true, pageNumber: 2 })));
         expect(urlNow()).toBe('sort=coins&dir=desc&page=2');
-        // XP and status are not sortable on the server.
-        expect(within(table).queryByRole('button', { name: /XP/ })).not.toBeInTheDocument();
-        expect(within(table).getByRole('columnheader', { name: 'Last seen' })).toBeInTheDocument();
+        // Status and Created are not sortable on the server; XP and Last seen are since #565.
+        expect(within(table).queryByRole('button', { name: /Status/ })).not.toBeInTheDocument();
+        expect(within(table).queryByRole('button', { name: /Created/ })).not.toBeInTheDocument();
+        expect(within(table).getByRole('button', { name: /XP/ })).toBeInTheDocument();
+        expect(within(table).getByRole('button', { name: /Last seen/ })).toBeInTheDocument();
     });
 
     it('starts from the search in the URL (Back from a profile)', async () => {

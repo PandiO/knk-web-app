@@ -1,6 +1,7 @@
 import { logging, Controllers, HttpMethod } from '../utils';
 import {
   PlayerStatisticsDto,
+  PlayerSessionDto,
   StatisticsCatalogDto,
   StatisticsPagedResultDto,
   StatisticsPeriod,
@@ -47,6 +48,11 @@ export class StatisticsClient extends ObjectManager {
   }
 
   /** 403 when the player keeps their title history private. */
+  /** #565: the player's game sessions, newest first (staff with knk.admin.user.manage). */
+  getSessions(userId: number, page = 1, pageSize = 20): Promise<StatisticsPagedResultDto<PlayerSessionDto>> {
+    return this.invokeServiceCall({ page, pageSize }, `users/${userId}/sessions`, Controllers.Statistics, HttpMethod.Get);
+  }
+
   getTitleHistory(userId: number, page = 1, pageSize = 20): Promise<StatisticsPagedResultDto<TitleChangeDto>> {
     return this.invokeServiceCall({ page, pageSize }, `users/${userId}/title-history`, Controllers.Statistics, HttpMethod.Get);
   }
