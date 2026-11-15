@@ -166,3 +166,62 @@ export const townBuilderState: FormConfigurationBuilderState = (() => {
     openDraftCount: 0,
   };
 })();
+
+/**
+ * PandiO/knk-workspace#288: "New siege objective" with one Object field, the team that holds the objective at the
+ * start. Its pickerFilters narrow the team picker to scenario 100's teams (a literal here; the real form takes the
+ * scenario from the parent record).
+ */
+export const siegeObjectiveForm: FormConfigurationDto = {
+  id: '13',
+  entityTypeName: 'SiegeObjective',
+  configurationName: 'Siege objective (e2e)',
+  isDefault: true,
+  steps: [
+    step({
+      id: '24',
+      stepName: 'Holder',
+      order: 0,
+      fields: [
+        field({
+          id: '35',
+          fieldName: 'InitialHolderTeam',
+          label: 'Initial holder team',
+          fieldType: FieldType.Object,
+          objectType: 'SiegeTeam',
+          order: 0,
+          settingsJson: '{"pickerFilters":{"siegeScenarioId":"100"}}',
+        }),
+      ],
+    }),
+  ],
+};
+
+/** The type metadata of SiegeObjective, enough for the wizard to type its team field. */
+export const siegeObjectiveMetadata: EntityMetadataDto = {
+  entityName: 'SiegeObjective',
+  displayName: 'Siege objective',
+  fields: [
+    {
+      fieldName: 'InitialHolderTeam',
+      fieldType: 'Object',
+      isNullable: true,
+      isRelatedEntity: true,
+      relatedEntityType: 'SiegeTeam',
+      hasDefaultValue: false,
+    },
+  ],
+};
+
+/** The read node of siege teams (knk-web-api `StaffPermissions.SiegeManage`). */
+export const SIEGE_MANAGE = 'knk.siege.admin.manage';
+
+/** SiegeTeam in the base metadata: read in full with the siege node, otherwise through api/Lookup. */
+export const siegeTeamMetadata: EntityMetadataDto = {
+  entityName: 'SiegeTeam',
+  displayName: 'Siege team',
+  fields: [],
+  readNodes: [SIEGE_MANAGE],
+  lookupSearchable: true,
+  lookupGettable: true,
+};

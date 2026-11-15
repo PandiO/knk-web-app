@@ -210,7 +210,7 @@ describe('RelationPicker lookup mode (#280)', () => {
         render(<Harness />);
         fireEvent.focus(box());
         const option = await screen.findByRole('option', { name: /Castle Hill 4/ });
-        expect(lookupClient.search).toHaveBeenCalledWith('Street', '', 1, 8);
+        expect(lookupClient.search).toHaveBeenCalledWith('Street', '', 1, 8, {});
         expect(mockSearch).not.toHaveBeenCalled();
         expect(within(option).getByText('Cinix')).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Open full table' })).not.toBeInTheDocument();
@@ -229,18 +229,40 @@ describe('RelationPicker lookup mode (#280)', () => {
         expect(screen.getByRole('button', { name: 'Open full table' })).toBeInTheDocument();
     });
 
-    it('drops prefer filters, applies excludeIds, and refuses filters that would narrow the list', async () => {
-        const { unmount } = render(<Harness filters={{ preferTownId: '5', excludeIds: '5' }} />);
+    it('sends the narrowing and prefer filters to the lookup and applies excludeIds itself (#288)', async () => {
+        render(<Harness filters={{ siegeScenarioId: '1', preferTownId: '5', excludeIds: '5', empty: '' }} />);
         fireEvent.focus(box());
         await screen.findByRole('option', { name: /Castle Hill 4/ });
+        expect(lookupClient.search).toHaveBeenCalledWith('Street', '', 1, 8, { siegeScenarioId: '1', preferTownId: '5' });
         expect(screen.queryByRole('option', { name: /Quay/ })).not.toBeInTheDocument();
-        unmount();
+        expect(screen.queryByText(/narrowed by/)).not.toBeInTheDocument();
+        expect(screen.getByText(/Names only: the full Street table needs one of/)).toBeInTheDocument();
+    });
 
-        (lookupClient.search as jest.Mock).mockClear();
-        render(<Harness filters={{ siegeScenarioId: '1' }} />);
+    it('says which filter only the full search can apply when the lookup refuses it (#288)', async () => {
+        (lookupClient.search as jest.Mock).mockRejectedValue(Object.assign(new Error('refused'), {
+            status: 400,
+            response: { error: 'LookupFilterNotAllowed', message: "A Street lookup can't be narrowed by gateType", filters: ['gateType'] },
+        }));
+        render(<Harness filters={{ gateType: 'DRAWBRIDGE' }} />);
         fireEvent.focus(box());
-        expect(await screen.findByText(/narrowed by siegeScenarioId, which only the full Street search can do/)).toBeInTheDocument();
-        expect(lookupClient.search).not.toHaveBeenCalled();
+        const status = await screen.findByText(
+            'This list is narrowed by gateType, which only the full Street search can do. Requires one of: knk.admin.world, knk.road.manage.'
+        );
+        expect(status).toHaveClass('text-danger');
+        expect(screen.queryByRole('option')).not.toBeInTheDocument();
+        expect(screen.queryByText(/Names only/)).not.toBeInTheDocument();
+    });
+
+    it("shows the API's reason for a filter value it can't use (#288)", async () => {
+        (lookupClient.search as jest.Mock).mockRejectedValue(Object.assign(new Error('The Street lookup filter townId needs a record id (a positive number).'), {
+            status: 400,
+            response: { error: 'LookupFilterInvalid', message: 'The Street lookup filter townId needs a record id (a positive number).', filters: ['townId'] },
+        }));
+        render(<Harness filters={{ townId: 'abc' }} />);
+        fireEvent.focus(box());
+        expect(await screen.findByText('The Street lookup filter townId needs a record id (a positive number).')).toBeInTheDocument();
+        expect(screen.queryByText(/narrowed by/)).not.toBeInTheDocument();
     });
 
     it('says so when the type has no lookup either', async () => {

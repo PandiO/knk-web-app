@@ -14,8 +14,8 @@ import { entityTypeFallbackLabel } from '../../utils/entityLabel';
 import { formatNumber } from '../../utils/format';
 import { buildPinnedSection, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
 import {
-    lookupFilterPlan, lookupItemToValue, optionDetail, relationAccess, RelationAccess, RELATION_PICKER_DELAY_MS,
-    RELATION_PICKER_PAGE_SIZE,
+    lookupFilterPlan, lookupFilterRefusal, lookupItemToValue, optionDetail, relationAccess, RelationAccess,
+    RELATION_PICKER_DELAY_MS, RELATION_PICKER_PAGE_SIZE,
 } from '../../utils/forms/relationPicker';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { ColumnDefinition } from '../../types/common';
@@ -50,7 +50,8 @@ const pickedName = (row: Row): string =>
  * A combobox over the related type: typing pauses 250 ms, then the first 8 matches show under the box, with the rows
  * this form created on top. Enter or a click picks; Escape closes the list (not the dialog around it). With a read node
  * of the type it uses the type's own search and offers "Open full table" (the old inline table, with its filters and
- * columns, in a dialog); without one it searches `api/Lookup` (names only, #280). Nothing is fetched until the box is
+ * columns, in a dialog); without one it searches `api/Lookup` (names only, #280), narrowed by the field's pickerFilters
+ * where the type's lookup takes them (#288). Nothing is fetched until the box is
  * used, and the permission and metadata checks also wait for that.
  */
 export const RelationPicker: React.FC<RelationPickerProps> = props => {
@@ -219,7 +220,6 @@ const ResultsPanel = forwardRef<PanelHandle, ResultsProps & { access: RelationAc
     const typeLabel = meta?.displayName || entityTypeFallbackLabel(entityTypeName);
     const filtersKey = JSON.stringify(filters ?? {});
     const plan = useMemo(() => lookupFilterPlan(filters), [filters]);
-    const blockedFilters = access.mode === 'lookup' ? plan.unsupported : [];
 
     const columns = useMemo<ColumnDefinition<Row>[]>(() => {
         const configured = meta?.defaultTableColumns;
@@ -243,13 +243,16 @@ const ResultsPanel = forwardRef<PanelHandle, ResultsProps & { access: RelationAc
     const [answer, setAnswer] = useState<Answer | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const canSearch = (access.mode === 'full' || access.mode === 'lookup') && blockedFilters.length === 0;
+    // Filters the lookup refused (400 LookupFilterNotAllowed, #288): only the full search of the type narrows by them.
+    const [blockedFilters, setBlockedFilters] = useState<string[]>([]);
+    const canSearch = access.mode === 'full' || access.mode === 'lookup';
 
     useEffect(() => {
         if (!canSearch) return undefined;
         let cancelled = false;
         setLoading(true);
         setError(null);
+        setBlockedFilters([]);
         const run = async (): Promise<Answer> => {
             if (access.mode === 'full') {
                 const page = await getSearchFunctionForEntity(entityTypeName)({
@@ -258,7 +261,7 @@ const ResultsPanel = forwardRef<PanelHandle, ResultsProps & { access: RelationAc
                 });
                 return { items: page?.items ?? [], total: page?.totalCount ?? 0, details: new Map() };
             }
-            const page = await lookupClient.search(entityTypeName, query, 1, RELATION_PICKER_PAGE_SIZE);
+            const page = await lookupClient.search(entityTypeName, query, 1, RELATION_PICKER_PAGE_SIZE, plan.filters);
             const details = new Map<string, string>();
             const items = (page?.items ?? [])
                 .filter(item => !plan.excludeIds.has(String(item.id)))
@@ -273,6 +276,11 @@ const ResultsPanel = forwardRef<PanelHandle, ResultsProps & { access: RelationAc
             .catch(err => {
                 if (cancelled) return;
                 setAnswer(null);
+                const refused = access.mode === 'lookup' ? lookupFilterRefusal(err) : undefined;
+                if (refused) {
+                    setBlockedFilters(refused);
+                    return;
+                }
                 setError(apiRefusalReason(err) ?? `${typeLabel} records couldn't be searched. Try again.`);
             })
             .finally(() => { if (!cancelled) setLoading(false); });

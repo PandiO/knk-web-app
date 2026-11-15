@@ -1,4 +1,4 @@
-import { lookupFilterPlan, lookupItemToValue, optionDetail, relationAccess } from '../relationPicker';
+import { lookupFilterPlan, lookupFilterRefusal, lookupItemToValue, optionDetail, relationAccess } from '../relationPicker';
 
 describe('relation picker access (#191 on the #280 model)', () => {
     const meta = { readNodes: ['knk.admin.world', 'knk.admin.config'], lookupSearchable: true };
@@ -23,12 +23,34 @@ describe('relation picker access (#191 on the #280 model)', () => {
     });
 });
 
-describe('lookupFilterPlan', () => {
-    it('drops prefer filters, applies excludeIds itself and names every filter that would narrow the list', () => {
-        const plan = lookupFilterPlan({ preferTownId: '5', excludeIds: '3, 4', siegeScenarioId: '1', empty: '' });
+describe('lookupFilterPlan (#288: the lookup applies the narrowing filters its type accepts)', () => {
+    it('sends every filter with a value, prefer filters included, and keeps excludeIds for the page', () => {
+        const plan = lookupFilterPlan({ preferTownId: '5', excludeIds: '3, 4', siegeScenarioId: ' 1 ', empty: '' });
         expect(Array.from(plan.excludeIds)).toEqual(['3', '4']);
-        expect(plan.unsupported).toEqual(['siegeScenarioId']);
-        expect(lookupFilterPlan(undefined)).toEqual({ excludeIds: new Set(), unsupported: [] });
+        expect(plan.filters).toEqual({ preferTownId: '5', siegeScenarioId: '1' });
+    });
+
+    it('sends nothing without filters', () => {
+        expect(lookupFilterPlan(undefined)).toEqual({ excludeIds: new Set(), filters: {} });
+        expect(lookupFilterPlan({ ExcludeIds: '7' })).toEqual({ excludeIds: new Set(['7']), filters: {} });
+    });
+});
+
+describe('lookupFilterRefusal', () => {
+    const refusal = (status: number, response: unknown) => Object.assign(new Error('x'), { status, response });
+
+    it('names the filters a lookup refused because its type does not take them', () => {
+        expect(lookupFilterRefusal(refusal(400, { error: 'LookupFilterNotAllowed', filters: ['gateType', 'isOpened'] })))
+            .toEqual(['gateType', 'isOpened']);
+        expect(lookupFilterRefusal(refusal(400, { error: 'LookupFilterNotAllowed' }))).toEqual(['a filter']);
+    });
+
+    it('leaves every other answer to the normal error text', () => {
+        expect(lookupFilterRefusal(refusal(400, { error: 'LookupFilterInvalid', filters: ['townId'] }))).toBeUndefined();
+        expect(lookupFilterRefusal(refusal(400, { error: 'LookupNotAvailable' }))).toBeUndefined();
+        expect(lookupFilterRefusal(refusal(403, { error: 'LookupFilterNotAllowed', filters: ['x'] }))).toBeUndefined();
+        expect(lookupFilterRefusal(new Error('network'))).toBeUndefined();
+        expect(lookupFilterRefusal(null)).toBeUndefined();
     });
 });
 
