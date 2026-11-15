@@ -86,3 +86,41 @@ export const townMetadata: EntityMetadataDto = {
 
 export const noValidationRules: FieldValidationRuleDto[] = [];
 export const noStepProgress: StepProgressReadDto[] = [];
+
+/**
+ * "New structure" (#290): one step with an Object List field of districts, so the "Selected (n):"
+ * cards above the picker can be checked at phone width.
+ */
+export const structureForm: FormConfigurationDto = {
+  id: '12',
+  entityTypeName: 'Structure',
+  configurationName: 'Structure (e2e)',
+  isDefault: true,
+  steps: [
+    step({
+      id: '23',
+      stepName: 'Districts',
+      order: 0,
+      fields: [
+        field({
+          id: '34',
+          fieldName: 'Districts',
+          label: 'Districts',
+          fieldType: FieldType.List,
+          elementType: FieldType.Object,
+          objectType: 'District',
+          order: 0,
+        }),
+      ],
+    }),
+  ],
+};
+
+/** The type metadata of Structure, enough for the wizard to type its Districts field. */
+export const structureMetadata: EntityMetadataDto = {
+  entityName: 'Structure',
+  displayName: 'Structure',
+  fields: [
+    { fieldName: 'Districts', fieldType: 'List', isNullable: true, isRelatedEntity: true, relatedEntityType: 'District', hasDefaultValue: false },
+  ],
+};
