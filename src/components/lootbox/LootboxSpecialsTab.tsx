@@ -60,7 +60,9 @@ export const LootboxSpecialsTab: React.FC = () => {
             ) : entries.length === 0 && !error ? (
                 <p className="text-sm text-gray-500">No special entries.</p>
             ) : (
-                <div className="bg-white rounded-lg shadow overflow-x-auto">
+                <div className="relative bg-white rounded-lg shadow overflow-x-auto">
+                    {/* #535: `relative` makes this box the containing block of the head's sr-only "Actions" cell, so
+                        the cell scrolls with the table instead of widening the page at phone width. */}
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                         <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                             <tr>
