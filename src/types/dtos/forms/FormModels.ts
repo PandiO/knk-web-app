@@ -143,6 +143,30 @@ export interface FormConfigurationDto {
     draftSavedAt?: string | null;
     publishedAt?: string | null;
     steps: FormStepDto[];
+    /**
+     * PandiO/knk-workspace#291: the field validation rules of the builder's working copy, keyed by field GUID and
+     * applied on Publish. Only the builder state carries them; a saved draft without the list keeps the published rules.
+     */
+    validationRules?: DraftValidationRuleDto[];
+}
+
+/**
+ * #291 (knk-web-api `FormDraftValidationRuleDto`): a field validation rule in the form builder's working copy. The
+ * field and a dependency in the same form are field GUIDs (a draft-only field has no id yet); a dependency on another
+ * form's field (a parent form) is that field's id. `id` is the published rule it edits, absent for a new rule.
+ */
+export interface DraftValidationRuleDto {
+    id?: number;
+    fieldGuid: string;
+    dependsOnFieldGuid?: string | null;
+    dependsOnFieldId?: number | null;
+    validationType: string;
+    dependencyPath?: string | null;
+    configJson: string;
+    errorMessage: string;
+    successMessage?: string | null;
+    isBlocking: boolean;
+    requiresDependencyFilled: boolean;
 }
 
 /**
@@ -244,16 +268,6 @@ export interface AllStepsData {
 
 // Template reuse types
 export type ReuseLinkMode = 'copy' | 'link';
-
-export interface AddReusableStepRequestDto {
-    sourceStepId: number;
-    linkMode: ReuseLinkMode;
-}
-
-export interface AddReusableFieldRequestDto {
-    sourceFieldId: number;
-    linkMode: ReuseLinkMode;
-}
 
 // Template validation result DTOs (for future use when backend exposes detailed validation endpoints)
 export interface TemplateFieldValidationResultDto {

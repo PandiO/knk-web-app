@@ -3,9 +3,7 @@ import {
     FormConfigurationBuilderState,
     FormConfigurationDto, 
     FormStepDto, 
-    FormFieldDto,
-    AddReusableStepRequestDto,
-    AddReusableFieldRequestDto
+    FormFieldDto
 } from "../types/dtos/forms/FormModels";
 import {
     FormConfigurationImportOptions,
@@ -102,23 +100,9 @@ export class FormConfigClient extends ObjectManager {
         );
     }
 
-    addReusableStepToConfiguration(configId: string, payload: AddReusableStepRequestDto): Promise<FormStepDto> {
-        return this.invokeServiceCall(
-            payload, 
-            `${configId}/steps/add-from-template`, 
-            Controllers.FormConfigurations, 
-            HttpMethod.Post
-        );
-    }
-
-    addReusableFieldToStep(stepId: string, payload: AddReusableFieldRequestDto): Promise<FormFieldDto> {
-        return this.invokeServiceCall(
-            payload, 
-            `steps/${stepId}/fields/add-from-template`, 
-            Controllers.FormConfigurations, 
-            HttpMethod.Post
-        );
-    }
+    // PandiO/knk-workspace#291: addReusableStepToConfiguration / addReusableFieldToStep (the API's add-from-template)
+    // were removed with the endpoints: they wrote into the published form. The builder copies templates into its
+    // working copy instead (#71).
 
     // PandiO/knk-workspace#71: the builder's draft, Publish and Duplicate
 

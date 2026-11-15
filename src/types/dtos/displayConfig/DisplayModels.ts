@@ -100,17 +100,6 @@ export enum ReuseLinkMode {
   Link = 1
 }
 
-// Request DTOs for API calls
-export interface AddReusableSectionRequestDto {
-  sourceSectionId: string;
-  linkMode: ReuseLinkMode;
-}
-
-export interface AddReusableFieldRequestDto {
-  sourceFieldId: string;
-  linkMode: ReuseLinkMode;
-}
-
 // Component Props Interfaces
 export interface DisplayWizardProps {
   entityTypeName: string;

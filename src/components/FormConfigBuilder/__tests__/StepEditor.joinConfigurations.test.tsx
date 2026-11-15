@@ -7,7 +7,7 @@ import { formConfigClient } from '../../../apiClients/formConfigClient';
 import { metadataClient } from '../../../apiClients/metadataClient';
 
 jest.mock('../../../apiClients/formConfigClient', () => ({
-  formConfigClient: { getByEntityAll: jest.fn(), addReusableFieldToStep: jest.fn() },
+  formConfigClient: { getByEntityAll: jest.fn() },
 }));
 jest.mock('../../../apiClients/metadataClient', () => ({
   metadataClient: { getAllEntityMetadata: jest.fn(), getEntityMetadata: jest.fn() },

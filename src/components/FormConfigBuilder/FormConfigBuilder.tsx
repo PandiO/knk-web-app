@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, AlertCircle, Loader2, Copy, Info } from 'lucide-react';
-import { FormConfigurationBuilderState, FormConfigurationDto, FormStepDto, FormFieldDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
+import { DraftValidationRuleDto, FormConfigurationBuilderState, FormConfigurationDto, FormStepDto, FormFieldDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
+import { rulesOfExistingFields, validationRulesPublishProblem, withFieldRules } from '../../utils/forms/draftValidationRules';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { metadataClient } from '../../apiClients/metadataClient';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
@@ -31,10 +32,14 @@ import { formFieldNames, newGuid, ScaffoldCandidate, scaffoldFormSteps } from '.
 
 const WRITE_NODES = [CONTENT_PERMISSION_NODE];
 
-/** The body the API stores: step and field order as GUID arrays (what the old Save sent). */
+/**
+ * The body the API stores: step and field order as GUID arrays (what the old Save sent), and the validation rules of
+ * the fields still in the form (PandiO/knk-workspace#291; applied on Publish).
+ */
 export function formConfigForSave(config: FormConfigurationDto): FormConfigurationDto {
     return {
         ...config,
+        validationRules: rulesOfExistingFields(config),
         stepOrderJson: JSON.stringify(config.steps.map(s => s.stepGuid)),
         steps: config.steps.map(step => ({
             ...step,
@@ -64,7 +69,8 @@ export const FormConfigBuilder: React.FC = () => {
         configurationName: '',
         description: '',
         isDefault: false,
-        steps: []
+        steps: [],
+        validationRules: []
     });
 
     const [builderState, setBuilderState] = useState<FormConfigurationBuilderState | null>(null);
@@ -356,6 +362,10 @@ export const FormConfigBuilder: React.FC = () => {
             if (conditionProblem) return conditionProblem;
         }
 
+        // #291: a rule whose dependency left the form can't be published (the API refuses it too).
+        const ruleProblem = validationRulesPublishProblem(config);
+        if (ruleProblem) return ruleProblem;
+
         const projectionCycles = detectProjectionCycles(
             allFieldsInConfiguration
                 .filter(field => !!field.fieldName)
@@ -506,6 +516,11 @@ export const FormConfigBuilder: React.FC = () => {
 
     const handleRulesChanged = () => {
         setHealthRefreshToken(prev => prev + 1);
+    };
+
+    // #291: a field's validation rules, kept with the field's Save; part of the draft until Publish.
+    const handleFieldRulesChange = (fieldGuid: string, rules: DraftValidationRuleDto[]) => {
+        setConfig(prev => ({ ...prev, validationRules: withFieldRules(prev.validationRules, fieldGuid, rules) }));
     };
 
     // A new configuration marked default: name the default it would replace on Publish.
@@ -758,6 +773,8 @@ export const FormConfigBuilder: React.FC = () => {
                                         metadataFields={selectedEntityMeta?.fields ?? []}
                                         allConfigurationFields={allFieldsInConfiguration}
                                         onRulesChanged={handleRulesChanged}
+                                        validationRules={config.validationRules}
+                                        onFieldRulesChange={handleFieldRulesChange}
                                         entityTypeName={config.entityTypeName}
                                         formConfiguration={config}
                                         stepIndex={selectedStepIndex}

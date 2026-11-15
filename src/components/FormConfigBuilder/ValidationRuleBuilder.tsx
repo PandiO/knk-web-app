@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, X } from 'lucide-react';
-import { FormFieldDto } from '../../types/dtos/forms/FormModels';
-import { CreateFieldValidationRuleDto, FieldValidationRuleDto, PathValidationResult } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { DraftValidationRuleDto, FormFieldDto } from '../../types/dtos/forms/FormModels';
+import { PathValidationResult } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { DraftRuleInput } from '../../utils/forms/draftValidationRules';
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { PathBuilder } from '../PathBuilder/PathBuilder';
 import { ParentFormField } from '../../utils/forms/parentFormFields';
@@ -11,12 +12,23 @@ interface ValidationRuleBuilderProps {
     availableFields: FormFieldDto[];
     entityTypeName: string;
     entityMetadata: Map<string, EntityMetadataDto>;
-    onSave: (rule: CreateFieldValidationRuleDto) => Promise<void> | void;
+    /** PandiO/knk-workspace#291: the rule goes into the builder's draft (keyed by field GUID), not to the API. */
+    onSave: (rule: DraftRuleInput) => Promise<void> | void;
     onCancel: () => void;
-    initialRule?: FieldValidationRuleDto;
+    initialRule?: DraftValidationRuleDto;
     /** Fields of the forms this form is opened from (findParentFormFields), also offered as dependencies. */
     parentFormFields?: ParentFormField[];
 }
+
+/**
+ * The dependency select's value: a field of this form by GUID (it may exist only in the draft), a parent form's field
+ * by id, or '' for none.
+ */
+const dependencyKeyOf = (rule?: DraftValidationRuleDto): string => {
+    if (rule?.dependsOnFieldGuid) return `field:${rule.dependsOnFieldGuid}`;
+    if (rule?.dependsOnFieldId) return `parent:${rule.dependsOnFieldId}`;
+    return '';
+};
 
 const CONFIG_TEMPLATES: Record<string, { config: unknown; error: string; success?: string }> = {
     LocationInsideRegion: {
@@ -47,7 +59,7 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
     parentFormFields = []
 }) => {
     const [validationType, setValidationType] = useState<string>(initialRule?.validationType || 'LocationInsideRegion');
-    const [dependsOnFieldId, setDependsOnFieldId] = useState<number | ''>(initialRule?.dependsOnFieldId || '');
+    const [dependencyKey, setDependencyKey] = useState<string>(dependencyKeyOf(initialRule));
     const [dependencyPath, setDependencyPath] = useState<string>(initialRule?.dependencyPath || '');
     const [configJson, setConfigJson] = useState<string>(initialRule?.configJson || '');
     const [errorMessage, setErrorMessage] = useState<string>(initialRule?.errorMessage || '');
@@ -59,8 +71,8 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
     const [pathValidationResult, setPathValidationResult] = useState<PathValidationResult | null>(null);
 
     const dependencyOptions = useMemo(() => {
-        return availableFields.filter(f => f.id && f.id !== field.id);
-    }, [availableFields, field.id]);
+        return availableFields.filter(f => f.fieldGuid && f.fieldGuid !== field.fieldGuid);
+    }, [availableFields, field.fieldGuid]);
 
     // Parent-form fields grouped per form, nearest parent first.
     const parentFormGroups = useMemo(() => {
@@ -73,8 +85,8 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
     }, [parentFormFields]);
 
     const selectedParentField = useMemo(
-        () => parentFormFields.find(item => dependsOnFieldId !== '' && Number(item.field.id) === dependsOnFieldId),
-        [parentFormFields, dependsOnFieldId]
+        () => parentFormFields.find(item => dependencyKey === `parent:${item.field.id}`),
+        [parentFormFields, dependencyKey]
     );
     // A dependency path starts at the entity of the form the dependency field is on.
     const pathEntityTypeName = selectedParentField?.entityTypeName ?? entityTypeName;
@@ -108,7 +120,7 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
         const template = CONFIG_TEMPLATES[defaultValidationType];
 
         setValidationType(initialRule?.validationType || defaultValidationType);
-        setDependsOnFieldId(initialRule?.dependsOnFieldId || '');
+        setDependencyKey(dependencyKeyOf(initialRule));
         setDependencyPath(initialRule?.dependencyPath || '');
         setConfigJson(initialRule?.configJson || JSON.stringify(template.config, null, 2));
         setErrorMessage(initialRule?.errorMessage || template.error);
@@ -132,8 +144,8 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
     };
 
     const handleSave = async () => {
-        if (!field.id) {
-            setJsonError('Field must be saved before adding validation rules.');
+        if (!field.fieldGuid) {
+            setJsonError('This field has no GUID yet, so it can\'t have validation rules.');
             return;
         }
 
@@ -141,7 +153,7 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
             return;
         }
 
-        if (dependsOnFieldId !== '' && !dependencyPath) {
+        if (dependencyKey !== '' && !dependencyPath) {
             setPathError('Dependency path is required when a dependency field is selected.');
             return;
         }
@@ -156,14 +168,14 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
             }
         }
 
-        const payload: CreateFieldValidationRuleDto = {
-            formFieldId: parseInt(field.id, 10),
+        const payload: DraftRuleInput = {
             validationType,
-            dependsOnFieldId: dependsOnFieldId === '' ? undefined : Number(dependsOnFieldId),
-            dependencyPath: dependencyPath || undefined,
+            dependsOnFieldGuid: dependencyKey.startsWith('field:') ? dependencyKey.slice('field:'.length) : null,
+            dependsOnFieldId: dependencyKey.startsWith('parent:') ? Number(dependencyKey.slice('parent:'.length)) : null,
+            dependencyPath: dependencyPath || null,
             configJson,
             errorMessage: errorMessage.trim(),
-            successMessage: successMessage?.trim() || undefined,
+            successMessage: successMessage?.trim() || null,
             isBlocking,
             requiresDependencyFilled
         };
@@ -181,8 +193,8 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
         </div>
     );
 
-    const shouldDisablePathBuilder = !dependsOnFieldId || !pathEntityTypeName;
-    const isPathMissing = dependsOnFieldId !== '' && !dependencyPath;
+    const shouldDisablePathBuilder = !dependencyKey || !pathEntityTypeName;
+    const isPathMissing = dependencyKey !== '' && !dependencyPath;
 
     return (
         <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
@@ -200,8 +212,9 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Validation Type *</label>
+                    <label htmlFor="rule-validation-type" className="block text-sm font-medium text-gray-700 mb-1">Validation Type *</label>
                     <select
+                        id="rule-validation-type"
                         value={validationType}
                         onChange={e => setValidationType(e.target.value)}
                         className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
@@ -212,12 +225,12 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                     </select>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Depends On Field</label>
+                    <label htmlFor="rule-depends-on" className="block text-sm font-medium text-gray-700 mb-1">Depends On Field</label>
                     <select
-                        value={dependsOnFieldId}
+                        id="rule-depends-on"
+                        value={dependencyKey}
                         onChange={e => {
-                            const next = e.target.value ? Number(e.target.value) : '';
-                            setDependsOnFieldId(next);
+                            setDependencyKey(e.target.value);
                             setDependencyPath('');
                             setPathValidationResult(null);
                             setPathError(null);
@@ -227,7 +240,7 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                         <option value="">-- Select dependency field --</option>
                         {parentFormGroups.length === 0 ? (
                             dependencyOptions.map(option => (
-                                <option key={option.id} value={option.id}>
+                                <option key={option.fieldGuid} value={`field:${option.fieldGuid}`}>
                                     {option.label || option.fieldName}
                                 </option>
                             ))
@@ -235,7 +248,7 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                             <>
                                 <optgroup label="This form">
                                     {dependencyOptions.map(option => (
-                                        <option key={option.id} value={option.id}>
+                                        <option key={option.fieldGuid} value={`field:${option.fieldGuid}`}>
                                             {option.label || option.fieldName}
                                         </option>
                                     ))}
@@ -246,7 +259,7 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                                         label={`Parent form: ${group[0].configurationName}`}
                                     >
                                         {group.map(item => (
-                                            <option key={item.field.id} value={item.field.id}>
+                                            <option key={item.field.id} value={`parent:${item.field.id}`}>
                                                 {item.field.label || item.field.fieldName}
                                             </option>
                                         ))}
@@ -273,7 +286,7 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                     onValidationStatusChange={handleValidationStatusChange}
                     disabled={shouldDisablePathBuilder}
                     label="Dependency Path"
-                    required={dependsOnFieldId !== ''}
+                    required={dependencyKey !== ''}
                     className="border border-gray-200 rounded-md p-3"
                 />
                 {shouldDisablePathBuilder && (
@@ -312,8 +325,9 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Error Message *</label>
+                    <label htmlFor="rule-error-message" className="block text-sm font-medium text-gray-700 mb-1">Error Message *</label>
                     <textarea
+                        id="rule-error-message"
                         value={errorMessage}
                         onChange={e => setErrorMessage(e.target.value)}
                         rows={2}
