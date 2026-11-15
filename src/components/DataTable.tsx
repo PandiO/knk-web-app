@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from 'lucide-react';
+import { ContextMenu, ContextMenuItem } from './ContextMenu';
 
 /**
  * PandiO/knk-workspace#187 (X-9): the one table the web app's lists are built from. It draws; the caller
@@ -17,6 +18,17 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from 'lucide-react';
  * - **Checkbox column (#205):** with `selection` the first column holds a checkbox per row and one in the header
  *   for the rows shown. A click anywhere in that cell toggles the row and never opens it, so the row links and the
  *   row click keep working beside it (the dashboard's bulk selection).
+ * - **Row lines (#404):** the lines between rows sit on the cells (`border-separate`, one bottom line per cell), never
+ *   on the `<tr>`: a row border shared the dividers' colour, so from the second row on a 4px left edge showed grey.
+ *   The selected row's green edge is a bar inside its first cell.
+ * - **Sticky checkbox column (#405):** the checkbox column sticks to the left edge while the other columns scroll under
+ *   it, with the row's opaque background and, only while something is scrolled under it, a soft shadow on its right
+ *   edge. The actions column is the row's last plain cell and scrolls with the others (#606, developer decision
+ *   2026-11-15: a pinned actions column cut off the other columns); the right-click menu (#406) reaches View and Edit
+ *   at any width.
+ * - **Context menu (#406):** with `rowContextMenu` a right-click on a row (or Shift+F10 / the context-menu key while
+ *   something in it has the focus) opens `ContextMenu` with the row's items; Ctrl/Cmd + right-click keeps the
+ *   browser's own menu.
  *
  *     <DataTable
  *       caption="Players"
@@ -95,8 +107,12 @@ export interface DataTableProps<T> {
     selection?: DataTableSelection<T>;
     /** Shown before every row's content in the link column (after `leading`), e.g. a check mark. */
     rowLeading?: (row: T) => React.ReactNode;
-    /** Buttons in a last, unlabelled "Actions" column. */
+    /** Buttons in a last, unlabelled "Actions" column that scrolls with the others (#606). */
     rowActions?: (row: T) => React.ReactNode;
+    /** The items of the row's right-click menu (#406); none (or an empty list) keeps the browser's menu. */
+    rowContextMenu?: (row: T) => ContextMenuItem[];
+    /** The menu's accessible name for a row; default "Row actions". */
+    rowContextMenuLabel?: (row: T) => string;
     /** Shown across the table when there are no rows. */
     empty?: React.ReactNode;
     /** A spinner in place of the table. */
@@ -151,6 +167,8 @@ export function DataTable<T>({
     selection,
     rowLeading,
     rowActions,
+    rowContextMenu,
+    rowContextMenuLabel,
     empty,
     loading = false,
     density = 'comfortable',
@@ -170,6 +188,54 @@ export function DataTable<T>({
     const cellPad = compact ? 'px-3 py-2' : 'px-6 py-4';
     const headPad = compact ? 'px-3 py-2' : 'px-6 py-3';
 
+    // #405: whether columns are scrolled under the sticky checkbox column (it then shows its shadow).
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [scrolledUnderLeft, setScrolledUnderLeft] = useState(false);
+    const measureScroll = useCallback(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        setScrolledUnderLeft(el.scrollLeft > 0);
+    }, []);
+    useEffect(() => {
+        measureScroll();
+        const el = scrollRef.current;
+        if (!el || typeof ResizeObserver === 'undefined') return undefined;
+        const observer = new ResizeObserver(measureScroll);
+        observer.observe(el);
+        const table = el.querySelector('table');
+        if (table) observer.observe(table);
+        return () => observer.disconnect();
+    }, [measureScroll, loading, rowCount, columns.length]);
+
+    // #406: the open right-click menu: its row, where it opens and what gets the focus back after Escape.
+    const [menu, setMenu] = useState<{ row: T; items: ContextMenuItem[]; x: number; y: number; opener: HTMLElement | null } | null>(null);
+    const openMenu = (row: T, x: number, y: number, opener: HTMLElement | null): boolean => {
+        const items = rowContextMenu?.(row) ?? [];
+        if (items.length === 0) return false;
+        setMenu({ row, items, x, y, opener });
+        return true;
+    };
+    const closeMenu = (returnFocus: boolean) => {
+        const opener = menu?.opener;
+        setMenu(null);
+        if (returnFocus && opener && document.contains(opener)) opener.focus();
+    };
+    /** Where a keyboard-opened menu goes: under the focused control, or the row's start. */
+    const keyboardAnchor = (row: HTMLElement, focused: HTMLElement | null) => {
+        const rect = (focused && row.contains(focused) ? focused : row).getBoundingClientRect();
+        return { x: rect.left, y: rect.bottom };
+    };
+
+    // #405: the sticky checkbox cells are opaque so the scrolled columns pass under them. The header's takes its solid
+    // row colour; a body cell gets the row's colour as its own class (`.sticky.bg-surface` stays solid under the page
+    // background's translucent surfaces, #231), following the row's hover through `group`.
+    const stickyLeft = `sticky left-0 z-10 ${scrolledUnderLeft ? 'shadow-sticky-left' : ''}`;
+    const stickyLeftCell = `${stickyLeft} bg-inherit`;
+    const stickyBodyBg = (selected: boolean, menuOpen: boolean) => selected
+        ? 'bg-success-soft group-hover:bg-success-muted'
+        : menuOpen ? 'bg-surface-alt' : 'bg-surface group-hover:bg-surface-alt';
+    const bodyCellLine = 'border-b border-line';
+
     const ariaSort = (key: string): 'ascending' | 'descending' | 'none' =>
         sort?.key !== key ? 'none' : sort.descending ? 'descending' : 'ascending';
 
@@ -182,15 +248,34 @@ export function DataTable<T>({
 
     const renderRow = ({ key, row, leading }: DataTableRow<T>) => {
         const selected = isRowSelected?.(row) ?? selection?.isSelected(row) ?? false;
+        const stickyBg = stickyBodyBg(selected, menu?.row === row);
         const href = rowHref?.(row);
         const clickable = !!onRowClick || !!href;
         const openInNewTab = () => {
             if (href) window.open(href, '_blank', 'noopener');
         };
+        const contextMenuProps = rowContextMenu ? {
+            onContextMenu: (event: React.MouseEvent<HTMLTableRowElement>) => {
+                // Ctrl/Cmd + right-click: the browser's own menu (copy the link, inspect, ...).
+                if (event.ctrlKey || event.metaKey) return;
+                const keyboard = event.clientX === 0 && event.clientY === 0;
+                const at = keyboard
+                    ? keyboardAnchor(event.currentTarget, document.activeElement as HTMLElement | null)
+                    : { x: event.clientX, y: event.clientY };
+                if (openMenu(row, at.x, at.y, (document.activeElement as HTMLElement | null) ?? null)) event.preventDefault();
+            },
+            onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+                if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return;
+                const focused = document.activeElement as HTMLElement | null;
+                const at = keyboardAnchor(event.currentTarget, focused);
+                if (openMenu(row, at.x, at.y, focused)) event.preventDefault();
+            },
+        } : {};
         return (
             <tr
                 key={key}
                 data-row-key={key}
+                {...contextMenuProps}
                 onClick={(event) => {
                     // With a link, its own click (and other controls') isn't the row's.
                     if (href && isFromInteractiveElement(event)) return;
@@ -207,19 +292,20 @@ export function DataTable<T>({
                     event.preventDefault();
                     openInNewTab();
                 } : undefined}
-                className={`transition-colors duration-150 ${
+                className={`group transition-colors duration-150 ${
                     selected
-                        ? 'bg-success-soft hover:bg-success-muted border-l-4 border-success'
-                        : `${compact ? '' : 'border-l-4 border-transparent'} hover:bg-surface-alt`
+                        ? 'bg-success-soft hover:bg-success-muted'
+                        : menu?.row === row ? 'bg-surface-alt' : 'hover:bg-surface-alt'
                 } ${clickable ? 'cursor-pointer' : ''}`}
             >
                 {selection && (
                     // The whole cell toggles the box; its clicks never reach the row (no navigation).
                     <td
-                        className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} w-px whitespace-nowrap align-middle`}
+                        className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} relative w-px whitespace-nowrap align-middle ${bodyCellLine} ${stickyLeft} ${stickyBg}`}
                         onClick={(event) => event.stopPropagation()}
                         onAuxClick={(event) => event.stopPropagation()}
                     >
+                        {selected && <SelectedEdge />}
                         <label className="-m-2 flex cursor-pointer items-center justify-center p-2">
                             <input
                                 type="checkbox"
@@ -232,8 +318,9 @@ export function DataTable<T>({
                         </label>
                     </td>
                 )}
-                {columns.map(column => {
+                {columns.map((column, columnIndex) => {
                     const content = column.cell ? column.cell(row) : defaultCell(row, column.key);
+                    const edgeHere = selected && !selection && columnIndex === 0;
                     const isLinkCell = column.key === linkKey;
                     const lead = isLinkCell ? (
                         <>
@@ -246,8 +333,9 @@ export function DataTable<T>({
                             key={column.key}
                             className={`${cellPad} text-sm ${compact ? '' : 'whitespace-nowrap'} ${ALIGN[column.align ?? 'left']} ${
                                 selected ? 'text-fg font-medium' : isLinkCell ? 'text-fg' : 'text-muted'
-                            } ${column.className ?? ''}`}
+                            } ${edgeHere ? 'relative' : ''} ${bodyCellLine} ${column.className ?? ''}`}
                         >
+                            {edgeHere && <SelectedEdge />}
                             {isLinkCell && (rowLeading || leading || href) ? (
                                 <div className="flex items-center gap-2">
                                     {lead}
@@ -274,8 +362,11 @@ export function DataTable<T>({
                     );
                 })}
                 {rowActions && (
-                    <td className={`${cellPad} whitespace-nowrap text-right text-sm font-medium`}>
-                        <div className="flex items-center justify-end gap-2">{rowActions(row)}</div>
+                    <td
+                        className={`${compact ? 'px-2 py-1' : 'px-3 py-2'} w-px whitespace-nowrap text-right text-sm font-medium ${bodyCellLine}`}
+                        data-testid="row-actions"
+                    >
+                        <div className="flex items-center justify-end gap-1">{rowActions(row)}</div>
                     </td>
                 )}
             </tr>
@@ -283,18 +374,19 @@ export function DataTable<T>({
     };
 
     return (
-        <div className={`w-full overflow-x-auto ${className}`}>
+        <div ref={scrollRef} onScroll={measureScroll} data-testid="data-table-scroll" className={`w-full overflow-x-auto ${className}`}>
             {loading ? (
                 <div className="flex items-center justify-center py-12" role="status" aria-label="Loading">
                     <Loader2 className="h-8 w-8 text-primary animate-spin" aria-hidden="true" />
                 </div>
             ) : (
-                <table className="w-full min-w-full divide-y divide-line">
+                // #404: border-separate keeps every line on the cells, so the sticky checkbox cells (#405) carry their own.
+                <table className="w-full min-w-full border-separate border-spacing-0">
                     {caption && <caption className="sr-only">{caption}</caption>}
                     <thead className="bg-surface-alt">
-                        <tr>
+                        <tr className="bg-surface-alt">
                             {selection && (
-                                <th scope="col" className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} w-px py-3 text-left align-middle`}>
+                                <th scope="col" className={`${compact ? 'pl-3 pr-1' : 'pl-4 pr-2'} w-px py-3 text-left align-middle border-b border-line ${stickyLeftCell}`}>
                                     {selection.onToggleAll ? (
                                         <input
                                             type="checkbox"
@@ -318,7 +410,7 @@ export function DataTable<T>({
                                     key={column.key}
                                     scope="col"
                                     aria-sort={column.sortable ? ariaSort(column.key) : undefined}
-                                    className={`${headPad} ${ALIGN[column.align ?? 'left']} text-xs font-medium text-muted uppercase tracking-wider ${
+                                    className={`${headPad} ${ALIGN[column.align ?? 'left']} border-b border-line text-xs font-medium text-muted uppercase tracking-wider ${
                                         column.sortable ? 'hover:bg-canvas transition-colors' : ''
                                     }`}
                                 >
@@ -339,13 +431,14 @@ export function DataTable<T>({
                                 </th>
                             ))}
                             {rowActions && (
-                                <th scope="col" className={`relative ${headPad}`}>
+                                // `relative` keeps the sr-only label inside the scroll box (#535).
+                                <th scope="col" className={`relative ${compact ? 'px-2' : 'px-3'} w-px border-b border-line`}>
                                     <span className="sr-only">Actions</span>
                                 </th>
                             )}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-line">
+                    <tbody className="[&>tr:last-child>td]:border-b-0">
                         {rowCount === 0 ? (
                             <tr>
                                 <td colSpan={columnCount} className={`${compact ? 'px-3 py-6' : 'px-6 py-12'} text-center text-sm text-muted`}>
@@ -358,7 +451,7 @@ export function DataTable<T>({
                                     <tr className={section.tone === 'warning' ? 'bg-warning-soft/60' : 'bg-surface-alt'}>
                                         <td
                                             colSpan={columnCount}
-                                            className={`${compact ? 'px-3' : 'px-6'} py-2 text-left text-xs font-semibold uppercase tracking-wider ${
+                                            className={`${compact ? 'px-3' : 'px-6'} ${bodyCellLine} py-2 text-left text-xs font-semibold uppercase tracking-wider ${
                                                 section.tone === 'warning' ? 'text-warning-strong' : 'text-muted'
                                             }`}
                                         >
@@ -372,6 +465,19 @@ export function DataTable<T>({
                     </tbody>
                 </table>
             )}
+            {menu && (
+                <ContextMenu
+                    position={{ x: menu.x, y: menu.y }}
+                    items={menu.items}
+                    label={rowContextMenuLabel?.(menu.row) ?? 'Row actions'}
+                    onClose={closeMenu}
+                />
+            )}
         </div>
     );
 }
+
+/** #404: the selected row's green edge, inside its first cell (a row border would collide with the row lines). */
+const SelectedEdge = () => (
+    <span aria-hidden="true" data-testid="selected-edge" className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-success" />
+);

@@ -12,7 +12,16 @@ export interface DomainBaseDto extends DomainTeleportSettingsDto, DomainNavigati
 
 export interface TownDto extends DomainBaseDto {
     requiredTitle: number;
+    /** #409: read-only, the distinct streets of the town's districts (change them on a district). */
     streetIds?: number[];
+    /** #409: the same streets with their names, ordered by name (knk-web-api `TownStreetDto`). */
+    streets?: TownStreetDto[];
+}
+
+/** knk-web-api `TownStreetDto`: one street of a town (derived from its districts, #409). */
+export interface TownStreetDto {
+    id: number;
+    name: string;
 }
 
 export interface TownCreateDto {
@@ -20,7 +29,6 @@ export interface TownCreateDto {
     description?: string;
     allowEntry: boolean;
     requiredTitle: number;
-    streetIds?: number[];
 }
 
 export interface TownUpdateDto extends TownCreateDto {

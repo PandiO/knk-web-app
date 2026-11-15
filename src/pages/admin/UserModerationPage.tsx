@@ -19,7 +19,16 @@ import { Field } from '../../components/Field';
 import { formatDateTime, formatNumber } from '../../utils/format';
 import { PresenceChangedPayload, usePresenceChanges } from '../../realtime/liveUpdates';
 import { useAuth } from '../../contexts/AuthContext';
-import { describePlayerSearchTerm, normalizePlayerSearchTerm, parsePlayerSort, PLAYER_SORT_KEYS } from '../../utils/playerSearch';
+import {
+    describePlayerSearchTerm,
+    normalizePlayerSearchTerm,
+    parsePlayerSort,
+    parsePlayerStateFilters,
+    PLAYER_SORT_KEYS,
+    PLAYER_STATE_FILTERS,
+    PlayerStateFilters,
+    playerStateFiltersToApi,
+} from '../../utils/playerSearch';
 import { clearRecentPlayers, readRecentPlayers, RecentPlayer } from '../../utils/recentPlayers';
 
 // docs/specs/user-management/DESIGN.md §5, IMPLEMENTATION_PLAN.md Phase 3 - a moderation-oriented
@@ -46,6 +55,19 @@ const onlineBadge = (isOnline?: boolean) => isOnline ? (
 );
 
 const filterClass = 'input px-3 py-2 min-w-[220px]';
+
+/** #565: the All players status cell: online, and frozen / payments locked when the API says so. */
+const statusCell = (u: UserListDto) => (
+    <span className="inline-flex flex-wrap gap-1">
+        {onlineBadge(u.isOnline)}
+        {u.isFrozen && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger-muted text-danger-strong">Frozen</span>
+        )}
+        {u.paymentsLocked && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger-muted text-danger-strong">Payments locked</span>
+        )}
+    </span>
+);
 
 /** #183: one player's new online state on the rows that show them (other rows unchanged). */
 export const applyPresence = <T extends Pick<UserListDto, 'id' | 'isOnline' | 'lastSeenAt'>>(
@@ -90,6 +112,8 @@ export const UserModerationPage: React.FC = () => {
     const [allSearchTerm, setAllSearchTerm] = React.useState(() => searchParams.get('q') ?? '');
     const [allPage, setAllPage] = React.useState(initialPage);
     const [allSort, setAllSort] = React.useState<DataTableSort | null>(() => parsePlayerSort(searchParams.get('sort'), searchParams.get('dir')));
+    // #565: online / frozen / payments locked (in the URL like the term and sort).
+    const [allFilters, setAllFilters] = React.useState<PlayerStateFilters>(() => parsePlayerStateFilters(searchParams));
     const [allResults, setAllResults] = React.useState<UserListDto[] | null>(null);
     const [allTotalCount, setAllTotalCount] = React.useState(0);
     const [allLoading, setAllLoading] = React.useState(false);
@@ -98,14 +122,18 @@ export const UserModerationPage: React.FC = () => {
     // The term of the last search run (the box may have changed since), for a live re-read (#183).
     const allTermRef = React.useRef('');
     const allSortRef = React.useRef<DataTableSort | null>(allSort);
-    const runAllSearch = React.useCallback(async (page: number, searchTerm: string, quiet = false, sort: DataTableSort | null = allSortRef.current) => {
+    const allFiltersRef = React.useRef<PlayerStateFilters>(allFilters);
+    const runAllSearch = React.useCallback(async (page: number, searchTerm: string, quiet = false, sort: DataTableSort | null = allSortRef.current,
+        filters: PlayerStateFilters = allFiltersRef.current) => {
         if (!quiet) {
             setAllLoading(true);
             setAllError(null);
         }
         allTermRef.current = searchTerm;
         allSortRef.current = sort;
+        allFiltersRef.current = filters;
         const term = normalizePlayerSearchTerm(searchTerm);
+        const apiFilters = playerStateFiltersToApi(filters);
         try {
             // The backend's PagedQueryDto only binds a "pageNumber" JSON field, not "page" - a
             // bare { page, ... } body silently pins the server at its default page (1) no matter
@@ -117,6 +145,7 @@ export const UserModerationPage: React.FC = () => {
                 pageSize: ALL_PAGE_SIZE,
                 searchTerm: term || undefined,
                 ...(sort ? { sortBy: PLAYER_SORT_KEYS[sort.key], sortDescending: sort.descending } : {}),
+                ...(apiFilters ? { filters: apiFilters } : {}),
             }));
             setAllResults(result.items);
             setAllTotalCount(result.totalCount);
@@ -145,9 +174,14 @@ export const UserModerationPage: React.FC = () => {
     }, [tab, allResults, allLoading]);
 
     /** A search, page or sort the user asked for: run it and write it to the URL (replacing the entry). */
-    const searchAll = (page: number, term: string, sort: DataTableSort | null = allSortRef.current) => {
+    const searchAll = (page: number, term: string, sort: DataTableSort | null = allSortRef.current,
+        filters: PlayerStateFilters = allFiltersRef.current) => {
+        setAllFilters(filters);
         setSearchParams(previous => {
             const params = new URLSearchParams(previous);
+            for (const { key } of PLAYER_STATE_FILTERS) {
+                if (filters[key] === undefined) params.delete(key); else params.set(key, String(filters[key]));
+            }
             const q = term.trim();
             if (q) params.set('q', q); else params.delete('q');
             if (page > 1) params.set('page', String(page)); else params.delete('page');
@@ -160,7 +194,7 @@ export const UserModerationPage: React.FC = () => {
             }
             return params;
         }, { replace: true });
-        void runAllSearch(page, term, false, sort);
+        void runAllSearch(page, term, false, sort, filters);
     };
 
     // MOD-5 "recent players": the profiles this staff member opened last (this browser only).
@@ -177,10 +211,11 @@ export const UserModerationPage: React.FC = () => {
     const allColumns: DataTableColumn<UserListDto>[] = [
         { key: 'username', header: 'Username', className: 'font-medium', sortable: true },
         { key: 'email', header: 'Email', sortable: true },
-        { key: 'status', header: 'Status', cell: u => onlineBadge(u.isOnline) },
-        { key: 'lastSeenAt', header: 'Last seen', cell: u => (u.isOnline ? 'Now' : formatDateTime(u.lastSeenAt)) },
+        { key: 'status', header: 'Status', cell: statusCell },
+        { key: 'lastSeenAt', header: 'Last seen', sortable: true, cell: u => (u.isOnline ? 'Now' : formatDateTime(u.lastSeenAt)) },
         { key: 'coins', header: 'Coins', align: 'right', sortable: true, cell: u => formatNumber(u.coins) },
-        { key: 'experiencePoints', header: 'XP', align: 'right', cell: u => formatNumber(u.experiencePoints) },
+        { key: 'experiencePoints', header: 'XP', align: 'right', sortable: true, cell: u => formatNumber(u.experiencePoints) },
+        { key: 'createdAt', header: 'Created', cell: u => formatDateTime(u.createdAt) },
     ];
     const groupColumns: DataTableColumn<UserListDto>[] = [
         { key: 'username', header: 'Username', className: 'font-medium' },
@@ -382,6 +417,24 @@ export const UserModerationPage: React.FC = () => {
                                             placeholder="Leave blank to list everyone"
                                         />
                                     </Field>
+                                    {PLAYER_STATE_FILTERS.map(f => (
+                                        <Field key={f.key} label={f.label} labelClassName="block text-xs font-medium text-muted mb-1">
+                                            <select
+                                                className="input px-3 py-2"
+                                                value={allFilters[f.key] === undefined ? '' : String(allFilters[f.key])}
+                                                onChange={(e) => {
+                                                    const value = e.target.value;
+                                                    const next: PlayerStateFilters = { ...allFilters };
+                                                    if (value === '') delete next[f.key]; else next[f.key] = value === 'true';
+                                                    searchAll(1, allSearchTerm, allSortRef.current, next);
+                                                }}
+                                            >
+                                                <option value="">Any</option>
+                                                <option value="true">{f.yes}</option>
+                                                <option value="false">{f.no}</option>
+                                            </select>
+                                        </Field>
+                                    ))}
                                     <button
                                         className="btn-primary text-sm inline-flex items-center"
                                         disabled={allLoading}

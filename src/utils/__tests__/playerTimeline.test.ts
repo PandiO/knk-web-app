@@ -2,6 +2,7 @@ import {
     auditCategory,
     auditToTimelineEvent,
     ledgerToTimelineEvent,
+    sessionToTimelineEvent,
     TimelineEvent,
     TimelineMerger,
     TimelineSource,
@@ -125,3 +126,35 @@ describe('TimelineMerger', () => {
         expect(merger.hasMore).toBe(false);
     });
 });
+
+describe('game sessions in the timeline (#565)', () => {
+    it('maps a finished session at its start, with the server, end reason and active time', () => {
+        const e = sessionToTimelineEvent({ sessionKey: 'k1', startedAt: '2026-11-08T10:00:00', endedAt: '2026-11-08T11:30:00',
+            endReason: 'Kick', serverId: 'survival', activeSeconds: 3900 });
+        expect(e).toMatchObject({ key: 'sessions:k1', source: 'sessions', category: 'sessions', title: 'Played on survival', actor: null,
+            tags: [{ label: 'Kicked', tone: 'red' }] });
+        expect(e.atMs).toBe(Date.UTC(2026, 10, 8, 10, 0, 0));
+        expect(e.lines).toContain('Kicked');
+        expect(e.lines).toContain('Active 1 h 5 min');
+        expect(e.lines[0]).toMatch(/^Until /);
+    });
+
+    it('maps an open session as in game', () => {
+        const e = sessionToTimelineEvent({ sessionKey: 'k2', startedAt: '2026-11-08T10:00:00', endedAt: null, endReason: null,
+            serverId: '', activeSeconds: 0 });
+        expect(e.title).toBe('In game on the game server');
+        expect(e.lines[0]).toMatch(/Still open/);
+        expect(e.lines).toContain('Active 0 s');
+        expect(e.tags).toEqual([]);
+    });
+
+    it('files kick and ban audit entries under moderation, as danger', () => {
+        const kicked = auditToTimelineEvent(audit(8, '2026-11-08T10:00:00', 'PlayerKicked', { details: '{"reason":"AFK"}' }));
+        expect(kicked).toMatchObject({ category: 'moderation', tone: 'danger', title: 'Kicked from the game', lines: ['Reason: AFK'] });
+        const banned = auditToTimelineEvent(audit(9, '2026-11-08T10:00:00', 'PlayerBanned', { details: '{"reason":"X-ray","permanent":true}' }));
+        expect(banned).toMatchObject({ category: 'moderation', tone: 'danger', title: 'Banned from the game',
+            lines: ['Reason: X-ray', 'Permanent; lifted with /pardon in game'] });
+        expect(auditCategory('PlayerBanned')).toBe('moderation');
+    });
+});
+

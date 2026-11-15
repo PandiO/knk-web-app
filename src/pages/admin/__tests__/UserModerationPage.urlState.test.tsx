@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { UserModerationPage } from '../UserModerationPage';
 import { userClient } from '../../../apiClients/userClient';
@@ -76,7 +76,7 @@ describe('UserModerationPage URL state (#39)', () => {
         expect(mockNavigate).not.toHaveBeenCalled();
 
         // A click elsewhere on the row opens it too.
-        fireEvent.click(screen.getByText('Offline'));
+        fireEvent.click(within(screen.getByRole('table', { name: 'All players' })).getByText('Offline'));
         expect(mockNavigate).toHaveBeenCalledWith('/admin/users/12');
     });
 
@@ -143,3 +143,51 @@ describe('UserModerationPage on DataTable/Pager (#187)', () => {
         expect(screen.getByText('Knight -> Squire')).toBeInTheDocument();
     });
 });
+
+describe('UserModerationPage state filters, sort keys and list fields (#565)', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockInitialSearch = '';
+        (permissionGroupClient.getAll as jest.Mock).mockResolvedValue([]);
+        searchPaged.mockResolvedValue({
+            items: [{ id: 12, username: 'Pandi', email: null, isOnline: false, coins: 0, experiencePoints: 0, isFrozen: true,
+                paymentsLocked: true, createdAt: '2026-09-01T10:00:00' }],
+            totalCount: 1,
+        });
+    });
+
+    it('sends the filters from the URL and shows frozen / payments locked on the row', async () => {
+        mockInitialSearch = '?frozen=true&online=false';
+        render(<UserModerationPage />);
+        await screen.findByRole('link', { name: 'Pandi' });
+        expect(searchPaged).toHaveBeenCalledWith(expect.objectContaining({ filters: { online: 'false', frozen: 'true' } }));
+        expect(screen.getByLabelText('Frozen')).toHaveValue('true');
+        expect(screen.getByLabelText('Online')).toHaveValue('false');
+        const table = screen.getByRole('table', { name: 'All players' });
+        expect(table).toHaveTextContent('Frozen');
+        expect(table).toHaveTextContent('Payments locked');
+        expect(screen.getByRole('columnheader', { name: /Created/ })).toBeInTheDocument();
+    });
+
+    it('a changed filter searches from page 1 and goes into the URL; "Any" removes it', async () => {
+        render(<UserModerationPage />);
+        await screen.findByRole('link', { name: 'Pandi' });
+        fireEvent.change(screen.getByLabelText('Payments'), { target: { value: 'true' } });
+        expect(searchPaged).toHaveBeenLastCalledWith(expect.objectContaining({ pageNumber: 1, filters: { paymentsLocked: 'true' } }));
+        const [update] = mockSetSearchParams.mock.calls[mockSetSearchParams.mock.calls.length - 1];
+        expect(update(new URLSearchParams('')).get('paymentsLocked')).toBe('true');
+
+        fireEvent.change(screen.getByLabelText('Payments'), { target: { value: '' } });
+        expect(searchPaged.mock.calls[searchPaged.mock.calls.length - 1][0].filters).toBeUndefined();
+    });
+
+    it('sorts by last seen and XP with the API sort keys', async () => {
+        render(<UserModerationPage />);
+        await screen.findByRole('link', { name: 'Pandi' });
+        fireEvent.click(screen.getByRole('button', { name: /Last seen/ }));
+        expect(searchPaged).toHaveBeenLastCalledWith(expect.objectContaining({ sortBy: 'lastseenat' }));
+        fireEvent.click(screen.getByRole('button', { name: /XP/ }));
+        expect(searchPaged).toHaveBeenLastCalledWith(expect.objectContaining({ sortBy: 'experiencepoints' }));
+    });
+});
+

@@ -1,7 +1,7 @@
 /**
  * PandiO/knk-workspace#191: the form wizard's search-as-you-type relation picker (components/FormWizard/RelationPicker).
  * Pure parts: which search it runs for the viewer (#280: the full search with a read node of the type, else the
- * lookup), what a lookup can do with the field's pickerFilters, and the short second line of an option.
+ * lookup), what a lookup does with the field's pickerFilters (#288), and the short second line of an option.
  */
 import { EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { PermissionStatus } from '../../hooks/useStaffAccess';
@@ -40,25 +40,39 @@ export function relationAccess(
 }
 
 /**
- * What a lookup can do with the field's resolved pickerFilters (it takes no filters, LAM2-7):
- * - `prefer…` filters only order the full search's results: dropped;
- * - `excludeIds` is applied here, on the page;
- * - any other filter would narrow the list, which a lookup can't: `unsupported` (the picker is then unavailable,
- *   rather than offering records the form would not accept, LV6-3).
+ * What a lookup does with the field's resolved pickerFilters (PandiO/knk-workspace#288, developer 2026-11-15: the
+ * lookup applies the narrowing filters the type's own search accepts, labels only):
+ * - `excludeIds` is applied here, on the page (the lookup doesn't take it);
+ * - every other filter with a value goes to `api/Lookup/{type}/search`, `prefer…` ones included (the API orders by
+ *   those it takes and leaves the rest out). A filter the type's lookup doesn't take comes back as a 400
+ *   `LookupFilterNotAllowed` (see lookupFilterRefusal): the picker then says so instead of offering records the form
+ *   would not accept (LV6-3).
  */
-export function lookupFilterPlan(filters?: Record<string, string> | null): { excludeIds: Set<string>; unsupported: string[] } {
+export function lookupFilterPlan(filters?: Record<string, string> | null): { excludeIds: Set<string>; filters: Record<string, string> } {
     const excludeIds = new Set<string>();
-    const unsupported: string[] = [];
+    const sent: Record<string, string> = {};
     Object.entries(filters ?? {}).forEach(([key, value]) => {
         if (value === undefined || value === null || String(value).trim() === '') return;
-        if (/^prefer/i.test(key)) return;
         if (key.toLowerCase() === 'excludeids') {
             String(value).split(',').map(part => part.trim()).filter(Boolean).forEach(id => excludeIds.add(id));
             return;
         }
-        unsupported.push(key);
+        sent[key] = String(value).trim();
     });
-    return { excludeIds, unsupported };
+    return { excludeIds, filters: sent };
+}
+
+/**
+ * The filters a lookup refused because the type's lookup doesn't take them (400 `LookupFilterNotAllowed`, #288), or
+ * undefined for any other answer. Only the full search of the type can narrow by those.
+ */
+export function lookupFilterRefusal(error: unknown): string[] | undefined {
+    const e = error as { status?: number; response?: unknown } | null;
+    if (e?.status !== 400) return undefined;
+    const body = e.response as { error?: unknown; filters?: unknown } | null | undefined;
+    if (!body || typeof body !== 'object' || body.error !== 'LookupFilterNotAllowed') return undefined;
+    const keys = Array.isArray(body.filters) ? body.filters.filter((key): key is string => typeof key === 'string' && key !== '') : [];
+    return keys.length > 0 ? keys : ['a filter'];
 }
 
 /**

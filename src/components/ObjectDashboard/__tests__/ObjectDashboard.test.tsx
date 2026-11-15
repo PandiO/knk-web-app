@@ -31,6 +31,12 @@ jest.mock('../../../apiClients/dashboardClient', () => ({
     dashboardClient: { bulkDelete: jest.fn(), export: jest.fn() },
 }));
 
+// #406: the row menu's Export writes a file; the download itself is the browser's.
+jest.mock('../../../utils/csv', () => ({
+    ...jest.requireActual('../../../utils/csv'),
+    downloadCsv: jest.fn(),
+}));
+
 // virtual: CRA's Jest resolver can't resolve react-router-dom's package exports
 const mockNavigate = jest.fn();
 let mockParams: { entityName?: string } = {};
@@ -1024,5 +1030,135 @@ describe('ObjectDashboard access per type (PandiO/knk-workspace#280)', () => {
         fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Cancel' }));
         await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
         expect(dashboardClient.bulkDelete).not.toHaveBeenCalled();
+    });
+});
+
+describe('ObjectDashboard row context menu (PandiO/knk-workspace#406)', () => {
+    let toasts: Array<{ kind: string; message: string }>;
+    let subscription: { unsubscribe: () => void };
+    const columns = [{ key: 'name', label: 'Name' }];
+    const stateWith = (selected: any[]) => ({
+        selected, clearSelection: jest.fn(), columns, query: { page: 1, pageSize: 10, searchTerm: 'main' }, totalCount: 2, loading: false,
+    });
+    const menuOf = (row: any, selected: any[] = []) =>
+        mockTableProps.rowContextMenu(row, stateWith(selected)) as Array<{ key: string; label: string; disabled?: boolean; hint?: string | null; onSelect: () => void }>;
+    const byKey = (items: ReturnType<typeof menuOf>, key: string) => items.find(item => item.key === key)!;
+    const row7 = { id: 7, name: 'Main Street' };
+    const row8 = { id: 8, name: 'Market Street' };
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        window.localStorage.clear();
+        mockMetadata = { baseMetadata: accessMetadata as never, loading: false };
+        mockParams = { entityName: 'Street' };
+        mockLocation = { pathname: '/dashboard/Street', search: '' };
+        getAll.mockResolvedValue([config('Street', true, false)]);
+        toasts = [];
+        subscription = toastRequests.subscribe(request => toasts.push({ kind: request.kind, message: request.message }));
+    });
+    afterEach(() => subscription.unsubscribe());
+
+    it('offers View, Edit, Delete and Export, enabled with every node, with an accessible name per row', async () => {
+        hold(['knk.admin.world', 'knk.admin.content', 'knk.admin.delete', 'knk.admin.delete.bulk', 'knk.admin.export']);
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        await waitFor(() => expect(mockTableProps.rowHref).toBeDefined());
+        const items = menuOf(row7);
+        expect(items.map(item => [item.key, item.label, !!item.disabled])).toEqual([
+            ['view', 'View', false], ['edit', 'Edit', false], ['delete', 'Delete', false], ['export', 'Export as CSV', false],
+        ]);
+        expect(mockTableProps.rowContextMenuLabel(row7)).toBe('Actions for Main Street');
+    });
+
+    it('gates every item with the node of its button: disabled with "Requires <node>", not hidden', async () => {
+        hold(['knk.admin.world']);
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        await waitFor(() => expect(mockTableProps.rowHref).toBeDefined());
+        const items = menuOf(row7);
+        expect(items).toHaveLength(4);
+        expect(byKey(items, 'view')).toMatchObject({ disabled: false, hint: null });
+        expect(byKey(items, 'edit')).toMatchObject({ disabled: true, hint: 'Requires knk.admin.content' });
+        expect(byKey(items, 'delete')).toMatchObject({ disabled: true, hint: 'Requires knk.admin.delete' });
+        expect(byKey(items, 'export')).toMatchObject({ disabled: true, hint: 'Requires knk.admin.export' });
+        // The same gates as the buttons.
+        expect(screen.getByLabelText('Edit – Requires knk.admin.content')).toBeDisabled();
+        expect(screen.getByLabelText('Delete – Requires knk.admin.delete')).toBeDisabled();
+    });
+
+    it('disables View with the display configuration hint for a type without one', async () => {
+        hold(['knk.admin.world', 'knk.admin.content']);
+        getAll.mockResolvedValue([]);
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        await waitFor(() => expect(byKey(menuOf(row7), 'view')).toMatchObject({
+            disabled: true, hint: 'No display configuration – set one up via ⚙',
+        }));
+        expect(byKey(menuOf(row7), 'edit').disabled).toBe(false);
+    });
+
+    it('opens the clicked row with View and Edit', async () => {
+        hold(['knk.admin.world', 'knk.admin.content']);
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        await waitFor(() => expect(mockTableProps.rowHref).toBeDefined());
+        act(() => byKey(menuOf(row7, [row7, row8]), 'view').onSelect());
+        expect(mockNavigate).toHaveBeenLastCalledWith(expect.stringMatching(/^\/display\/Street\/7\?/));
+        act(() => byKey(menuOf(row7), 'edit').onSelect());
+        expect(mockNavigate).toHaveBeenLastCalledWith(expect.stringMatching(/Street.*7/));
+    });
+
+    it('deletes and exports the single row when the clicked row is not ticked', async () => {
+        hold(['knk.admin.world', 'knk.admin.delete', 'knk.admin.delete.bulk', 'knk.admin.export']);
+        mockDeleteRow.mockResolvedValue(undefined);
+        (dashboardClient.export as jest.Mock).mockResolvedValue({ items: [row8], total: 1, truncated: false });
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        act(() => mockTableProps.onSelectionChange([row7]));
+        const items = menuOf(row8, [row7]);
+        expect(byKey(items, 'delete').label).toBe('Delete');
+        expect(byKey(items, 'export').label).toBe('Export as CSV');
+
+        await act(async () => { byKey(items, 'export').onSelect(); });
+        expect(dashboardClient.export).toHaveBeenCalledWith('Street', { ids: [8] });
+        await waitFor(() => expect(toasts).toContainEqual({ kind: 'success', message: 'Exported 1 Street row' }));
+
+        act(() => byKey(items, 'delete').onSelect());
+        const dialog = await screen.findByRole('alertdialog', { name: 'Delete Street "Market Street"?' });
+        await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' })); });
+        expect(mockDeleteRow).toHaveBeenCalledWith(8);
+        expect(dashboardClient.bulkDelete).not.toHaveBeenCalled();
+    });
+
+    it('acts on the whole selection when the clicked row is ticked', async () => {
+        hold(['knk.admin.world', 'knk.admin.delete', 'knk.admin.delete.bulk', 'knk.admin.export']);
+        (dashboardClient.export as jest.Mock).mockResolvedValue({ items: [row7, row8], total: 2, truncated: false });
+        (dashboardClient.bulkDelete as jest.Mock).mockResolvedValue({ deleted: [7, 8], refused: [] });
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        act(() => mockTableProps.onSelectionChange([row7, row8]));
+        const items = menuOf(row8, [row7, row8]);
+        expect(byKey(items, 'delete').label).toBe('Delete 2 Streets');
+        expect(byKey(items, 'export').label).toBe('Export 2 Streets as CSV');
+
+        await act(async () => { byKey(items, 'export').onSelect(); });
+        expect(dashboardClient.export).toHaveBeenCalledWith('Street', { ids: [7, 8] });
+
+        act(() => byKey(items, 'delete').onSelect());
+        const dialog = await screen.findByRole('alertdialog', { name: 'Delete 2 Streets?' });
+        await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Delete 2 Streets' })); });
+        expect(dashboardClient.bulkDelete).toHaveBeenCalledWith('Street', [7, 8]);
+        expect(mockDeleteRow).not.toHaveBeenCalled();
+    });
+
+    it('gates Delete on the selection with the bulk delete nodes', async () => {
+        hold(['knk.admin.world', 'knk.admin.delete']);
+        render(<ObjectDashboard objectTypes={[]} />);
+        await screen.findByTestId('table');
+        await waitFor(() => expect(mockTableProps.rowHref).toBeDefined());
+        expect(byKey(menuOf(row7, [row7]), 'delete')).toMatchObject({ disabled: false, label: 'Delete' });
+        expect(byKey(menuOf(row7, [row7, row8]), 'delete')).toMatchObject({
+            disabled: true, label: 'Delete 2 Streets', hint: 'Requires knk.admin.delete.bulk',
+        });
     });
 });

@@ -45,6 +45,9 @@ export const auditActionLabel = (entry: AuditLogEntryDto): string => {
     case 'MinecraftLinked': return 'Minecraft account linked';
     case 'MinecraftUnlinked': return 'Web login detached';
     case 'PlayerAdmitted': return 'Admitted by staff';
+    // PandiO/knk-workspace#565 (AuditAction 63, 64): kick and ban from the web app.
+    case 'PlayerKicked': return 'Kicked from the game';
+    case 'PlayerBanned': return 'Banned from the game';
     // PandiO/knk-workspace#280 (AuditAction 61, 62): dashboard bulk delete and export, recorded against the actor.
     case 'DashboardBulkDelete': return 'Bulk delete on the dashboard';
     case 'DashboardExport': return 'Dashboard export';
@@ -73,7 +76,9 @@ export function describeAuditDetails(entry: AuditLogEntryDto): string[] {
     case 'GrantUpdated': return grantUpdatedLines(details);
     case 'VanishToggled': return details.from || details.to ? [`${details.from ?? '?'} → ${details.to ?? '?'}`] : [];
     case 'PlayerFrozen':
-    case 'PlayerUnfrozen': return details.reason ? [`Reason: ${details.reason}`] : [];
+    case 'PlayerUnfrozen':
+    case 'PlayerKicked': return details.reason ? [`Reason: ${details.reason}`] : [];
+    case 'PlayerBanned': return [...(details.reason ? [`Reason: ${details.reason}`] : []), 'Permanent; lifted with /pardon in game'];
     case 'KitGranted': return details.kitName ? [`Kit: ${details.kitName}`] : [];
     case 'PlayerTeleported': return teleportLines(details);
     case 'LootboxSpawnedByAdmin': return lootboxSpawnLines(details);

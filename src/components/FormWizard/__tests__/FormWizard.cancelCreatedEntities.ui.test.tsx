@@ -28,6 +28,8 @@ import {
  * Real FormWizard, ChildFormModal and PagedEntityTable; API clients mocked.
  */
 
+// virtual: CRA's Jest resolver can't resolve react-router-dom's package exports; ReferenceDetails ("Show what uses it", #289) navigates.
+jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }), { virtual: true });
 jest.mock('../../../apiClients/formConfigClient', () => ({
     formConfigClient: { getByEntityTypeName: jest.fn(), getById: jest.fn() }
 }));

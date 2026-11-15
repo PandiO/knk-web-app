@@ -1,6 +1,7 @@
 // PandiO/knk-workspace#71 (CRUD-14): what Publish changes for staff, said before it happens.
 import { FormConfigurationDto, FormFieldDto, FormStepDto } from '../../types/dtos/forms/FormModels';
 import { DisplayConfigurationDto, DisplayFieldDto, DisplaySectionDto } from '../../types/dtos/displayConfig/DisplayModels';
+import { countRuleChanges, describeRuleChanges } from '../forms/draftValidationRules';
 
 export interface ChangeCount {
     added: string[];
@@ -116,7 +117,10 @@ export function summarizeFormPublish(published: FormConfigurationDto | null, wor
         const nodes = formNodes(c.steps ?? []);
         return { name: c.configurationName, isDefault: c.isDefault, nodes, order: nodes.map(n => n.key) };
     };
-    return summarize(published ? side(published) : null, side(working), 'step');
+    const summary = summarize(published ? side(published) : null, side(working), 'step');
+    // PandiO/knk-workspace#291: validation rules are part of the draft too.
+    const rules = describeRuleChanges(countRuleChanges(published?.validationRules, working.validationRules));
+    return rules ? { ...summary, lines: [...summary.lines, rules] } : summary;
 }
 
 export function summarizeDisplayPublish(published: DisplayConfigurationDto | null, working: DisplayConfigurationDto): PublishSummary {

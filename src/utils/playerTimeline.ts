@@ -1,32 +1,36 @@
 import { AuditAction, AuditLogEntryDto } from '../types/dtos/userManagement/UserProfileSummaryDtos';
 import { LedgerLineDto } from '../types/dtos/currency/CurrencyDtos';
+import { PlayerSessionDto } from '../types/dtos/statistics/StatisticsDtos';
+import { formatDuration } from './settingsUnits';
 import { auditActionLabel, auditTags, describeAuditDetails } from './auditDetails';
-import { formatNumber, parseApiDate } from './format';
+import { formatDateTime, formatNumber, parseApiDate } from './format';
 
 /**
  * PandiO/knk-workspace#119 (MOD-3): one player's timeline on the profile, newest first, merged in the browser from
  * the paged sources the API has today:
  *
  * - the **audit log** about the player (`GET api/audit-log?targetUserId=`; moderation, permissions, titles, kits…),
- * - the **balance ledger** of the player (`GET api/currency/admin/ledger?userId=`, with knk.admin.currency.history).
+ * - the **balance ledger** of the player (`GET api/currency/admin/ledger?userId=`, with knk.admin.currency.history),
+ * - the **game sessions** of the player (`GET api/statistics/users/{id}/sessions`, #565), placed at their start.
  *
- * Game sessions have no read endpoint yet, so they are not in it (an API need of the issue). Each source is read a
+ * Each source is read a
  * page at a time; an event is only shown once every source that still has rows has one at least as old, so
  * "Load older" never puts an older row above a newer one. A row seen twice (new rows shift the offset pages) is
  * shown once.
  */
 
-export type TimelineCategory = 'moderation' | 'economy' | 'permissions' | 'progress' | 'account';
+export type TimelineCategory = 'moderation' | 'economy' | 'permissions' | 'progress' | 'sessions' | 'account';
 
 export const TIMELINE_CATEGORIES: { key: TimelineCategory; label: string }[] = [
     { key: 'moderation', label: 'Moderation' },
     { key: 'economy', label: 'Economy' },
     { key: 'permissions', label: 'Permissions' },
     { key: 'progress', label: 'Progress' },
+    { key: 'sessions', label: 'Game sessions' },
     { key: 'account', label: 'Account' },
 ];
 
-export type TimelineSourceId = 'audit' | 'ledger';
+export type TimelineSourceId = 'audit' | 'ledger' | 'sessions';
 
 export interface TimelineEvent {
     /** Unique over all sources (`audit:12`, `ledger:34`). */
@@ -50,6 +54,8 @@ const AUDIT_CATEGORY: Partial<Record<AuditAction, TimelineCategory>> = {
     PlayerUnfrozen: 'moderation',
     VanishToggled: 'moderation',
     PlayerTeleported: 'moderation',
+    PlayerKicked: 'moderation',
+    PlayerBanned: 'moderation',
     PlayerAdmitted: 'moderation',
     CurrencyTransferLocked: 'moderation',
     CurrencyTransferUnlocked: 'moderation',
@@ -74,7 +80,7 @@ const AUDIT_CATEGORY: Partial<Record<AuditAction, TimelineCategory>> = {
 export const auditCategory = (action: AuditAction | string): TimelineCategory =>
     AUDIT_CATEGORY[action as AuditAction] ?? 'account';
 
-const DANGER_ACTIONS = new Set<string>(['PlayerFrozen', 'CurrencyTransferLocked', 'GroupRemoved', 'GrantRemoved',
+const DANGER_ACTIONS = new Set<string>(['PlayerFrozen', 'PlayerKicked', 'PlayerBanned', 'CurrencyTransferLocked', 'GroupRemoved', 'GrantRemoved',
     'PrivacyDeletionRequested', 'PrivacyDeletionExecuted', 'MinecraftUnlinked']);
 const SUCCESS_ACTIONS = new Set<string>(['PlayerUnfrozen', 'CurrencyTransferUnlocked', 'PlayerAdmitted']);
 
@@ -125,6 +131,39 @@ export function ledgerToTimelineEvent(line: LedgerLineDto): TimelineEvent {
         actor,
         lines,
         tags: line.reversesTransactionId ? [{ label: 'Reversal', tone: 'gray' }] : [],
+        tone: 'neutral',
+    };
+}
+
+const SESSION_END: Record<string, string> = {
+    Quit: 'Left the game',
+    ServerStop: 'Server stopped',
+    Kick: 'Kicked',
+    Timeout: 'Closed without a heartbeat (timeout)',
+};
+
+/** #565: one game session, shown at its start: "Played 1 h 5 min on survival" or "In game on survival" while open. */
+export function sessionToTimelineEvent(session: PlayerSessionDto): TimelineEvent {
+    const server = session.serverId?.trim() || 'the game server';
+    const open = !session.endedAt;
+    const lines: string[] = [];
+    if (open) {
+        lines.push('Still open: the player is on, or the session has not been closed yet');
+    } else {
+        lines.push(`Until ${formatDateTime(session.endedAt)}`);
+        if (session.endReason) lines.push(SESSION_END[session.endReason] ?? String(session.endReason));
+    }
+    lines.push(`Active ${formatDuration(Math.max(0, Number(session.activeSeconds) || 0))}`);
+    return {
+        key: `sessions:${session.sessionKey}`,
+        source: 'sessions',
+        atMs: epoch(session.startedAt),
+        at: session.startedAt,
+        category: 'sessions',
+        title: open ? `In game on ${server}` : `Played on ${server}`,
+        actor: null,
+        lines,
+        tags: session.endReason === 'Kick' ? [{ label: 'Kicked', tone: 'red' }] : [],
         tone: 'neutral',
     };
 }

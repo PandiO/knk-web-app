@@ -1,8 +1,7 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Loader2, ShieldCheck, Users, Award, Coins, X, Plus, Gift, Lock, Unlock, Snowflake, EyeOff, Gavel } from 'lucide-react';
+import { Loader2, Users, Award, Coins, X, Plus, Gift, Lock, Unlock, Snowflake, EyeOff, Gavel } from 'lucide-react';
 import { logging } from '../../utils';
-import { dateTimeLocalDaysFromNow } from '../../utils/dateTimeLocal';
 import { userManagementClient } from '../../apiClients/userManagementClient';
 import { permissionGroupClient } from '../../apiClients/permissionGroupClient';
 import { KitClient } from '../../apiClients/kitClient';
@@ -39,6 +38,8 @@ import { ProfileTab, ProfileTabs, tabId, tabPanelId } from './playerProfile/Prof
 import { PlayerTimeline } from './playerProfile/PlayerTimeline';
 import { PlayerAuditLog } from './playerProfile/PlayerAuditLog';
 import { usePlayerFreeze } from './playerProfile/usePlayerFreeze';
+import { usePlayerKickBan } from './playerProfile/usePlayerKickBan';
+import { EffectivePermissionsCard } from './playerProfile/EffectivePermissionsCard';
 
 // docs/specs/user-management/DESIGN.md §2 - a read-first composite dashboard for one player,
 // distinct from the generic /forms/user edit screen. Phase 2 (docs/specs/user-management/
@@ -73,11 +74,6 @@ export const PROFILE_ACTION_NODES = {
     kits: 'knk.kit.give',
 } as const;
 
-// KNG-59 safeguard: a direct grant/deny defaults to expiring a day from now, so a permanent one
-// takes an explicit "clear the expiry" from the admin.
-const GRANT_DEFAULT_EXPIRY_DAYS = 1;
-const defaultGrantExpiry = (): string => dateTimeLocalDaysFromNow(GRANT_DEFAULT_EXPIRY_DAYS);
-
 const card = 'panel p-4 sm:p-6';
 const cardTitle = 'text-lg font-semibold text-fg mb-4 flex items-center';
 const th = 'py-2 pr-4 font-medium text-muted';
@@ -105,14 +101,6 @@ export const PlayerProfilePage: React.FC = () => {
     const [assigningGroup, setAssigningGroup] = React.useState(false);
     const [removingGroupId, setRemovingGroupId] = React.useState<number | null>(null);
     const [groupActionError, setGroupActionError] = React.useState<string | null>(null);
-
-    const [grantNode, setGrantNode] = React.useState('');
-    const [grantValue, setGrantValue] = React.useState<'true' | 'false'>('true');
-    const [grantExpiresAt, setGrantExpiresAt] = React.useState(defaultGrantExpiry);
-    const [grantingNode, setGrantingNode] = React.useState(false);
-    const [grantActionError, setGrantActionError] = React.useState<string | null>(null);
-    const [revokingNode, setRevokingNode] = React.useState<string | null>(null);
-    const [revokeNodeError, setRevokeNodeError] = React.useState<string | null>(null);
 
     // "Adjust balance" card (AdjustBalanceCard): the title change its last adjustment caused.
     const [titleChangeNotice, setTitleChangeNotice] = React.useState<TitleChangeResultDto | null>(null);
@@ -143,7 +131,6 @@ export const PlayerProfilePage: React.FC = () => {
     const [grantKitError, setGrantKitError] = React.useState<string | null>(null);
 
     const groupHintId = React.useId();
-    const grantHintId = React.useId();
     const kitHintId = React.useId();
     const lockHintId = React.useId();
 
@@ -232,14 +219,18 @@ export const PlayerProfilePage: React.FC = () => {
     }, [load, bumpActivity]);
 
     const username = summary?.account.username ?? `User #${id}`;
-    const freeze = usePlayerFreeze({ userId, username, confirm, confirmWithReason, onChanged: bumpActivity });
-    const reloadFreeze = freeze.reload;
+    // #565: the frozen state (since when, by whom) comes with the profile summary; no extra read of the user or audit log.
+    const freeze = usePlayerFreeze({
+        userId, username, account: summary?.account ?? null, loading, reloadSummary: load, confirm, confirmWithReason,
+        onChanged: bumpActivity,
+    });
+    const kickBan = usePlayerKickBan({ userId, username, confirmWithReason, onChanged: bumpActivity });
 
     // #183 (S4): another staff member, or the game (/freeze in game), changed this user: read the profile again.
-    // A hub reconnect re-reads the frozen state and the activity (the presence handler above re-reads the badge).
-    useLiveEntityChanges('User', change => {
-        if (!change.reconnect || change.actors.length > 0) void load();
-        void reloadFreeze();
+    // A hub reconnect re-reads the summary (frozen state included) and the activity (the presence handler above
+    // re-reads the badge).
+    useLiveEntityChanges('User', () => {
+        void load();
         void loadTransferLock();
         bumpActivity();
     }, { id: Number.isFinite(userId) ? userId : null });
@@ -286,44 +277,6 @@ export const PlayerProfilePage: React.FC = () => {
             setGroupActionError(apiRefusalReason(err) ?? 'Could not remove this group.');
         } finally {
             setRemovingGroupId(null);
-        }
-    };
-
-    const handleGrantNode = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!grantNode.trim() || !grantGate.allowed) return;
-        setGrantingNode(true);
-        setGrantActionError(null);
-        try {
-            await userManagementClient.grantNode(userId, {
-                node: grantNode.trim(),
-                value: grantValue === 'true',
-                expiresAt: grantExpiresAt ? new Date(grantExpiresAt).toISOString() : null,
-            });
-            setGrantNode('');
-            setGrantExpiresAt(defaultGrantExpiry());
-            await refreshAfterAction();
-        } catch (err) {
-            console.error('Failed to grant node:', err);
-            setGrantActionError(apiRefusalReason(err) ?? 'Could not save this permission node.');
-        } finally {
-            setGrantingNode(false);
-        }
-    };
-
-    // KNG-59: remove a node granted/denied directly on the player (group-inherited rows have no
-    // remove button - removing those would change the group for every member).
-    const handleRevokeNode = async (node: string) => {
-        setRevokingNode(node);
-        setRevokeNodeError(null);
-        try {
-            await userManagementClient.revokeNode(userId, node);
-            await refreshAfterAction();
-        } catch (err) {
-            console.error('Failed to remove node:', err);
-            setRevokeNodeError(apiRefusalReason(err) ?? `Could not remove ${node}.`);
-        } finally {
-            setRevokingNode(null);
         }
     };
 
@@ -774,136 +727,12 @@ export const PlayerProfilePage: React.FC = () => {
                 </form>
             </section>
 
-            <section className={card} aria-labelledby="permissions-heading">
-                <h2 id="permissions-heading" className={cardTitle}>
-                    <ShieldCheck className="mr-2 h-5 w-5" aria-hidden="true" />
-                    Effective Permissions ({permissions.permissions.length})
-                </h2>
-                {permissions.permissions.length === 0 ? (
-                    <p className="mb-4 text-sm text-muted">No declared permission nodes for this player.</p>
-                ) : (
-                    <div className="relative overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-line text-left">
-                                    <th className={th}>Node</th>
-                                    <th className={th}>Value</th>
-                                    <th className={th}>Source</th>
-                                    <th className={th}><span className="sr-only">Actions</span></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {permissions.permissions.map(p => (
-                                    <tr key={p.node} className="border-b border-line">
-                                        <td className="py-2 pr-4 font-mono text-xs text-fg">{p.node}</td>
-                                        <td className="py-2 pr-4">
-                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${p.value
-                                                ? 'bg-success-muted text-success-strong'
-                                                : 'bg-danger-muted text-danger-strong'}`}>
-                                                {p.value ? 'Granted' : 'Denied'}
-                                            </span>
-                                        </td>
-                                        <td className="py-2 pr-4 text-fg">
-                                            {p.sourceHolderType === 'User'
-                                                ? 'Direct grant'
-                                                : (p.sourceHolderName || `Group #${p.sourceHolderId}`)}
-                                        </td>
-                                        <td className="py-2 pr-4 text-right">
-                                            {p.sourceHolderType === 'User' ? (
-                                                <button
-                                                    className="text-muted hover:text-danger disabled:opacity-50"
-                                                    disabled={!grantGate.allowed || revokingNode !== null}
-                                                    onClick={() => void handleRevokeNode(p.node)}
-                                                    title={grantGate.hint ?? `Remove direct ${p.value ? 'grant' : 'deny'}`}
-                                                    aria-label={`Remove direct ${p.value ? 'grant' : 'deny'} of ${p.node}`}
-                                                >
-                                                    {revokingNode === p.node
-                                                        ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                                                        : <X className="h-4 w-4" aria-hidden="true" />}
-                                                </button>
-                                            ) : (
-                                                <span
-                                                    className="text-xs text-muted"
-                                                    title="Inherited from a group: remove the node on the group, or remove the group membership above"
-                                                >
-                                                    Inherited
-                                                </span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-                {revokeNodeError && <p className="field-error mt-2 text-xs">{revokeNodeError}</p>}
-
-                {/* Quick action: grant/deny a node directly on the player (DESIGN.md §3). Saving a node
-                    the player already has directly updates its value and expiry (KNG-59). */}
-                <form className="mt-4 flex flex-wrap items-end gap-3 border-t border-line pt-4" onSubmit={(e) => void handleGrantNode(e)}>
-                    <div className="min-w-[12rem] flex-1">
-                        <label htmlFor="grant-node" className="mb-1 block text-xs text-muted">Grant/deny node</label>
-                        <input
-                            id="grant-node"
-                            type="text"
-                            placeholder="e.g. knk.gate.open"
-                            className={`${fieldInput} w-full font-mono`}
-                            value={grantNode}
-                            disabled={!grantGate.allowed}
-                            onChange={(e) => setGrantNode(e.target.value)}
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="grant-value" className="mb-1 block text-xs text-muted">Value</label>
-                        <select
-                            id="grant-value"
-                            className={fieldInput}
-                            value={grantValue}
-                            disabled={!grantGate.allowed}
-                            onChange={(e) => setGrantValue(e.target.value as 'true' | 'false')}
-                        >
-                            <option value="true">Grant</option>
-                            <option value="false">Deny</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="grant-expires" className="mb-1 block text-xs text-muted">
-                            Expires {grantExpiresAt ? '(clear for permanent)' : <span className="font-medium text-warning-strong">(permanent)</span>}
-                        </label>
-                        <div className="flex items-center gap-2">
-                            <input
-                                id="grant-expires"
-                                type="datetime-local"
-                                className={fieldInput}
-                                value={grantExpiresAt}
-                                disabled={!grantGate.allowed}
-                                onChange={(e) => setGrantExpiresAt(e.target.value)}
-                            />
-                            {grantExpiresAt ? (
-                                <button type="button" className="text-xs text-muted underline hover:text-danger" onClick={() => setGrantExpiresAt('')}>
-                                    Clear
-                                </button>
-                            ) : (
-                                <button type="button" className="text-xs text-muted underline hover:text-fg" onClick={() => setGrantExpiresAt(defaultGrantExpiry())}>
-                                    Reset to 1 day
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                    <button
-                        type="submit"
-                        className="btn-primary text-sm"
-                        disabled={!grantGate.allowed || !grantNode.trim() || grantingNode}
-                        title={grantGate.hint ?? undefined}
-                        aria-describedby={grantGate.hint ? grantHintId : undefined}
-                    >
-                        {grantingNode ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Plus className="mr-2 h-4 w-4" aria-hidden="true" />}
-                        Save
-                    </button>
-                    <GatedHint id={grantHintId} hint={grantGate.hint} />
-                    {grantActionError && <span className="field-error text-xs">{grantActionError}</span>}
-                </form>
-            </section>
+            <EffectivePermissionsCard
+                userId={userId}
+                permissions={permissions.permissions}
+                gate={grantGate}
+                onChanged={refreshAfterAction}
+            />
         </>
     );
 
@@ -923,7 +752,8 @@ export const PlayerProfilePage: React.FC = () => {
                         <div className="min-w-0">
                             <p className="font-medium text-fg">
                                 {frozen
-                                    ? `Frozen${freeze.frozenEntry ? ` since ${formatDateTime(freeze.frozenEntry.timestamp)}` : ''}`
+                                    ? `Frozen${freeze.state?.frozenAt ? ` since ${formatDateTime(freeze.state.frozenAt)}` : ''}${freeze.state?.frozenAt
+                                        ? ` by ${freeze.state.frozenByUsername ?? 'the game server or the system'}` : ''}`
                                     : 'Not frozen'}
                             </p>
                             <p className="mt-0.5 break-words text-muted">
@@ -978,15 +808,46 @@ export const PlayerProfilePage: React.FC = () => {
             {/* Admission and web login: Admit / Detach web login (KNG-214) */}
             <PlayerAccessCard account={account} onChanged={refreshAfterAction} />
 
-            <section className={card} aria-labelledby="kickban-heading">
+            <section className={card} aria-labelledby="kickban-heading" data-testid="kickban-card">
                 <h2 id="kickban-heading" className={cardTitle}>
                     <Gavel className="mr-2 h-5 w-5" aria-hidden="true" />
                     Kick and ban
                 </h2>
-                <p className="text-sm text-muted">
-                    Kick and ban are game commands (<span className="font-mono">/kick</span>, <span className="font-mono">/ban</span>,
-                    or the player menu in game). The web app can&apos;t send them yet.
-                </p>
+                {account.uuid ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                        <p className="min-w-0 text-muted">
+                            Kick disconnects the player now (only while they are online). Ban is permanent: the game server
+                            puts them on its ban list and kicks them; only <span className="font-mono">/pardon</span> in game
+                            lifts it. Both are carried out by the game server and saved in the audit log.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                className="btn-secondary text-sm"
+                                disabled={!kickBan.kickGate.allowed || kickBan.busy !== null}
+                                title={kickBan.kickGate.hint ?? undefined}
+                                onClick={() => void kickBan.kick()}
+                            >
+                                {kickBan.busy === 'kick' && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+                                Kick…
+                            </button>
+                            {kickBan.kickGate.hint && <span className="text-xs text-muted">{kickBan.kickGate.hint}</span>}
+                            <button
+                                type="button"
+                                className="btn-danger text-sm"
+                                disabled={!kickBan.banGate.allowed || kickBan.busy !== null}
+                                title={kickBan.banGate.hint ?? undefined}
+                                onClick={() => void kickBan.ban()}
+                            >
+                                {kickBan.busy === 'ban' && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+                                Ban…
+                            </button>
+                            {kickBan.banGate.hint && <span className="text-xs text-muted">{kickBan.banGate.hint}</span>}
+                        </div>
+                    </div>
+                ) : (
+                    <p className="text-sm text-muted">This account has no Minecraft account, so there is nothing to kick or ban in game.</p>
+                )}
             </section>
         </>
     );
@@ -1036,8 +897,9 @@ export const PlayerProfilePage: React.FC = () => {
                 <PlayerStatusStrip
                     summary={summary}
                     freeze={freeze}
+                    kickBan={kickBan}
                     transferLock={transferLock}
-                    onReload={() => { void refreshAfterAction(); void reloadFreeze(); void loadTransferLock(); }}
+                    onReload={() => { void refreshAfterAction(); void loadTransferLock(); }}
                     reloading={loading}
                 />
             </header>

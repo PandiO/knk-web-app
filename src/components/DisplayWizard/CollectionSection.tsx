@@ -6,7 +6,7 @@ import { ActionButtons, ButtonGate, OPEN_GATE } from './ActionButtons';
 import { CollectionSectionProps, ActionButtonsConfigDto } from '../../types/dtos/displayConfig/DisplayModels';
 import { RelationshipMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { Pager } from '../Pager';
-import { relatedIdOf, relatedLabelOf } from './detailPage';
+import { isDerived, relatedIdOf, relatedLabelOf } from './detailPage';
 
 /** #189: items per page of a collection (a 3-column grid: four rows). */
 export const COLLECTION_PAGE_SIZE = 12;
@@ -88,7 +88,7 @@ export const CollectionSection: React.FC<Props> = ({
 
   const pageItems = items.slice((page - 1) * COLLECTION_PAGE_SIZE, page * COLLECTION_PAGE_SIZE);
   // The item buttons share one gate: say once, visibly, why Unlink or Delete is off (each button also has it).
-  const itemHints = [
+  const itemHints = isDerived(relationship) ? [] : [
     actionButtons.showRemoveButton && relationship && !unlinkGate.allowed && unlinkGate.reason ? `Unlink: ${unlinkGate.reason}` : null,
     actionButtons.showDeleteButton && !deleteGate.allowed && deleteGate.reason ? `Delete: ${deleteGate.reason}` : null,
   ].filter((hint): hint is string => !!hint);

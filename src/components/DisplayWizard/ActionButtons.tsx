@@ -3,6 +3,7 @@ import React, { useId } from 'react';
 import { Eye, Edit, Plus, Link, Unlink, Trash2, PlusCircle } from 'lucide-react';
 import { ActionButtonsConfigDto, DisplayAction } from '../../types/dtos/displayConfig/DisplayModels';
 import { RelationshipMetadataDto } from '../../types/dtos/metadata/MetadataModels';
+import { isDerived } from './detailPage';
 
 /** Whether a button may be used, and why not (shown next to the disabled button, the #280 rule). */
 export interface ButtonGate {
@@ -59,6 +60,8 @@ const BUTTON = 'btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-
  *   item (the configuration's "Remove") only remove the link, never the record;
  * - Delete (`showDeleteButton`, items only) is a separate red action that deletes the record itself.
  * A button the user can't use is disabled with the reason ("Requires …" or why the link can't change here).
+ * A derived relationship (#409, a town's streets) shows only View and Edit, whatever the configuration's flags say:
+ * the section shows why as a hint.
  */
 export const ActionButtons: React.FC<ActionButtonsProps> = ({
   config,
@@ -120,6 +123,8 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   };
 
   const hasRecord = targetId != null;
+  // #409: nothing to link, unlink, create or delete here; the record changes elsewhere (the district).
+  const readOnly = isDerived(relationship);
   const buttons: React.ReactNode[] = [];
 
   if (config.showViewButton && entityData && hasRecord) {
@@ -143,7 +148,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
     );
   }
 
-  if (!isCollection && relationship) {
+  if (!isCollection && relationship && !readOnly) {
     if (config.showSelectButton) {
       buttons.push(gated('select', hasRecord && entityData ? 'Change…' : 'Select…', <Link size={16} aria-hidden="true" />, linkGate, 'select'));
     }
@@ -152,23 +157,23 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
     }
   }
 
-  if (isCollection && !isItemLevel && relationship && config.showAddButton) {
+  if (isCollection && !isItemLevel && relationship && !readOnly && config.showAddButton) {
     buttons.push(gated('add', 'Add…', <Plus size={16} aria-hidden="true" />, linkGate, 'add'));
   }
 
-  if (isCollection && isItemLevel && relationship && config.showRemoveButton && hasRecord) {
+  if (isCollection && isItemLevel && relationship && !readOnly && config.showRemoveButton && hasRecord) {
     // "Remove" in the configuration: unlinks the item, never deletes it (CRUD-16).
     buttons.push(gated('unlink', 'Unlink', <Unlink size={16} aria-hidden="true" />, unlinkGate, 'unlink', BUTTON,
       relatedLabel ? `Unlink ${relatedLabel}` : undefined));
   }
 
-  if (isCollection && isItemLevel && config.showDeleteButton && hasRecord) {
+  if (isCollection && isItemLevel && !readOnly && config.showDeleteButton && hasRecord) {
     buttons.push(gated('delete', 'Delete', <Trash2 size={16} aria-hidden="true" />, deleteGate, 'delete',
       'btn-danger inline-flex items-center gap-1.5 px-3 py-1.5 text-sm', relatedLabel ? `Delete ${relatedLabel}` : undefined));
   }
 
   // Create New belongs to the section (its header), not to each item.
-  if (config.showCreateButton && !isItemLevel) {
+  if (config.showCreateButton && !isItemLevel && !readOnly) {
     buttons.push(
       <button key="create" type="button" className={BUTTON} onClick={() => onCreateNew ? onCreateNew() : handleClick('create')}>
         <PlusCircle size={16} aria-hidden="true" />

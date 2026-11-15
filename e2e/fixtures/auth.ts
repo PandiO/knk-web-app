@@ -70,6 +70,8 @@ export function mockPermissions(api: MockApi, user: UserDto, allowed: (node: str
 export function mockSession(api: MockApi, user: UserDto, allowed: (node: string) => boolean = () => false): void {
   api.json<UserDto>('GET', 'Auth/me', user);
   mockPermissions(api, user, allowed);
+  // The realtime hub stays offline: the negotiate call is refused, so pages fall back to their own reloads.
+  api.on('POST', /^hubs\//, { status: 404, body: { error: 'RealtimeOff' } });
 }
 
 /**

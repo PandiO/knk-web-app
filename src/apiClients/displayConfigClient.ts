@@ -5,9 +5,7 @@ import {
   DisplayConfigurationDto,
   DisplaySectionDto,
   DisplayFieldDto,
-  ReuseLinkMode,
-  AddReusableSectionRequestDto,
-  AddReusableFieldRequestDto
+  ReuseLinkMode
 } from '../types/dtos/displayConfig/DisplayModels';
 import {
   DisplayConfigurationImportOptions,
@@ -222,27 +220,8 @@ export class DisplayConfigClient extends ObjectManager {
     return this.invokeServiceCall({ linkMode }, `${id}/clone`, Controllers.DisplayFields, HttpMethod.Post);
   }
 
-  // ===== TEMPLATE OPERATIONS (for builder) =====
-
-  /**
-   * Add reusable section to configuration
-   */
-  addReusableSectionToConfiguration(
-    configId: string,
-    payload: AddReusableSectionRequestDto
-  ): Promise<DisplaySectionDto> {
-    return this.invokeServiceCall(payload, `${configId}/sections/add-from-template`, Controllers.DisplayConfigurations, HttpMethod.Post);
-  }
-
-  /**
-   * Add reusable field to section
-   */
-  addReusableFieldToSection(
-    sectionId: string,
-    payload: AddReusableFieldRequestDto
-  ): Promise<DisplayFieldDto> {
-    return this.invokeServiceCall(payload, `${sectionId}/fields/add-from-template`, Controllers.DisplaySections, HttpMethod.Post);
-  }
+  // PandiO/knk-workspace#291: addReusableSectionToConfiguration / addReusableFieldToSection were removed: the API
+  // has no such endpoints, and the builder copies template sections and fields into its working copy (#71).
 
   // ===== PORTABLE EXPORT/IMPORT AND BUNDLED SEEDS (knk-displayconfig/1) =====
 
