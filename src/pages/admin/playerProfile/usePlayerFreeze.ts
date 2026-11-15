@@ -115,7 +115,7 @@ export function usePlayerFreeze(options: {
         if (UNFREEZE_TAKES_REASON) {
             reason = await confirmWithReason({
                 title: `Unfreeze ${username}?`, message, confirmLabel: 'Unfreeze',
-                reason: { required: false, label: 'Reason (optional)', hint: 'Saved in the audit log.', maxLength: FREEZE_REASON_MAX_LENGTH },
+                reason: { required: false, label: 'Reason', hint: 'Saved in the audit log.', maxLength: FREEZE_REASON_MAX_LENGTH },
             });
             if (reason === null) return;
         } else if (!(await confirm({ title: `Unfreeze ${username}?`, message, confirmLabel: 'Unfreeze' }))) {
