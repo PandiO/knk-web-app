@@ -1,4 +1,4 @@
-import { PermissionGrantClient } from '../permissionGrantClient';
+import { HOLDER_GRANTS_PAGE_SIZE, PermissionGrantClient } from '../permissionGrantClient';
 import { Controllers, HttpMethod } from '../../utils';
 import {
     getCreateFunctionForEntity,
@@ -8,7 +8,7 @@ import {
     getUpdateFunctionForEntity,
 } from '../../utils/entityApiMapping';
 
-// PandiO/knk-workspace#408: the dashboard's PermissionGrant table.
+// PandiO/knk-workspace#408: the dashboard's PermissionGrant table; #50: the group Permissions panel's reads and writes.
 describe('PermissionGrantClient', () => {
     const client = PermissionGrantClient.getInstance();
     let invokeSpy: jest.SpyInstance;
@@ -53,5 +53,25 @@ describe('PermissionGrantClient', () => {
         expect(() => getUpdateFunctionForEntity('PermissionGrant')).toThrow(/No update function/i);
         expect(() => getDeleteFunctionForEntity('PermissionGrant')).toThrow(/No delete function/i);
         expect(invokeSpy).not.toHaveBeenCalled();
+    });
+    it("reads one holder's own grants through the search, filtered on holderId and sorted by node (#50)", async () => {
+        await client.getForHolder(8);
+        expect(invokeSpy).toHaveBeenCalledWith(
+            expect.objectContaining({ pageNumber: 1, pageSize: HOLDER_GRANTS_PAGE_SIZE, sortBy: 'node', sortDescending: false, filters: { holderId: '8' } }),
+            'search', Controllers.PermissionGrants, HttpMethod.Post);
+    });
+
+    it('grants, denies or changes the expiry with PUT api/PermissionGrants/by-node (#50)', async () => {
+        const request = { holderId: 8, node: 'knk.gate.open', value: false, expiresAt: '2027-01-01T00:00:00.000Z' };
+        await client.upsertByNode(request);
+        expect(invokeSpy).toHaveBeenCalledWith(request, 'by-node', Controllers.PermissionGrants, HttpMethod.Put);
+    });
+
+    it('removes a node with DELETE api/PermissionGrants/by-node, holder and node in the query string (#50)', async () => {
+        await client.revokeByNode(8, 'knk.gate.*');
+        expect(invokeSpy).toHaveBeenCalledWith(null, 'by-node?holderId=8&node=knk.gate.*', Controllers.PermissionGrants, HttpMethod.Delete);
+
+        await client.revokeByNode(8, 'a&b=c');
+        expect(invokeSpy).toHaveBeenLastCalledWith(null, 'by-node?holderId=8&node=a%26b%3Dc', Controllers.PermissionGrants, HttpMethod.Delete);
     });
 });

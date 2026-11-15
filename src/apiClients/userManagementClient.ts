@@ -5,6 +5,7 @@ import {
   AssignGroupRequest,
   AuditAction,
   AuditLogPagedResultDto,
+  AuditSubjectType,
   BalanceAdjustmentResultDto,
   GrantNodeRequest,
   PlayerFreezeStateDto,
@@ -109,6 +110,9 @@ class UserManagementClient extends ObjectManager {
     actorUserId?: number;
     action?: AuditAction;
     direction?: 'promotion' | 'demotion';
+    /** #50: entries about one subject that is not a player, e.g. a permission group's History list. */
+    subjectType?: AuditSubjectType;
+    subjectId?: number;
     pageNumber?: number;
     pageSize?: number;
   }): Promise<AuditLogPagedResultDto> {
@@ -119,6 +123,8 @@ class UserManagementClient extends ObjectManager {
     if (params.actorUserId !== undefined) query.actorUserId = params.actorUserId;
     if (params.action !== undefined) query.action = params.action;
     if (params.direction !== undefined) query.direction = params.direction;
+    if (params.subjectType !== undefined) query.subjectType = params.subjectType;
+    if (params.subjectId !== undefined) query.subjectId = params.subjectId;
     if (params.pageNumber !== undefined) query.pageNumber = params.pageNumber;
     if (params.pageSize !== undefined) query.pageSize = params.pageSize;
     return this.invokeServiceCall(query, '', Controllers.AuditLog, HttpMethod.Get);
