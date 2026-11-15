@@ -76,6 +76,11 @@ export default {
       borderColor: { primary: primaryOn('line') },
       ringColor: { primary: primaryOn('line') },
       divideColor: { primary: primaryOn('line') },
+      // #405: the sticky columns' edge while table columns scroll under them (follows the theme's text colour).
+      boxShadow: {
+        'sticky-left': '6px 0 6px -4px rgb(var(--color-fg) / 0.18)',
+        'sticky-right': '-6px 0 6px -4px rgb(var(--color-fg) / 0.18)',
+      },
       fontFamily: {
         sans: ['var(--font-body)'],
         display: ['var(--font-display)'],

@@ -230,6 +230,26 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'parentGroupName', label: 'Parent', sortable: false, render: (row: any) => row.parentGroupName ?? '-' },
     ]
   },
+  // #408: the dashboard's PermissionGrant table (no name column; the API sorts by each sortable key).
+  permissiongrant: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'node', label: 'Node', sortable: true },
+      { key: 'value', label: 'Effect', sortable: true, render: (row: any) => row.value ? 'Granted' : 'Denied' },
+      {
+        key: 'holderId',
+        label: 'Holder',
+        sortable: true,
+        render: (row: any) => `${row.holderType === 'PermissionGroup' ? 'Group' : row.holderType ?? 'Holder'} #${row.holderId}`
+      },
+      {
+        key: 'expiresAt',
+        label: 'Expires (UTC)',
+        sortable: true,
+        render: (row: any) => row.expiresAt ? String(row.expiresAt).slice(0, 16).replace('T', ' ') : 'Never'
+      },
+    ]
+  },
   // Lootboxes (docs/specs/lootboxes/DESIGN.md §3.6) - also the pickers for a special entry's box type
   // and a spawn area's allowed types.
   lootboxtype: {
