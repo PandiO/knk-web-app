@@ -211,7 +211,9 @@ export const InvitationsPage: React.FC = () => {
 
       {loadError && <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">{loadError}</div>}
 
-      <div className="overflow-x-auto rounded border border-slate-200 bg-white">
+      <div className="relative overflow-x-auto rounded border border-slate-200 bg-white">
+        {/* #535: `relative` makes this box the containing block of the head's sr-only "Actions" cell, so
+            the cell scrolls with the table instead of widening the page at phone width. */}
         <table className="min-w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>

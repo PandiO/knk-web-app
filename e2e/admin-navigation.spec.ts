@@ -1,6 +1,7 @@
 import { test, expect } from './support/mockApi';
 import type { Page } from '@playwright/test';
 import { alex, mockSession, startLoggedIn, steve } from './fixtures/auth';
+import { mockCatalogAudit, mockInvitations, mockLootboxTables, mockMailLog } from './fixtures/adminTables';
 import { mockContentDefaults } from './fixtures/content';
 import { mockPlayerProfile, playerId } from './fixtures/players';
 import { expectNoSidewaysScroll } from './support/layout';
@@ -161,6 +162,21 @@ test.describe('as the owner', () => {
     await expect(page).toHaveURL(/\/admin\/email$/);
     await expect(sidebar(page).getByRole('link', { name: 'Mail log' })).toBeHidden();
   });
+
+  // #535: a table head's visually hidden "Actions" cell is positioned; its scroll box must contain it.
+  test('at 390 px the Lootboxes tables and the catalogue audit scroll inside their box, not the page', async ({ page, api }) => {
+    mockLootboxTables(api);
+    mockCatalogAudit(api);
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const [tab, text] of [['types', 'Weapons'], ['specials', 'Dragon Blade'], ['areas', 'Castle grounds'], ['active', 'Rare Weapons box']]) {
+      await page.goto(`/admin/lootboxes?tab=${tab}`);
+      await expect(page.getByRole('cell', { name: text }).first()).toBeVisible();
+      await expectNoSidewaysScroll(page);
+    }
+    await page.goto('/admin/minecraft-catalog');
+    await expect(page.getByRole('table', { name: 'Missing but referenced materials' })).toBeVisible();
+    await expectNoSidewaysScroll(page);
+  });
 });
 
 test.describe('as staff with only some nodes', () => {
@@ -200,11 +216,21 @@ test.describe('as staff with only some nodes', () => {
 
   test('at 390 px "Admin pages" lists the same five pages', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    // Game settings: Mail log and Invitations still scroll sideways at 390 px (PandiO/knk-workspace#535).
-    await page.goto('/admin/game-settings');
+    await page.goto('/admin/email');
     await page.getByRole('button', { name: 'Admin pages' }).click();
     await expect(sidebar(page).getByRole('link')).toHaveText(['Orphaned Locations', 'Invitations', 'Balance event log', 'Game settings', 'Mail log']);
     await expectNoSidewaysScroll(page);
+  });
+
+  test('at 390 px Mail log and Invitations scroll their table inside its box, not the page (#535)', async ({ page, api }) => {
+    mockMailLog(api);
+    mockInvitations(api);
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const [url, text] of [['/admin/email', 's***e@example.com'], ['/admin/invitations', 'new.player@example.com']]) {
+      await page.goto(url);
+      await expect(page.getByRole('cell', { name: new RegExp(text.replace(/[.*]/g, '\\$&')) })).toBeVisible();
+      await expectNoSidewaysScroll(page);
+    }
   });
 });
 

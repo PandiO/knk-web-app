@@ -292,7 +292,7 @@ const AuditGroup: React.FC<{ title: string; count: number; hint?: string; childr
       {title} <span className="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{count}</span>
     </h3>
     {hint && <p className="text-xs text-gray-500">{hint}</p>}
-    <div className="overflow-x-auto">{children}</div>
+    <div className="relative overflow-x-auto">{children}</div>
   </div>
 );
 
