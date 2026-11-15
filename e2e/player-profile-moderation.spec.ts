@@ -42,6 +42,7 @@ test.describe('with every node', () => {
 
     await page.getByTestId('unfreeze-button').click();
     const dialog = page.getByRole('alertdialog', { name: 'Unfreeze Steve?' });
+    await expect(dialog.locator('label')).toHaveText('Reason (optional)');
     await dialog.getByLabel(/Reason/).fill('Appeal accepted');
     await dialog.getByRole('button', { name: 'Unfreeze' }).click();
 
@@ -80,6 +81,8 @@ test.describe('with every node', () => {
 
     await page.getByTestId('kick-button').click();
     const dialog = page.getByRole('alertdialog', { name: 'Kick Steve?' });
+    // The dialog adds "(optional)" itself; the label says it once.
+    await expect(dialog.locator('label')).toHaveText('Reason (optional)');
     await dialog.getByLabel(/Reason/).fill('AFK farming');
     await dialog.getByRole('button', { name: 'Kick' }).click();
 

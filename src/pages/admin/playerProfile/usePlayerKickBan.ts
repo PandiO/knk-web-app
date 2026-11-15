@@ -47,7 +47,7 @@ export function usePlayerKickBan(options: {
             danger: true,
             reason: {
                 required: false,
-                label: 'Reason (optional)',
+                label: 'Reason',
                 placeholder: 'Shown to the player when they are kicked',
                 hint: 'Shown to the player and saved in the audit log.',
                 maxLength: KICK_BAN_REASON_MAX_LENGTH,
