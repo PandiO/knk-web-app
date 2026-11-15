@@ -22,4 +22,15 @@ describe('userManagementClient', () => {
     await userManagementClient.revokeNode(7, 'a&b=c');
     expect(invokeSpy).toHaveBeenCalledWith(null, '7/grants?node=a%26b%3Dc', Controllers.Users, HttpMethod.Delete);
   });
+  // PandiO/knk-workspace#50: a permission group's History list reads the audit log by subject.
+  it('getAuditLog passes the subject filter as query parameters', async () => {
+    await userManagementClient.getAuditLog({ subjectType: 'PermissionGroup', subjectId: 8, pageNumber: 2, pageSize: 10 });
+    expect(invokeSpy).toHaveBeenCalledWith({ subjectType: 'PermissionGroup', subjectId: 8, pageNumber: 2, pageSize: 10 }, '',
+      Controllers.AuditLog, HttpMethod.Get);
+  });
+
+  it('getAuditLog leaves the subject out when not asked (the player audit log)', async () => {
+    await userManagementClient.getAuditLog({ targetUserId: 7 });
+    expect(invokeSpy).toHaveBeenCalledWith({ targetUserId: 7 }, '', Controllers.AuditLog, HttpMethod.Get);
+  });
 });
