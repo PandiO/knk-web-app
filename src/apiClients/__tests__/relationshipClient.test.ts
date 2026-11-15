@@ -1,6 +1,7 @@
 import { relationshipClient } from '../relationshipClient';
 import { lookupClient, LOOKUP_MAX_PAGE_SIZE } from '../lookupClient';
 import { Controllers, HttpMethod } from '../../utils';
+import { apiRefusalReason } from '../../utils/apiRefusalReason';
 
 describe('relationshipClient (#188)', () => {
   let invokeSpy: jest.SpyInstance;
@@ -8,8 +9,9 @@ describe('relationshipClient (#188)', () => {
   afterEach(() => invokeSpy.mockRestore());
 
   it('links an existing record, with move only when asked', async () => {
-    await relationshipClient.link('Town', 4, 'streets', 11);
-    expect(invokeSpy).toHaveBeenCalledWith({ relatedId: 11, move: false }, 'Town/4/streets/link', Controllers.Relationships, HttpMethod.Post);
+    // A district's streets are the link-table example (#409: a town's are derived and can't be linked).
+    await relationshipClient.link('District', 4, 'streets', 11);
+    expect(invokeSpy).toHaveBeenCalledWith({ relatedId: 11, move: false }, 'District/4/streets/link', Controllers.Relationships, HttpMethod.Post);
     await relationshipClient.link('Category', 1, 'childCategories', 3, true);
     expect(invokeSpy).toHaveBeenLastCalledWith({ relatedId: 3, move: true }, 'Category/1/childCategories/link', Controllers.Relationships, HttpMethod.Post);
   });
@@ -19,6 +21,17 @@ describe('relationshipClient (#188)', () => {
     expect(invokeSpy).toHaveBeenCalledWith({ relatedId: 7 }, 'ItemBlueprint/3/tags/unlink', Controllers.Relationships, HttpMethod.Post);
     await relationshipClient.unlink('Category', 2, 'parentCategory');
     expect(invokeSpy).toHaveBeenLastCalledWith({ relatedId: null }, 'Category/2/parentCategory/unlink', Controllers.Relationships, HttpMethod.Post);
+  });
+
+  it("#409: a derived relationship's refusal reaches the caller with the API's reason", async () => {
+    const reason = 'Streets are managed on the district: open a district to add or remove them.';
+    invokeSpy.mockRejectedValueOnce({ status: 400, message: reason, response: { error: 'RelationshipNotEditable', message: reason } });
+
+    const refused = await relationshipClient.link('Town', 4, 'streets', 11).catch((error: unknown) => error);
+
+    expect(invokeSpy).toHaveBeenCalledWith({ relatedId: 11, move: false }, 'Town/4/streets/link', Controllers.Relationships, HttpMethod.Post);
+    expect(apiRefusalReason(refused)).toBe(reason);
+    expect((refused as { response: { error: string } }).response.error).toBe('RelationshipNotEditable');
   });
 });
 

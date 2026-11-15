@@ -14,6 +14,14 @@ export function findRelationship(
     return metadata.relationships.find(r => r.property.toLowerCase() === wanted);
 }
 
+/**
+ * #409: a read-only relationship computed from other links (a town's streets come from its districts). Its section
+ * shows no Add…, Unlink, Create New or Delete, only View/Edit and the hint (`linkReason`).
+ */
+export function isDerived(relationship: RelationshipMetadataDto | undefined | null): boolean {
+    return relationship?.storage === 'derived';
+}
+
 export function metadataFor(all: EntityMetadataDto[] | undefined, typeName: string | undefined | null): EntityMetadataDto | undefined {
     if (!all || !typeName) return undefined;
     const wanted = typeName.toLowerCase();
