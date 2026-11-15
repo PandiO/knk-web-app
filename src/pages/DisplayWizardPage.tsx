@@ -20,6 +20,7 @@ import { withContentNode } from '../hooks/useEntityAccess';
 import { FeedbackModal } from '../components/FeedbackModal';
 import { refusedDeleteDetails } from '../components/ReferenceDetails';
 import { isReferenceRefusal } from '../utils/referenceDetails';
+import { GroupPermissionsPanel } from '../components/admin/permissionGroups/GroupPermissionsPanel';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -174,6 +175,10 @@ export const DisplayWizardPage: React.FC = () => {
         renderHeader={renderHeader}
         liveRefreshKey={liveRefreshKey}
       />
+      {/* PandiO/knk-workspace#50: a permission group's own grants and their history, below the group's details. */}
+      {entityName.toLowerCase() === 'permissiongroup' && numericId != null && (
+        <GroupPermissionsPanel groupId={numericId} groupName={entityLabel ?? `Group #${numericId}`} />
+      )}
       {confirmModal}
       <FeedbackModal
         open={inUse !== null}

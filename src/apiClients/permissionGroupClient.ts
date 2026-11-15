@@ -2,7 +2,12 @@ import { ObjectManager } from './objectManager';
 import { logging } from '../utils';
 import { Controllers, HttpMethod } from '../utils/enums';
 import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
-import { ExpiringMembershipDto, PermissionGroupDto, PermissionGroupListDto } from '../types/dtos/userManagement/PermissionGroupDto';
+import {
+  ExpiringMembershipDto,
+  PermissionGroupDto,
+  PermissionGroupListDto,
+  PermissionGroupMemberCountDto,
+} from '../types/dtos/userManagement/PermissionGroupDto';
 
 // Originally a narrow client for PlayerProfilePage.tsx's group-assign quick action (docs/specs/
 // user-management/IMPLEMENTATION_PLAN.md Phase 2). Widened 2026-09-25 with the full CRUD set
@@ -50,6 +55,12 @@ export class PermissionGroupClient extends ObjectManager {
   // IMPLEMENTATION_PLAN.md Phase 3) — UserModerationPage.tsx.
   getExpiringMemberships(groupId: number, withinDays: number): Promise<ExpiringMembershipDto[]> {
     return this.invokeServiceCall({ withinDays }, `${groupId}/expiring-memberships`, Controllers.PermissionGroups, HttpMethod.Get);
+  }
+
+  // PandiO/knk-workspace#50: how many players a change to the group's own grants reaches (members of inheriting groups
+  // included, each once), for the group Permissions panel's "affects N players" confirmation. knk.admin.user.manage.
+  getMemberCount(groupId: number): Promise<PermissionGroupMemberCountDto> {
+    return this.invokeServiceCall(null, `${groupId}/member-count`, Controllers.PermissionGroups, HttpMethod.Get);
   }
 }
 

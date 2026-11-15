@@ -170,11 +170,18 @@ export interface AuditLogEntryDto {
   timestamp: string;
   actorUserId?: number | null;
   actorUsername?: string | null;
-  targetUserId: number;
+  /** Null on an entry about another subject (subjectType/subjectId), e.g. a permission group (PandiO/knk-workspace#50). */
+  targetUserId: number | null;
   targetUsername?: string | null;
   action: AuditAction;
   details?: string | null;
+  /** What the entry is about when that is not one player, e.g. "PermissionGroup"; null on player entries. */
+  subjectType?: AuditSubjectType | null;
+  subjectId?: number | null;
 }
+
+/** knk-web-api AuditSubjectTypes: the generic audit subject (#50). Strings, so later subjects (a clan) just add a name. */
+export type AuditSubjectType = 'PermissionGroup';
 
 // Kept separate from the shared PagedResultDto in types/dtos/common/PagedQuery.ts, which targets
 // a different backend paged shape (page/totalPages) - this mirrors GET /api/audit-log's actual

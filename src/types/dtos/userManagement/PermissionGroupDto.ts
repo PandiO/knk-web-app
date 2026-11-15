@@ -55,6 +55,15 @@ export interface ExpiringMembershipDto {
   expiresAt: string;
 }
 
+// GET /api/PermissionGroups/{id}/member-count (PandiO/knk-workspace#50): the blast radius of a change to the group's own
+// grants. totalMembers counts each player once across the group and every group inheriting from it; active memberships only.
+export interface PermissionGroupMemberCountDto {
+  groupId: number;
+  directMembers: number;
+  totalMembers: number;
+  inheritingGroups: number;
+}
+
 // Mirrors knk-web-api's PermissionGroupListDto — row shape for POST /api/PermissionGroups/search
 // (the generic ObjectDashboard paged listing).
 export interface PermissionGroupListDto {

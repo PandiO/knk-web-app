@@ -8,3 +8,13 @@ export interface PermissionGrantDto {
   value: boolean;
   expiresAt?: string | null;
 }
+
+// Body of PUT /api/PermissionGrants/by-node (knk.admin.user.perm): grant, deny or change the expiry of one node on any
+// holder (a user or a permission group). The API keeps one row per (holder, node), so saving an existing node updates it.
+export interface UpsertPermissionGrantByNodeDto {
+  holderId: number;
+  node: string;
+  value: boolean;
+  /** ISO date; null = never expires. */
+  expiresAt: string | null;
+}
