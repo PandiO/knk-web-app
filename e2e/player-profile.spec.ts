@@ -1,8 +1,20 @@
 import { test, expect } from './support/mockApi';
 import { alex, mockSession, startLoggedIn } from './fixtures/auth';
 import { mockContentDefaults } from './fixtures/content';
-import { auditEntry, ledgerLine, mockPlayerProfile, mockPlayerSearch, playerId, playerRow, playerUuid } from './fixtures/players';
+import {
+  auditEntry,
+  directNode,
+  groupNode,
+  ledgerLine,
+  mockPlayerProfile,
+  mockPlayerSearch,
+  mockProfilePermissions,
+  playerId,
+  playerRow,
+  playerUuid,
+} from './fixtures/players';
 import { expectNoSidewaysScroll } from './support/layout';
+import type { GrantNodeRequest } from '../src/types/dtos/userManagement/UserProfileSummaryDtos';
 
 /**
  * The staff player profile (PandiO/knk-workspace#119): status strip, tabs in the URL, freeze and unfreeze
@@ -256,5 +268,189 @@ test.describe('Player moderation: All players (§ 5)', () => {
     await expect(recent.getByRole('link', { name: 'Steve' })).toBeVisible();
     await page.getByRole('button', { name: 'Clear' }).click();
     await expect(recent).toHaveCount(0);
+  });
+});
+
+test.describe('Permissions tab: Effective Permissions (#407)', () => {
+  test.use({ strictApi: true });
+
+  const permissionsUrl = `${profileUrl}?tab=permissions`;
+  /** The API's order: the list shows it like this until a header is pressed. */
+  const apiOrder = ['knk.build.place', 'knk.gate.open', 'knk.town.join', 'knk.chat.color', 'knk.admin.user.manage'];
+  const startingNodes = () => [
+    groupNode('knk.build.place', 'Builder', 2),
+    directNode('knk.gate.open'),
+    groupNode('knk.town.join', 'Staff', 3),
+    directNode('knk.chat.color', false),
+    groupNode('knk.admin.user.manage', 'Staff', 3),
+  ];
+  const list = (page: import('@playwright/test').Page) => page.getByRole('table', { name: 'Effective permissions' });
+  const nodeCells = (page: import('@playwright/test').Page) => list(page).locator('tbody tr td:nth-child(1)');
+  const grantForm = (page: import('@playwright/test').Page) => page.getByRole('form', { name: 'Grant or deny a node' });
+  const search = (page: import('@playwright/test').Page) => page.getByRole('searchbox', { name: 'Search permissions by node or source' });
+
+  test.describe('with knk.admin.user.perm', () => {
+    test.beforeEach(({ api }) => {
+      mockSession(api, alex, moderatorNodes);
+      mockContentDefaults(api);
+      mockPlayerProfile(api);
+      mockProfilePermissions(api, startingNodes());
+    });
+
+    test('the grant/deny form sits above the list, and the list keeps the API order with no column sorted', async ({ page }) => {
+      await page.goto(permissionsUrl);
+      await expect(nodeCells(page)).toHaveText(apiOrder);
+
+      const formBox = await grantForm(page).getByLabel('Grant/deny node').boundingBox();
+      const listBox = await list(page).boundingBox();
+      expect(formBox && listBox && formBox.y < listBox.y).toBe(true);
+      for (const header of ['Node', 'Value', 'Source']) {
+        await expect(list(page).getByRole('columnheader', { name: header })).toHaveAttribute('aria-sort', 'none');
+      }
+    });
+
+    test('Save grants a node with the 1-day default expiry and the list refreshes', async ({ page, api }) => {
+      await page.goto(permissionsUrl);
+      await expect(grantForm(page).getByLabel(/Expires/)).not.toHaveValue('');
+      await expect(grantForm(page).getByText('(clear for permanent)')).toBeVisible();
+
+      await grantForm(page).getByLabel('Grant/deny node').fill('knk.warp.use');
+      await grantForm(page).getByRole('button', { name: 'Save' }).click();
+
+      await expect(nodeCells(page)).toHaveText([...apiOrder, 'knk.warp.use']);
+      const [grant] = api.calls('POST', `Users/${playerId}/grants`).map(r => r.body as GrantNodeRequest);
+      expect(grant).toEqual(expect.objectContaining({ node: 'knk.warp.use', value: true }));
+      const hoursAhead = (Date.parse(grant.expiresAt ?? '') - Date.now()) / 3_600_000;
+      expect(hoursAhead).toBeGreaterThan(23.5);
+      expect(hoursAhead).toBeLessThan(24.5);
+      await expect(grantForm(page).getByLabel('Grant/deny node')).toHaveValue('');
+      expect(api.calls('GET', `Users/${playerId}/profile-summary`).length).toBeGreaterThan(1);
+    });
+
+    test('a permanent deny needs Clear on the expiry and shows as Denied after the refresh', async ({ page, api }) => {
+      await page.goto(permissionsUrl);
+      await grantForm(page).getByLabel('Grant/deny node').fill('knk.pvp.attack');
+      await grantForm(page).getByLabel('Value').selectOption({ label: 'Deny' });
+      await grantForm(page).getByRole('button', { name: 'Clear' }).click();
+      await expect(grantForm(page).getByText('(permanent)', { exact: true })).toBeVisible();
+      await grantForm(page).getByRole('button', { name: 'Save' }).click();
+
+      const row = list(page).getByRole('row').filter({ hasText: 'knk.pvp.attack' });
+      await expect(row).toContainText('Denied');
+      await expect(row).toContainText('Direct grant');
+      expect(api.calls('POST', `Users/${playerId}/grants`).map(r => r.body)).toEqual([
+        { node: 'knk.pvp.attack', value: false, expiresAt: null },
+      ]);
+      // The next grant starts from the 1-day default again.
+      await expect(grantForm(page).getByRole('button', { name: 'Reset to 1 day' })).toHaveCount(0);
+      await expect(grantForm(page).getByLabel(/Expires/)).not.toHaveValue('');
+    });
+
+    test('a direct grant can be removed and the list refreshes; inherited rows have no remove button', async ({ page, api }) => {
+      await page.goto(permissionsUrl);
+      await expect(list(page).getByRole('row').filter({ hasText: 'knk.build.place' })).toContainText('Inherited');
+      await expect(page.getByRole('button', { name: /of knk\.build\.place$/ })).toHaveCount(0);
+
+      await page.getByRole('button', { name: 'Remove direct grant of knk.gate.open' }).click();
+
+      await expect(nodeCells(page)).toHaveText(apiOrder.filter(n => n !== 'knk.gate.open'));
+      expect(api.calls('DELETE', `Users/${playerId}/grants`).map(r => r.query.get('node'))).toEqual(['knk.gate.open']);
+    });
+
+    test('search narrows the list by node as you type', async ({ page }) => {
+      await page.goto(permissionsUrl);
+      await search(page).fill('GATE');
+      await expect(nodeCells(page)).toHaveText(['knk.gate.open']);
+      await expect(page.getByText('1 of 5 nodes')).toBeVisible();
+      await search(page).fill('knk.t');
+      await expect(nodeCells(page)).toHaveText(['knk.town.join']);
+    });
+
+    test('search narrows the list by source: a group name, or "direct" for direct grants', async ({ page }) => {
+      await page.goto(permissionsUrl);
+      await search(page).fill('staff');
+      await expect(nodeCells(page)).toHaveText(['knk.town.join', 'knk.admin.user.manage']);
+      await search(page).fill('direct');
+      await expect(nodeCells(page)).toHaveText(['knk.gate.open', 'knk.chat.color']);
+    });
+
+    test('a search with no match says so, and clearing it brings every row back', async ({ page }) => {
+      await page.goto(permissionsUrl);
+      await search(page).fill('nothing.like.this');
+      await expect(list(page).getByText('No permissions match “nothing.like.this”.')).toBeVisible();
+      await expect(page.getByText('0 of 5 nodes')).toBeVisible();
+      await search(page).fill('');
+      await expect(nodeCells(page)).toHaveText(apiOrder);
+    });
+
+    const sortCases: { header: string; asc: string[] }[] = [
+      { header: 'Node', asc: ['knk.admin.user.manage', 'knk.build.place', 'knk.chat.color', 'knk.gate.open', 'knk.town.join'] },
+      // Denied before Granted, ties by node.
+      { header: 'Value', asc: ['knk.chat.color', 'knk.admin.user.manage', 'knk.build.place', 'knk.gate.open', 'knk.town.join'] },
+      // Builder, Direct grant, Staff; ties by node.
+      { header: 'Source', asc: ['knk.build.place', 'knk.chat.color', 'knk.gate.open', 'knk.admin.user.manage', 'knk.town.join'] },
+    ];
+    for (const { header, asc } of sortCases) {
+      test(`${header} sorts ascending, then descending, then back to the API order, with aria-sort`, async ({ page }) => {
+        await page.goto(permissionsUrl);
+        const th = list(page).getByRole('columnheader', { name: header });
+        const button = th.getByRole('button', { name: header });
+
+        await button.click();
+        await expect(th).toHaveAttribute('aria-sort', 'ascending');
+        await expect(nodeCells(page)).toHaveText(asc);
+
+        await button.click();
+        await expect(th).toHaveAttribute('aria-sort', 'descending');
+        const desc = header === 'Node' ? [...asc].reverse() : header === 'Value'
+          ? ['knk.town.join', 'knk.gate.open', 'knk.build.place', 'knk.admin.user.manage', 'knk.chat.color']
+          : ['knk.town.join', 'knk.admin.user.manage', 'knk.gate.open', 'knk.chat.color', 'knk.build.place'];
+        await expect(nodeCells(page)).toHaveText(desc);
+
+        await button.click();
+        await expect(th).toHaveAttribute('aria-sort', 'none');
+        await expect(nodeCells(page)).toHaveText(apiOrder);
+      });
+    }
+
+    test('a sort applies to the searched rows and stays after a change refreshes the list', async ({ page }) => {
+      await page.goto(permissionsUrl);
+      await list(page).getByRole('button', { name: 'Node' }).click();
+      await list(page).getByRole('button', { name: 'Node' }).click();
+      await search(page).fill('direct');
+      await expect(nodeCells(page)).toHaveText(['knk.gate.open', 'knk.chat.color']);
+
+      await grantForm(page).getByLabel('Grant/deny node').fill('knk.home.set');
+      await grantForm(page).getByRole('button', { name: 'Save' }).click();
+      await expect(nodeCells(page)).toHaveText(['knk.home.set', 'knk.gate.open', 'knk.chat.color']);
+      await expect(list(page).getByRole('columnheader', { name: 'Node' })).toHaveAttribute('aria-sort', 'descending');
+    });
+  });
+
+  test.describe('without knk.admin.user.perm', () => {
+    test.beforeEach(({ api }) => {
+      mockSession(api, alex, node => node === 'knk.admin.user.manage');
+      mockContentDefaults(api);
+      mockPlayerProfile(api);
+      mockProfilePermissions(api, startingNodes());
+    });
+
+    test('the form and the remove buttons are greyed out with "Requires knk.admin.user.perm"; search and sort still work', async ({ page, api }) => {
+      await page.goto(permissionsUrl);
+      const form = page.getByRole('form', { name: 'Grant or deny a node' });
+      await expect(form.getByLabel('Grant/deny node')).toBeDisabled();
+      await expect(form.getByLabel('Value')).toBeDisabled();
+      await expect(form.getByLabel(/Expires/)).toBeDisabled();
+      await expect(form.getByRole('button', { name: 'Save' })).toBeDisabled();
+      await expect(form.getByText('Requires knk.admin.user.perm')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Remove direct grant of knk.gate.open' })).toBeDisabled();
+
+      await search(page).fill('direct');
+      await expect(nodeCells(page)).toHaveText(['knk.gate.open', 'knk.chat.color']);
+      await list(page).getByRole('button', { name: 'Node' }).click();
+      await expect(nodeCells(page)).toHaveText(['knk.chat.color', 'knk.gate.open']);
+      expect(api.calls('POST', `Users/${playerId}/grants`)).toHaveLength(0);
+      expect(api.calls('DELETE', `Users/${playerId}/grants`)).toHaveLength(0);
+    });
   });
 });
