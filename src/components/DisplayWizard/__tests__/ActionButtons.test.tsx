@@ -71,3 +71,43 @@ describe('ActionButtons (#188)', () => {
     expect(screen.queryByRole('button', { name: /Create New/ })).not.toBeInTheDocument();
   });
 });
+
+describe('ActionButtons on a derived relationship (#409)', () => {
+  const reason = 'Streets are managed on the district: open a district to add or remove them.';
+  const townStreets: RelationshipMetadataDto = {
+    property: 'streets', relatedType: 'Street', kind: 'collection', storage: 'derived', canLink: false, canUnlink: false,
+    linkReason: reason, unlinkReason: reason, nodes: ['knk.admin.world'],
+  };
+  const closed = { allowed: false, reason };
+
+  it('the section offers no Add… or Create New, and no greyed-out hint, even with every flag on', () => {
+    const { container } = render(<ActionButtons config={ALL_ON} isCollection entityType="Street" relationship={townStreets} linkGate={closed} />);
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('action-hint')).not.toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('an item keeps View and Edit, without Unlink or Delete', () => {
+    const onAction = jest.fn();
+    const onEdit = jest.fn();
+    render(<ActionButtons config={ALL_ON} isCollection isItemLevel entityType="Street" entityData={{ id: 3 }}
+      relationship={townStreets} relatedId={3} relatedLabel="Main Street" onActionClick={onAction} onEdit={onEdit}
+      unlinkGate={closed} />);
+
+    expect(screen.getAllByRole('button').map(b => b.getAttribute('aria-label'))).toEqual(['View Main Street', 'Edit Main Street']);
+    fireEvent.click(screen.getByRole('button', { name: 'View Main Street' }));
+    expect(onAction).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'view', entityType: 'Street', entityId: 3 }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Main Street' }));
+    expect(onEdit).toHaveBeenCalledWith(3);
+  });
+
+  it('a derived single relation offers no Select… or Unlink either', () => {
+    render(<ActionButtons config={ALL_ON} isCollection={false} entityType="Street" entityData={{ id: 3 }}
+      relationship={{ ...townStreets, kind: 'reference' }} linkGate={closed} unlinkGate={closed} />);
+
+    ['Select…', 'Change…', 'Unlink', 'Create New'].forEach(name =>
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  });
+});

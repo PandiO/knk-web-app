@@ -30,8 +30,12 @@ export interface RelationshipMetadataDto {
   /** The type the page links to; for a link row (`ItemBlueprintTag`) the other side (`Tag`). */
   relatedType: string;
   kind: 'reference' | 'collection';
-  /** `foreignKey` (this record's column), `children` (the related row's column), `many` (link table), `linkRow`, `other`. */
-  storage: 'foreignKey' | 'children' | 'many' | 'linkRow' | 'other';
+  /**
+   * `foreignKey` (this record's column), `children` (the related row's column), `many` (link table), `linkRow`, `other`,
+   * or `derived` (#409: computed from other links, read-only, e.g. a town's streets from its districts; `linkReason`
+   * says where it changes).
+   */
+  storage: 'foreignKey' | 'children' | 'many' | 'linkRow' | 'other' | 'derived';
   canLink: boolean;
   canUnlink: boolean;
   linkReason?: string;
