@@ -3,10 +3,13 @@ import type { PagedQueryDto, PagedResultDto } from '../../src/types/dtos/common/
 import type { LedgerLineDto, LedgerPageDto, TransferLockDto } from '../../src/types/dtos/currency/CurrencyDtos';
 import type { KitAvailabilityDto } from '../../src/types/dtos/kit/KitDtos';
 import type { PermissionGroupDto } from '../../src/types/dtos/userManagement/PermissionGroupDto';
+import type { PermissionGrantDto } from '../../src/types/dtos/userManagement/PermissionGrantDto';
 import type {
   AuditAction,
   AuditLogEntryDto,
   AuditLogPagedResultDto,
+  EffectivePermissionEntryDto,
+  GrantNodeRequest,
   UserProfileSummaryDto,
 } from '../../src/types/dtos/userManagement/UserProfileSummaryDtos';
 import type { MockApi } from '../support/mockApi';
@@ -143,6 +146,40 @@ export function mockPlayerProfile(api: MockApi, state: PlayerProfileMock = {}): 
     audit.push(auditEntry(nextAuditId++, 'PlayerUnfrozen', new Date().toISOString()));
     return { status: 204 };
   });
+}
+
+/** A node player 42 holds directly (`granted` false: a direct deny). */
+export const directNode = (node: string, granted = true): EffectivePermissionEntryDto =>
+  ({ node, value: granted, sourceHolderId: playerId, sourceHolderType: 'User' });
+
+/** A node player 42 inherits from a group. */
+export const groupNode = (node: string, groupName: string, groupId: number, granted = true): EffectivePermissionEntryDto =>
+  ({ node, value: granted, sourceHolderId: groupId, sourceHolderType: 'PermissionGroup', sourceHolderName: groupName });
+
+/**
+ * The Permissions tab's direct grants (PandiO/knk-workspace#407), on top of `mockPlayerProfile`: the profile summary
+ * lists `permissions`, `POST Users/42/grants` adds or updates a direct node and `DELETE Users/42/grants?node=` removes
+ * one, so the summary the page reads after a change shows it. Returns the live list.
+ */
+export function mockProfilePermissions(api: MockApi, permissions: EffectivePermissionEntryDto[]): EffectivePermissionEntryDto[] {
+  const entries = [...permissions];
+  api.on<UserProfileSummaryDto>('GET', `Users/${playerId}/profile-summary`, () => ({
+    body: profileSummary({ permissions: { userId: playerId, permissions: [...entries] } }),
+  }));
+  api.on<PermissionGrantDto>('POST', `Users/${playerId}/grants`, ({ body }) => {
+    const request = body as GrantNodeRequest;
+    const entry = directNode(request.node, request.value);
+    const at = entries.findIndex(e => e.node === request.node && e.sourceHolderType === 'User');
+    if (at >= 0) entries[at] = entry;
+    else entries.push(entry);
+    return { body: { id: 500 + entries.length, holderId: playerId, holderType: 'User', node: request.node, value: request.value, expiresAt: request.expiresAt ?? null } };
+  });
+  api.on('DELETE', `Users/${playerId}/grants`, ({ query }) => {
+    const at = entries.findIndex(e => e.node === query.get('node') && e.sourceHolderType === 'User');
+    if (at >= 0) entries.splice(at, 1);
+    return { status: 204 };
+  });
+  return entries;
 }
 
 export function playerRow(id: number, username: string, coins: number, isOnline = false): UserListDto {
