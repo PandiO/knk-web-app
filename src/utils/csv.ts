@@ -53,7 +53,11 @@ export const csvFileName = (typeName: string, date: Date = new Date()): string =
 /** The CSV text as a file: UTF-8 with BOM, `text/csv`. */
 export const csvBlob = (text: string): Blob => new Blob([CSV_BOM + text], { type: 'text/csv;charset=utf-8' });
 
-/** Saves the CSV text through a temporary download link. */
+/**
+ * Saves the CSV text through a temporary download link: the browser saves the file straight away to its downloads
+ * folder, with no dialog or save picker of the app's own in between (#607; deliberately no `showSaveFilePicker`).
+ * Only a browser set to ask where to save each file still asks.
+ */
 export const downloadCsv = (fileName: string, text: string): void => {
     const url = URL.createObjectURL(csvBlob(text));
     const link = document.createElement('a');

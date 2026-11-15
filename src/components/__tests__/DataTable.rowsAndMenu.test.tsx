@@ -4,7 +4,7 @@ import '@testing-library/jest-dom';
 import { DataTable, DataTableColumn } from '../DataTable';
 import { ContextMenuItem } from '../ContextMenu';
 
-// PandiO/knk-workspace#404 (row lines), #405 (sticky actions/checkbox columns), #406 (row context menu).
+// PandiO/knk-workspace#404 (row lines), #405 (sticky checkbox column), #606 (plain actions column), #406 (row context menu).
 
 interface Town { id: number; name: string }
 
@@ -46,8 +46,8 @@ describe('DataTable row lines (#404)', () => {
     });
 });
 
-describe('DataTable sticky columns (#405)', () => {
-    it('keeps the actions column on the right and the checkbox column on the left, with the row background', () => {
+describe('DataTable sticky checkbox column (#405) and plain actions column (#606)', () => {
+    it('keeps the checkbox column on the left with the row background; the actions are the last, plain cell', () => {
         render(
             <DataTable
                 columns={columns}
@@ -59,19 +59,24 @@ describe('DataTable sticky columns (#405)', () => {
         );
         const header = screen.getAllByRole('columnheader');
         expect(header[0]).toHaveClass('sticky', 'left-0', 'bg-inherit');
-        expect(header[header.length - 1]).toHaveClass('sticky', 'right-0', 'bg-inherit');
-        expect(header[header.length - 1]).toHaveTextContent('Actions');
+        const actionsHead = header[header.length - 1];
+        expect(actionsHead).toHaveTextContent('Actions');
+        expect(actionsHead).not.toHaveClass('sticky');
+        // #535: the sr-only label stays inside the scroll box.
+        expect(actionsHead).toHaveClass('relative');
         for (const row of bodyRows()) {
             const cells = within(row).getAllByRole('cell');
             // Opaque: a colour of its own (the page background's translucency skips .sticky, #231).
             expect(cells[0]).toHaveClass('sticky', 'left-0', 'bg-surface');
-            expect(cells[cells.length - 1]).toHaveClass('sticky', 'right-0', 'bg-surface');
+            const last = cells[cells.length - 1];
+            expect(last).toHaveAttribute('data-testid', 'row-actions');
+            expect(last.className).not.toMatch(/sticky|right-0|shadow-sticky/);
         }
         expect(screen.getAllByTestId('row-actions')).toHaveLength(3);
         expect(screen.getByRole('button', { name: 'Edit Southgate' })).toBeInTheDocument();
     });
 
-    it('shows the edge shadows only while columns are scrolled under the sticky ones', () => {
+    it('shows the checkbox column\'s shadow only while columns are scrolled under it', () => {
         render(
             <DataTable
                 columns={columns}
@@ -84,19 +89,18 @@ describe('DataTable sticky columns (#405)', () => {
         const scroller = screen.getByTestId('data-table-scroll');
         const actionsCell = () => screen.getAllByTestId('row-actions')[0];
         const checkboxCell = () => within(bodyRows()[0]).getAllByRole('cell')[0];
-        expect(actionsCell()).not.toHaveClass('shadow-sticky-right');
 
         Object.defineProperty(scroller, 'scrollWidth', { configurable: true, value: 1200 });
         Object.defineProperty(scroller, 'clientWidth', { configurable: true, value: 400 });
         scroller.scrollLeft = 0;
         fireEvent.scroll(scroller);
-        expect(actionsCell()).toHaveClass('shadow-sticky-right');
         expect(checkboxCell()).not.toHaveClass('shadow-sticky-left');
+        expect(actionsCell().className).not.toMatch(/shadow/);
 
         scroller.scrollLeft = 800;
         fireEvent.scroll(scroller);
-        expect(actionsCell()).not.toHaveClass('shadow-sticky-right');
         expect(checkboxCell()).toHaveClass('shadow-sticky-left');
+        expect(actionsCell().className).not.toMatch(/shadow/);
     });
 });
 

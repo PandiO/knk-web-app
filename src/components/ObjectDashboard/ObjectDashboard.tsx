@@ -479,7 +479,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
         </button>
     ) : null;
 
-    // #405/#406: the row actions' gates, shared by the buttons in the sticky actions column and the right-click menu.
+    // #405/#406: the row actions' gates, shared by the buttons in the actions column and the right-click menu.
     // #280 decision 11: disabled with "Requires <node>", not hidden. View needs a display configuration (no node).
     const viewGate: RowActionGate = { allowed: canView(selectedType), hint: canView(selectedType) ? null : viewHint };
     const editGate = access.edit;
@@ -713,8 +713,8 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                                     </button>
                                 </div>
                             )}
-                            // #405: compact icon buttons in the sticky actions column (title = tooltip, aria-label
-                            // with the reason while disabled).
+                            // #405: compact icon buttons in the row's last column, which scrolls with the others
+                            // (#606); title = tooltip, aria-label with the reason while disabled.
                             rowActions={[
                                 (row) => (
                                     <button

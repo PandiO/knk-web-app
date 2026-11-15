@@ -21,9 +21,11 @@ import { ContextMenu, ContextMenuItem } from './ContextMenu';
  * - **Row lines (#404):** the lines between rows sit on the cells (`border-separate`, one bottom line per cell), never
  *   on the `<tr>`: a row border shared the dividers' colour, so from the second row on a 4px left edge showed grey.
  *   The selected row's green edge is a bar inside its first cell.
- * - **Sticky columns (#405):** the actions column sticks to the right edge and the checkbox column to the left while
- *   the other columns scroll under them. Both have the row's opaque background and, only while something is scrolled
- *   under them, a soft shadow on their inner edge.
+ * - **Sticky checkbox column (#405):** the checkbox column sticks to the left edge while the other columns scroll under
+ *   it, with the row's opaque background and, only while something is scrolled under it, a soft shadow on its right
+ *   edge. The actions column is the row's last plain cell and scrolls with the others (#606, developer decision
+ *   2026-11-15: a pinned actions column cut off the other columns); the right-click menu (#406) reaches View and Edit
+ *   at any width.
  * - **Context menu (#406):** with `rowContextMenu` a right-click on a row (or Shift+F10 / the context-menu key while
  *   something in it has the focus) opens `ContextMenu` with the row's items; Ctrl/Cmd + right-click keeps the
  *   browser's own menu.
@@ -105,7 +107,7 @@ export interface DataTableProps<T> {
     selection?: DataTableSelection<T>;
     /** Shown before every row's content in the link column (after `leading`), e.g. a check mark. */
     rowLeading?: (row: T) => React.ReactNode;
-    /** Buttons in a last, unlabelled "Actions" column, kept in view on the right (#405). */
+    /** Buttons in a last, unlabelled "Actions" column that scrolls with the others (#606). */
     rowActions?: (row: T) => React.ReactNode;
     /** The items of the row's right-click menu (#406); none (or an empty list) keeps the browser's menu. */
     rowContextMenu?: (row: T) => ContextMenuItem[];
@@ -186,15 +188,13 @@ export function DataTable<T>({
     const cellPad = compact ? 'px-3 py-2' : 'px-6 py-4';
     const headPad = compact ? 'px-3 py-2' : 'px-6 py-3';
 
-    // #405: which sticky edge has columns scrolled under it (each then shows its shadow).
+    // #405: whether columns are scrolled under the sticky checkbox column (it then shows its shadow).
     const scrollRef = useRef<HTMLDivElement>(null);
-    const [scrolledUnder, setScrolledUnder] = useState({ left: false, right: false });
+    const [scrolledUnderLeft, setScrolledUnderLeft] = useState(false);
     const measureScroll = useCallback(() => {
         const el = scrollRef.current;
         if (!el) return;
-        const left = el.scrollLeft > 0;
-        const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
-        setScrolledUnder(previous => (previous.left === left && previous.right === right ? previous : { left, right }));
+        setScrolledUnderLeft(el.scrollLeft > 0);
     }, []);
     useEffect(() => {
         measureScroll();
@@ -226,13 +226,11 @@ export function DataTable<T>({
         return { x: rect.left, y: rect.bottom };
     };
 
-    // #405: sticky cells are opaque so the scrolled columns pass under them. The header's take its solid row colour;
-    // a body cell gets the row's colour as its own class (`.sticky.bg-surface` stays solid under the page
+    // #405: the sticky checkbox cells are opaque so the scrolled columns pass under them. The header's takes its solid
+    // row colour; a body cell gets the row's colour as its own class (`.sticky.bg-surface` stays solid under the page
     // background's translucent surfaces, #231), following the row's hover through `group`.
-    const stickyLeft = `sticky left-0 z-10 ${scrolledUnder.left ? 'shadow-sticky-left' : ''}`;
-    const stickyRight = `sticky right-0 z-10 ${scrolledUnder.right ? 'shadow-sticky-right' : ''}`;
+    const stickyLeft = `sticky left-0 z-10 ${scrolledUnderLeft ? 'shadow-sticky-left' : ''}`;
     const stickyLeftCell = `${stickyLeft} bg-inherit`;
-    const stickyRightCell = `${stickyRight} bg-inherit`;
     const stickyBodyBg = (selected: boolean, menuOpen: boolean) => selected
         ? 'bg-success-soft group-hover:bg-success-muted'
         : menuOpen ? 'bg-surface-alt' : 'bg-surface group-hover:bg-surface-alt';
@@ -365,7 +363,7 @@ export function DataTable<T>({
                 })}
                 {rowActions && (
                     <td
-                        className={`${compact ? 'px-2 py-1' : 'px-3 py-2'} w-px whitespace-nowrap text-right text-sm font-medium ${bodyCellLine} ${stickyRight} ${stickyBg}`}
+                        className={`${compact ? 'px-2 py-1' : 'px-3 py-2'} w-px whitespace-nowrap text-right text-sm font-medium ${bodyCellLine}`}
                         data-testid="row-actions"
                     >
                         <div className="flex items-center justify-end gap-1">{rowActions(row)}</div>
@@ -382,7 +380,7 @@ export function DataTable<T>({
                     <Loader2 className="h-8 w-8 text-primary animate-spin" aria-hidden="true" />
                 </div>
             ) : (
-                // #404: border-separate keeps every line on the cells, so sticky cells (#405) carry their own lines.
+                // #404: border-separate keeps every line on the cells, so the sticky checkbox cells (#405) carry their own.
                 <table className="w-full min-w-full border-separate border-spacing-0">
                     {caption && <caption className="sr-only">{caption}</caption>}
                     <thead className="bg-surface-alt">
@@ -433,7 +431,8 @@ export function DataTable<T>({
                                 </th>
                             ))}
                             {rowActions && (
-                                <th scope="col" className={`${compact ? 'px-2' : 'px-3'} w-px border-b border-line ${stickyRightCell}`}>
+                                // `relative` keeps the sr-only label inside the scroll box (#535).
+                                <th scope="col" className={`relative ${compact ? 'px-2' : 'px-3'} w-px border-b border-line`}>
                                     <span className="sr-only">Actions</span>
                                 </th>
                             )}

@@ -5,11 +5,12 @@ import type { PagedQueryDto, PagedResultDto } from '../src/types/dtos/common/Pag
 import type { FormConfigurationDto } from '../src/types/dtos/forms/FormModels';
 import type { EntityMetadataDto } from '../src/types/dtos/metadata/MetadataModels';
 import type { TownDto } from '../src/types/dtos/town/TownDto';
+import type { DashboardExportResponseDto } from '../src/apiClients/dashboardClient';
 
 /**
  * PandiO/knk-workspace#404–#406 on the dashboard's entity list (/dashboard/town): every row looks the same, the
- * row actions stay in view at phone width, and a right-click (or Shift+F10) opens a menu whose items follow the
- * same permission nodes as the buttons.
+ * row actions are the row's last plain cell (#606 reverted #405's pinned column), and a right-click (or Shift+F10)
+ * opens a menu whose items follow the same permission nodes as the buttons; its Export as CSV downloads at once (#607).
  */
 
 const towns: TownDto[] = [
@@ -75,17 +76,47 @@ test('every row has the same left edge and row line (#404)', async ({ page, api 
   expect(edges[0]).toMatch(/^0px\/1px\//);
 });
 
-test('the row actions stay in view at phone width (#405)', async ({ page, api }) => {
+test('the row actions are the last cell of the row and scroll with the table (#606)', async ({ page, api }) => {
   setUp(api, () => true);
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto('/dashboard/town');
 
-  const edit = row(page, 'Eldoria').getByRole('button', { name: 'Edit', exact: true });
-  await expect(edit).toBeVisible();
-  const box = await edit.boundingBox();
-  expect(box).not.toBeNull();
-  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
-  await expect(edit).toBeInViewport();
+  const eldoria = row(page, 'Eldoria');
+  const edit = eldoria.getByRole('button', { name: 'Edit', exact: true });
+  await expect(edit).toBeAttached();
+  const cells = eldoria.getByRole('cell');
+  const last = cells.last();
+  await expect(last).toHaveAttribute('data-testid', 'row-actions');
+  await expect(last.getByRole('button', { name: 'View', exact: true })).toBeAttached();
+  await expect(last.getByRole('button', { name: 'Delete', exact: true })).toBeAttached();
+  // Not pinned: a plain cell, so it moves with the table when the table scrolls sideways.
+  expect(await last.evaluate(cell => getComputedStyle(cell).position)).toBe('static');
+  const head = page.getByRole('table').getByRole('columnheader').last();
+  expect(await head.evaluate(cell => getComputedStyle(cell).position)).not.toBe('sticky');
+
+  const scroller = page.getByTestId('data-table-scroll');
+  const before = (await last.boundingBox())!.x;
+  const scrolled = await scroller.evaluate(el => {
+    el.scrollLeft = 120;
+    return el.scrollLeft;
+  });
+  expect(scrolled).toBeGreaterThan(0);
+  await expect.poll(async () => (await last.boundingBox())!.x).toBeCloseTo(before - scrolled, 0);
+});
+
+test('at phone width the row menu\'s View and Edit open the row (#406, #606)', async ({ page, api }) => {
+  setUp(api, () => true);
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto('/dashboard/town');
+
+  await row(page, 'Brightwater').getByRole('link').first().click({ button: 'right' });
+  await page.getByRole('menu').getByRole('menuitem', { name: 'View' }).click();
+  await expect(page).toHaveURL(/\/display\/town\/2(\?|$)/);
+
+  await page.goto('/dashboard/town');
+  await row(page, 'Stonebridge').getByRole('link').first().click({ button: 'right' });
+  await page.getByRole('menu').getByRole('menuitem', { name: 'Edit' }).click();
+  await expect(page).toHaveURL(/\/forms\/town\/edit\/3(\?|$)/);
 });
 
 test('a right-click opens View, Edit, Delete and Export for that row (#406)', async ({ page, api }) => {
@@ -138,4 +169,67 @@ test('Shift+F10 on a focused row opens the menu and Escape gives the focus back 
   await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);
   await expect(link).toBeFocused();
+});
+
+/** The CSV's lines without the UTF-8 byte order mark. */
+async function csvLines(download: import('@playwright/test').Download): Promise<string[]> {
+  const path = await download.path();
+  const text = (await import('fs')).readFileSync(path!, 'utf8').replace(/^\uFEFF/, '');
+  return text.split('\r\n').filter(line => line.length > 0);
+}
+
+/** The table's column headers as the CSV's header row (without the checkbox and actions columns). */
+async function tableHeaderRow(page: import('@playwright/test').Page): Promise<string> {
+  const heads = await page.getByRole('table').getByRole('columnheader').evaluateAll(cells =>
+    cells.filter(cell => !cell.querySelector('input, .sr-only')).map(cell => (cell.textContent ?? '').trim()));
+  return heads.join(',');
+}
+
+function mockExport(api: Parameters<typeof mockSession>[0]) {
+  api.on<DashboardExportResponseDto<TownDto>>('POST', 'Dashboard/export', ({ body }) => {
+    const ids = (body as { ids?: number[] }).ids;
+    const items = ids ? towns.filter(town => ids.includes(town.id)) : towns;
+    return { body: { items, total: items.length, truncated: false } };
+  });
+}
+
+test('the row menu\'s Export as CSV downloads <Type>-<date>.csv at once, with no dialog in between (#607)', async ({ page, api }) => {
+  setUp(api, () => true);
+  mockExport(api);
+  await page.goto('/dashboard/town');
+  await expect(row(page, 'Brightwater')).toBeVisible();
+  const fileChooser = page.waitForEvent('filechooser', { timeout: 2_000 }).then(() => true, () => false);
+
+  await row(page, 'Brightwater').click({ button: 'right' });
+  const download = page.waitForEvent('download');
+  await page.getByRole('menu').getByRole('menuitem', { name: 'Export as CSV' }).click();
+  const file = await download;
+
+  expect(file.suggestedFilename()).toMatch(/^town-\d{4}-\d{2}-\d{2}\.csv$/);
+  const lines = await csvLines(file);
+  expect(lines[0]).toBe(await tableHeaderRow(page));
+  expect(lines).toHaveLength(2);
+  expect(lines[1]).toContain('Brightwater');
+  expect(api.calls('POST', 'Dashboard/export')[0].body).toEqual(expect.objectContaining({ ids: [2] }));
+  // Nothing of the app's own stands between the click and the file: no dialog, no save picker.
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  expect(await fileChooser).toBe(false);
+});
+
+test('the toolbar\'s Export CSV downloads the whole search at once, header row first (#607)', async ({ page, api }) => {
+  setUp(api, () => true);
+  mockExport(api);
+  await page.goto('/dashboard/town');
+  await expect(row(page, 'Stonebridge')).toBeVisible();
+
+  const download = page.waitForEvent('download');
+  await page.getByTestId('export-csv').click();
+  const file = await download;
+
+  expect(file.suggestedFilename()).toMatch(/^town-\d{4}-\d{2}-\d{2}\.csv$/);
+  const lines = await csvLines(file);
+  expect(lines[0]).toBe(await tableHeaderRow(page));
+  expect(lines).toHaveLength(1 + towns.length);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
