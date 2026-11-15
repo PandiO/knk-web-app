@@ -10,6 +10,8 @@ import { ReusableStepSelector } from '../FormConfigBuilder/ReusableStepSelector'
 import { FormStepDto } from '../../types/dtos/forms/FormModels';
 import { gameSettingsClient } from '../../apiClients/gameSettingsClient';
 
+// virtual: CRA's Jest resolver can't resolve react-router-dom's package exports; ReferenceDetails ("Show what uses it", #289) navigates.
+jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }), { virtual: true });
 jest.mock('../../apiClients/gameSettingsClient', () => ({
     gameSettingsClient: { get: jest.fn() },
 }));

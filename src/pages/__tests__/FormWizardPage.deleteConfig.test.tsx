@@ -6,6 +6,7 @@ import { formConfigClient } from '../../apiClients/formConfigClient';
 import { formSubmissionClient } from '../../apiClients/formSubmissionClient';
 import { displayConfigClient } from '../../apiClients/displayConfigClient';
 import { toast } from '../../utils/toast';
+import { entityReferenceClient } from '../../apiClients/entityReferenceClient';
 
 /**
  * KNG-172: the delete confirm of a form configuration says how many saved drafts go with it,
@@ -25,6 +26,7 @@ jest.mock('../../apiClients/formConfigClient', () => ({
 jest.mock('../../apiClients/formSubmissionClient', () => ({
     formSubmissionClient: { getByEntityTypeName: jest.fn(), getById: jest.fn(), delete: jest.fn(), getEntityReferences: jest.fn() }
 }));
+jest.mock('../../apiClients/entityReferenceClient', () => ({ entityReferenceClient: { getRows: jest.fn() } }));
 jest.mock('../../apiClients/displayConfigClient', () => ({
     displayConfigClient: { getAll: jest.fn().mockResolvedValue([]) }
 }));
@@ -105,6 +107,59 @@ describe('FormWizardPage: delete a form configuration (KNG-172)', () => {
         fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
         await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Delete this form configuration?' })).not.toBeInTheDocument());
         expect(formConfigClient.delete).not.toHaveBeenCalled();
+    });
+});
+
+describe('FormWizardPage: a configuration delete refused as in use (PandiO/knk-workspace#289)', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        (displayConfigClient.getAll as jest.Mock).mockResolvedValue([]);
+        (formConfigClient.getByEntityTypeName as jest.Mock).mockResolvedValue([
+            { id: '20', entityTypeName: 'GateStructure', configurationName: 'GateStructure - Default', isDefault: false, steps: [] }
+        ]);
+        (formSubmissionClient.getByEntityTypeName as jest.Mock).mockResolvedValue([]);
+        (formSubmissionClient.getEntityReferences as jest.Mock).mockResolvedValue(references(0));
+    });
+
+    const deleteIt = async () => {
+        fireEvent.click(await screen.findByRole('button', { name: 'More actions for GateStructure - Default' }));
+        fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+        const dialog = await screen.findByRole('alertdialog', { name: 'Delete this form configuration?' });
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+        return screen.findByRole('alertdialog', { name: 'Delete failed' });
+    };
+
+    it('offers "Show what uses it" and loads the form fields and steps only on request', async () => {
+        (formConfigClient.delete as jest.Mock).mockRejectedValue({
+            status: 409,
+            response: { code: 'DbConstraint', message: "This form configuration can't be deleted: it is still used by 1 form field that opens it as a sub-form." },
+        });
+        (entityReferenceClient.getRows as jest.Mock).mockResolvedValue({
+            entityTypeName: 'FormConfiguration', id: 20, groups: [{
+                referencedBy: 'FormField.SubConfigurationId', entityType: 'FormField', count: 1, listed: true, readable: false,
+                nodes: [], rows: [{ id: 31, label: 'Gate', detail: 'Field of the form "Town form" (Town), step "Walls"' }], more: false,
+            }],
+        });
+        renderPage();
+
+        const failed = await deleteIt();
+        expect(failed).toHaveTextContent('it is still used by 1 form field that opens it as a sub-form');
+        expect(entityReferenceClient.getRows).not.toHaveBeenCalled();
+        fireEvent.click(within(failed).getByRole('button', { name: 'Show what uses it' }));
+
+        expect(await within(failed).findByText('Gate')).toBeInTheDocument();
+        expect(within(failed).getByRole('heading', { name: '1 form field that opens it as a sub-form' })).toBeInTheDocument();
+        expect(within(failed).getByText('Field of the form "Town form" (Town), step "Walls"')).toBeInTheDocument();
+        expect(within(failed).queryByRole('link')).not.toBeInTheDocument();
+        expect(entityReferenceClient.getRows).toHaveBeenCalledWith('FormConfiguration', '20');
+    });
+
+    it('has no "Show what uses it" when the delete failed for another reason', async () => {
+        (formConfigClient.delete as jest.Mock).mockRejectedValue({ status: 500, response: { error: 'ServerError' } });
+        renderPage();
+
+        const failed = await deleteIt();
+        expect(within(failed).queryByRole('button', { name: 'Show what uses it' })).not.toBeInTheDocument();
     });
 });
 

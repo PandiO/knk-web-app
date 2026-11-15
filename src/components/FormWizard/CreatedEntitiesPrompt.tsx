@@ -4,11 +4,13 @@ import { Dialog } from '../Dialog';
 import { CreatedEntityRecord, describeCreatedEntity } from '../../utils/forms/createdEntities';
 import { CreatedEntityDeleteResult, describeDeleteResult } from '../../utils/forms/deleteCreatedEntities';
 import { failureReason } from '../../utils/apiRefusalReason';
+import { useReferenceDetailsToggle } from '../ReferenceDetails';
 
 /**
  * KNG-162 (decision D2): "Created while filling out this form: ..." with Keep (the default) or
  * Delete. Used by the wizard's Cancel and by deleting a draft from Saved Progress. On the shared
- * Dialog (#33); after a Delete it shows what happened to each entity before closing.
+ * Dialog (#33); after a Delete it shows what happened to each entity before closing. An entity skipped as in use
+ * offers "Show what uses it" (PandiO/knk-workspace#289): every reference, as the in-use check counted them.
  */
 interface Props {
     open: boolean;
@@ -131,7 +133,11 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
                     </p>
                     <ul className="mt-2 list-disc pl-5 text-sm text-fg" aria-label="Delete results">
                         {results.map(result => (
-                            <li key={`${result.record.entityTypeName}:${result.record.id}`}>{describeDeleteResult(result)}</li>
+                            <DeleteResultRow
+                                key={`${result.record.entityTypeName}:${result.record.id}`}
+                                result={result}
+                                onFollow={() => onDone(results)}
+                            />
                         ))}
                     </ul>
                 </>
@@ -148,5 +154,22 @@ export const CreatedEntitiesPrompt: React.FC<Props> = ({
             )}
             {error && <p className="mt-2 text-sm text-danger-strong" role="alert">{error}</p>}
         </Dialog>
+    );
+};
+
+/** One line of the report; "skipped: in use" gets "Show what uses it" (#289). Following a row's link ends the prompt. */
+const DeleteResultRow: React.FC<{ result: CreatedEntityDeleteResult; onFollow: () => void }> = ({ result, onFollow }) => {
+    const uses = useReferenceDetailsToggle(result.record.entityTypeName, result.record.id, {
+        all: true,
+        onFollow,
+        emptyText: 'Nothing uses it any more. It can be deleted from its own page.',
+    });
+    if (result.outcome !== 'in-use') return <li>{describeDeleteResult(result)}</li>;
+    return (
+        <li>
+            <span className="break-words">{describeDeleteResult(result)}</span>{' '}
+            {uses.button}
+            {uses.panel}
+        </li>
     );
 };

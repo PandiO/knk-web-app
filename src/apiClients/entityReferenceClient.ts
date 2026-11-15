@@ -29,6 +29,12 @@ export interface EntityReferenceRowsDto {
   groups: EntityReferenceGroupDto[];
 }
 
+export interface EntityReferenceRowsOptions {
+  referencedBy?: string;
+  take?: number;
+  all?: boolean;
+}
+
 /**
  * `GET api/EntityReferences/{type}/{id}/rows` (PandiO/knk-workspace#44): fetched only when "Show details" is pressed.
  * Needs one of the type's read nodes (403 `NoReadAccess`); never more than id + label per row.
@@ -44,10 +50,15 @@ class EntityReferenceClient extends ObjectManager {
     return EntityReferenceClient.instance;
   }
 
-  getRows(entityType: string, id: number | string, options: { referencedBy?: string; take?: number } = {}): Promise<EntityReferenceRowsDto> {
+  /**
+   * `entityType` is a dashboard type or `FormConfiguration` (#289). `all`: every reference, cascades included (the "in
+   * use" check before deleting a cancelled form's created entities, KNG-162); default only what stops a delete.
+   */
+  getRows(entityType: string, id: number | string, options: EntityReferenceRowsOptions = {}): Promise<EntityReferenceRowsDto> {
     const params = new URLSearchParams();
     if (options.referencedBy) params.set('referencedBy', options.referencedBy);
     if (options.take) params.set('take', String(options.take));
+    if (options.all) params.set('all', 'true');
     const query = params.toString();
     return this.invokeServiceCall(
       null,
