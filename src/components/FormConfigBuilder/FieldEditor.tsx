@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DEFAULT_WORLD_TASK_TYPE, WORLD_TASK_TYPES_WITH_HANDLER } from '../../utils/forms/worldTaskTypes';
-import { Plus, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react';
+import { Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { Dialog } from '../Dialog';
-import { FormFieldDto } from '../../types/dtos/forms/FormModels';
+import { DraftValidationRuleDto, FormFieldDto } from '../../types/dtos/forms/FormModels';
 import { FieldType } from '../../utils/enums';
 import { FieldMetadataDto, EntityMetadataDto } from '../../types/dtos/metadata/MetadataModels';
 import { metadataClient } from '../../apiClients/metadataClient';
@@ -10,8 +10,7 @@ import { mapFieldType } from '../../utils/fieldTypeMapper';
 import { ValidationRuleBuilder } from './ValidationRuleBuilder';
 import { formConfigClient } from '../../apiClients/formConfigClient';
 import { findParentFormFields, ParentFormField } from '../../utils/forms/parentFormFields';
-import { fieldValidationRuleClient } from '../../apiClients/fieldValidationRuleClient';
-import { CreateFieldValidationRuleDto, FieldValidationRuleDto, UpdateFieldValidationRuleDto } from '../../types/dtos/forms/FieldValidationRuleDtos';
+import { DraftRuleInput, draftRuleFrom } from '../../utils/forms/draftValidationRules';
 import { FeedbackModal } from '../FeedbackModal';
 import { useConfirm } from '../../hooks/useConfirm';
 import {
@@ -26,7 +25,6 @@ import {
 import { DisplayConditionBuilder } from './DisplayConditionBuilder';
 import { SourceFieldOption } from '../../utils/forms/displayConditionSources';
 import { DisplayConditionTargetType } from '../../utils/enums';
-import { apiRefusalReason } from '../../utils/apiRefusalReason';
 import { resolveMultilineSetting } from '../../utils/forms/stringFieldMultiline';
 
 interface Props {
@@ -36,6 +34,12 @@ interface Props {
     metadataFields?: FieldMetadataDto[];
     allFields?: FormFieldDto[];
     onRulesChanged?: () => void;
+    /**
+     * PandiO/knk-workspace#291: this field's validation rules in the builder's working copy. Rule changes are kept with
+     * the field's Save (onSaveRules, before onSave) and reach the form wizard on Publish.
+     */
+    validationRules?: DraftValidationRuleDto[];
+    onSaveRules?: (fieldGuid: string, rules: DraftValidationRuleDto[]) => void;
     entityTypeName?: string;
     /** Fields that come earlier in the form and may therefore drive this field's visibility. */
     displayConditionSources?: SourceFieldOption[];
@@ -48,6 +52,8 @@ export const FieldEditor: React.FC<Props> = ({
     metadataFields = [],
     allFields = [],
     onRulesChanged,
+    validationRules: initialRules,
+    onSaveRules,
     entityTypeName,
     displayConditionSources = []
 }) => {
@@ -73,11 +79,11 @@ export const FieldEditor: React.FC<Props> = ({
     const [projectionClearOnNull, setProjectionClearOnNull] = useState<boolean>(false);
     const [projectionMappings, setProjectionMappings] = useState<ValueProjectionMapping[]>([]);
 
-    const [validationRules, setValidationRules] = useState<FieldValidationRuleDto[]>([]);
-    const [rulesLoading, setRulesLoading] = useState<boolean>(false);
+    // #291: the rules live in the working copy; this is the field editor's copy until the field is saved.
+    const [validationRules, setValidationRules] = useState<DraftValidationRuleDto[]>(initialRules ?? []);
     const [showRuleBuilder, setShowRuleBuilder] = useState<boolean>(false);
-    const [editingRule, setEditingRule] = useState<FieldValidationRuleDto | undefined>(undefined);
-    const [rulesError, setRulesError] = useState<string | null>(null);
+    const [editingRuleIndex, setEditingRuleIndex] = useState<number | null>(null);
+    const editingRule = editingRuleIndex !== null ? validationRules[editingRuleIndex] : undefined;
     type RuleFeedbackState = { open: boolean; title: string; message: string; status: 'success' | 'error' | 'info' };
     const [ruleFeedback, setRuleFeedback] = useState<RuleFeedbackState>({ open: false, title: '', message: '', status: 'info' });
     const [confirm, confirmModal] = useConfirm();
@@ -205,29 +211,15 @@ export const FieldEditor: React.FC<Props> = ({
         setPlaceholderIsDefault(initialField.defaultValue !== undefined && initialField.defaultValue !== null);
     }, [initialField.id, initialField.defaultValue]);
 
-    const canManageRules = field.id && !field.id.toString().startsWith('temp');
-
-    const loadValidationRules = useCallback(async () => {
-        if (!canManageRules) {
-            setValidationRules([]);
-            return;
-        }
-        try {
-            setRulesLoading(true);
-            setRulesError(null);
-            const rules = await fieldValidationRuleClient.getByFormFieldId(parseInt(field.id!, 10));
-            setValidationRules(rules);
-        } catch (err) {
-            console.error('Failed to load validation rules:', err);
-            setRulesError(apiRefusalReason(err) ?? 'Unable to load validation rules. Please try again.');
-        } finally {
-            setRulesLoading(false);
-        }
-    }, [canManageRules, field.id]);
-
+    // #291: rules are keyed by field GUID, so a field that only exists in the draft can have them too.
+    const canManageRules = !!field.fieldGuid;
     useEffect(() => {
-        void loadValidationRules();
-    }, [field.id, loadValidationRules]);
+        setValidationRules(initialRules ?? []);
+        setShowRuleBuilder(false);
+        setEditingRuleIndex(null);
+        // Reset only when another field is opened; the list prop is a new array on every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialField.fieldGuid]);
 
     const mergeSettings = (partial: any) => {
         let base: any = {};
@@ -363,6 +355,7 @@ export const FieldEditor: React.FC<Props> = ({
             settingsJson: JSON.stringify(mergedSettings),
             elementType: isCollectionType(field.fieldType) ? collectionElementType : undefined
         };
+        if (field.fieldGuid) onSaveRules?.(field.fieldGuid, validationRules);
         onSave(fieldToSave);
     };
 
@@ -389,87 +382,41 @@ export const FieldEditor: React.FC<Props> = ({
         );
     };
 
-    const handleAddRule = async (rule: CreateFieldValidationRuleDto) => {
-        try {
-            setRulesError(null);
-            await fieldValidationRuleClient.create(rule);
-            await loadValidationRules();
-            setShowRuleBuilder(false);
-            setEditingRule(undefined);
-            setRuleFeedback({
-                open: true,
-                title: 'Validation rule added',
-                message: 'Rule saved successfully.',
-                status: 'success'
-            });
-            onRulesChanged?.();
-        } catch (err) {
-            console.error('Failed to create validation rule:', err);
-            const msg = apiRefusalReason(err) ?? 'Failed to create validation rule';
-            setRulesError(msg);
-            setRuleFeedback({ open: true, title: 'Add rule failed', message: msg, status: 'error' });
-        }
+    const closeRuleBuilder = () => {
+        setShowRuleBuilder(false);
+        setEditingRuleIndex(null);
     };
 
-    const handleUpdateRule = async (rule: CreateFieldValidationRuleDto) => {
-        if (!editingRule) return;
-        const payload: UpdateFieldValidationRuleDto = {
-            validationType: rule.validationType,
-            dependsOnFieldId: rule.dependsOnFieldId,
-            dependencyPath: rule.dependencyPath,
-            configJson: rule.configJson,
-            errorMessage: rule.errorMessage,
-            successMessage: rule.successMessage,
-            isBlocking: rule.isBlocking,
-            requiresDependencyFilled: rule.requiresDependencyFilled
-        };
-
-        try {
-            setRulesError(null);
-            await fieldValidationRuleClient.update(editingRule.id, payload);
-            await loadValidationRules();
-            setShowRuleBuilder(false);
-            setEditingRule(undefined);
-            setRuleFeedback({
-                open: true,
-                title: 'Validation rule updated',
-                message: 'Rule saved successfully.',
-                status: 'success'
-            });
-            onRulesChanged?.();
-        } catch (err) {
-            console.error('Failed to update validation rule:', err);
-            const msg = apiRefusalReason(err) ?? 'Failed to update validation rule';
-            setRulesError(msg);
-            setRuleFeedback({ open: true, title: 'Update rule failed', message: msg, status: 'error' });
-        }
+    // #291: adding, editing and deleting a rule changes the draft only (kept with Save Field, live on Publish).
+    const handleSaveRule = (input: DraftRuleInput) => {
+        if (!field.fieldGuid) return;
+        const rule = draftRuleFrom(field.fieldGuid, input, editingRule);
+        setValidationRules(prev => editingRuleIndex !== null
+            ? prev.map((r, i) => (i === editingRuleIndex ? rule : r))
+            : [...prev, rule]);
+        closeRuleBuilder();
+        onRulesChanged?.();
     };
 
-    const handleDeleteRule = async (ruleId: number) => {
+    const handleDeleteRule = async (index: number) => {
         if (!(await confirm({
             title: 'Delete this validation rule?',
-            message: 'The rule stops checking this field.',
+            message: 'The rule is removed from the draft; the published form keeps it until you publish.',
             confirmLabel: 'Delete',
             danger: true,
         }))) return;
-        try {
-            await fieldValidationRuleClient.delete(ruleId);
-            await loadValidationRules();
-            if (editingRule?.id === ruleId) {
-                setShowRuleBuilder(false);
-                setEditingRule(undefined);
-            }
-            setRuleFeedback({ open: true, title: 'Validation rule removed', message: 'Rule deleted successfully.', status: 'success' });
-            onRulesChanged?.();
-        } catch (err) {
-            console.error('Failed to delete validation rule:', err);
-            const msg = apiRefusalReason(err) ?? 'Failed to delete validation rule';
-            setRulesError(msg);
-            setRuleFeedback({ open: true, title: 'Delete failed', message: msg, status: 'error' });
-        }
+        setValidationRules(prev => prev.filter((_, i) => i !== index));
+        if (editingRuleIndex === index) closeRuleBuilder();
+        else if (editingRuleIndex !== null && editingRuleIndex > index) setEditingRuleIndex(editingRuleIndex - 1);
+        onRulesChanged?.();
     };
 
-    const resolveFieldLabel = (fieldId?: number) => {
+    const resolveFieldLabel = (rule: DraftValidationRuleDto) => {
+        if (rule.dependsOnFieldGuid) {
+            const local = allFields.find(f => f.fieldGuid && f.fieldGuid.toLowerCase() === rule.dependsOnFieldGuid!.toLowerCase());
+            return local ? local.label || local.fieldName : 'a field that is no longer in the form';
+        }
+        const fieldId = rule.dependsOnFieldId ?? undefined;
         if (!fieldId) return 'Unknown field';
         const match = allFields.find(f => f.id && parseInt(f.id, 10) === fieldId);
         if (match) return match.label || match.fieldName;
@@ -482,7 +429,7 @@ export const FieldEditor: React.FC<Props> = ({
         if (!canManageRules) {
             return (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-sm text-yellow-800">
-                    Save this field first to configure cross-field validation rules.
+                    This field has no GUID yet, so it can't have cross-field validation rules. Save the form and open it again.
                 </div>
             );
         }
@@ -492,15 +439,14 @@ export const FieldEditor: React.FC<Props> = ({
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                         <h4 className="font-medium text-gray-900">Cross-Field Validation Rules</h4>
-                        {rulesLoading && <span className="text-xs text-gray-500">Loading…</span>}
-                        {!rulesLoading && validationRules.length > 0 && (
+                        {validationRules.length > 0 && (
                             <span className="text-xs text-gray-500">{validationRules.length} configured</span>
                         )}
                     </div>
                     <button
                         className="btn-secondary text-sm"
                         onClick={() => {
-                            setEditingRule(undefined);
+                            setEditingRuleIndex(null);
                             setShowRuleBuilder(true);
                         }}
                         disabled={!canManageRules}
@@ -509,20 +455,19 @@ export const FieldEditor: React.FC<Props> = ({
                     </button>
                 </div>
 
-                {rulesError && (
-                    <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700 flex items-start">
-                        <ShieldAlert className="h-4 w-4 mr-2 flex-shrink-0" />
-                        <span>{rulesError}</span>
-                    </div>
-                )}
+                <p className="text-xs text-gray-600">
+                    Rules are part of the draft: they are kept when you save this field and the form, and staff get them
+                    when you publish. Until then the form uses the published rules.
+                </p>
 
-                {validationRules.length === 0 && !rulesLoading ? (
+                {validationRules.length === 0 ? (
                     <p className="text-sm text-gray-500 italic">No validation rules configured.</p>
                 ) : (
                     <div className="space-y-2">
-                        {validationRules.map(rule => (
+                        {validationRules.map((rule, index) => (
                             <div
-                                key={rule.id}
+                                key={rule.id ?? `new-${index}`}
+                                data-testid="validation-rule"
                                 className="border border-gray-200 rounded-md p-3 bg-gray-50 flex items-start justify-between"
                             >
                                 <div className="flex-1 space-y-1">
@@ -538,9 +483,14 @@ export const FieldEditor: React.FC<Props> = ({
                                             </span>
                                         )}
                                     </div>
-                                    {rule.dependsOnFieldId && (
+                                    {rule.id === undefined && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800">
+                                            Not published
+                                        </span>
+                                    )}
+                                    {(rule.dependsOnFieldGuid || rule.dependsOnFieldId) && (
                                         <p className="text-xs text-gray-600">
-                                            Depends on: {resolveFieldLabel(rule.dependsOnFieldId)}
+                                            Depends on: {resolveFieldLabel(rule)}
                                         </p>
                                     )}
                                     {rule.dependencyPath && (
@@ -559,7 +509,7 @@ export const FieldEditor: React.FC<Props> = ({
                                 <div className="flex items-center gap-3 ml-3">
                                     <button
                                         onClick={() => {
-                                            setEditingRule(rule);
+                                            setEditingRuleIndex(index);
                                             setShowRuleBuilder(true);
                                         }}
                                         className="text-blue-600 hover:text-blue-800 text-sm"
@@ -567,7 +517,7 @@ export const FieldEditor: React.FC<Props> = ({
                                         Edit
                                     </button>
                                     <button
-                                        onClick={() => handleDeleteRule(rule.id)}
+                                        onClick={() => void handleDeleteRule(index)}
                                         className="text-red-600 hover:text-red-800 text-sm"
                                     >
                                         Delete
@@ -585,11 +535,8 @@ export const FieldEditor: React.FC<Props> = ({
                             availableFields={allFields}
                             entityTypeName={entityTypeName || ''}
                             entityMetadata={entityMetadataMap}
-                            onSave={editingRule ? handleUpdateRule : handleAddRule}
-                            onCancel={() => {
-                                setShowRuleBuilder(false);
-                                setEditingRule(undefined);
-                            }}
+                            onSave={handleSaveRule}
+                            onCancel={closeRuleBuilder}
                             initialRule={editingRule}
                             parentFormFields={parentFormFields}
                         />

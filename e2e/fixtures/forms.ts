@@ -1,5 +1,11 @@
 import type { FieldValidationRuleDto } from '../../src/types/dtos/forms/FieldValidationRuleDtos';
-import type { FormConfigurationDto, FormFieldDto, FormStepDto, FormSubmissionProgressDto } from '../../src/types/dtos/forms/FormModels';
+import type {
+  FormConfigurationBuilderState,
+  FormConfigurationDto,
+  FormFieldDto,
+  FormStepDto,
+  FormSubmissionProgressDto,
+} from '../../src/types/dtos/forms/FormModels';
 import type { EntityMetadataDto } from '../../src/types/dtos/metadata/MetadataModels';
 import type { StepProgressReadDto, WorkflowSessionReadDto } from '../../src/types/dtos/workflow/WorkflowDtos';
 import { FieldType } from '../../src/utils/enums';
@@ -124,3 +130,39 @@ export const structureMetadata: EntityMetadataDto = {
     { fieldName: 'Districts', fieldType: 'List', isNullable: true, isRelatedEntity: true, relatedEntityType: 'District', hasDefaultValue: false },
   ],
 };
+
+/**
+ * PandiO/knk-workspace#291: the form builder opened on "Town (e2e)" with a saved draft that adds a field
+ * "Spawn point" to Basics. The field only exists in the draft (no id yet, a GUID), and neither version has
+ * validation rules.
+ */
+export const townBuilderState: FormConfigurationBuilderState = (() => {
+  const published: FormConfigurationDto = {
+    ...townForm,
+    steps: townForm.steps.map((s, i) => ({ ...s, stepGuid: `0000000${i + 1}-0000-0000-0000-000000000021` })),
+    validationRules: [],
+  };
+  const spawn = field({
+    id: 'temp-spawn',
+    fieldGuid: '00000000-0000-0000-0000-000000000099',
+    fieldName: 'Description',
+    label: 'Spawn point',
+    fieldType: FieldType.String,
+    order: 2,
+  });
+  const working: FormConfigurationDto = {
+    ...published,
+    hasUnpublishedChanges: true,
+    steps: published.steps.map((s, i) => (i === 0 ? { ...s, fields: [...s.fields, spawn] } : s)),
+    validationRules: [],
+  };
+  return {
+    configuration: working,
+    published,
+    isPublished: true,
+    hasUnpublishedChanges: true,
+    draftSavedAt: '2026-11-15T10:00:00Z',
+    publishedAt: '2026-11-14T10:00:00Z',
+    openDraftCount: 0,
+  };
+})();

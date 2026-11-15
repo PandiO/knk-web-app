@@ -3,16 +3,15 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { ValidationRuleBuilder } from '../ValidationRuleBuilder';
-import { FieldValidationRuleDto } from '../../../types/dtos/forms/FieldValidationRuleDtos';
-import { FormFieldDto } from '../../../types/dtos/forms/FormModels';
+import { DraftValidationRuleDto, FormFieldDto } from '../../../types/dtos/forms/FormModels';
 import { FieldType } from '../../../utils/enums';
 import { EntityMetadataDto } from '../../../types/dtos/metadata/MetadataModels';
 
 describe('ValidationRuleBuilder', () => {
   const mockFormFields: FormFieldDto[] = [
-    { id: '1', label: 'Town', fieldName: 'town', fieldType: FieldType.String, formStepId: '1', isRequired: true, order: 1, isReadOnly: false, isReusable: false, isLinkedToSource: false, hasCompatibilityIssues: false, validations: [] },
-    { id: '2', label: 'Location', fieldName: 'location', fieldType: FieldType.String, formStepId: '1', isRequired: true, order: 2, isReadOnly: false, isReusable: false, isLinkedToSource: false, hasCompatibilityIssues: false, validations: [] },
-    { id: '3', label: 'NPC Name', fieldName: 'npcName', fieldType: FieldType.String, formStepId: '1', isRequired: false, order: 3, isReadOnly: false, isReusable: false, isLinkedToSource: false, hasCompatibilityIssues: false, validations: [] }
+    { id: '1', fieldGuid: 'g-town', label: 'Town', fieldName: 'town', fieldType: FieldType.String, formStepId: '1', isRequired: true, order: 1, isReadOnly: false, isReusable: false, isLinkedToSource: false, hasCompatibilityIssues: false, validations: [] },
+    { id: '2', fieldGuid: 'g-location', label: 'Location', fieldName: 'location', fieldType: FieldType.String, formStepId: '1', isRequired: true, order: 2, isReadOnly: false, isReusable: false, isLinkedToSource: false, hasCompatibilityIssues: false, validations: [] },
+    { id: '3', fieldGuid: 'g-npc', label: 'NPC Name', fieldName: 'npcName', fieldType: FieldType.String, formStepId: '1', isRequired: false, order: 3, isReadOnly: false, isReusable: false, isLinkedToSource: false, hasCompatibilityIssues: false, validations: [] }
   ];
 
   const mockOnSave = jest.fn();
@@ -161,18 +160,17 @@ describe('ValidationRuleBuilder', () => {
 
   describe('Editing Existing Rule', () => {
     it('populates form with existing rule data', () => {
-      const existingRule: FieldValidationRuleDto = {
+      const existingRule: DraftValidationRuleDto = {
         id: 1,
-        formFieldId: Number(mockField.id),
+        fieldGuid: 'g-town',
         validationType: 'LocationInsideRegion',
-        dependsOnFieldId: 2,
+        dependsOnFieldGuid: 'g-location',
         dependencyPath: undefined,
         configJson: '{}',
         errorMessage: 'Invalid location',
         successMessage: 'Valid location',
         isBlocking: true,
-        requiresDependencyFilled: false,
-        createdAt: '2026-02-12T00:00:00Z'
+        requiresDependencyFilled: false
       };
 
       render(
@@ -187,8 +185,49 @@ describe('ValidationRuleBuilder', () => {
         />
       );
 
-      // Component should render with initial data
-      expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+      // #291: a dependency in this form is chosen by field GUID.
+      expect(screen.getByLabelText('Depends On Field')).toHaveValue('field:g-location');
+      expect(screen.getByLabelText(/Error Message/)).toHaveValue('Invalid location');
+    });
+  });
+
+  describe('Draft rules (PandiO/knk-workspace#291)', () => {
+    it('lets a field that only exists in the draft get a rule, without saving it to the API', async () => {
+      const draftOnly: FormFieldDto = { ...mockField, id: 'temp-1', fieldGuid: 'g-new', label: 'Spawn' };
+      render(
+        <ValidationRuleBuilder
+          field={draftOnly}
+          availableFields={mockAvailableFields}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
+          onSave={mockOnSave}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      await userEvent.click(screen.getByRole('button', { name: 'Add Rule' }));
+
+      expect(mockOnSave).toHaveBeenCalledTimes(1);
+      const rule = mockOnSave.mock.calls[0][0];
+      expect(rule).toMatchObject({ validationType: 'LocationInsideRegion', dependsOnFieldGuid: null, dependsOnFieldId: null, isBlocking: true });
+      expect(rule).not.toHaveProperty('formFieldId');
+    });
+
+    it('offers the form\'s fields as dependencies by GUID, draft-only fields included', () => {
+      const draftOnly: FormFieldDto = { ...mockFormFields[2], id: 'temp-2', fieldGuid: 'g-draft', label: 'Draft field' };
+      render(
+        <ValidationRuleBuilder
+          field={mockField}
+          availableFields={[...mockAvailableFields, draftOnly, mockField]}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
+          onSave={mockOnSave}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      const options = Array.from((screen.getByLabelText('Depends On Field') as HTMLSelectElement).options).map(o => o.value);
+      expect(options).toEqual(['', 'field:g-location', 'field:g-npc', 'field:g-draft']);
     });
   });
 

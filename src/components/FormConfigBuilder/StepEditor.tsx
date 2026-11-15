@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Copy, GripVertical, Trash2, Pencil, AlertTriangle, Link as LinkIcon, Copy as CopyIcon } from 'lucide-react';
-import { FormStepDto, FormFieldDto, FormConfigurationDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
+import { DraftValidationRuleDto, FormStepDto, FormFieldDto, FormConfigurationDto, ReuseLinkMode } from '../../types/dtos/forms/FormModels';
+import { rulesOfField } from '../../utils/forms/draftValidationRules';
 import { FieldType } from '../../utils/enums';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -28,6 +29,9 @@ interface Props {
     metadataFields?: FieldMetadataDto[]; // added
     allConfigurationFields?: FormFieldDto[];
     onRulesChanged?: () => void;
+    /** PandiO/knk-workspace#291: the working copy's validation rules (all fields) and where a field's changes go. */
+    validationRules?: DraftValidationRuleDto[];
+    onFieldRulesChange?: (fieldGuid: string, rules: DraftValidationRuleDto[]) => void;
     entityTypeName?: string;
     formConfiguration?: FormConfigurationDto;
     stepIndex?: number;
@@ -41,6 +45,8 @@ export const StepEditor: React.FC<Props> = ({
     metadataFields = [],
     allConfigurationFields,
     onRulesChanged,
+    validationRules,
+    onFieldRulesChange,
     entityTypeName,
     formConfiguration,
     stepIndex = 0
@@ -914,6 +920,8 @@ export const StepEditor: React.FC<Props> = ({
                     metadataFields={metadataFields} // added
                     allFields={allConfigurationFields || step.fields}
                     onRulesChanged={onRulesChanged}
+                    validationRules={rulesOfField(validationRules, editingField.field.fieldGuid)}
+                    onSaveRules={onFieldRulesChange}
                     entityTypeName={entityTypeName}
                     displayConditionSources={
                         formConfiguration
@@ -931,6 +939,8 @@ export const StepEditor: React.FC<Props> = ({
                     metadataFields={joinEntityFields.length > 0 ? joinEntityFields : metadataFields}
                     allFields={allConfigurationFields || step.fields}
                     onRulesChanged={onRulesChanged}
+                    validationRules={rulesOfField(validationRules, childFieldEdit.field.fieldGuid)}
+                    onSaveRules={onFieldRulesChange}
                     entityTypeName={entityTypeName}
                 />
             )}
@@ -1033,8 +1043,9 @@ const SortableFieldItem: React.FC<SortableFieldItemProps> = ({ field, onEdit, on
                 <button
                     onClick={onEdit}
                     className="p-1 text-muted hover:text-gray-600"
+                    aria-label={`Edit field ${field.label || field.fieldName || 'Untitled Field'}`}
                 >
-                    <Pencil className="h-4 w-4" />
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                     onClick={onDelete}
