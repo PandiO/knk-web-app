@@ -9,7 +9,7 @@ import { EntityMetadataDto, RelationshipMetadataDto } from '../../types/dtos/met
 import { MinecraftIcon } from '../minecraft/MinecraftIcon';
 import { useAllNodesGate } from '../../hooks/useActionGate';
 import { changeNodesOf, withContentNode } from '../../hooks/useEntityAccess';
-import { findRelationship, metadataFor, relatedIdOf, relatedLabelOf } from './detailPage';
+import { findRelationship, isDerived, metadataFor, relatedIdOf, relatedLabelOf } from './detailPage';
 import { formatNumber } from '../../utils/format';
 import { entityTypeFallbackLabel } from '../../utils/entityLabel';
 
@@ -134,6 +134,10 @@ export const DisplaySection: React.FC<Props> = ({
             </h3>
             {section.description && (
               <p className="text-sm text-muted mt-1">{section.description}</p>
+            )}
+            {/* #409: a derived list changes elsewhere; say where, as text (the buttons are hidden, not greyed out). */}
+            {isDerived(relationship) && relationship?.linkReason && (
+              <p className="text-sm text-muted mt-1" data-testid="derived-hint">{relationship.linkReason}</p>
             )}
           </div>
         </div>

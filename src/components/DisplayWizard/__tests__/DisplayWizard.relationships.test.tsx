@@ -9,15 +9,19 @@ import { toast } from '../../../utils/toast';
 import { PICKER_SEARCH_DELAY_MS } from '../RelationshipPickerDialog';
 
 /**
+ * The page is a District's: its Streets are the link-table example (`many`), Structures the required-parent one. A
+ * Town's Streets are derived from its districts (#409): read-only, with the hint.
  * PandiO/knk-workspace#188: Select / Unlink / Add really link and unlink through api/Relationships; Unlink never
  * deletes the related record; Delete is a separate red action; actions the viewer can't use are disabled with
  * "Requires …". #189: readable load errors.
  */
 
 const mockNavigate = jest.fn();
+let mockPathname = '/display/District/4';
+const STREETS_HINT = 'Streets are managed on the district: open a district to add or remove them.';
 jest.mock('react-router-dom', () => ({
     useNavigate: () => mockNavigate,
-    useLocation: () => ({ pathname: '/display/Town/4', search: '' }),
+    useLocation: () => ({ pathname: mockPathname, search: '' }),
 }), { virtual: true });
 
 let mockHeld = new Set<string>(['knk.admin.world', 'knk.admin.content', 'knk.admin.delete']);
@@ -30,20 +34,31 @@ jest.mock('../../../hooks/useStaffAccess', () => ({
 const world = ['knk.admin.world'];
 const mockMetadata = [
     {
-        entityName: 'Town', displayName: 'Town', fields: [], readNodes: world, lookupGettable: true,
+        entityName: 'District', displayName: 'District', fields: [], readNodes: world, lookupGettable: true,
         actionNodes: { edit: world, delete: ['knk.admin.world', 'knk.admin.delete'] },
         relationships: [
             { property: 'streets', relatedType: 'Street', kind: 'collection', storage: 'many', canLink: true, canUnlink: true, nodes: world },
             {
-                property: 'districts', relatedType: 'District', kind: 'collection', storage: 'children', canLink: false, canUnlink: false,
-                linkReason: 'A District always belongs to one Town: create a new one here, or change it on the District\'s Edit page.',
-                unlinkReason: 'A District always belongs to one Town: delete it, or move it on its own Edit page.', nodes: world,
+                property: 'structures', relatedType: 'Structure', kind: 'collection', storage: 'children', canLink: false, canUnlink: false,
+                linkReason: 'A Structure always belongs to one District: create a new one here, or change it on the Structure\'s Edit page.',
+                unlinkReason: 'A Structure always belongs to one District: delete it, or move it on its own Edit page.', nodes: world,
             },
             { property: 'location', relatedType: 'Location', kind: 'reference', storage: 'foreignKey', canLink: false, canUnlink: false, linkReason: 'Change this on the Edit page.', unlinkReason: 'Change this on the Edit page.', nodes: world },
         ],
     },
     { entityName: 'Street', displayName: 'Street', fields: [], readNodes: ['knk.admin.world', 'knk.admin.road'], lookupSearchable: true, deletable: true, actionNodes: { delete: ['knk.admin.world', 'knk.admin.delete'] } },
-    { entityName: 'District', displayName: 'District', fields: [], readNodes: world, deletable: true, actionNodes: { delete: ['knk.admin.world', 'knk.admin.delete'] } },
+    { entityName: 'Structure', displayName: 'Structure', fields: [], readNodes: world, deletable: true, actionNodes: { delete: ['knk.admin.world', 'knk.admin.delete'] } },
+    // #409: a town's streets are derived from its districts: read-only, with the reason as the hint.
+    {
+        entityName: 'Town', displayName: 'Town', fields: [], readNodes: world, lookupGettable: true,
+        actionNodes: { edit: world, delete: ['knk.admin.world', 'knk.admin.delete'] },
+        relationships: [
+            {
+                property: 'streets', relatedType: 'Street', kind: 'collection', storage: 'derived', canLink: false, canUnlink: false,
+                linkReason: STREETS_HINT, unlinkReason: STREETS_HINT, nodes: world,
+            },
+        ],
+    },
     { entityName: 'Location', displayName: 'Location', fields: [], readNodes: ['knk.admin.world', 'knk.admin.config'] },
 ];
 jest.mock('../../../hooks/useEntityMetadata', () => ({ useEntityMetadata: () => ({ baseMetadata: mockMetadata }) }));
@@ -54,17 +69,17 @@ jest.mock('../../../utils/toast', () => ({ toast: { success: jest.fn(), error: j
 
 const field = (fieldGuid: string, label: string, fieldName: string) => ({ fieldGuid, label, fieldName, isReusable: false, isLinkedToSource: false });
 const mockConfig = {
-    name: 'Town display', sectionOrderJson: null,
+    name: 'District display', sectionOrderJson: null,
     sections: [
         {
             sectionGuid: 's1', sectionName: 'Streets', isCollection: true, isReusable: false, isLinkedToSource: false,
             relatedEntityPropertyName: 'Streets', relatedEntityTypeName: 'Street',
-            actionButtonsConfigJson: JSON.stringify({ showViewButton: true, showAddButton: true, showRemoveButton: true, showDeleteButton: true }),
+            actionButtonsConfigJson: JSON.stringify({ showViewButton: true, showAddButton: true, showRemoveButton: true, showDeleteButton: true, showCreateButton: true }),
             fields: [field('f1', 'Name', 'name')], subSections: [],
         },
         {
-            sectionGuid: 's2', sectionName: 'Districts', isCollection: true, isReusable: false, isLinkedToSource: false,
-            relatedEntityPropertyName: 'Districts', relatedEntityTypeName: 'District',
+            sectionGuid: 's2', sectionName: 'Structures', isCollection: true, isReusable: false, isLinkedToSource: false,
+            relatedEntityPropertyName: 'Structures', relatedEntityTypeName: 'Structure',
             actionButtonsConfigJson: JSON.stringify({ showAddButton: true, showRemoveButton: true }),
             fields: [field('f2', 'Name', 'name')], subSections: [],
         },
@@ -91,7 +106,7 @@ const link = relationshipClient.link as jest.Mock;
 const unlink = relationshipClient.unlink as jest.Mock;
 const search = lookupClient.search as jest.Mock;
 
-const renderPage = () => render(<DisplayWizard entityTypeName="Town" entityId={4} />);
+const renderPage = () => render(<DisplayWizard entityTypeName="District" entityId={4} />);
 const streets = () => screen.getByRole('list', { name: 'Streets' });
 const addStreet = () => within(screen.getByRole('region', { name: 'Streets' })).getByRole('button', { name: /Add…/ });
 
@@ -99,17 +114,18 @@ beforeEach(() => {
     jest.clearAllMocks();
     jest.useRealTimers();
     mockHeld = new Set(['knk.admin.world', 'knk.admin.content', 'knk.admin.delete']);
+    mockPathname = '/display/District/4';
     mockConfigError = null;
     mockDataError = null;
     mockEntity = {
-        id: 4, name: 'Cinix',
+        id: 4, name: 'Old Quarter',
         streets: [{ id: 11, name: 'Main Street' }, { id: 12, name: 'Harbour Road' }],
-        districts: [{ id: 21, name: 'Old Town' }],
-        location: { id: 31, name: 'Cinix spawn' },
+        structures: [{ id: 21, name: 'Town Hall' }],
+        location: { id: 31, name: 'Old Quarter spawn' },
     };
     link.mockResolvedValue({ changed: true });
     unlink.mockResolvedValue({ changed: true });
-    search.mockResolvedValue({ items: [{ id: 11, label: 'Main Street' }, { id: 13, label: 'Market Lane', detail: 'Cinix' }], total: 2 });
+    search.mockResolvedValue({ items: [{ id: 11, label: 'Main Street' }, { id: 13, label: 'Market Lane', detail: 'Old Quarter' }], total: 2 });
 });
 
 describe('relationship actions (#188)', () => {
@@ -118,10 +134,10 @@ describe('relationship actions (#188)', () => {
         fireEvent.click(within(streets()).getByRole('button', { name: 'Unlink Main Street' }));
 
         const dialog = await screen.findByRole('alertdialog');
-        expect(dialog).toHaveTextContent('"Main Street" stays as it is; only its link to Town "Cinix" is removed.');
+        expect(dialog).toHaveTextContent('"Main Street" stays as it is; only its link to District "Old Quarter" is removed.');
         fireEvent.click(within(dialog).getByRole('button', { name: 'Unlink' }));
 
-        await waitFor(() => expect(unlink).toHaveBeenCalledWith('Town', 4, 'streets', 11));
+        await waitFor(() => expect(unlink).toHaveBeenCalledWith('District', 4, 'streets', 11));
         expect(getDeleteFunctionForEntity).not.toHaveBeenCalled();
         expect(toast.success).toHaveBeenCalledWith('"Main Street" unlinked.');
         expect(mockRefetch).toHaveBeenCalledWith(true);
@@ -136,7 +152,7 @@ describe('relationship actions (#188)', () => {
         expect(button).toHaveClass('btn-danger');
         fireEvent.click(button);
         const dialog = await screen.findByRole('alertdialog');
-        expect(dialog).toHaveTextContent('Street "Harbour Road" itself is deleted, everywhere, not only unlinked from "Cinix".');
+        expect(dialog).toHaveTextContent('Street "Harbour Road" itself is deleted, everywhere, not only unlinked from "Old Quarter".');
         fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
         await waitFor(() => expect(deleteFn).toHaveBeenCalledWith(12));
@@ -149,19 +165,19 @@ describe('relationship actions (#188)', () => {
         fireEvent.click(addStreet());
 
         const picker = await screen.findByTestId('relationship-picker');
-        expect(within(picker).getByRole('heading', { name: 'Add a Street to "Cinix"' })).toBeInTheDocument();
+        expect(within(picker).getByRole('heading', { name: 'Add a Street to "Old Quarter"' })).toBeInTheDocument();
         await waitFor(() => expect(search).toHaveBeenCalledWith('Street', '', 1, 10));
         expect(await within(picker).findByRole('button', { name: 'Main Street is linked' })).toBeDisabled();
         fireEvent.click(within(picker).getByRole('button', { name: 'Add Market Lane' }));
 
-        await waitFor(() => expect(link).toHaveBeenCalledWith('Town', 4, 'streets', 13));
+        await waitFor(() => expect(link).toHaveBeenCalledWith('District', 4, 'streets', 13));
         await waitFor(() => expect(screen.queryByTestId('relationship-picker')).not.toBeInTheDocument());
         expect(toast.success).toHaveBeenCalledWith('"Market Lane" added.');
         expect(mockRefetch).toHaveBeenCalledWith(true);
     });
 
     it('asks before moving a record that belongs elsewhere, then links it with move', async () => {
-        link.mockRejectedValueOnce({ status: 409, message: 'This Street already belongs to Town #2. Move it here?', response: { error: 'AlreadyLinked', message: 'This Street already belongs to Town #2. Move it here?', currentId: 2 } });
+        link.mockRejectedValueOnce({ status: 409, message: 'This Street already belongs to District #2. Move it here?', response: { error: 'AlreadyLinked', message: 'This Street already belongs to District #2. Move it here?', currentId: 2 } });
         renderPage();
         fireEvent.click(addStreet());
         const picker = await screen.findByTestId('relationship-picker');
@@ -170,7 +186,7 @@ describe('relationship actions (#188)', () => {
         const question = await screen.findByRole('alertdialog');
         expect(question).toHaveTextContent('Move "Market Lane" here?');
         fireEvent.click(within(question).getByRole('button', { name: 'Move here' }));
-        await waitFor(() => expect(link).toHaveBeenLastCalledWith('Town', 4, 'streets', 13, true));
+        await waitFor(() => expect(link).toHaveBeenLastCalledWith('District', 4, 'streets', 13, true));
     });
 
     it('searches as you type, after a short pause', async () => {
@@ -187,12 +203,12 @@ describe('relationship actions (#188)', () => {
 
     it('shows a link the API refuses (a required parent) disabled, with the reason', () => {
         renderPage();
-        const districts = screen.getByRole('region', { name: 'Districts' });
-        const unlinkButton = within(districts).getByRole('button', { name: 'Unlink Old Town' });
+        const structures = screen.getByRole('region', { name: 'Structures' });
+        const unlinkButton = within(structures).getByRole('button', { name: 'Unlink Town Hall' });
         expect(unlinkButton).toBeDisabled();
-        expect(unlinkButton).toHaveAttribute('title', 'A District always belongs to one Town: delete it, or move it on its own Edit page.');
-        expect(within(districts).getByText(/^Unlink: A District always belongs to one Town/)).toBeInTheDocument();
-        expect(within(districts).getByRole('button', { name: /Add…/ })).toBeDisabled();
+        expect(unlinkButton).toHaveAttribute('title', 'A Structure always belongs to one District: delete it, or move it on its own Edit page.');
+        expect(within(structures).getByText(/^Unlink: A Structure always belongs to one District/)).toBeInTheDocument();
+        expect(within(structures).getByRole('button', { name: /Add…/ })).toBeDisabled();
 
         const location = screen.getByRole('region', { name: 'Location' });
         expect(within(location).getByRole('button', { name: /Change…/ })).toBeDisabled();
@@ -249,9 +265,9 @@ describe('readability (#189)', () => {
         expect(screen.getByLabelText('2 items')).toHaveTextContent('2');
         expect(screen.getByLabelText('1 item')).toBeInTheDocument();
         const street = within(streets()).getByRole('link', { name: 'Main Street' });
-        expect(street).toHaveAttribute('href', `/display/Street/11?returnTo=${encodeURIComponent('/display/Town/4')}`);
+        expect(street).toHaveAttribute('href', `/display/Street/11?returnTo=${encodeURIComponent('/display/District/4')}`);
         fireEvent.click(street, { button: 0 });
-        expect(mockNavigate).toHaveBeenCalledWith(`/display/Street/11?returnTo=${encodeURIComponent('/display/Town/4')}`);
+        expect(mockNavigate).toHaveBeenCalledWith(`/display/Street/11?returnTo=${encodeURIComponent('/display/District/4')}`);
         expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     });
 
@@ -261,36 +277,68 @@ describe('readability (#189)', () => {
         expect(within(streets()).getByRole('link', { name: 'Main Street' })).toBeInTheDocument();
         const location = screen.getByRole('region', { name: 'Location' });
         expect(within(location).queryByRole('link')).not.toBeInTheDocument();
-        expect(within(location).getByTitle('Opening Location requires one of: knk.admin.world, knk.admin.config')).toHaveTextContent('Cinix spawn');
+        expect(within(location).getByTitle('Opening Location requires one of: knk.admin.world, knk.admin.config')).toHaveTextContent('Old Quarter spawn');
     });
 
     it('says "You don\'t have access" with the nodes and the lookup label instead of a raw error', async () => {
-        mockDataError = { status: 403, message: "You don't have access to Town.", response: { code: 'NoReadAccess', entityType: 'Town', nodes: ['knk.admin.world'] } };
-        (lookupClient.get as jest.Mock).mockResolvedValue({ id: 4, label: 'Cinix' });
+        mockDataError = { status: 403, message: "You don't have access to District.", response: { code: 'NoReadAccess', entityType: 'District', nodes: ['knk.admin.world'] } };
+        (lookupClient.get as jest.Mock).mockResolvedValue({ id: 4, label: 'Old Quarter' });
         renderPage();
 
-        expect(await screen.findByRole('heading', { name: 'You don\'t have access to Town "Cinix".' })).toBeInTheDocument();
+        expect(await screen.findByRole('heading', { name: 'You don\'t have access to District "Old Quarter".' })).toBeInTheDocument();
         expect(screen.getByText('Requires one of: knk.admin.world.')).toBeInTheDocument();
         expect(screen.queryByText(/^Error:/)).not.toBeInTheDocument();
-        expect(lookupClient.get).toHaveBeenCalledWith('Town', 4);
+        expect(lookupClient.get).toHaveBeenCalledWith('District', 4);
     });
 
     it('says a missing record or display page in words, and offers a retry only for a failed load', () => {
-        mockDataError = { status: 404, message: 'Town 4 not found.' };
+        mockDataError = { status: 404, message: 'District 4 not found.' };
         const { unmount } = renderPage();
-        expect(screen.getByRole('heading', { name: "This Town (#4) doesn't exist." })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: "This District (#4) doesn't exist." })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
         unmount();
 
         mockDataError = null;
         mockConfigError = { status: 404 };
         const second = renderPage();
-        expect(screen.getByRole('heading', { name: 'There is no detail page set up for Town yet.' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'There is no detail page set up for District yet.' })).toBeInTheDocument();
         second.unmount();
 
         mockConfigError = new Error('promise timeout');
         renderPage();
         expect(screen.getByText(/Check your connection and try again/)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    });
+});
+
+describe('derived relationships (#409)', () => {
+    const renderTown = () => {
+        mockPathname = '/display/Town/4';
+        mockEntity = { id: 4, name: 'Cinix', streets: [{ id: 11, name: 'Main Street' }, { id: 12, name: 'Harbour Road' }] };
+        return render(<DisplayWizard entityTypeName="Town" entityId={4} />);
+    };
+
+    it("a town's streets show with View, the hint, and no Add…, Unlink, Delete or Create New", () => {
+        renderTown();
+        const region = screen.getByRole('region', { name: 'Streets' });
+
+        expect(within(streets()).getByRole('link', { name: 'Main Street' })).toBeInTheDocument();
+        expect(within(streets()).getByRole('button', { name: 'View Main Street' })).toBeEnabled();
+        expect(within(region).getByTestId('derived-hint')).toHaveTextContent(STREETS_HINT);
+        expect(within(region).queryByRole('button', { name: /Add…/ })).not.toBeInTheDocument();
+        expect(within(region).queryByRole('button', { name: /Unlink/ })).not.toBeInTheDocument();
+        expect(within(region).queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument();
+        expect(within(region).queryByRole('button', { name: 'Create New' })).not.toBeInTheDocument();
+        // The reason is the visible hint, not a greyed-out button's hint.
+        expect(within(region).queryByTestId('action-hint')).not.toBeInTheDocument();
+        expect(within(region).queryByText(/^Unlink:/)).not.toBeInTheDocument();
+    });
+
+    it('a district keeps its Add… and Unlink for the same streets, without the hint', () => {
+        renderPage();
+        const region = screen.getByRole('region', { name: 'Streets' });
+        expect(within(region).getByRole('button', { name: /Add…/ })).toBeEnabled();
+        expect(within(streets()).getByRole('button', { name: 'Unlink Main Street' })).toBeEnabled();
+        expect(within(region).queryByTestId('derived-hint')).not.toBeInTheDocument();
     });
 });

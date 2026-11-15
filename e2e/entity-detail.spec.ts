@@ -1,8 +1,8 @@
 import { test, expect } from './support/mockApi';
 import { alex, mockSession, startLoggedIn } from './fixtures/auth';
 import { mockContentDefaults } from './fixtures/content';
-import { CONTENT, mockDashboardTypes, WORLD } from './fixtures/dashboardAccess';
-import { mockTownDetail } from './fixtures/entityDetail';
+import { CONTENT, mockDashboardTypes, TOWN_STREETS_REASON, WORLD } from './fixtures/dashboardAccess';
+import { mockDistrictDetail, mockTownDetail } from './fixtures/entityDetail';
 import { expectNoSidewaysScroll } from './support/layout';
 
 /**
@@ -10,9 +10,12 @@ import { expectNoSidewaysScroll } from './support/layout';
  * hot edit, readable errors, Unlink that never deletes, Add from the lookup, Delete as a separate red action
  * and the gates without the nodes. Smoke test: knk-workspace docs/guides/entity-detail-smoke-test.md and
  * dashboard-access-smoke-test.md § 8 step 9b (backfill #511).
+ * The link-table cases use a district's streets: a town's streets are derived from its districts since #409
+ * (read-only, e2e/town-detail.spec.ts). Rename, errors and access stay on the town.
  */
 
 const townUrl = '/display/Town/1';
+const districtUrl = '/display/District/1';
 
 test.beforeEach(async ({ page, api }) => {
   await startLoggedIn(page, 'access-1');
@@ -24,8 +27,8 @@ test.describe('as an admin', () => {
   test.beforeEach(({ api }) => mockSession(api, alex, () => true));
 
   test('a collection has a count and pages of 12; each item links to its own detail page and Back returns', async ({ page, api }) => {
-    mockTownDetail(api, 14);
-    await page.goto(townUrl);
+    mockDistrictDetail(api, 14);
+    await page.goto(districtUrl);
 
     await expect(page.getByText('Showing 1 to 12 of 14 streets')).toBeVisible();
     await page.getByRole('button', { name: 'Next' }).click();
@@ -35,12 +38,12 @@ test.describe('as an admin', () => {
     await page.getByRole('link', { name: 'Main Street' }).click();
     await expect(page).toHaveURL(/\/display\/Street\/1/);
     await page.goBack();
-    await expect(page).toHaveURL(/\/display\/Town\/1/);
+    await expect(page).toHaveURL(/\/display\/District\/1/);
   });
 
   test('an empty collection says so and still offers Add…', async ({ page, api }) => {
-    mockTownDetail(api, 0);
-    await page.goto(townUrl);
+    mockDistrictDetail(api, 0);
+    await page.goto(districtUrl);
     await expect(page.getByText('No streets yet.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add…' })).toBeEnabled();
   });
@@ -62,29 +65,29 @@ test.describe('as an admin', () => {
   });
 
   test('Unlink asks a plain question and removes only the link: no delete request', async ({ page, api }) => {
-    mockTownDetail(api);
-    await page.goto(townUrl);
+    mockDistrictDetail(api);
+    await page.goto(districtUrl);
 
     await page.getByRole('button', { name: 'Unlink Main Street' }).click();
     const question = page.getByRole('alertdialog', { name: 'Unlink "Main Street"?' });
-    await expect(question).toContainText('only its link to Town "Cinix" is removed');
+    await expect(question).toContainText('only its link to District "Old Quarter" is removed');
     await question.getByRole('button', { name: 'Cancel' }).click();
-    expect(api.calls('POST', 'Relationships/Town/1/streets/unlink')).toHaveLength(0);
+    expect(api.calls('POST', 'Relationships/District/1/streets/unlink')).toHaveLength(0);
 
     await page.getByRole('button', { name: 'Unlink Main Street' }).click();
     await page.getByRole('alertdialog', { name: 'Unlink "Main Street"?' }).getByRole('button', { name: 'Unlink' }).click();
     await expect(page.getByText('"Main Street" unlinked.')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Main Street' })).toHaveCount(0);
-    expect(api.calls('POST', 'Relationships/Town/1/streets/unlink').map(r => r.body)).toEqual([{ relatedId: 1 }]);
+    expect(api.calls('POST', 'Relationships/District/1/streets/unlink').map(r => r.body)).toEqual([{ relatedId: 1 }]);
     expect(api.requests.filter(r => r.method === 'DELETE')).toHaveLength(0);
   });
 
   test('Add… searches the lookup, marks what is linked, and links the pick with a toast', async ({ page, api }) => {
-    mockTownDetail(api);
-    await page.goto(townUrl);
+    mockDistrictDetail(api);
+    await page.goto(districtUrl);
 
     await page.getByRole('button', { name: 'Add…' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Add a Street to "Cinix"' });
+    const dialog = page.getByRole('dialog', { name: 'Add a Street to "Old Quarter"' });
     const search = dialog.getByRole('searchbox').or(dialog.getByRole('textbox')).first();
     await expect(search).toBeFocused();
     await expect(dialog.getByRole('listitem').filter({ hasText: 'Main Street' })).toContainText('Linked');
@@ -97,12 +100,12 @@ test.describe('as an admin', () => {
 
     await expect(page.getByText('"Market Lane" added.')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Market Lane' })).toBeVisible();
-    expect(api.calls('POST', 'Relationships/Town/1/streets/link').map(r => (r.body as { relatedId: number }).relatedId)).toEqual([2]);
+    expect(api.calls('POST', 'Relationships/District/1/streets/link').map(r => (r.body as { relatedId: number }).relatedId)).toEqual([2]);
   });
 
-  test('Delete on an item is a separate red question that names the record and the town; Cancel deletes nothing', async ({ page, api }) => {
-    mockTownDetail(api);
-    await page.goto(townUrl);
+  test('Delete on an item is a separate red question that names the record and the district; Cancel deletes nothing', async ({ page, api }) => {
+    mockDistrictDetail(api);
+    await page.goto(districtUrl);
 
     await page.getByRole('button', { name: 'Delete Harbour Road' }).click();
     const question = page.getByRole('alertdialog', { name: 'Delete Street "Harbour Road"?' });
@@ -135,12 +138,20 @@ test.describe('as an admin', () => {
     await expect(page.getByRole('link', { name: 'Main Street' })).toBeVisible();
     await expectNoSidewaysScroll(page);
   });
+  test("#409: a town's streets are read-only: no Add…, Unlink or Delete, and the hint", async ({ page, api }) => {
+    mockTownDetail(api);
+    await page.goto(townUrl);
+    const streets = page.getByRole('region', { name: 'Streets' });
+    await expect(streets.getByRole('link', { name: 'Main Street' })).toBeVisible();
+    await expect(streets.getByTestId('derived-hint')).toHaveText(TOWN_STREETS_REASON);
+    await expect(streets.getByRole('button', { name: /Add…|Unlink|Delete/ })).toHaveCount(0);
+  });
 });
 
 test('without knk.admin.delete: Delete is disabled with the node; Unlink and Add… still work', async ({ page, api }) => {
   mockSession(api, alex, node => node !== 'knk.admin.delete');
-  mockTownDetail(api);
-  await page.goto(townUrl);
+  mockDistrictDetail(api);
+  await page.goto(districtUrl);
 
   await expect(page.getByRole('button', { name: /^Delete Main Street/ })).toBeDisabled();
   await expect(page.getByText('Delete: Requires knk.admin.delete').first()).toBeVisible();
@@ -150,8 +161,8 @@ test('without knk.admin.delete: Delete is disabled with the node; Unlink and Add
 
 test('world-only (#374): Add… and Unlink need knk.admin.content; Delete of a street still works', async ({ page, api }) => {
   mockSession(api, alex, node => [WORLD, 'knk.admin.delete'].includes(node));
-  mockTownDetail(api);
-  await page.goto(townUrl);
+  mockDistrictDetail(api);
+  await page.goto(districtUrl);
 
   await expect(page.getByRole('button', { name: /^Add…/ })).toBeDisabled();
   await expect(page.getByRole('button', { name: /^Unlink Main Street/ })).toBeDisabled();
