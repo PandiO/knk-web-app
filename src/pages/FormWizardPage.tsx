@@ -7,7 +7,9 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { displayConfigClient } from '../apiClients/displayConfigClient';
 import { formConfigClient } from '../apiClients/formConfigClient';
 import { formSubmissionClient } from '../apiClients/formSubmissionClient';
-import { FeedbackModal } from '../components/FeedbackModal';
+import { FeedbackDetails, FeedbackModal } from '../components/FeedbackModal';
+import { refusedDeleteDetails } from '../components/ReferenceDetails';
+import { isReferenceRefusal } from '../utils/referenceDetails';
 import { DomainWorldPromptModal } from '../components/DomainWorldPromptModal';
 import { DomainClient } from '../apiClients/domainClient';
 import { buildDomainWorldResolveRequest, isDomainEntityType } from '../utils/forms/domainWorld';
@@ -140,6 +142,8 @@ export const FormWizardPage: React.FC<Props> = ({
         message: string;
         status: 'success' | 'error' | 'info';
         onContinue?: () => void;
+        /** "Show what uses it" of a delete refused as in use (#289). */
+        details?: FeedbackDetails;
     };
     const [feedbackModal, setFeedbackModal] = useState<FeedbackState>({
         open: false,
@@ -177,7 +181,7 @@ export const FormWizardPage: React.FC<Props> = ({
     };
 
     const closeFeedbackModal = () => {
-        setFeedbackModal(prev => ({ ...prev, open: false, onContinue: undefined }));
+        setFeedbackModal(prev => ({ ...prev, open: false, onContinue: undefined, details: undefined }));
     };
 
     const handleFeedbackContinue = () => {
@@ -723,6 +727,8 @@ export const FormWizardPage: React.FC<Props> = ({
                 message: apiRefusalReason(error) ?? 'Unable to delete the form configuration. Please try again.',
                 status: 'error',
                 onContinue: undefined,
+                // #289: another form still opens it as a sub-form: which fields and steps, loaded on request.
+                details: isReferenceRefusal(error) ? refusedDeleteDetails('FormConfiguration', config.id!) : undefined,
             });
         }
     };
@@ -1402,6 +1408,7 @@ export const FormWizardPage: React.FC<Props> = ({
                 status={feedbackModal.status}
                 onClose={closeFeedbackModal}
                 onContinue={feedbackModal.onContinue ? handleFeedbackContinue : undefined}
+                details={feedbackModal.details}
             />
         </>
     );

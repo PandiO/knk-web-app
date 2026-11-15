@@ -1,7 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { ReferenceDetails } from '../ReferenceDetails';
+import { ReferenceDetails, useReferenceDetailsToggle, ReferenceDetailsToggleOptions } from '../ReferenceDetails';
+import { entityReferenceClient } from '../../apiClients/entityReferenceClient';
+
+jest.mock('../../apiClients/entityReferenceClient', () => ({ entityReferenceClient: { getRows: jest.fn() } }));
 import { isReferenceRefusal, referenceNoun } from '../../utils/referenceDetails';
 
 const mockNavigate = jest.fn();
@@ -58,6 +61,56 @@ describe('ReferenceDetails', () => {
     it('says so when nothing blocks any more', () => {
         render(<ReferenceDetails data={{ entityTypeName: 'Street', id: 12, groups: [] }} />);
         expect(screen.getByText('Nothing blocks the delete any more. Try again.')).toBeInTheDocument();
+    });
+});
+
+describe('useReferenceDetailsToggle (PandiO/knk-workspace#289)', () => {
+    const Row: React.FC<{ options?: ReferenceDetailsToggleOptions }> = ({ options }) => {
+        const uses = useReferenceDetailsToggle('District', 5, options);
+        return <li>{uses.button}{uses.panel}</li>;
+    };
+    const oneStreet = {
+        entityTypeName: 'District', id: 5, groups: [{
+            referencedBy: 'Street (link)', entityType: 'Street', count: 1, listed: true, readable: false,
+            nodes: ['knk.admin.world'], rows: [{ id: 7, label: 'Gatestraat' }], more: false,
+        }],
+    };
+
+    beforeEach(() => (entityReferenceClient.getRows as jest.Mock).mockReset());
+
+    it('loads once on request, with every reference when asked, and Hide keeps the list', async () => {
+        (entityReferenceClient.getRows as jest.Mock).mockResolvedValue(oneStreet);
+        render(<Row options={{ all: true }} />);
+
+        expect(entityReferenceClient.getRows).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole('button', { name: 'Show what uses it' }));
+        expect(await screen.findByText('Gatestraat')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Hide' })).toHaveAttribute('aria-expanded', 'true');
+        fireEvent.click(screen.getByRole('button', { name: 'Hide' }));
+        expect(screen.queryByText('Gatestraat')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Show what uses it' }));
+        expect(screen.getByText('Gatestraat')).toBeInTheDocument();
+        expect(entityReferenceClient.getRows).toHaveBeenCalledTimes(1);
+        expect(entityReferenceClient.getRows).toHaveBeenCalledWith('District', 5, { all: true });
+    });
+
+    it('asks only for what stops a delete by default, and says so in its own words when nothing is left', async () => {
+        (entityReferenceClient.getRows as jest.Mock).mockResolvedValue({ entityTypeName: 'District', id: 5, groups: [] });
+        render(<Row options={{ emptyText: 'Nothing uses it any more.' }} />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Show what uses it' }));
+        expect(await screen.findByText('Nothing uses it any more.')).toBeInTheDocument();
+        expect(entityReferenceClient.getRows).toHaveBeenCalledWith('District', 5, {});
+    });
+
+    it("shows the API's reason when the list can't be loaded", async () => {
+        (entityReferenceClient.getRows as jest.Mock).mockRejectedValue({
+            status: 403, response: { code: 'NoReadAccess', message: "You don't have access to District. Requires one of: knk.admin.world." },
+        });
+        render(<Row />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Show what uses it' }));
+        expect(await screen.findByText("You don't have access to District. Requires one of: knk.admin.world.")).toBeInTheDocument();
     });
 });
 

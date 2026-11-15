@@ -148,6 +148,50 @@ test.describe('as an admin', () => {
     expect((api.calls('POST', 'Dashboard/bulk-delete')[0].body as { entityType: string; ids: number[] })).toEqual({ entityType: 'Street', ids: [1, 2, 3] });
   });
 
+  test('bulk Delete: "Show what uses it" on an in-use row loads its list on request; a row refused by a rule has none (#289)', async ({ page, api }) => {
+    mockDashboardTypes(api);
+    api.on<BulkDeleteResponseDto>('POST', 'Dashboard/bulk-delete', () => ({
+      body: {
+        deleted: [],
+        refused: [
+          { id: 2, reason: "This street can't be deleted: it is still used by 1 structure.", code: 'InUse' },
+          { id: 3, reason: 'Streets of a road network are deleted on the road page.', code: 'Refused' },
+        ],
+      },
+    }));
+    api.json<EntityReferenceRowsDto>('GET', 'EntityReferences/Street/2/rows', {
+      entityTypeName: 'Street',
+      id: 2,
+      groups: [{ referencedBy: 'Structure.StreetId', entityType: 'Structure', count: 1, listed: true, readable: true, nodes: [WORLD], rows: [{ id: 3, label: 'Smithy' }], more: false }],
+    });
+    api.json<DisplayConfigurationDto>('GET', 'DisplayConfigurations/entity/Structure', { name: 'Structure display', entityTypeName: 'Structure', isDefault: true, isDraft: false, sections: [] });
+    api.json('GET', 'Structures/3', { id: 3, name: 'Smithy' });
+    await page.goto('/dashboard/Street');
+
+    for (const name of ['Market Lane', 'Harbour Road']) {
+      await page.getByRole('row').filter({ hasText: name }).getByRole('checkbox').check();
+    }
+    await page.getByRole('button', { name: 'Delete (2)' }).click();
+    await page.getByRole('alertdialog', { name: 'Delete 2 Streets?' }).getByRole('button', { name: /^Delete/ }).click();
+
+    const report = page.getByRole('alertdialog', { name: 'No Street was deleted' });
+    const inUse = report.getByRole('listitem').filter({ hasText: 'Market Lane' });
+    const refused = report.getByRole('listitem').filter({ hasText: 'Harbour Road' });
+    await expect(refused.getByRole('button', { name: 'Show what uses it' })).toHaveCount(0);
+    expect(api.calls('GET', /^EntityReferences\//)).toHaveLength(0);
+
+    await inUse.getByRole('button', { name: 'Show what uses it' }).click();
+    await expect(inUse.getByRole('heading', { name: '1 structure' })).toBeVisible();
+    await inUse.getByRole('button', { name: 'Hide' }).click();
+    await expect(inUse.getByRole('link', { name: 'Smithy' })).toHaveCount(0);
+    await inUse.getByRole('button', { name: 'Show what uses it' }).click();
+    expect(api.calls('GET', 'EntityReferences/Street/2/rows')).toHaveLength(1);
+
+    await inUse.getByRole('link', { name: 'Smithy' }).click();
+    await expect(page).toHaveURL(/\/display\/Structure\/3/);
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  });
+
   test('a delete refused as in use: "Show what uses it" loads the list only on request, links the record, and Hide keeps it', async ({ page, api }) => {
     mockDashboardTypes(api);
     api.on('DELETE', 'Streets/1', {
