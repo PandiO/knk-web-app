@@ -1295,47 +1295,56 @@ const ListField: React.FC<FieldRendererProps> = ({
                             <p className="text-xs font-medium text-gray-700">
                                 Selected ({items.length}):
                             </p>
-                            <div className="max-h-32 overflow-y-auto space-y-2">
+                            {/* #290: the card wraps when the row is narrow (390 px): the name keeps at least 12rem and
+                                the whole first line, × and Edit instance move to their own line under it. */}
+                            <ul
+                                aria-label={`Selected ${field.label}`}
+                                className="max-h-32 overflow-y-auto space-y-2"
+                            >
                                 {items.map((item, index) => (
-                                    <div
+                                    <li
                                         key={itemKeys[index]}
-                                        className="p-2 bg-success-soft border border-success-line rounded-md flex items-center justify-between"
+                                        className="p-2 bg-success-soft border border-success-line rounded-md flex flex-wrap items-center gap-2"
                                     >
-                                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                        <div className="flex items-center space-x-2 flex-1 min-w-[12rem]">
                                             <div className="flex-shrink-0 h-6 w-6 rounded-full bg-success-muted flex items-center justify-center">
                                                 <span className="text-success font-medium text-xs">
                                                     {getEntityDisplayLabel(item, '?').charAt(0).toUpperCase()}
                                                 </span>
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-green-900 truncate">
+                                                <p className="text-sm font-medium text-success-strong break-words">
                                                     {getEntityDisplayLabel(item, 'Item')}
                                                 </p>
                                                 <p className="text-xs text-success">{item.id != null ? `ID: ${item.id}` : 'Not saved yet'}</p>
                                             </div>
                                         </div>
-                                        {!field.isReadOnly && !ownedChildCollection && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRemoveItem(index)}
-                                                className="text-success hover:text-success-strong hover:bg-success-muted rounded-full p-1 flex-shrink-0"
-                                                title="Remove from selection"
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </button>
+                                        {((!field.isReadOnly && !ownedChildCollection) || onEditInstance) && (
+                                            <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+                                                {!field.isReadOnly && !ownedChildCollection && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveItem(index)}
+                                                        className="text-success hover:text-success-strong hover:bg-success-muted rounded-full p-1 flex-shrink-0"
+                                                        title="Remove from selection"
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </button>
+                                                )}
+                                                {onEditInstance && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onEditInstance(item, index)}
+                                                        className="btn-secondary whitespace-nowrap"
+                                                    >
+                                                        Edit instance
+                                                    </button>
+                                                )}
+                                            </div>
                                         )}
-                                        {onEditInstance && (
-                                            <button
-                                                type="button"
-                                                onClick={() => onEditInstance(item, index)}
-                                                className="btn-secondary whitespace-nowrap ml-2"
-                                            >
-                                                Edit instance
-                                            </button>
-                                        )}
-                                    </div>
+                                    </li>
                                 ))}
-                            </div>
+                            </ul>
                         </div>
                     )}
 
