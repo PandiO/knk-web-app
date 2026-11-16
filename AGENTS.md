@@ -12,8 +12,13 @@ and plans. See [CLAUDE.md](CLAUDE.md) for repo-specific commands; its
 `@...` import is Claude Code syntax and may depend on checkout layout.
 
 This is the React/TypeScript Create React App frontend. Use
-`npm run build` and `npm run test:ci` for verification. Confirm scripts in
-`package.json` when changing tooling.
+`npm run build` and `npm run test:ci` for verification, and
+`npm run test:e2e` (Playwright, `e2e/`) for end-to-end tests. Confirm scripts
+in `package.json` when changing tooling.
+
+Skills for common tasks are in knk-workspace `.claude/skills/`: `knk-test-writer`
+(Jest and Playwright tests, smoke guides) and `knk-entity-scaffold` (a new entity
+across API, web app and plugin).
 
 ## Shipping a change
 
