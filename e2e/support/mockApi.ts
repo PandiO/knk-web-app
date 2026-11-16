@@ -5,7 +5,7 @@ import { test as base, expect, type Page, type Request, type Route } from '@play
  * the specs need no API and no database. Register the endpoints a spec needs with `api.on(...)`;
  * the last matching registration wins, so a test can override a `beforeEach` mock. A request with
  * no matching mock gets a 404 `{ error: 'NoMock' }` and is listed on the test as an annotation
- * (and fails the test when `strict` is on), which is how a spec finds the calls a page makes.
+ * (and fails the test when `strictApi` is on), which is how a spec finds the calls a page makes.
  *
  * Bodies are typed by the caller (`api.on<UserDto>(...)`) and the fixtures in `e2e/fixtures/` are
  * built from the DTO types in `src/types/`, so `npm run typecheck:e2e` breaks when a DTO changes.
