@@ -54,7 +54,32 @@ export interface BridgeMarkers {
   regions: BridgeRegion[];
 }
 
-/** A live player (phase 4b, #739, draws them; v1 defines the message so that link adds no new type). */
+/**
+ * One styled run of a player's name label (#739, O23): the page has already turned the `&` codes into CSS, so the
+ * bridge only draws. `color` is `#RRGGBB` or null (the bridge ignores any other value).
+ */
+export interface BridgeTextPart {
+  text: string;
+  color: string | null;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+}
+
+/** The tags a player label can carry (O07): AFK, staff or owner mode (or another hidden mode), a minigame. */
+export type BridgePlayerTagKind = 'afk' | 'staff' | 'owner' | 'hidden' | 'minigame';
+
+export interface BridgePlayerTag {
+  kind: BridgePlayerTagKind;
+  text: string;
+}
+
+/**
+ * A live player (phase 4b, #739). `label` is the plain text of the name label; `parts` and `tags` are optional
+ * additions of #739 (an older bridge draws `label` only, a newer one prefers `parts`), so the v1 message keeps its
+ * meaning (O14).
+ */
 export interface BridgePlayer {
   uuid: string;
   label: string;
@@ -62,6 +87,8 @@ export interface BridgePlayer {
   x: number;
   y: number;
   z: number;
+  parts?: BridgeTextPart[];
+  tags?: BridgePlayerTag[];
 }
 
 export interface PageToMapPayloads {

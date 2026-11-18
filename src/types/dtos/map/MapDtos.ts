@@ -134,3 +134,59 @@ export interface MapStructurePanelDto {
   houseNumber: number;
   gate: MapGatePanelDto | null;
 }
+
+/**
+ * `GET api/Map/players` (PandiO/knk-workspace#738, OVERVIEW_MAP_DESIGN § 6.2.9): the caller's audience snapshot. A
+ * valid JWT selects the logged-in or the "may see hidden" snapshot; anonymous callers get the public one. 404 while
+ * `Map:Enabled` or `Map:LivePlayers:Enabled` is off. Never cached (`no-store`).
+ */
+export interface MapPlayersDto {
+  /** How often the page should poll, in milliseconds. */
+  intervalMs: number;
+  players: MapPlayerDto[];
+  /** One pin per running minigame match (O13, O24, O31), the same for every audience. */
+  arenas: MapArenaDto[];
+}
+
+export interface MapPlayerDto {
+  /** The Minecraft UUID (lower case): the head is drawn from it. */
+  uuid: string;
+  world: string;
+  x: number;
+  y: number;
+  z: number;
+  /** Facing in whole degrees, Minecraft convention. */
+  yaw: number;
+  label: MapPlayerLabelDto;
+  afk: boolean;
+  /** `staff`, `owner` or `hidden` (an unknown mode); only in the "may see hidden" snapshot. */
+  mode: 'staff' | 'owner' | 'hidden' | string | null;
+  /** The minigame tag (`Siege`) of a player in a running match; only in the "may see hidden" snapshot. */
+  minigame: string | null;
+}
+
+/**
+ * The in-game chat line's parts (O23, knk-plugin `ChatLineFormat`): `[rankTag]-{braced}- name`. Colours are Minecraft
+ * `&` codes as the groups store them (a colour, optionally formats, or hex `&x&r&r&g&g&b&b`).
+ */
+export interface MapPlayerLabelDto {
+  /** `OWNER`, `STAFF` or null. */
+  rankTag: string | null;
+  /** The text inside `-{ }-`, or null to leave the segment out. */
+  braced: string | null;
+  bracedBold: boolean;
+  name: string;
+  /** Colour codes of the brackets (`[ ]`, `-{ }-`). */
+  bracketColor: string;
+  /** Colour codes of the rank tag, the braced text and the name. */
+  textColor: string;
+}
+
+export interface MapArenaDto {
+  /** The minigame tag, for example `Siege`. */
+  minigame: string;
+  /** For example `[Siege] 12 players`. */
+  label: string;
+  playerCount: number;
+  pin: MapPinDto;
+}
