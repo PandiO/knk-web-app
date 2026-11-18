@@ -21,6 +21,7 @@ import { FeedbackModal } from '../components/FeedbackModal';
 import { refusedDeleteDetails } from '../components/ReferenceDetails';
 import { isReferenceRefusal } from '../utils/referenceDetails';
 import { GroupPermissionsPanel } from '../components/admin/permissionGroups/GroupPermissionsPanel';
+import { DomainLandmarksPanel, showsDomainLandmarks } from '../components/landmarks/DomainLandmarksPanel';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -178,6 +179,10 @@ export const DisplayWizardPage: React.FC = () => {
       {/* PandiO/knk-workspace#50: a permission group's own grants and their history, below the group's details. */}
       {entityName.toLowerCase() === 'permissiongroup' && numericId != null && (
         <GroupPermissionsPanel groupId={numericId} groupName={entityLabel ?? `Group #${numericId}`} />
+      )}
+      {/* Off-road navigation phase 5.1 (PandiO/knk-workspace#708): the landmarks linked to a domain. */}
+      {showsDomainLandmarks(entityName) && numericId != null && (
+        <DomainLandmarksPanel domainId={numericId} domainName={entityLabel ?? `${typeLabel} #${numericId}`} returnTo={here} />
       )}
       {confirmModal}
       <FeedbackModal

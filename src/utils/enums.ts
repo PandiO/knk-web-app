@@ -86,6 +86,8 @@ export enum Controllers {
     Domains = 'Domains',
     Grades = 'Grades',
     Tags = 'Tags',
+    // Off-road navigation phase 5.1 (PandiO/knk-workspace#708): api/landmarks
+    Landmarks = 'landmarks',
     ItemBlueprints = 'ItemBlueprints',
     Kits = 'Kits',
     Discoveries = 'discoveries',
@@ -335,6 +337,15 @@ export enum DomainOperation {
 }
 
 export enum GradeOperation {
+    GetAll = '',
+    GetById = '',
+    Create = '',
+    Update = '',
+    Delete = '',
+    SearchPaged = 'search'
+}
+
+export enum LandmarkOperation {
     GetAll = '',
     GetById = '',
     Create = '',

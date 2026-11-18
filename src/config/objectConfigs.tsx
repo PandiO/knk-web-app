@@ -9,6 +9,7 @@ import {
   pickerWorldName
 } from '../utils/forms/pickerRowValues';
 import { MinecraftIcon } from '../components/minecraft/MinecraftIcon';
+import { landmarkAreaLabel, landmarkDomainLabel, landmarkPointLabel } from '../utils/landmarks';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
   default: [
@@ -323,6 +324,17 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'isEnabled', label: 'Enabled', sortable: false, render: (row: any) => row.isEnabled ? 'Yes' : '-' },
       { key: 'mode', label: 'Mode', sortable: false },
       { key: 'rotationCount', label: 'Scenarios', sortable: false },
+    ]
+  },
+  // Off-road navigation phase 5.1 (PandiO/knk-workspace#708): landmarks.
+  landmark: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'world', label: 'World', sortable: true, render: (row: any) => row.world ?? '-' },
+      { key: 'point', label: 'Point', sortable: false, render: (row: any) => landmarkPointLabel(row) },
+      { key: 'domainName', label: 'Domain', sortable: true, render: (row: any) => landmarkDomainLabel(row) },
+      { key: 'extentKind', label: 'Area', sortable: false, render: (row: any) => landmarkAreaLabel(row) },
+      { key: 'navigationEnabled', label: 'In /navigate', sortable: false, render: (row: any) => row.navigationEnabled ? 'Yes' : 'No' },
     ]
   },
   titlebracket: {

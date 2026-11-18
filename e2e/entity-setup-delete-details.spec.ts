@@ -107,6 +107,8 @@ test('deleting a draft and its entities: a skipped entity offers "Show what uses
   api.on('DELETE', 'FormSubmissionProgress/9', { status: 204 });
   api.json<DisplayConfigurationDto>('GET', 'DisplayConfigurations/entity/Structure', { name: 'Structure display', entityTypeName: 'Structure', isDefault: true, isDraft: false, sections: [] });
   api.json('GET', 'Structures/3', { id: 3, name: 'Smithy' });
+  // The structure page's landmark list (PandiO/knk-workspace#708): none.
+  api.on('POST', 'landmarks/search', { body: { items: [], totalCount: 0, page: 1, pageSize: 100, totalPages: 0 } });
   await page.goto('/forms/town');
 
   await page.getByRole('button', { name: 'Delete saved progress' }).click();
