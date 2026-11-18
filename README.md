@@ -13,6 +13,7 @@ inlines them into the bundle, so a change needs a new `npm run build` (or a rest
 |---|---|---|
 | `REACT_APP_API_BASE_URL` | `http://localhost:5294/api` in development, `/api` in a production build | Base URL of `knk-web-api`. Use `/api` when the API is served on the same origin as the app (the closed-alpha setup). |
 | `REACT_APP_MC_SERVER_ADDRESS` | `play.knightsandkings.net` | The Minecraft server address shown on the landing and register pages. |
+| `REACT_APP_BLUEMAP_URL` | `/bluemap/` | Where the overview map (`/map`, PandiO/knk-workspace#737) loads BlueMap's web app in its iframe. Keep it on the app's own origin (OVERVIEW_MAP_DESIGN O26): the bridge (`public/bluemap-bridge/bridge.js`) and the page accept messages only from that origin. |
 
 Example production build for the alpha:
 
