@@ -22,6 +22,8 @@ test.beforeEach(async ({ page, api }) => {
   api.json<EntityMetadataDto[]>('GET', 'Metadata/entities', townMetadata);
   api.json<DisplayConfigurationDto>('GET', 'DisplayConfigurations/entity/Town', townDisplay);
   api.json<TownDto>('GET', 'Towns/4', cinix);
+  // The landmark list below the details (PandiO/knk-workspace#708): none here; e2e/landmarks.spec.ts covers it.
+  api.on('POST', 'landmarks/search', { body: { items: [], totalCount: 0, page: 1, pageSize: 100, totalPages: 0 } });
   // Realtime stays offline: the page works without live updates.
   api.on('POST', 'hubs/web/negotiate', { status: 404 });
 });
