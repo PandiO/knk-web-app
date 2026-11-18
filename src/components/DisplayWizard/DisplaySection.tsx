@@ -16,6 +16,11 @@ import { entityTypeFallbackLabel } from '../../utils/entityLabel';
 type Props = DisplaySectionProps & {
   /** #188: every type's metadata (relationships, action nodes); without it the relationship buttons stay hidden. */
   metadata?: EntityMetadataDto[];
+  /**
+   * #740: the compact, read-only form (map panel): smaller, no buttons or hot edit, a collection collapsed under its
+   * name and count. It checks no relationship, delete or edit nodes, since it offers none of those actions.
+   */
+  compact?: boolean;
 };
 
 /** Select/Add and Unlink of one relationship: what the API allows (with its reason), then the nodes (#280; plus
@@ -49,6 +54,7 @@ export const DisplaySection: React.FC<Props> = ({
   onActionClick,
   onValueChange,
   metadata,
+  compact = false,
 }) => {
   const navigate = useNavigate();
 
@@ -81,12 +87,14 @@ export const DisplaySection: React.FC<Props> = ({
   const targetLabel = targetMeta?.displayName || (targetType ? entityTypeFallbackLabel(targetType) : '');
   // #374: Select / Unlink / Add change the record, so they need knk.admin.content too (an API with #374 lists it in
   // `nodes` already; adding it here keeps the gate right against an older API).
-  const relationshipNodes = React.useMemo(() => (relationship ? withContentNode(relationship.nodes) : undefined), [relationship]);
+  const relationshipNodes = React.useMemo(
+    () => (relationship && !compact ? withContentNode(relationship.nodes) : undefined), [relationship, compact]);
   const nodesGate = useAllNodesGate(relationshipNodes);
-  const deleteNodes = useAllNodesGate(targetMeta?.actionNodes?.delete);
+  const deleteNodes = useAllNodesGate(compact ? undefined : targetMeta?.actionNodes?.delete);
   // #383: a field's hot edit saves through the type's update (PUT), which #374 gates: the type's edit nodes plus
   // knk.admin.content (a user's keeps knk.admin.user.manage).
-  const hotEditNodes = React.useMemo(() => changeNodesOf(ownMeta, 'edit', entityTypeName), [ownMeta, entityTypeName]);
+  const hotEditNodes = React.useMemo(
+    () => (compact ? undefined : changeNodesOf(ownMeta, 'edit', entityTypeName)), [ownMeta, entityTypeName, compact]);
   const hotEditGate = useAllNodesGate(hotEditNodes);
   const linkGate = relationshipGate(relationship?.canLink, relationship?.linkReason, nodesGate);
   const unlinkGate = relationshipGate(relationship?.canUnlink, relationship?.unlinkReason, nodesGate);
@@ -110,6 +118,55 @@ export const DisplaySection: React.FC<Props> = ({
   const isRelatedSingle = !section.isCollection && !!section.relatedEntityPropertyName;
   const hasRelated = isRelatedSingle && !!sectionData && typeof sectionData === 'object';
   const singleId = hasRelated ? relatedIdOf(sectionData, relationship) : undefined;
+
+  if (compact) {
+    const fields = isRelatedSingle && !hasRelated ? (
+      <p className="text-sm text-muted">No {targetLabel || section.sectionName} linked.</p>
+    ) : (
+      <dl className="space-y-2 text-sm">
+        {orderedFields.map((field, index) => field && (
+          <DisplayField
+            key={field.fieldGuid ?? index}
+            field={field}
+            data={field.relatedEntityPropertyName ? entityData : sectionData}
+            entityId={entityId}
+            entityTypeName={entityTypeName}
+            parentEntityType={section.relatedEntityTypeName}
+            recordLink={isRelatedSingle && index === 0 ? { typeName: targetType, id: singleId } : undefined}
+          />
+        ))}
+      </dl>
+    );
+    if (section.isCollection) {
+      return (
+        <details className="rounded-md border border-line bg-surface-alt" aria-label={section.sectionName}>
+          <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-fg">
+            {section.sectionName}
+            {count !== null && (
+              <span className="ml-2 rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-muted"
+                aria-label={`${formatNumber(count)} ${count === 1 ? 'item' : 'items'}`}>
+                {formatNumber(count)}
+              </span>
+            )}
+          </summary>
+          <div className="border-t border-line px-3 py-2">
+            <CollectionSection
+              section={section}
+              collectionData={sectionData as unknown[]}
+              relationship={relationship}
+              compact
+            />
+          </div>
+        </details>
+      );
+    }
+    return (
+      <section className="rounded-md border border-line bg-surface-alt px-3 py-2" aria-label={section.sectionName}>
+        <h4 className="mb-2 text-sm font-semibold text-fg">{section.sectionName}</h4>
+        {fields}
+      </section>
+    );
+  }
 
   return (
     <section className="bg-surface rounded-lg shadow-md p-4 sm:p-6" aria-label={section.sectionName}>
