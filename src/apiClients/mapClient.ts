@@ -3,6 +3,7 @@ import {
   MapConfigDto,
   MapDistrictPanelDto,
   MapMarkersDto,
+  MapPlayersDto,
   MapStructurePanelDto,
   MapTownPanelDto,
 } from '../types/dtos/map/MapDtos';
@@ -39,6 +40,11 @@ export class MapClient extends ObjectManager {
 
   getStructure(id: number): Promise<MapStructurePanelDto> {
     return this.invokeServiceCall(null, `structures/${id}`, Controllers.Map, HttpMethod.Get);
+  }
+
+  /** The live players of the caller's audience (#738/#739); the JWT, when logged in, selects the audience. */
+  getPlayers(): Promise<MapPlayersDto> {
+    return this.invokeServiceCall(null, 'players', Controllers.Map, HttpMethod.Get);
   }
 }
 
