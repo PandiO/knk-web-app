@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { MapEntityKind } from './bridgeProtocol';
 import { registerDefaultMapEntities } from './defaultMapRegistrations';
+import { registerStaffDetails } from './staffDetailsRegistrations';
 
 /**
  * The map action registry (OVERVIEW_MAP_DESIGN § 5 rule 13, O14, O16; PandiO/knk-workspace#737, A22).
@@ -124,9 +125,9 @@ export class MapActionRegistry {
   }
 }
 
-/** A registry with the built-in kinds (town, district, structure) and their public widgets. */
+/** A registry with the built-in kinds (town, district, structure), their public widgets and staff details (#740). */
 export function createMapActionRegistry(): MapActionRegistry {
-  return registerDefaultMapEntities(new MapActionRegistry());
+  return registerStaffDetails(registerDefaultMapEntities(new MapActionRegistry()));
 }
 
 /** The app's registry: the map page reads it; later features add their widgets and actions to it. */

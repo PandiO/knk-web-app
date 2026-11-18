@@ -102,10 +102,13 @@ describe('MapActionRegistry', () => {
 });
 
 describe('the built-in registrations', () => {
-  it('registers town, district and structure with no staff widgets or actions yet', () => {
+  it('registers town, district and structure; their only node is the staff details\' read node (#740)', () => {
     const registry = createMapActionRegistry();
     expect(registry.kinds().sort()).toEqual(['district', 'structure', 'town']);
-    expect(registry.nodesFor('town')).toEqual([]);
+    expect(registry.nodesFor('town')).toEqual(['knk.admin.world']);
+    expect(registry.nodesFor('district')).toEqual(['knk.admin.world']);
+    expect(registry.nodesFor('structure')).toEqual(['knk.admin.world']);
+    expect(registry.get('structure')!.actions).toEqual([]);
   });
 
   it('shows the town panel with its public fields and the "Show region" switch', async () => {

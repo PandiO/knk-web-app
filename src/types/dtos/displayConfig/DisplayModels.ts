@@ -113,6 +113,12 @@ export interface DisplayWizardProps {
   renderHeader?: (entity: Record<string, unknown>) => import('react').ReactNode;
   /** #183: changing it re-reads the entity quietly (another admin changed it); not on mount. */
   liveRefreshKey?: number;
+  /**
+   * PandiO/knk-workspace#740 (overview map § 6.3.3, O16): the compact form for a side panel. No header, every
+   * collection collapsed, values read-only and related records as links; no buttons, hot edit or pickers (changes
+   * happen on the full page). Default false: the detail page as before.
+   */
+  compact?: boolean;
 }
 
 export interface DisplayAction {

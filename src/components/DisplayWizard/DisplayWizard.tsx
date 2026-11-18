@@ -71,7 +71,8 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
   configurationId,
   onActionClick,
   renderHeader,
-  liveRefreshKey
+  liveRefreshKey,
+  compact = false,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -139,18 +140,30 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
   const lookupGettable = ownMeta?.lookupGettable === true;
   useEffect(() => {
     setRefusedLabel(null);
-    if (problem?.kind !== 'noAccess' || !lookupGettable) return;
+    if (compact || problem?.kind !== 'noAccess' || !lookupGettable) return;
     let cancelled = false;
     lookupClient.get(entityTypeName, entityId)
       .then(item => { if (!cancelled && item?.label) setRefusedLabel(item.label); })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [problem?.kind, lookupGettable, entityTypeName, entityId]);
+  }, [compact, problem?.kind, lookupGettable, entityTypeName, entityId]);
 
   const refreshQuietly = useCallback(() => refetchEntityData(true), [refetchEntityData]);
 
   if (configLoading || dataLoading) {
-    return <div className="display-wizard-loading" role="status">Loading…</div>;
+    return compact
+      ? <p className="text-sm text-muted" role="status">Loading details…</p>
+      : <div className="display-wizard-loading" role="status">Loading…</div>;
+  }
+
+  // #740: the compact form says what went wrong in a line; the panel around it offers the way out.
+  if (problem && compact) {
+    return (
+      <div className="text-sm" role="alert" data-testid="detail-problem">
+        <p className="font-medium text-fg">{problem.title}</p>
+        {problem.detail && <p className="mt-1 text-muted">{problem.detail}</p>}
+      </div>
+    );
   }
 
   if (problem) {
@@ -172,6 +185,27 @@ export const DisplayWizard: React.FC<DisplayWizardProps> = ({
 
   if (!config || !entityData) {
     return <div className="display-wizard-empty">Nothing to show.</div>;
+  }
+
+  // #740: compact = read-only sections with links, nothing that changes the record.
+  if (compact) {
+    return (
+      <DetailLinksContext.Provider value={links}>
+        <div className="display-wizard space-y-3" data-display-mode="compact">
+          {sections.map(section => (
+            <DisplaySection
+              key={section.sectionGuid ?? section.sectionName}
+              section={section}
+              entityData={entityData}
+              entityId={entityId}
+              entityTypeName={entityTypeName}
+              metadata={baseMetadata}
+              compact
+            />
+          ))}
+        </div>
+      </DetailLinksContext.Provider>
+    );
   }
 
   // Hot edit: the whole entity with the one field changed, through the type's own update.
