@@ -190,3 +190,38 @@ export interface MapArenaDto {
   playerCount: number;
   pin: MapPinDto;
 }
+
+/** Gate quick actions (PandiO/knk-workspace#741/#742, O17, § 6.2.10): what a command asks a gate or one door to do. */
+export type GateCommandAction = 'open' | 'close' | 'toggle' | 'repair';
+
+/** `POST api/GateStructures/{id}/commands` body; no `doorId` = the whole gate. */
+export interface GateCommandRequestDto {
+  action: GateCommandAction;
+  doorId?: number;
+}
+
+/** A door after a command, as the game server reported it (`state` may still be `opening` or `closing`). */
+export interface GateCommandDoorResultDto {
+  doorId: number;
+  state: string;
+  healthCurrent: number;
+  healthMax: number;
+  destroyed: boolean;
+  outcome: string | null;
+  reason: string | null;
+}
+
+/**
+ * The command's answer: 200 with `result` `done` or `refused` (the game server's answer and message); 409 `siege`,
+ * 504 `timeout` carry the same shape. Refusals before sending (404 GateCommandsOff, 400, 409 GateInSiege, 503
+ * NoGameServerConnected) are `{error, message}`.
+ */
+export interface GateCommandResponseDto {
+  commandId: string;
+  gateId: number;
+  doorId: number | null;
+  action: string;
+  result: 'done' | 'refused' | 'siege' | 'timeout' | string;
+  message: string | null;
+  doors: GateCommandDoorResultDto[];
+}

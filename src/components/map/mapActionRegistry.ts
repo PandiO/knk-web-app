@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { MapEntityKind } from './bridgeProtocol';
 import { registerDefaultMapEntities } from './defaultMapRegistrations';
+import { registerGateCommands } from './gateCommandRegistrations';
 import { registerStaffDetails } from './staffDetailsRegistrations';
 
 /**
@@ -9,7 +10,8 @@ import { registerStaffDetails } from './staffDetailsRegistrations';
  * Each entity kind the map can show registers how its panel loads, its public widgets (everyone, the O32 fields),
  * its staff widgets and its actions, each with the permission node that unlocks it. The panel (MapPanel) renders
  * whatever is registered; the bridge script never hears about any of it, so a new action or widget never touches
- * BlueMap's side. Later links add to the registry: staff details (#740), gate command buttons (#742), the player
+ * BlueMap's side. Later links add to the registry: staff details (#740), gate command buttons (#742,
+ * gateCommandRegistrations.tsx), the player
  * moderation panel (#743), for example:
  *
  *     mapActionRegistry.addAction<MapStructurePanelDto>('structure', {
@@ -30,6 +32,8 @@ export interface MapPanelContext {
   setRegionShown: (shown: boolean) => void;
   /** Reads the entity again (after an action changed it, O03: fresh on click). */
   reload: () => void;
+  /** The map parts staff actions depend on, from `GET api/Map/config` (#742: `Map:GateCommands:Enabled`). */
+  gateCommands: { enabled: boolean };
 }
 
 export interface MapWidgetProps<T> {
@@ -42,8 +46,8 @@ export interface MapPanelWidget<T> {
   id: string;
   /** The node a viewer needs to see it; null or absent for everyone (public widgets). */
   node?: string | null;
-  /** Shown only when this returns true (for example only for a gate). */
-  visible?: (data: T) => boolean;
+  /** Shown only when this returns true (for example only for a gate, or only while a map part is on). */
+  visible?: (data: T, context: MapPanelContext) => boolean;
   Component: React.ComponentType<MapWidgetProps<T>>;
 }
 
@@ -53,7 +57,7 @@ export interface MapPanelAction<T> {
   label: string;
   /** The node a viewer needs to see the button; null for everyone. The API checks again on its own. */
   node: string | null;
-  visible?: (data: T) => boolean;
+  visible?: (data: T, context: MapPanelContext) => boolean;
   run: (data: T, context: MapPanelContext) => void | Promise<void>;
 }
 
@@ -125,9 +129,13 @@ export class MapActionRegistry {
   }
 }
 
-/** A registry with the built-in kinds (town, district, structure), their public widgets and staff details (#740). */
+/**
+ * A registry with the built-in kinds (town, district, structure), their public widgets, the gate command buttons (#742)
+ * and staff details (#740). Gate commands come first in a gate's staff section, so the buttons stay above the long
+ * details.
+ */
 export function createMapActionRegistry(): MapActionRegistry {
-  return registerStaffDetails(registerDefaultMapEntities(new MapActionRegistry()));
+  return registerStaffDetails(registerGateCommands(registerDefaultMapEntities(new MapActionRegistry())));
 }
 
 /** The app's registry: the map page reads it; later features add their widgets and actions to it. */
