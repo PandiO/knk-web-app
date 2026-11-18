@@ -3,19 +3,21 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { LogOut, UserCircle2, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { CONTENT_PERMISSION_NODE, usePermission, usePermissions } from '../hooks/useStaffAccess';
-import { ADMIN_HOME_ID, isWithin, RouteMeta, routeAllowed, TOP_NAV_NODES, TOP_NAV_ROUTES } from '../routes/routeTable';
+import { ADMIN_HOME_ID, isWithin, MAP_ROUTE_ID, RouteMeta, routeAllowed, TOP_NAV_NODES, TOP_NAV_ROUTES } from '../routes/routeTable';
 import { useRouteMeta } from '../routes/useRouteMeta';
 import { useAdminNav } from '../routes/useAdminNav';
 import { NavLayout, pickNavLayout } from './navLayout';
 import { CreateNewMenu } from './CreateNewMenu';
 import { themePickerVisible } from '../theme/themes';
 import { ThemeSwitcher } from '../theme/ThemeSwitcher';
+import { useMapAvailability } from './map/useMapAvailability';
 
 // added: explicit types for object types prop
 type ObjectType = { id: string; label: string; icon: React.ReactNode; createRoute: string };
 type Props = { objectTypes: ObjectType[] };
 
-// The bar's links come from the route-meta table (PandiO/knk-workspace#30): Home, Leaderboards, Guides,
+// The bar's links come from the route-meta table (PandiO/knk-workspace#30): Home, Leaderboards, Guides, Map (#737,
+// only while the map is on),
 // Dashboard for holders of its node (the dashboard route's gate; LW4-1, developer's decision 2026-11-06) and,
 // for anyone holding the node of at least one admin page, Admin. The other admin pages are in the admin
 // layout's grouped sidebar (and on /admin), each shown only with its own node; that also fixed #262
@@ -59,9 +61,12 @@ export function Navigation({ objectTypes }: Props) {
   const currentRoute = useRouteMeta();
   const adminNav = useAdminNav();
   const topNavStatuses = usePermissions(TOP_NAV_NODES);
+  // The overview map (#737): its link only while the API says the map is on (O27).
+  const mapOn = useMapAvailability().status === 'on';
   const navLinks = TOP_NAV_ROUTES
     .filter(route => {
       if (route.id === ADMIN_HOME_ID) return adminNav.any;
+      if (route.id === MAP_ROUTE_ID) return mapOn;
       return routeAllowed(route.access, topNavStatuses);
     })
     .map(toNavLink);

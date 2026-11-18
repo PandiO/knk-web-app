@@ -118,6 +118,8 @@ export const ROUTES = defineRoutes({
   siegeMatch: { path: '/siege/matches/:id', layout: 'public', access: PUBLIC, title: 'Siege match' },
   // Guides (#221): player guides, the custom enchantment info page first.
   guides: { path: '/guides', layout: 'public', access: PUBLIC, title: 'Guides', topNav: { icon: BookOpen } },
+  // The overview map (PandiO/knk-workspace#737): public; the bar shows it only while the API's Map:Enabled is on (O27).
+  map: { path: '/map', layout: 'public', access: PUBLIC, title: 'Map', topNav: { icon: MapIcon } },
   enchantmentGuide: { path: '/guides/enchantments', layout: 'public', access: PUBLIC, title: 'Custom enchantments', parent: 'guides' },
 
   // --- Player area (logged in) ---
@@ -329,6 +331,8 @@ export const ADMIN_NODES: string[] = Array.from(new Set(SIDEBAR_ROUTES.flatMap(r
 
 /** The id of the /admin overview: its bar link is current on the admin pages no other bar link covers. */
 export const ADMIN_HOME_ID = 'adminHome';
+/** The overview map's bar link: shown only while the map is on (useMapAvailability, O27). */
+export const MAP_ROUTE_ID = 'map';
 
 /**
  * The links of the top bar, in table order with the Admin overview last: Home, Leaderboards, Guides,

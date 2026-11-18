@@ -52,7 +52,7 @@ describe('route-meta table', () => {
       '/': 'public', '/auth/register': 'public', '/auth/login': 'public', '/auth/forgot-password': 'public',
       '/auth/reset-password': 'public', '/invite/:token': 'public', '/invite': 'public', '/join': 'public', '/link': 'public',
       '/account/delete-data/confirm': 'public', '/leaderboards': 'public', '/players/:username': 'public',
-      '/siege/matches/:id': 'public', '/guides': 'public', '/guides/enchantments': 'public', '*': 'public',
+      '/siege/matches/:id': 'public', '/guides': 'public', '/guides/enchantments': 'public', '/map': 'public', '*': 'public',
       '/account': 'login', '/account/link': 'login', '/account/transactions': 'login',
       '/admin': 'login',
       '/dashboard': AREA, '/dashboard/:entityName': AREA,
@@ -123,8 +123,9 @@ describe('route-meta table', () => {
     expect(new Set(ADMIN_NODES).size).toBe(ADMIN_NODES.length);
   });
 
-  it('lists the bar links: Home, Leaderboards, Guides, Dashboard, Admin last (LW4-1)', () => {
-    expect(TOP_NAV_ROUTES.map(route => route.id)).toEqual(['home', 'leaderboards', 'guides', 'dashboard', 'adminHome']);
+  // Map (#737): the bar shows it only while the API says the map is on (Navigation, useMapAvailability).
+  it('lists the bar links: Home, Leaderboards, Guides, Map, Dashboard, Admin last (LW4-1)', () => {
+    expect(TOP_NAV_ROUTES.map(route => route.id)).toEqual(['home', 'leaderboards', 'guides', 'map', 'dashboard', 'adminHome']);
     // The Dashboard link has the dashboard route's gate.
     expect(ROUTES.dashboard.access).toEqual({ kind: 'staffAny', nodes: AREA_NODES });
     expect(TOP_NAV_NODES).toEqual([...AREA_NODES]);
