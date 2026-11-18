@@ -10,6 +10,7 @@ import { toBridgeMarkers, townRegionKeys } from '../../components/map/mapMarkers
 import { MapPanel, MapSelection } from '../../components/map/MapPanel';
 import { toBridgePlayers } from '../../components/map/mapPlayers';
 import { MapPlayerPanel } from '../../components/map/PlayerCard';
+import { PlayerModerationPanel } from '../../components/map/PlayerModerationPanel';
 import { useLivePlayers } from '../../components/map/useLivePlayers';
 import { useMapAvailability } from '../../components/map/useMapAvailability';
 
@@ -131,7 +132,7 @@ const MapView: React.FC<{ initialConfig: MapConfigDto; registry: MapActionRegist
         break;
       }
       case 'playerClicked':
-        // The name card (§ 4.4); the player context panel (#743) extends MapPlayerPanel.
+        // The name card (§ 4.4), with the player context panel (#743) below it for moderators.
         setSelection(null);
         setSelectedPlayer(message.payload.uuid);
         break;
@@ -180,7 +181,9 @@ const MapView: React.FC<{ initialConfig: MapConfigDto; registry: MapActionRegist
         />
       )}
       {selectedPlayer && (
-        <MapPlayerPanel key={selectedPlayer} player={clickedPlayer} onClose={() => setSelectedPlayer(null)} />
+        <MapPlayerPanel key={selectedPlayer} player={clickedPlayer} onClose={() => setSelectedPlayer(null)}>
+          {clickedPlayer && <PlayerModerationPanel player={clickedPlayer} />}
+        </MapPlayerPanel>
       )}
     </div>
   );
