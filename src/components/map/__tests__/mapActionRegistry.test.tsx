@@ -102,12 +102,12 @@ describe('MapActionRegistry', () => {
 });
 
 describe('the built-in registrations', () => {
-  it('registers town, district and structure; their only node is the staff details\' read node (#740)', () => {
+  it('registers town, district and structure; their nodes are the staff details\' read node (#740) and, for structures, knk.gate.admin (#742)', () => {
     const registry = createMapActionRegistry();
     expect(registry.kinds().sort()).toEqual(['district', 'structure', 'town']);
     expect(registry.nodesFor('town')).toEqual(['knk.admin.world']);
     expect(registry.nodesFor('district')).toEqual(['knk.admin.world']);
-    expect(registry.nodesFor('structure')).toEqual(['knk.admin.world']);
+    expect(registry.nodesFor('structure')).toEqual(['knk.admin.world', 'knk.gate.admin']);
     expect(registry.get('structure')!.actions).toEqual([]);
   });
 

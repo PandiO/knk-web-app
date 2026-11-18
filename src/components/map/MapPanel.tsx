@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { usePermissions } from '../../hooks/useStaffAccess';
 import type { MapEntityKind } from './bridgeProtocol';
 import type { MapActionRegistry, MapPanelAction, MapPanelContext, MapPanelWidget } from './mapActionRegistry';
+import { useMapAvailability } from './useMapAvailability';
 
 export interface MapSelection {
   kind: MapEntityKind;
@@ -33,9 +34,13 @@ export const MapPanel: React.FC<Props> = ({ registry, selection, regionShown, ca
   const registration = registry.get<unknown>(selection.kind);
   const [state, setState] = useState<LoadState<unknown>>({ status: 'loading' });
   const [reloadKey, setReloadKey] = useState(0);
+  const shownKey = useRef<string | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const nodes = useMemo(() => registry.nodesFor(selection.kind), [registry, selection.kind]);
   const statuses = usePermissions(nodes);
+  // The page's shared config answer (one api/Map/config per page load): no extra request.
+  const availability = useMapAvailability();
+  const gateCommandsEnabled = availability.status === 'on' && availability.config.gateCommands?.enabled === true;
 
   useEffect(() => {
     if (!registration) {
@@ -43,7 +48,11 @@ export const MapPanel: React.FC<Props> = ({ registry, selection, regionShown, ca
       return;
     }
     let cancelled = false;
-    setState({ status: 'loading' });
+    // A reload after an action keeps the current data on screen (and its widgets mounted, with what they show, such
+    // as a command's result) until the fresh data arrives; a new selection starts from "Loading…".
+    const selectionKey = `${selection.kind}:${selection.id}`;
+    if (shownKey.current !== selectionKey) setState({ status: 'loading' });
+    shownKey.current = selectionKey;
     registration.load(selection.id).then(
       data => { if (!cancelled) setState({ status: 'loaded', data }); },
       err => {
@@ -52,7 +61,7 @@ export const MapPanel: React.FC<Props> = ({ registry, selection, regionShown, ca
       },
     );
     return () => { cancelled = true; };
-  }, [registration, selection.id, reloadKey]);
+  }, [registration, selection.kind, selection.id, reloadKey]);
 
   const reload = useCallback(() => setReloadKey(key => key + 1), []);
 
@@ -63,10 +72,11 @@ export const MapPanel: React.FC<Props> = ({ registry, selection, regionShown, ca
     canShowRegion,
     setRegionShown: onRegionShownChange,
     reload,
+    gateCommands: { enabled: gateCommandsEnabled },
   };
 
   const renderWidgets = (widgets: MapPanelWidget<unknown>[], data: unknown) => widgets
-    .filter(widget => allowedBy(widget.node, statuses) && (!widget.visible || widget.visible(data)))
+    .filter(widget => allowedBy(widget.node, statuses) && (!widget.visible || widget.visible(data, context)))
     .map(widget => <widget.Component key={widget.id} data={data} context={context} />);
 
   const runAction = async (action: MapPanelAction<unknown>, data: unknown) => {
@@ -83,7 +93,7 @@ export const MapPanel: React.FC<Props> = ({ registry, selection, regionShown, ca
   const subtitle = registration?.subtitle && state.status === 'loaded' ? registration.subtitle(state.data) : null;
   const staffWidgets = registration && loaded !== undefined ? renderWidgets(registration.staffWidgets, loaded) : [];
   const actions = registration && loaded !== undefined
-    ? registration.actions.filter(action => allowedBy(action.node, statuses) && (!action.visible || action.visible(loaded)))
+    ? registration.actions.filter(action => allowedBy(action.node, statuses) && (!action.visible || action.visible(loaded, context)))
     : [];
 
   return (

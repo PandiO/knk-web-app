@@ -8,6 +8,7 @@ import type { MapPanelContext } from '../mapActionRegistry';
 // PandiO/knk-workspace#737, A09: each door with open/closed, destroyed and a health bar.
 const context: MapPanelContext = {
   kind: 'structure', id: 9, regionShown: false, canShowRegion: false, setRegionShown: jest.fn(), reload: jest.fn(),
+  gateCommands: { enabled: false },
 };
 
 const gate: MapStructurePanelDto = {
