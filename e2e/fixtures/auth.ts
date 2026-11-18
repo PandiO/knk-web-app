@@ -72,6 +72,8 @@ export function mockSession(api: MockApi, user: UserDto, allowed: (node: string)
   mockPermissions(api, user, allowed);
   // The realtime hub stays offline: the negotiate call is refused, so pages fall back to their own reloads.
   api.on('POST', /^hubs\//, { status: 404, body: { error: 'RealtimeOff' } });
+  // The overview map (#737) is off unless a spec turns it on: the bar asks api/Map/config on every page.
+  api.on('GET', 'Map/config', { status: 404, body: { error: 'MapOff' } });
 }
 
 /**

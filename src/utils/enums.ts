@@ -146,6 +146,8 @@ export enum Controllers {
     // Player statistics (KNG-34)
     Statistics = 'statistics',
     Leaderboards = 'leaderboards',
+    // Public overview map (PandiO/knk-workspace#736/#737): api/Map/..., anonymous, 404 while Map:Enabled is off
+    Map = 'Map',
     Players = 'players',
     // Public siege results log (alpha run 1, #174): api/siege-matches/public/...
     SiegeMatches = 'siege-matches',

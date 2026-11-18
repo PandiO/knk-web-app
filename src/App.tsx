@@ -36,6 +36,7 @@ import { PublicPlayerProfilePage } from './pages/players/PublicPlayerProfilePage
 import { SiegeMatchPage } from './pages/siege/SiegeMatchPage';
 import { GuidesPage } from './pages/guides/GuidesPage';
 import { EnchantmentGuidePage } from './pages/guides/EnchantmentGuidePage';
+import { MapPage } from './pages/map/MapPage';
 import React from 'react';
 import { RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage, InvitePage, JoinPage } from './pages/auth';
 import { LinkPage } from './pages/auth/LinkPage';
@@ -92,6 +93,7 @@ function AppContent() {
     publicPlayer: <PublicPlayerProfilePage />,
     siegeMatch: <SiegeMatchPage />,
     guides: <GuidesPage />,
+    map: <MapPage />,
     enchantmentGuide: <EnchantmentGuidePage />,
     account: <AccountManagementPage />,
     accountLink: <AccountLinkPage />,
