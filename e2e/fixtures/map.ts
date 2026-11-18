@@ -4,6 +4,8 @@ import type {
   MapConfigDto,
   MapDistrictPanelDto,
   MapMarkersDto,
+  MapPlayerDto,
+  MapPlayersDto,
   MapStructurePanelDto,
   MapTownPanelDto,
 } from '../../src/types/dtos/map/MapDtos';
@@ -95,6 +97,39 @@ export function mockMapOn(api: MockApi, config: MapConfigDto = mapConfig, marker
   api.json<MapDistrictPanelDto>('GET', 'Map/districts/4', harbour);
   api.json<MapStructurePanelDto>('GET', 'Map/structures/9', northGate);
 }
+
+/** The map with live players on (#739; API `Map:LivePlayers:Enabled`). */
+export const mapConfigLive: MapConfigDto = { ...mapConfig, livePlayers: { enabled: true, pollIntervalMs: 2000 } };
+
+/** Live players (#738 DTOs): an owner, a staff member, a premium player and a default player. */
+export const ownerPandi: MapPlayerDto = {
+  uuid: '00000000-0000-4000-8000-00000000000a', world: 'world', x: 20.5, y: 70, z: 30.5, yaw: 0, afk: false,
+  mode: null, minigame: null,
+  label: { rankTag: 'OWNER', braced: 'King', bracedBold: true, name: 'Pandi', bracketColor: '&6', textColor: '&5' },
+};
+export const staffMod: MapPlayerDto = {
+  uuid: '00000000-0000-4000-8000-00000000000b', world: 'world', x: 25, y: 70, z: 35, yaw: 90, afk: false,
+  mode: null, minigame: null,
+  label: { rankTag: 'STAFF', braced: 'Knight', bracedBold: true, name: 'Mod', bracketColor: '&3', textColor: '&9' },
+};
+export const premiumRich: MapPlayerDto = {
+  uuid: '00000000-0000-4000-8000-00000000000c', world: 'world', x: 30, y: 71, z: 40, yaw: 180, afk: false,
+  mode: null, minigame: null,
+  label: { rankTag: null, braced: 'Noble Squire', bracedBold: false, name: 'Rich', bracketColor: '&5', textColor: '&d' },
+};
+export const defaultJoe: MapPlayerDto = {
+  uuid: '00000000-0000-4000-8000-00000000000d', world: 'world', x: 40, y: 72, z: 45, yaw: 270, afk: true,
+  mode: null, minigame: null,
+  label: { rankTag: null, braced: null, bracedBold: false, name: 'Joe', bracketColor: '&2', textColor: '&a' },
+};
+export const netherNell: MapPlayerDto = {
+  uuid: '00000000-0000-4000-8000-00000000000e', world: 'world_nether', x: 1, y: 40, z: 1, yaw: 0, afk: false,
+  mode: null, minigame: null,
+  label: { rankTag: null, braced: null, bracedBold: false, name: 'Nell', bracketColor: '&2', textColor: '&a' },
+};
+
+export const playersSnapshot = (players: MapPlayerDto[], arenas: MapPlayersDto['arenas'] = []): MapPlayersDto =>
+  ({ intervalMs: 2000, players, arenas });
 
 /** The API's Map:Enabled off: every api/Map route answers 404. */
 export function mockMapOff(api: MockApi): void {
@@ -197,8 +232,15 @@ const FAKE_BLUEMAP = `<!doctype html>
 <script src="/bluemap-bridge/bridge.js?worlds=overworld:world,nether:world_nether"></script>
 </body></html>`;
 
-/** Serves the fake BlueMap web app under /bluemap/ (the real bridge script comes from the build). */
-export async function serveFakeBlueMap(page: Page): Promise<void> {
+/**
+ * Serves the fake BlueMap web app under /bluemap/ (the real bridge script comes from the build). `bridgeQuery` adds
+ * query parameters to the bridge's script URL as `webapp.conf` would (for example `heads=...`, #739).
+ */
+export async function serveFakeBlueMap(page: Page, bridgeQuery = ''): Promise<void> {
+  const body = bridgeQuery
+    ? FAKE_BLUEMAP.replace('bridge.js?worlds=overworld:world,nether:world_nether',
+      `bridge.js?worlds=overworld:world,nether:world_nether&${bridgeQuery}`)
+    : FAKE_BLUEMAP;
   await page.route(url => url.pathname.startsWith('/bluemap/'), route =>
-    route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: FAKE_BLUEMAP }));
+    route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body }));
 }

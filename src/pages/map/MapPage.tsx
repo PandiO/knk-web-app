@@ -2,18 +2,22 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom';
 import { mapClient } from '../../apiClients/mapClient';
 import { useAuth } from '../../contexts/AuthContext';
-import type { MapConfigDto, MapMarkersDto } from '../../types/dtos/map/MapDtos';
+import type { MapArenaDto, MapConfigDto, MapMarkersDto } from '../../types/dtos/map/MapDtos';
 import { BlueMapFrame, BlueMapFrameHandle } from '../../components/map/BlueMapFrame';
 import { MapToPageMessage, pageMessage, regionKey } from '../../components/map/bridgeProtocol';
 import { MapActionRegistry, mapActionRegistry } from '../../components/map/mapActionRegistry';
 import { toBridgeMarkers, townRegionKeys } from '../../components/map/mapMarkers';
 import { MapPanel, MapSelection } from '../../components/map/MapPanel';
+import { toBridgePlayers } from '../../components/map/mapPlayers';
+import { MapPlayerPanel } from '../../components/map/PlayerCard';
+import { useLivePlayers } from '../../components/map/useLivePlayers';
 import { useMapAvailability } from '../../components/map/useMapAvailability';
 
 /** How often the page asks for the marker version (§ 5 rule 2: reload the markers when it changes). */
 export const MARKER_VERSION_POLL_MS = 60_000;
 /** The bridge's region group of the town toggle: one town (with its districts) at a time (O05). */
 const TOWN_TOGGLE_GROUP = 'town-toggle';
+const NO_ARENAS: MapArenaDto[] = [];
 
 /**
  * The public overview map, `/map` (PandiO/knk-workspace#737; OVERVIEW_MAP_DESIGN § 4, § 5 rules 2–5, 13–15).
@@ -45,6 +49,10 @@ const MapView: React.FC<{ initialConfig: MapConfigDto; registry: MapActionRegist
   const [bridgeReady, setBridgeReady] = useState(0);
   const [selection, setSelection] = useState<MapSelection | null>(null);
   const [toggledTownId, setToggledTownId] = useState<number | null>(null);
+  /** A clicked live player (#739): the name card; one panel at a time, so it replaces a place's panel. */
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  // Live players (#739, O21): polled only while the API's Map:LivePlayers:Enabled is on (O27).
+  const livePlayers = useLivePlayers(config.livePlayers);
 
   // Markers: once per page view and whenever the marker version changes.
   useEffect(() => {
@@ -66,12 +74,32 @@ const MapView: React.FC<{ initialConfig: MapConfigDto; registry: MapActionRegist
     return () => window.clearInterval(timer);
   }, []);
 
-  const bridgeMarkers = useMemo(() => (markers ? toBridgeMarkers(markers, config.labels) : null), [markers, config.labels]);
+  // Arena pins come with every players poll; the pins are only sent again when the arenas actually change.
+  const arenasKey = JSON.stringify(livePlayers?.arenas ?? NO_ARENAS);
+  const arenas = useMemo<MapArenaDto[]>(() => JSON.parse(arenasKey), [arenasKey]);
+  const bridgeMarkers = useMemo(
+    () => (markers ? toBridgeMarkers(markers, config.labels, arenas) : null),
+    [markers, config.labels, arenas],
+  );
   const regionKeys = useMemo(() => new Set(bridgeMarkers?.regions.map(region => region.key) ?? []), [bridgeMarkers]);
 
   useEffect(() => {
     if (bridgeReady > 0 && bridgeMarkers) frameRef.current?.send(pageMessage('setMarkers', bridgeMarkers));
   }, [bridgeReady, bridgeMarkers]);
+
+  // Players: every poll, and again whenever the bridge (re)starts. Nothing is sent while the flag is off.
+  const bridgePlayers = useMemo(() => (livePlayers ? toBridgePlayers(livePlayers.players) : null), [livePlayers]);
+  const playersSent = useRef(false);
+  useEffect(() => {
+    if (bridgeReady === 0) return;
+    if (bridgePlayers) {
+      frameRef.current?.send(pageMessage('setPlayers', { players: bridgePlayers }));
+      playersSent.current = true;
+    } else if (playersSent.current) {
+      frameRef.current?.send(pageMessage('setPlayers', { players: [] }));
+      playersSent.current = false;
+    }
+  }, [bridgeReady, bridgePlayers]);
 
   useEffect(() => {
     if (bridgeReady === 0) return;
@@ -91,6 +119,7 @@ const MapView: React.FC<{ initialConfig: MapConfigDto; registry: MapActionRegist
       case 'markerClicked': {
         const { kind, id } = message.payload;
         if (!registry.get(kind)) return;
+        setSelectedPlayer(null);
         setSelection({ kind, id });
         if (kind === 'town' && regionKeys.has(regionKey('town', id))) {
           frameRef.current?.send(pageMessage('flashRegion', {
@@ -101,17 +130,31 @@ const MapView: React.FC<{ initialConfig: MapConfigDto; registry: MapActionRegist
         }
         break;
       }
+      case 'playerClicked':
+        // The name card (§ 4.4); the player context panel (#743) extends MapPlayerPanel.
+        setSelection(null);
+        setSelectedPlayer(message.payload.uuid);
+        break;
       default:
-        break; // playerClicked: live players (#739); cameraChanged: not used yet
+        break; // cameraChanged: not used yet
     }
   }, [registry, regionKeys, config.flash.count, config.flash.durationMs]);
 
+  const panelOpen = selection !== null || selectedPlayer !== null;
   useEffect(() => {
-    if (!selection) return;
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelection(null); };
+    if (!panelOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setSelection(null);
+      setSelectedPlayer(null);
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selection]);
+  }, [panelOpen]);
+
+  const clickedPlayer = selectedPlayer
+    ? livePlayers?.players.find(player => player.uuid === selectedPlayer) ?? null
+    : null;
 
   const isTown = selection?.kind === 'town';
   const canShowRegion = !!selection && isTown && regionKeys.has(regionKey('town', selection.id));
@@ -135,6 +178,9 @@ const MapView: React.FC<{ initialConfig: MapConfigDto; registry: MapActionRegist
           onRegionShownChange={shown => setToggledTownId(shown ? selection.id : null)}
           onClose={() => setSelection(null)}
         />
+      )}
+      {selectedPlayer && (
+        <MapPlayerPanel key={selectedPlayer} player={clickedPlayer} onClose={() => setSelectedPlayer(null)} />
       )}
     </div>
   );

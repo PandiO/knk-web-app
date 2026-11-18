@@ -31,13 +31,22 @@
   var HEIGHT_RETRY_MS = 2000;
   var CAMERA_THROTTLE_MS = 250;
 
+  // The bridge's own query parameters in webapp.conf `scripts` (deploy notes).
+  var PARAMS = (function () {
+    try {
+      var src = document.currentScript && document.currentScript.src;
+      return src ? new URL(src, window.location.href).searchParams : null;
+    } catch (e) {
+      return null;
+    }
+  })();
+
   // Which game world each BlueMap map shows: `bridge.js?worlds=<mapId>:<world>,<mapId>:<world>` in webapp.conf
   // (deploy notes). A map id without an entry shows the world of the same name (case-insensitive).
   var MAP_WORLDS = (function () {
     var result = {};
     try {
-      var src = document.currentScript && document.currentScript.src;
-      var param = src ? new URL(src, window.location.href).searchParams.get('worlds') : null;
+      var param = PARAMS ? PARAMS.get('worlds') : null;
       (param || '').split(',').forEach(function (pair) {
         var index = pair.indexOf(':');
         if (index > 0) result[pair.slice(0, index).trim().toLowerCase()] = pair.slice(index + 1).trim().toLowerCase();
@@ -47,6 +56,21 @@
     }
     return result;
   })();
+
+  // Where a player's head image comes from (#739): `bridge.js?heads=<url with {uuid}>`, for example a skin service
+  // (deploy notes: a third-party service sees the viewers' IP addresses). Without it, BlueMap's own default head
+  // (`assets/steve.png`) for everyone. Characters that could leave the CSS url() are refused.
+  var HEAD_TEMPLATE = (function () {
+    var value = PARAMS ? PARAMS.get('heads') : null;
+    if (!value || /['"()\\<>\s]/.test(value) || value.indexOf('{uuid}') < 0) return null;
+    var scheme = /^([A-Za-z][A-Za-z0-9+.-]*):/.exec(value);
+    return scheme && !/^https?$/i.test(scheme[1]) ? null : value;
+  })();
+  var DEFAULT_HEAD = 'assets/steve.png';
+  var UUID_PATTERN = /^[0-9a-fA-F-]{32,36}$/;
+  var CSS_COLOR = /^#[0-9a-fA-F]{6}$/;
+  var TAG_KINDS = ['afk', 'staff', 'owner', 'hidden', 'minigame'];
+  var PLAYER_HEAD_HEIGHT = 1.8;
 
   var COLORS = {
     town: { line: { r: 250, g: 204, b: 21, a: 1 }, fill: { r: 250, g: 204, b: 21, a: 0.18 } },
@@ -132,14 +156,27 @@
     var style = document.createElement('style');
     style.id = 'knk-bridge-style';
     style.textContent = [
-      '.knk-pin,.knk-label,.knk-region-label,.knk-player{pointer-events:auto;cursor:pointer;transform:translate(-50%,-50%);}',
+      '.knk-pin,.knk-label,.knk-region-label{pointer-events:auto;cursor:pointer;transform:translate(-50%,-50%);}',
       '.knk-pin{width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 3px rgba(0,0,0,.7);}',
       '.knk-pin-town{background:#facc15;width:18px;height:18px;}',
       '.knk-pin-district{background:#38bdf8;}',
       '.knk-pin-structure{background:#f87171;}',
       '.knk-pin-arena{background:#c084fc;}',
-      '.knk-label,.knk-region-label,.knk-player{margin-top:-22px;white-space:nowrap;font:600 13px/1.2 system-ui,sans-serif;',
+      '.knk-label,.knk-region-label{margin-top:-22px;white-space:nowrap;font:600 13px/1.2 system-ui,sans-serif;',
       'color:#fff;text-shadow:0 1px 2px #000,0 0 4px #000;text-align:center;}',
+      // A player: name label and tags above the head; the head's bottom sits on the player's head height.
+      '.knk-player{pointer-events:auto;cursor:pointer;transform:translate(-50%,-100%);display:flex;flex-direction:column;',
+      'align-items:center;gap:2px;white-space:nowrap;font:600 12px/1.2 system-ui,sans-serif;color:#fff;text-align:center;}',
+      '.knk-player-label{font-weight:400;background:rgba(0,0,0,.6);border-radius:3px;padding:1px 4px;text-shadow:1px 1px 0 #3f3f3f;}',
+      '.knk-player-tags{display:flex;gap:2px;}',
+      '.knk-tag{font-size:10px;font-weight:600;border-radius:3px;padding:0 3px;background:rgba(0,0,0,.6);color:#e5e7eb;}',
+      '.knk-tag-staff{background:#0e7490;color:#fff;}',
+      '.knk-tag-owner{background:#b45309;color:#fff;}',
+      '.knk-tag-hidden{background:#374151;color:#fff;}',
+      '.knk-tag-minigame{background:#7e22ce;color:#fff;}',
+      '.knk-player-head{width:16px;height:16px;border:1px solid rgba(0,0,0,.7);background:#6b7280 center/cover no-repeat;',
+      'image-rendering:pixelated;box-shadow:0 0 2px rgba(0,0,0,.6);}',
+      '.knk-player-afk .knk-player-head,.knk-player-afk .knk-player-label{opacity:.6;}',
       '.knk-label-sub{font-weight:400;font-size:11px;opacity:.9;}',
       '.knk-region-label{color:#bae6fd;}'
     ].join('');
@@ -310,15 +347,61 @@
     withClick(set, handlers);
   }
 
+  // One styled run of the name label (#739): the page turned the `&` codes into `#RRGGBB`; anything else is dropped.
+  function partHtml(part) {
+    if (!part || typeof part !== 'object') return '';
+    var css = [];
+    if (typeof part.color === 'string' && CSS_COLOR.test(part.color)) css.push('color:' + part.color);
+    if (part.bold === true) css.push('font-weight:700');
+    if (part.italic === true) css.push('font-style:italic');
+    var decoration = (part.underline === true ? 'underline ' : '') + (part.strikethrough === true ? 'line-through' : '');
+    if (decoration) css.push('text-decoration:' + decoration.trim());
+    return '<span' + (css.length ? ' style="' + css.join(';') + '"' : '') + '>' + escapeHtml(part.text) + '</span>';
+  }
+
+  function labelHtml(player) {
+    if (Array.isArray(player.parts) && player.parts.length > 0) return player.parts.map(partHtml).join('');
+    return escapeHtml(player.label);
+  }
+
+  function tagsHtml(player) {
+    if (!Array.isArray(player.tags) || player.tags.length === 0) return '';
+    var tags = player.tags.filter(function (tag) {
+      return tag && TAG_KINDS.indexOf(tag.kind) >= 0 && typeof tag.text === 'string';
+    });
+    if (tags.length === 0) return '';
+    return '<div class="knk-player-tags">' + tags.map(function (tag) {
+      return '<span class="knk-tag knk-tag-' + tag.kind + '" data-knk-tag="' + tag.kind + '">' + escapeHtml(tag.text) + '</span>';
+    }).join('') + '</div>';
+  }
+
+  function headUrl(uuid) {
+    if (!HEAD_TEMPLATE || !UUID_PATTERN.test(uuid)) return DEFAULT_HEAD;
+    return HEAD_TEMPLATE.split('{uuid}').join(uuid);
+  }
+
+  function isAfk(player) {
+    return Array.isArray(player.tags) && player.tags.some(function (tag) { return tag && tag.kind === 'afk'; });
+  }
+
+  function playerHtml(player) {
+    var uuid = String(player.uuid);
+    return '<div class="knk-player' + (isAfk(player) ? ' knk-player-afk' : '') + '" data-knk-player="' + escapeHtml(uuid) + '">'
+      + '<div class="knk-player-label">' + labelHtml(player) + '</div>'
+      + tagsHtml(player)
+      + '<div class="knk-player-head" style="background-image:url(\'' + escapeHtml(headUrl(uuid)) + '\')"></div>'
+      + '</div>';
+  }
+
   function renderPlayers() {
     var set = getSet(SET_PLAYERS, 'Knights and Kings players');
     var data = {};
     var handlers = {};
     state.players.forEach(function (player) {
-      if (!onCurrentMap(player.world)) return;
+      if (!player || typeof player.uuid !== 'string' || !onCurrentMap(player.world)) return;
+      if (typeof player.x !== 'number' || typeof player.y !== 'number' || typeof player.z !== 'number') return;
       var id = 'player|' + player.uuid;
-      data[id] = htmlMarker(player.x, player.y + 2, player.z,
-        '<div class="knk-player" data-knk-player="' + escapeHtml(player.uuid) + '">' + escapeHtml(player.label) + '</div>');
+      data[id] = htmlMarker(player.x, player.y + PLAYER_HEAD_HEIGHT, player.z, playerHtml(player));
       handlers[id] = (function (uuid) {
         return function () { post('playerClicked', { uuid: uuid }); };
       })(player.uuid);
