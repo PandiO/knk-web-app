@@ -17,6 +17,8 @@ type Props = CollectionSectionProps & {
   linkGate?: ButtonGate;
   unlinkGate?: ButtonGate;
   deleteGate?: ButtonGate;
+  /** #740: read-only list for the compact form (map panel): the items with their links, no buttons or hints. */
+  compact?: boolean;
 };
 
 export const CollectionSection: React.FC<Props> = ({
@@ -27,6 +29,7 @@ export const CollectionSection: React.FC<Props> = ({
   linkGate = OPEN_GATE,
   unlinkGate = OPEN_GATE,
   deleteGate = OPEN_GATE,
+  compact = false,
 }) => {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
@@ -65,6 +68,7 @@ export const CollectionSection: React.FC<Props> = ({
   );
 
   if (items.length === 0) {
+    if (compact) return <p className="text-sm text-muted">No {section.sectionName.toLowerCase()} yet.</p>;
     return (
       <div>
         <p className="py-6 text-center text-muted">No {section.sectionName.toLowerCase()} yet.</p>
@@ -87,6 +91,45 @@ export const CollectionSection: React.FC<Props> = ({
     : itemTemplate.fields;
 
   const pageItems = items.slice((page - 1) * COLLECTION_PAGE_SIZE, page * COLLECTION_PAGE_SIZE);
+  const pager = items.length > COLLECTION_PAGE_SIZE && (
+    <Pager
+      page={Math.min(page, lastPage)}
+      pageSize={COLLECTION_PAGE_SIZE}
+      totalCount={items.length}
+      onPageChange={setPage}
+      label={`${section.sectionName} pages`}
+      noun={section.sectionName.toLowerCase()}
+      className="rounded-md border border-line"
+    />
+  );
+
+  if (compact) {
+    return (
+      <div className="space-y-2">
+        <ul className="space-y-2" aria-label={section.sectionName}>
+          {pageItems.map((item, index) => {
+            const record = item as Record<string, unknown>;
+            const relatedId = relatedIdOf(item, relationship);
+            return (
+              <li key={String(relatedId ?? record.id ?? index)} className="min-w-0 rounded-md border border-line bg-surface p-2">
+                <dl className="space-y-1 text-sm">
+                  {orderedFields.map((field, fieldIndex) => field && (
+                    <DisplayField
+                      key={field.fieldGuid ?? fieldIndex}
+                      field={field}
+                      data={item}
+                      recordLink={fieldIndex === 0 ? { typeName: itemType, id: relatedId } : undefined}
+                    />
+                  ))}
+                </dl>
+              </li>
+            );
+          })}
+        </ul>
+        {pager}
+      </div>
+    );
+  }
   // The item buttons share one gate: say once, visibly, why Unlink or Delete is off (each button also has it).
   const itemHints = isDerived(relationship) ? [] : [
     actionButtons.showRemoveButton && relationship && !unlinkGate.allowed && unlinkGate.reason ? `Unlink: ${unlinkGate.reason}` : null,
@@ -135,17 +178,7 @@ export const CollectionSection: React.FC<Props> = ({
         })}
       </ul>
 
-      {items.length > COLLECTION_PAGE_SIZE && (
-        <Pager
-          page={Math.min(page, lastPage)}
-          pageSize={COLLECTION_PAGE_SIZE}
-          totalCount={items.length}
-          onPageChange={setPage}
-          label={`${section.sectionName} pages`}
-          noun={section.sectionName.toLowerCase()}
-          className="rounded-md border border-line"
-        />
-      )}
+      {pager}
     </div>
   );
 };
