@@ -16,7 +16,8 @@ let cached: Promise<MapAvailability> | null = null;
 
 export function loadMapAvailability(): Promise<MapAvailability> {
   if (!cached) {
-    cached = mapClient.getConfig().then(
+    // Promise.resolve first: a client that throws at once still means "off", never an unhandled error.
+    cached = Promise.resolve().then(() => mapClient.getConfig()).then(
       config => (config && config.enabled ? { status: 'on', config } as MapAvailability : { status: 'off' } as MapAvailability),
       () => ({ status: 'off' } as MapAvailability),
     );
