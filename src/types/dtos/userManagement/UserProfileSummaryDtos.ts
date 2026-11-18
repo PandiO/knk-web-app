@@ -116,6 +116,19 @@ export interface PlayerFreezeStateDto {
   frozenByUsername?: string | null;
 }
 
+/**
+ * The part of `GET api/Users/uuid/{uuid}` (knk-web-api `UserSummaryDto`, any login; no email) the overview map's
+ * moderation panel reads (PandiO/knk-workspace#743): the map knows a player by Minecraft UUID, the moderation
+ * endpoints by user id. The API sends more fields; only these are relied on.
+ */
+export interface UserByUuidDto {
+  id: number;
+  username: string;
+  uuid?: string | null;
+  isFrozen?: boolean;
+  frozenReason?: string | null;
+}
+
 /** Answer of POST api/Users/{id}/kick and /ban (202, #565). */
 export interface PlayerModerationResultDto {
   actionId: string;

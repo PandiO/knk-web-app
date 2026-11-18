@@ -10,6 +10,7 @@ import {
   GrantNodeRequest,
   PlayerModerationResultDto,
   UserPermissionGroupDto,
+  UserByUuidDto,
   UserProfileSummaryDto,
 } from '../types/dtos/userManagement/UserProfileSummaryDtos';
 import { PermissionGrantDto } from '../types/dtos/userManagement/PermissionGrantDto';
@@ -30,6 +31,12 @@ class UserManagementClient extends ObjectManager {
 
   getProfileSummary(id: number): Promise<UserProfileSummaryDto> {
     return this.invokeServiceCall(null, `${id}/profile-summary`, Controllers.Users, HttpMethod.Get);
+  }
+
+  // #743: the user behind a Minecraft UUID (GET api/Users/uuid/{uuid}, any login, 404 when the player has no
+  // account). The overview map's moderation panel uses it to reach the id-based moderation endpoints.
+  getByUuid(uuid: string): Promise<UserByUuidDto> {
+    return this.invokeServiceCall(null, `uuid/${encodeURIComponent(uuid)}`, Controllers.Users, HttpMethod.Get);
   }
 
   // ===== Phase 2 quick actions (DESIGN.md §3) — each a thin wrapper over the same write the
