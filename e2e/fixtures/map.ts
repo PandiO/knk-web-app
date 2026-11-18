@@ -15,7 +15,8 @@ import type {
  * (`window.bluemap`, `window.BlueMap.MarkerSet`, the root marker set, `terrainHeightAt`, the controls manager) and then
  * loads the **real** `public/bluemap-bridge/bridge.js` from the build, so the specs run the actual bridge script. It
  * draws html markers as DOM elements (a click calls `elementObject.onClick`, as BlueMap's CSS2DObject does) and
- * extrude markers as `.fake-extrude` elements with their label, and records how often the flash group appeared.
+ * extrude markers as `.fake-extrude` elements with their label, and records how often the flash group appeared. Its
+ * maps are named like the NAS render's (`overworld`, `nether`), so the bridge's `?worlds=` mapping is exercised too.
  */
 
 export const mapConfig: MapConfigDto = {
@@ -151,11 +152,11 @@ const FAKE_BLUEMAP = `<!doctype html>
   window.BlueMap = { MarkerSet: MarkerSet };
   window.bluemap = {
     events: events,
-    mapsMap: new Map([['world', {}], ['world_nether', {}]]),
+    mapsMap: new Map([['overworld', {}], ['nether', {}]]),
     switchMap: function (id) { window.bluemap.mapViewer.map.data.id = id; render(); return Promise.resolve(); },
     mapViewer: {
       markers: root,
-      map: { data: { id: 'world' }, terrainHeightAt: function () { return 70; } },
+      map: { data: { id: 'overworld' }, terrainHeightAt: function () { return 70; } },
       controlsManager: { position: { x: 0, y: 0, z: 0, set: function (x, y, z) { this.x = x; this.y = y; this.z = z; } }, distance: 1000 }
     }
   };
@@ -193,7 +194,7 @@ const FAKE_BLUEMAP = `<!doctype html>
   }
 })();
 </script>
-<script src="/bluemap-bridge/bridge.js"></script>
+<script src="/bluemap-bridge/bridge.js?worlds=overworld:world,nether:world_nether"></script>
 </body></html>`;
 
 /** Serves the fake BlueMap web app under /bluemap/ (the real bridge script comes from the build). */

@@ -31,6 +31,23 @@
   var HEIGHT_RETRY_MS = 2000;
   var CAMERA_THROTTLE_MS = 250;
 
+  // Which game world each BlueMap map shows: `bridge.js?worlds=<mapId>:<world>,<mapId>:<world>` in webapp.conf
+  // (deploy notes). A map id without an entry shows the world of the same name (case-insensitive).
+  var MAP_WORLDS = (function () {
+    var result = {};
+    try {
+      var src = document.currentScript && document.currentScript.src;
+      var param = src ? new URL(src, window.location.href).searchParams.get('worlds') : null;
+      (param || '').split(',').forEach(function (pair) {
+        var index = pair.indexOf(':');
+        if (index > 0) result[pair.slice(0, index).trim().toLowerCase()] = pair.slice(index + 1).trim().toLowerCase();
+      });
+    } catch (e) {
+      // no mapping: map id = world name
+    }
+    return result;
+  })();
+
   var COLORS = {
     town: { line: { r: 250, g: 204, b: 21, a: 1 }, fill: { r: 250, g: 204, b: 21, a: 0.18 } },
     district: { line: { r: 56, g: 189, b: 248, a: 1 }, fill: { r: 56, g: 189, b: 248, a: 0.12 } },
@@ -71,10 +88,26 @@
     return map && map.data ? map.data.id : null;
   }
 
-  // The marker world is the game world's folder name; a BlueMap map is named after it in the deploy notes.
+  function worldOfMap(mapId) {
+    var id = String(mapId).toLowerCase();
+    return Object.prototype.hasOwnProperty.call(MAP_WORLDS, id) ? MAP_WORLDS[id] : id;
+  }
+
+  function mapOfWorld(world) {
+    var target = String(world).toLowerCase();
+    var maps = window.bluemap && window.bluemap.mapsMap;
+    if (!maps) return null;
+    var found = null;
+    maps.forEach(function (_map, id) {
+      if (!found && worldOfMap(id) === target) found = id;
+    });
+    return found;
+  }
+
+  // The marker world is the game world's name (Domain.WorldName); see MAP_WORLDS for BlueMap map ids.
   function onCurrentMap(world) {
     var id = currentMapId();
-    return !!id && typeof world === 'string' && world.toLowerCase() === String(id).toLowerCase();
+    return !!id && typeof world === 'string' && world.toLowerCase() === worldOfMap(id);
   }
 
   function terrainY(x, z) {
@@ -334,8 +367,9 @@
       controls.position.set(payload.x, y === null ? controls.position.y : y, payload.z);
       if (typeof payload.distance === 'number') controls.distance = payload.distance;
     };
-    if (!onCurrentMap(payload.world) && app.mapsMap && app.mapsMap.has(payload.world)) {
-      Promise.resolve(app.switchMap(payload.world)).then(go, function () { /* stay on the current map */ });
+    var target = onCurrentMap(payload.world) ? null : mapOfWorld(payload.world);
+    if (target) {
+      Promise.resolve(app.switchMap(target)).then(go, function () { /* stay on the current map */ });
     } else {
       go();
     }
@@ -427,7 +461,7 @@
       app.events.addEventListener('bluemapCameraMoved', onCameraMoved);
       app.events.addEventListener('bluemapMapChanged', onMapChanged);
     }
-    window.__knkBridge = { protocol: PROTOCOL_VERSION, state: state };
+    window.__knkBridge = { protocol: PROTOCOL_VERSION, state: state, mapWorlds: MAP_WORLDS };
     post('ready', { protocol: PROTOCOL_VERSION, mapId: currentMapId() });
   }
 
