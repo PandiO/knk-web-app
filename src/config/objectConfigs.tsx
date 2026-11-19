@@ -138,10 +138,10 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'id', label: 'ID', sortable: true },
       minecraftIconColumn(24),
       { key: 'name', label: 'Name', sortable: true },
-      // KNG-263: next to the table's Category filter.
-      { key: 'categoryName', label: 'Category', sortable: false, render: (row: any) => row.categoryName ?? '-' },
       // Stock core P1 (PandiO/knk-workspace#675): capacity use = amount × storage weight (DESIGN § 4.4).
-      { key: 'storageWeight', label: 'Storage weight', sortable: false, render: (row: any) => row.storageWeight ?? 1 }
+      { key: 'storageWeight', label: 'Storage weight', sortable: false, render: (row: any) => row.storageWeight ?? 1 },
+      // KNG-263: next to the table's Category filter.
+      { key: 'categoryName', label: 'Category', sortable: false, render: (row: any) => row.categoryName ?? '-' }
     ]
   },
   // KNG-250: enchantment refs come from the server scan (vanilla and knk custom enchantments), with
