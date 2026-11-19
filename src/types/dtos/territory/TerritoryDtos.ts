@@ -1,3 +1,5 @@
+import type { ProductionEngineSettingsDto } from '../production/ProductionEngineDtos';
+
 /**
  * Territory V1 (PandiO/knk-workspace#326 API, #690 web app; knk-workspace docs/specs/territory/DESIGN.md): the JSON
  * shapes of knk-web-api `Dtos/TerritoryDtos.cs`. Kingdoms, provinces and crown land are territory holders' records;
@@ -16,6 +18,9 @@ export interface ProductionSettingsDto {
     /** `Production:Enabled`: gates the feature's background work (for territory: the game server's report). */
     enabled: boolean;
     territory: TerritorySettingsDto;
+    /** The production engine's timing (P3, PandiO/knk-workspace#86, #678). The API resets it to the defaults when a
+     *  `PUT api/GameSettings` sends a `production` section without it, so the settings page always sends it back. */
+    engine?: ProductionEngineSettingsDto;
 }
 
 export type TerritoryHolderKind = 'Town' | 'Kingdom';

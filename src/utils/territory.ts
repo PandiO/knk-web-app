@@ -6,6 +6,7 @@ import {
     TerritorySettingsDto,
     TownTerritoryChange,
 } from '../types/dtos/territory/TerritoryDtos';
+import { defaultProductionEngineSettings } from './productionEngine';
 
 /**
  * Territory V1 helpers for the web app (PandiO/knk-workspace#690; knk-workspace docs/specs/territory/DESIGN.md § 1-4).
@@ -25,13 +26,19 @@ export const TERRITORY_LIMITS = {
 /** The design's defaults (territory DESIGN § 1, G11), as the API stores them until someone changes them. */
 export const defaultTerritorySettings = (): TerritorySettingsDto => ({ baseRange: 100, powerFactor: 2, capitalMultiplier: 1.5 });
 
-export const defaultProductionSettings = (): ProductionSettingsDto => ({ enabled: false, territory: defaultTerritorySettings() });
+export const defaultProductionSettings = (): ProductionSettingsDto => ({
+    enabled: false,
+    territory: defaultTerritorySettings(),
+    engine: defaultProductionEngineSettings(),
+});
 
 /** Fills a section the API sent (or did not send) with the defaults, so the settings card always has every field. */
 export function normalizeProductionSettings(value?: Partial<ProductionSettingsDto> | null): ProductionSettingsDto {
     return {
         enabled: value?.enabled ?? false,
         territory: { ...defaultTerritorySettings(), ...(value?.territory ?? {}) },
+        // P3 (#678): kept as sent, so a save never resets the engine timing to the defaults.
+        engine: { ...defaultProductionEngineSettings(), ...(value?.engine ?? {}) },
     };
 }
 

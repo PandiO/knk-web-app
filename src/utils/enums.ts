@@ -161,6 +161,15 @@ export enum Controllers {
     // P2 world (PandiO/knk-workspace#91 API, #676 web app)
     Warehouses = 'Warehouses',
     ProductionStructures = 'ProductionStructures',
+    // Production engine P3 (PandiO/knk-workspace#86 API, #678 web app)
+    ProductionKinds = 'ProductionKinds',
+    ProductionKindLevels = 'ProductionKindLevels',
+    ProductionLines = 'ProductionLines',
+    ProductionModifiers = 'ProductionModifiers',
+    ClimateZones = 'ClimateZones',
+    WeatherTypes = 'WeatherTypes',
+    ProductionCycleRecords = 'ProductionCycleRecords',
+    Production = 'Production',
     TitleBrackets = 'TitleBrackets',
     // Player statistics (KNG-34)
     Statistics = 'statistics',
