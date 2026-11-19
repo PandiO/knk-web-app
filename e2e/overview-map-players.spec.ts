@@ -166,6 +166,21 @@ test.describe('anonymous, live players on', () => {
     await expect(card).toHaveCount(0);
   });
 
+  test('Escape closes the name card after the click on the player inside the map frame (#757)', async ({ page, api }) => {
+    mockMapOn(api, mapConfigLive);
+    api.on('GET', 'Map/players', () => snapshotFor(playersSnapshot([defaultJoe])));
+    await serveFakeBlueMap(page);
+    await page.goto('/map');
+    const frame = await mapFrame(page);
+
+    await playerMarker(frame, defaultJoe.uuid).click();
+    const card = page.getByRole('complementary', { name: 'Player details' });
+    await expect(card.getByLabel('Name label')).toHaveText('Joe');
+    expect(await frame.evaluate(() => document.hasFocus())).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(card).toHaveCount(0);
+  });
+
   test('on a phone the name card is a bottom sheet and the page does not scroll sideways', async ({ page, api }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     mockMapOn(api, mapConfigLive);

@@ -109,6 +109,11 @@ export interface MapToPagePayloads {
   markerClicked: { kind: MapEntityKind; id: number };
   playerClicked: { uuid: string };
   cameraChanged: { mapId: string | null; x: number; y: number; z: number; distance: number };
+  /**
+   * Escape was pressed while the keyboard focus was inside the map's iframe (#757). Added to v1 as a new type (O14):
+   * an older bridge never sends it, an older page ignores it. The payload is empty.
+   */
+  escapePressed: Record<string, never>;
 }
 
 export type PageToMapType = keyof PageToMapPayloads;
@@ -123,7 +128,9 @@ export function pageMessage<K extends PageToMapType>(type: K, payload: PageToMap
   return { v: BRIDGE_PROTOCOL_VERSION, type, payload } as PageToMapMessage;
 }
 
-const MAP_TO_PAGE_TYPES: readonly MapToPageType[] = ['ready', 'markerClicked', 'playerClicked', 'cameraChanged'];
+const MAP_TO_PAGE_TYPES: readonly MapToPageType[] = [
+  'ready', 'markerClicked', 'playerClicked', 'cameraChanged', 'escapePressed',
+];
 const ENTITY_KINDS: readonly MapEntityKind[] = ['town', 'district', 'structure', 'arena'];
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;

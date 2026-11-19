@@ -27,12 +27,63 @@ export const playerProfilePath = (userId: number) => `/admin/users/${userId}`;
  * once per node and page load). Once allowed, the player's account is read by Minecraft UUID
  * (`GET api/Users/uuid/{uuid}`) for the user id the moderation endpoints take, and the profile page's own hooks
  * (`usePlayerFreeze`, `usePlayerKickBan`) do the rest: the same dialogs, endpoints and toasts. Actions the viewer may
- * not take are hidden, not disabled (the map's rule for staff actions, § 5 rule 13); the API still decides.
+ * not take are hidden, not disabled (the map's rule for staff actions, § 5 rule 13); the API still decides. The one
+ * exception is "Open profile" (#809, developer decision 2026-11-19): without the profile page's node it stays visible
+ * but disabled, with a tooltip that says why, so a kick-only moderator is not sent to a no-access page.
  */
 export const PlayerModerationPanel: React.FC<{ player: MapPlayerDto }> = ({ player }) => {
   const statuses = usePermissions(MODERATION_NODES);
   if (anyNodeStatus(statuses, MODERATION_NODES) !== 'allowed') return null;
-  return <ModerationSection uuid={player.uuid} name={player.label.name} />;
+  return (
+    <ModerationSection
+      uuid={player.uuid}
+      name={player.label.name}
+      canOpenProfile={statuses[STAFF_PERMISSION_NODE] === 'allowed'}
+    />
+  );
+};
+
+/** Why "Open profile" is disabled (#809): the profile page needs its own node. */
+export const PROFILE_DENIED_TOOLTIP = `You need access to player profiles (${STAFF_PERMISSION_NODE}) to open this.`;
+
+/**
+ * "Open profile" for a viewer without the profile page's node (#809): a disabled control (not a link) with
+ * `aria-disabled`, described by a tooltip that shows on hover, keyboard focus and tap. Escape hides the tooltip first
+ * (WCAG 1.4.13); a second Escape closes the panel as usual.
+ */
+const DisabledProfileControl: React.FC = () => {
+  const [shown, setShown] = React.useState(false);
+  const tooltipId = React.useId();
+  return (
+    <span className="relative inline-flex" onMouseEnter={() => setShown(true)} onMouseLeave={() => setShown(false)}>
+      <button
+        type="button"
+        aria-disabled="true"
+        aria-describedby={tooltipId}
+        className="inline-flex cursor-not-allowed items-center rounded-sm text-sm font-medium text-muted focus:outline-none focus:ring-2 focus:ring-focus"
+        onClick={() => setShown(true)} // a tap focuses and clicks: keep it shown; a tap elsewhere blurs and hides it
+        onFocus={() => setShown(true)}
+        onBlur={() => setShown(false)}
+        onKeyDown={event => {
+          if (event.key === 'Escape' && shown) {
+            event.stopPropagation(); // keep the page's Escape listener from also closing the panel
+            setShown(false);
+          }
+        }}
+      >
+        Open profile
+        <ExternalLink className="ml-1 h-4 w-4" aria-hidden="true" />
+      </button>
+      <span
+        id={tooltipId}
+        role="tooltip"
+        hidden={!shown}
+        className="absolute bottom-full left-0 z-10 mb-2 w-64 rounded-md bg-fg px-3 py-2 text-xs text-canvas shadow"
+      >
+        {PROFILE_DENIED_TOOLTIP}
+      </span>
+    </span>
+  );
 };
 
 type Lookup =
@@ -41,7 +92,7 @@ type Lookup =
   | { status: 'error'; message: string }
   | { status: 'ready'; user: UserByUuidDto };
 
-const ModerationSection: React.FC<{ uuid: string; name: string }> = ({ uuid, name }) => {
+const ModerationSection: React.FC<{ uuid: string; name: string; canOpenProfile: boolean }> = ({ uuid, name, canOpenProfile }) => {
   const [lookup, setLookup] = React.useState<Lookup>({ status: 'loading' });
   const alive = React.useRef(true);
   React.useEffect(() => {
@@ -79,12 +130,14 @@ const ModerationSection: React.FC<{ uuid: string; name: string }> = ({ uuid, nam
         <p className="text-sm text-muted">{name} has no account in the web app yet, so there is nothing to moderate here.</p>
       )}
       {lookup.status === 'error' && <p role="alert" className="field-error text-sm">{lookup.message}</p>}
-      {lookup.status === 'ready' && <ModerationActions user={lookup.user} reload={load} />}
+      {lookup.status === 'ready' && <ModerationActions user={lookup.user} reload={load} canOpenProfile={canOpenProfile} />}
     </section>
   );
 };
 
-const ModerationActions: React.FC<{ user: UserByUuidDto; reload: () => Promise<void> }> = ({ user, reload }) => {
+const ModerationActions: React.FC<{ user: UserByUuidDto; reload: () => Promise<void>; canOpenProfile: boolean }> = ({
+  user, reload, canOpenProfile,
+}) => {
   const [confirm, confirmModal, confirmWithReason] = useConfirm();
   // The freeze hook reads the frozen state from a profile account; the by-UUID summary carries the same two fields.
   const account = React.useMemo(
@@ -135,13 +188,17 @@ const ModerationActions: React.FC<{ user: UserByUuidDto; reload: () => Promise<v
           </button>
         )}
       </div>
-      <Link
-        to={playerProfilePath(user.id)}
-        className="inline-flex items-center text-sm font-medium text-primary hover:underline"
-      >
-        Open profile
-        <ExternalLink className="ml-1 h-4 w-4" aria-hidden="true" />
-      </Link>
+      {canOpenProfile ? (
+        <Link
+          to={playerProfilePath(user.id)}
+          className="inline-flex items-center text-sm font-medium text-primary hover:underline"
+        >
+          Open profile
+          <ExternalLink className="ml-1 h-4 w-4" aria-hidden="true" />
+        </Link>
+      ) : (
+        <DisabledProfileControl />
+      )}
       {confirmModal}
     </div>
   );
