@@ -5,6 +5,9 @@
  *
  * ReagionCreate (sic, the seeded spelling) and RegionClaim run the region handler, which the plugin finds through the
  * field name WgRegionId, so use them on a WgRegionId field.
+ *
+ * SiegeWeaponSpot (#799) fills a whole weapon spot form (bounds, facing, size class, region); the spot seed puts it on
+ * MinX, a field with no handler of its own.
  */
 export const WORLD_TASK_TYPES_WITH_HANDLER: readonly string[] = [
     'LocationSelection',
@@ -14,6 +17,8 @@ export const WORLD_TASK_TYPES_WITH_HANDLER: readonly string[] = [
     'KitScan',
     'GateBlockScan',
     'GateOpenedBlockScan',
+    // PandiO/knk-workspace#799: weapon spot capture; the plugin handles it only with siege.weapons.enabled.
+    'SiegeWeaponSpot',
 ];
 
 /** #180: the type a field gets when "Requires in-game action" is turned on (was VerifyLocation, which has no handler). */

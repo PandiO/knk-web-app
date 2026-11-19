@@ -156,6 +156,23 @@ const ITEM_SCAN_TASK_TYPE = 'ItemScan';
 // other task type, a KitScan never writes an extracted value into its own bound field.
 const KIT_SCAN_TASK_TYPE = 'KitScan';
 
+// SiegeWeaponSpot (PandiO/knk-workspace#799, knk-workspace SIEGE_WEAPONS § 4): player-driven, completed in game with a
+// spot's six bounds, facing, size class, region id and warnings. The task sits on the spot form's MinX field, which gets
+// minX; FormWizard.tsx's applySiegeWeaponSpotResult spreads the rest over the form from onTaskCompleted.
+export const SIEGE_WEAPON_SPOT_TASK_TYPE = 'SiegeWeaponSpot';
+export const SIEGE_WEAPON_SPOT_BOUND_KEYS = ['minX', 'minY', 'minZ', 'maxX', 'maxY', 'maxZ'] as const;
+
+/** #799: the six bounds of a SiegeWeaponSpot result, or null when one is missing or not a whole number. */
+export function siegeWeaponSpotBounds(output: Record<string, any>): Record<typeof SIEGE_WEAPON_SPOT_BOUND_KEYS[number], number> | null {
+    const bounds = {} as Record<typeof SIEGE_WEAPON_SPOT_BOUND_KEYS[number], number>;
+    for (const key of SIEGE_WEAPON_SPOT_BOUND_KEYS) {
+        const value = Number(output[key]);
+        if (output[key] === null || output[key] === undefined || !Number.isInteger(value)) return null;
+        bounds[key] = value;
+    }
+    return bounds;
+}
+
 /**
  * Task types that are executed by the plugin without a player and therefore never
  * produce a task code. The webapp shows scan progress instead of a "send to Minecraft" prompt.
@@ -249,6 +266,25 @@ export function getWorldTaskResultDetails(task: WorldTaskReadDto, taskType: stri
                 details.push({ label: 'Warnings', value: String(warningCount) });
             }
             return details;
+        }
+
+        if (isSiegeWeaponSpotTask(taskType, task.taskType)) {
+            const bounds = siegeWeaponSpotBounds(output);
+            if (bounds) {
+                // Warnings are listed under the details (getScanWarnings), so they aren't counted here.
+                const details: WorldTaskResultDetail[] = [
+                    { label: 'Bounds', value: `(${bounds.minX}, ${bounds.minY}, ${bounds.minZ}) to (${bounds.maxX}, ${bounds.maxY}, ${bounds.maxZ})` },
+                    { label: 'Facing', value: String(output.facing ?? 'unknown') },
+                    { label: 'Size class', value: String(output.sizeClass ?? 'unknown') }
+                ];
+                if (typeof output.wgRegionId === 'string' && output.wgRegionId) {
+                    details.push({ label: 'Region', value: output.wgRegionId });
+                }
+                if (typeof output.world === 'string' && output.world) {
+                    details.push({ label: 'World', value: output.world });
+                }
+                return details;
+            }
         }
 
         if (isItemScanTask(taskType, task.taskType) && output.status !== undefined) {
@@ -395,6 +431,13 @@ export function extractTaskResult(task: WorldTaskReadDto, taskType: string): any
             return String(output.status);
         }
 
+        // SiegeWeaponSpot (#799): the bound MinX field gets minX; the other fields come from applySiegeWeaponSpotResult.
+        // A result without all six bounds is not used (the extraction-error banner shows).
+        if (isSiegeWeaponSpotTask(taskType, task.taskType)) {
+            const bounds = siegeWeaponSpotBounds(output);
+            return bounds ? bounds.minX : null;
+        }
+
         // Special handling for Location tasks
         if (isLocationTask(taskType, task.taskType)) {
             // Extract raw location data and convert to location object
@@ -466,6 +509,10 @@ function isItemScanTask(taskType: string, actualTaskType?: string): boolean {
 
 function isKitScanTask(taskType: string, actualTaskType?: string): boolean {
     return taskType === KIT_SCAN_TASK_TYPE || actualTaskType === KIT_SCAN_TASK_TYPE;
+}
+
+export function isSiegeWeaponSpotTask(taskType: string, actualTaskType?: string): boolean {
+    return taskType === SIEGE_WEAPON_SPOT_TASK_TYPE || actualTaskType === SIEGE_WEAPON_SPOT_TASK_TYPE;
 }
 
 export function shouldShowWorldTaskResultDetails(task: WorldTaskReadDto, taskType: string): boolean {

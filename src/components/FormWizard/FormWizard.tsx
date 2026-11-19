@@ -8,7 +8,12 @@ import { ConditionEvaluator } from '../../utils/conditionEvaluator';
 import { FormSubmissionStatus } from '../../utils/enums';
 import { FieldType } from '../../utils/enums';
 import { FieldRenderer } from './FieldRenderers';
-import { WorldBoundFieldRenderer, WorldTaskAnchor } from '../Workflow/WorldBoundFieldRenderer';
+import {
+    WorldBoundFieldRenderer,
+    WorldTaskAnchor,
+    SIEGE_WEAPON_SPOT_TASK_TYPE,
+    siegeWeaponSpotBounds
+} from '../Workflow/WorldBoundFieldRenderer';
 import { logging } from '../../utils';
 import { toast } from '../../utils/toast';
 import { getFetchByIdFunctionForEntity, getCreateFunctionForEntity, getUpdateFunctionForEntity } from '../../utils/entityApiMapping';
@@ -1654,6 +1659,45 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         if (choices) {
             applyResolvedPatch(choices);
         }
+    };
+
+    // SiegeWeaponSpot's OutputJson (PandiO/knk-workspace#799, SIEGE_WEAPONS § 4, A02) fills the weapon spot form: the six
+    // bounds, Facing, SizeClass and WgRegionId (cleared for a WorldEdit selection, so a region typed earlier doesn't stay
+    // with other bounds). The capture in game is what the admin asked for, so it overwrites without the conflict prompt
+    // (the fields stay editable, and "Capture again" redoes it). The warnings (floor not solid, volume not clear) are
+    // listed in the task panel from the same output. The spot is saved by the form; the API works the size class out
+    // again from bounds and facing on save. Fields the form doesn't have are skipped.
+    const applySiegeWeaponSpotResult = (outputJson: string) => {
+        if (!currentStep) return;
+        let output: Record<string, any>;
+        try {
+            output = JSON.parse(outputJson);
+        } catch {
+            console.error('SiegeWeaponSpot: could not parse task outputJson');
+            return;
+        }
+        const bounds = output && typeof output === 'object' ? siegeWeaponSpotBounds(output) : null;
+        if (!bounds) return;
+
+        const resolveFieldName = (candidateName: string): string | null => {
+            const match = currentStep.fields.find(f => f.fieldName.toLowerCase() === candidateName.toLowerCase());
+            return match ? match.fieldName : null;
+        };
+        const patch: Record<string, unknown> = {};
+        const put = (candidateName: string, value: unknown) => {
+            const fieldName = resolveFieldName(candidateName);
+            if (fieldName) patch[fieldName] = value;
+        };
+        put('MinX', bounds.minX);
+        put('MinY', bounds.minY);
+        put('MinZ', bounds.minZ);
+        put('MaxX', bounds.maxX);
+        put('MaxY', bounds.maxY);
+        put('MaxZ', bounds.maxZ);
+        if (typeof output.facing === 'string' && output.facing) put('Facing', output.facing);
+        if (typeof output.sizeClass === 'string' && output.sizeClass) put('SizeClass', output.sizeClass);
+        put('WgRegionId', typeof output.wgRegionId === 'string' && output.wgRegionId ? output.wgRegionId : null);
+        applyMultipleFieldChanges(patch);
     };
 
     // KitScan's OutputJson (docs/specs/kits/DESIGN.md §6.3-§6.5) fills the Kit form from a
@@ -3471,6 +3515,9 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                                                     .catch(error => {
                                                         console.error('ItemScan: failed to apply scan result to form fields:', error);
                                                     });
+                                            }
+                                            if (task?.taskType === SIEGE_WEAPON_SPOT_TASK_TYPE && task?.outputJson) {
+                                                applySiegeWeaponSpotResult(task.outputJson);
                                             }
                                             if (task?.taskType === 'KitScan' && task?.outputJson) {
                                                 applyKitScanResult(task.outputJson)
