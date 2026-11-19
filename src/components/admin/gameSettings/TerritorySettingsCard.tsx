@@ -94,9 +94,11 @@ export const TerritorySettingsCard: React.FC<TerritorySettingsCardProps> = ({ va
                 </div>
             </div>
             {errors.length > 0 ? (
-                <ul className="text-sm field-error" role="alert" aria-label="Territory settings problems">
-                    {errors.map(e => <li key={e}>{e}</li>)}
-                </ul>
+                <div role="alert">
+                    <ul className="text-sm field-error" aria-label="Territory settings problems">
+                        {errors.map(e => <li key={e}>{e}</li>)}
+                    </ul>
+                </div>
             ) : (
                 <p className="text-sm text-fg" data-testid="territory-range-example">
                     A town of power {EXAMPLE_POWER}: {rangeFormula(territory, EXAMPLE_POWER)} blocks; its capital

@@ -11,7 +11,7 @@ import { GroupOverridesCard } from '../../components/admin/gameSettings/GroupOve
 import { HubSettingsCard, defaultHubRules, defaultHubSettings } from '../../components/admin/gameSettings/HubSettingsCard';
 import { ChatTokensCard, defaultChatTokenSettings } from '../../components/admin/gameSettings/ChatTokensCard';
 import { TerritorySettingsCard } from '../../components/admin/gameSettings/TerritorySettingsCard';
-import { normalizeProductionSettings } from '../../utils/territory';
+import { normalizeProductionSettings, territorySettingsErrors } from '../../utils/territory';
 import { LocationReferencePicker } from '../../components/admin/gameSettings/LocationReferencePicker';
 import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
 import { UNIT, describeWorldTime, joinHint } from '../../utils/settingsUnits';
@@ -296,6 +296,7 @@ export const GameSettingsPage: React.FC = () => {
             lastSaved={{ at: saved?.updatedAt }}
             dirtyCount={changed.length}
             onSave={handleSave}
+            canSave={!settings || territorySettingsErrors(normalizeProductionSettings(settings.production).territory).length === 0}
             onDiscard={() => saved && setSettings(saved)}
             onReload={loadAll}
             saveErrorMessage={error => gameSettingsErrorMessage(error, 'The settings could not be saved.')}
