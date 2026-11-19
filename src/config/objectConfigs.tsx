@@ -290,6 +290,39 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'statusAfter', label: 'Status after', sortable: false, render: (row: any) => lineStatusLabel(row.statusAfter) }
     ]
   },
+  // Yield areas P4 (PandiO/knk-workspace#680): areas, Hybrid overrides and the survey history.
+  productionarea: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'name', label: 'Name', sortable: true },
+      { key: 'productionStructureName', label: 'Structure', sortable: false },
+      { key: 'model', label: 'Model', sortable: false },
+      { key: 'shape', label: 'Shape', sortable: false },
+      { key: 'exclusive', label: 'Exclusive', sortable: false, render: (row: any) => row.exclusive ? 'Yes' : 'Shared' },
+      { key: 'size', label: 'Size', sortable: false },
+      { key: 'enabled', label: 'Enabled', sortable: false, render: (row: any) => row.enabled === false ? 'No' : 'Yes' },
+      { key: 'lastSurveyedAt', label: 'Last survey', sortable: false, render: (row: any) => row.lastSurveyedAt ? formatDateTime(row.lastSurveyedAt) : 'Never' }
+    ]
+  },
+  productionyieldoverride: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'productionStructureName', label: 'Structure', sortable: false },
+      { key: 'itemBlueprintName', label: 'Output', sortable: false },
+      { key: 'kind', label: 'Override', sortable: false },
+      { key: 'value', label: 'Value', sortable: false, render: (row: any) => row.kind === 'Exclude' ? '-' : row.kind === 'Pin' ? formatRate(row.value) : `× ${formatNumber(row.value)}` }
+    ]
+  },
+  areasurvey: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'surveyedAt', label: 'Surveyed', sortable: false, render: (row: any) => formatDateTime(row.surveyedAt) },
+      { key: 'productionAreaName', label: 'Area', sortable: false },
+      { key: 'trigger', label: 'Trigger', sortable: false },
+      { key: 'profileVersion', label: 'Profile', sortable: false, render: (row: any) => `v${row.profileVersion}` },
+      { key: 'totalUnits', label: 'Units', sortable: false }
+    ]
+  },
   gatestructure: {
     default: [
       ...defaultColumnDefinitions.default,

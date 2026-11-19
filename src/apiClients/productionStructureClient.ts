@@ -13,6 +13,12 @@ import {
     ProductionUpgradeResultDto,
     WorkersPresentUpdateDto,
 } from '../types/dtos/production/ProductionEngineDtos';
+import {
+    ProductionAreaDto,
+    ProductionYieldDto,
+    SurveyRequestDto,
+    YieldMaterializationDto,
+} from '../types/dtos/production/ProductionYieldDtos';
 
 // P2 world (PandiO/knk-workspace#91 API, #676 web app): production structures (api/ProductionStructures), mostly rural.
 // The create answers the structure with its output storage and any placement warnings (`placementWarnings`); a read
@@ -75,6 +81,23 @@ export class ProductionStructureClient extends ObjectManager {
      *  payer when the level costs coins, 409 when the cost can't be paid or at level 10. */
     upgrade(id: number, data: ProductionUpgradeRequestDto): Promise<ProductionUpgradeResultDto> {
         return this.invokeServiceCall(data, `${id}/upgrade`, Controllers.ProductionStructures, HttpMethod.Post);
+    }
+
+    /** P4 (#680): the structure's yield source, areas and every output with the survey units, shares, yield rows and
+     *  Hybrid override behind its base rate. */
+    getYield(id: number): Promise<ProductionYieldDto> {
+        return this.invokeServiceCall(null, `${id}/yield`, Controllers.ProductionStructures, HttpMethod.Get);
+    }
+
+    /** P4 "survey now": asks the game server to survey the enabled areas (or one) at its next poll; answers the areas
+     *  marked. 409 for a Configured structure (G5) or one without an enabled area. */
+    requestSurvey(id: number, data: SurveyRequestDto = {}): Promise<ProductionAreaDto[]> {
+        return this.invokeServiceCall(data, `${id}/survey`, Controllers.ProductionStructures, HttpMethod.Post);
+    }
+
+    /** P4 staff tool: makes the lines from the latest surveys and pins again (it also runs after every survey). */
+    materialize(id: number): Promise<YieldMaterializationDto> {
+        return this.invokeServiceCall(null, `${id}/materialize`, Controllers.ProductionStructures, HttpMethod.Post);
     }
 }
 

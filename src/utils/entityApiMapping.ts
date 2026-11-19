@@ -50,6 +50,9 @@ import { ProductionKindClient } from '../apiClients/productionKindClient';
 import { ProductionKindLevelClient } from '../apiClients/productionKindLevelClient';
 import { ProductionLineClient } from '../apiClients/productionLineClient';
 import { ProductionModifierClient } from '../apiClients/productionModifierClient';
+import { ProductionAreaClient } from '../apiClients/productionAreaClient';
+import { AreaSurveyClient } from '../apiClients/areaSurveyClient';
+import { ProductionYieldOverrideClient } from '../apiClients/productionYieldOverrideClient';
 import { ClimateZoneClient } from '../apiClients/climateZoneClient';
 import { WeatherTypeClient } from '../apiClients/weatherTypeClient';
 import { ProductionCycleRecordClient } from '../apiClients/productionCycleRecordClient';
@@ -196,6 +199,13 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => WeatherTypeClient.getInstance().searchPaged(query));
         case 'productioncyclerecord':
             return withPagedQueryMapping((query) => ProductionCycleRecordClient.getInstance().searchPaged(query));
+        // Yield areas P4 (PandiO/knk-workspace#680): areas, Hybrid overrides and the survey history (search and fetch only).
+        case 'productionarea':
+            return withPagedQueryMapping((query) => ProductionAreaClient.getInstance().searchPaged(query));
+        case 'productionyieldoverride':
+            return withPagedQueryMapping((query) => ProductionYieldOverrideClient.getInstance().searchPaged(query));
+        case 'areasurvey':
+            return withPagedQueryMapping((query) => AreaSurveyClient.getInstance().searchPaged(query));
         // Read-only reference data (seeded): search + fetch only, for TitleBracket object pickers
         // (the siege scenario's minimum title, a domain's warp settings - teleport Phase 5).
         case 'titlebracket':
@@ -315,6 +325,13 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => WeatherTypeClient.getInstance().getById(Number(id));
         case 'productioncyclerecord':
             return (id) => ProductionCycleRecordClient.getInstance().getById(Number(id));
+        // Yield areas P4 (PandiO/knk-workspace#680): areas, Hybrid overrides and the survey history (search and fetch only).
+        case 'productionarea':
+            return (id) => ProductionAreaClient.getInstance().getById(Number(id));
+        case 'productionyieldoverride':
+            return (id) => ProductionYieldOverrideClient.getInstance().getById(Number(id));
+        case 'areasurvey':
+            return (id) => AreaSurveyClient.getInstance().getById(Number(id));
         case 'titlebracket':
             return (id) => TitleBracketClient.getInstance().getById(Number(id));
         default:
@@ -427,6 +444,11 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => ClimateZoneClient.getInstance().update(entity);
         case 'weathertype':
             return (entity) => WeatherTypeClient.getInstance().update(entity);
+        // Yield areas P4 (PandiO/knk-workspace#680): areas and Hybrid overrides.
+        case 'productionarea':
+            return (entity) => ProductionAreaClient.getInstance().update(entity);
+        case 'productionyieldoverride':
+            return (entity) => ProductionYieldOverrideClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -532,6 +554,11 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => ClimateZoneClient.getInstance().delete(Number(id));
         case 'weathertype':
             return (id) => WeatherTypeClient.getInstance().delete(Number(id));
+        // Yield areas P4 (PandiO/knk-workspace#680): areas and Hybrid overrides.
+        case 'productionarea':
+            return (id) => ProductionAreaClient.getInstance().delete(Number(id));
+        case 'productionyieldoverride':
+            return (id) => ProductionYieldOverrideClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -640,6 +667,11 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => ClimateZoneClient.getInstance().create(entity);
         case 'weathertype':
             return (entity) => WeatherTypeClient.getInstance().create(entity);
+        // Yield areas P4 (PandiO/knk-workspace#680): areas and Hybrid overrides.
+        case 'productionarea':
+            return (entity) => ProductionAreaClient.getInstance().create(entity);
+        case 'productionyieldoverride':
+            return (entity) => ProductionYieldOverrideClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }
