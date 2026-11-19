@@ -16,6 +16,15 @@ export interface TownDto extends DomainBaseDto {
     streetIds?: number[];
     /** #409: the same streets with their names, ordered by name (knk-web-api `TownStreetDto`). */
     streets?: TownStreetDto[];
+    // Territory V1 (PandiO/knk-workspace#326, #690). On a save, a null power means "not on this form": power, kingdomId
+    // and provinceId stay as they are; a value sets all three (a null kingdomId or provinceId then clears it).
+    power?: number | null;
+    kingdomId?: number | null;
+    /** Read only. */
+    kingdomName?: string | null;
+    provinceId?: number | null;
+    /** Read only. */
+    provinceName?: string | null;
 }
 
 /** knk-web-api `TownStreetDto`: one street of a town (derived from its districts, #409). */

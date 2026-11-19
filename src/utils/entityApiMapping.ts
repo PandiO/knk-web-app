@@ -38,6 +38,10 @@ import { SiegeAmmoTypeClient } from '../apiClients/siegeAmmoTypeClient';
 import { SiegeWeaponSpotClient } from '../apiClients/siegeWeaponSpotClient';
 import { UserSiegeWeaponUnlockClient } from '../apiClients/userSiegeWeaponUnlockClient';
 import { TitleBracketClient } from '../apiClients/titleBracketClient';
+import { KingdomClient } from '../apiClients/kingdomClient';
+import { ProvinceClient } from '../apiClients/provinceClient';
+import { CrownLandClient } from '../apiClients/crownLandClient';
+import { TerritoryConflictClient } from '../apiClients/territoryConflictClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -146,6 +150,15 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => SiegeAmmoTypeClient.getInstance().searchPaged(query));
         case 'usersiegeweaponunlock':
             return withPagedQueryMapping((query) => UserSiegeWeaponUnlockClient.getInstance().searchPaged(query));
+        // Territory V1 (PandiO/knk-workspace#690): holders, crown land and the conflicts the game server reports.
+        case 'kingdom':
+            return withPagedQueryMapping((query) => KingdomClient.getInstance().searchPaged(query));
+        case 'province':
+            return withPagedQueryMapping((query) => ProvinceClient.getInstance().searchPaged(query));
+        case 'crownland':
+            return withPagedQueryMapping((query) => CrownLandClient.getInstance().searchPaged(query));
+        case 'territoryconflict':
+            return withPagedQueryMapping((query) => TerritoryConflictClient.getInstance().searchPaged(query));
         // Read-only reference data (seeded): search + fetch only, for TitleBracket object pickers
         // (the siege scenario's minimum title, a domain's warp settings - teleport Phase 5).
         case 'titlebracket':
@@ -233,6 +246,14 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => SiegeWeaponSpotClient.getInstance().getById(Number(id));
         case 'usersiegeweaponunlock':
             return (id) => UserSiegeWeaponUnlockClient.getInstance().getById(Number(id));
+        case 'kingdom':
+            return (id) => KingdomClient.getInstance().getById(Number(id));
+        case 'province':
+            return (id) => ProvinceClient.getInstance().getById(Number(id));
+        case 'crownland':
+            return (id) => CrownLandClient.getInstance().getById(Number(id));
+        case 'territoryconflict':
+            return (id) => TerritoryConflictClient.getInstance().getById(Number(id));
         case 'titlebracket':
             return (id) => TitleBracketClient.getInstance().getById(Number(id));
         default:
@@ -316,6 +337,13 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => SiegeWeaponSpotClient.getInstance().update(entity);
         case 'usersiegeweaponunlock':
             return (entity) => UserSiegeWeaponUnlockClient.getInstance().update(entity);
+        // Territory V1 (PandiO/knk-workspace#690); a conflict has no update (it is resolved on its page).
+        case 'kingdom':
+            return (entity) => KingdomClient.getInstance().update(entity);
+        case 'province':
+            return (entity) => ProvinceClient.getInstance().update(entity);
+        case 'crownland':
+            return (entity) => CrownLandClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -395,6 +423,14 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => SiegeWeaponSpotClient.getInstance().delete(Number(id));
         case 'usersiegeweaponunlock':
             return (id) => UserSiegeWeaponUnlockClient.getInstance().delete(Number(id));
+        case 'kingdom':
+            return (id) => KingdomClient.getInstance().delete(Number(id));
+        case 'province':
+            return (id) => ProvinceClient.getInstance().delete(Number(id));
+        case 'crownland':
+            return (id) => CrownLandClient.getInstance().delete(Number(id));
+        case 'territoryconflict':
+            return (id) => TerritoryConflictClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -476,6 +512,13 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => SiegeWeaponSpotClient.getInstance().create(entity);
         case 'usersiegeweaponunlock':
             return (entity) => UserSiegeWeaponUnlockClient.getInstance().create(entity);
+        // Territory V1 (PandiO/knk-workspace#690); conflicts are created by the game server's report only.
+        case 'kingdom':
+            return (entity) => KingdomClient.getInstance().create(entity);
+        case 'province':
+            return (entity) => ProvinceClient.getInstance().create(entity);
+        case 'crownland':
+            return (entity) => CrownLandClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }

@@ -1,3 +1,5 @@
+import { ProductionSettingsDto } from '../territory/TerritoryDtos';
+
 export type LocationReferenceSourceType = 'Location' | 'Town' | 'District' | 'Structure';
 
 export type JoinSpawnMode = 'WorldSpawn' | 'CustomReference';
@@ -165,6 +167,8 @@ export interface GameSettingsDto {
   hub?: HubSettingsDto | null;
   /** Chat hashtag token limits (PandiO/knk-workspace#233); 0 = off. */
   chatTokens?: ChatTokenSettingsDto | null;
+  /** Production flag and territory ranges (PandiO/knk-workspace#326, #690); never null from the API. */
+  production?: ProductionSettingsDto | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -185,6 +189,8 @@ export interface GameSettingsUpdateDto {
   hub?: HubSettingsDto | null;
   /** null/undefined keeps the stored chat-token limits. */
   chatTokens?: ChatTokenSettingsDto | null;
+  /** null/undefined keeps the stored production settings (PandiO/knk-workspace#326). */
+  production?: ProductionSettingsDto | null;
 }
 
 /**

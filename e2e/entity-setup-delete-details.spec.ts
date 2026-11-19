@@ -1,6 +1,7 @@
 import { test, expect } from './support/mockApi';
 import { alex, mockSession, startLoggedIn } from './fixtures/auth';
 import { mockContentDefaults } from './fixtures/content';
+import { mockNoStructureTerritory } from './fixtures/territory';
 import { noStepProgress, noValidationRules, townForm, townMetadata, workflowSession } from './fixtures/forms';
 import type { FieldValidationRuleDto } from '../src/types/dtos/forms/FieldValidationRuleDtos';
 import type { EntityMetadataDto } from '../src/types/dtos/metadata/MetadataModels';
@@ -109,6 +110,8 @@ test('deleting a draft and its entities: a skipped entity offers "Show what uses
   api.json('GET', 'Structures/3', { id: 3, name: 'Smithy' });
   // The structure page's landmark list (PandiO/knk-workspace#708): none.
   api.on('POST', 'landmarks/search', { body: { items: [], totalCount: 0, page: 1, pageSize: 100, totalPages: 0 } });
+  // The territory panel below the details (PandiO/knk-workspace#690): no flag; e2e/territory.spec.ts covers it.
+  mockNoStructureTerritory(api, 3);
   await page.goto('/forms/town');
 
   await page.getByRole('button', { name: 'Delete saved progress' }).click();

@@ -355,6 +355,40 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'unlockedAt', label: 'Unlocked', sortable: false, render: (row: any) => row.unlockedAt ? new Date(row.unlockedAt).toLocaleDateString() : '-' },
     ]
   },
+  // Territory V1 (PandiO/knk-workspace#690): holders, crown land and the conflicts the game server reports.
+  kingdom: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'townCount', label: 'Towns', sortable: false },
+      { key: 'crownLandCount', label: 'Crown land', sortable: false },
+    ]
+  },
+  province: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'kingdomName', label: 'Kingdom', sortable: false, render: (row: any) => row.kingdomName ?? '-' },
+      { key: 'townCount', label: 'Towns', sortable: false },
+    ]
+  },
+  crownland: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'kingdomName', label: 'Kingdom', sortable: false, render: (row: any) => row.kingdomName ?? '-' },
+      { key: 'range', label: 'Range (blocks)', sortable: false },
+      worldColumn,
+    ]
+  },
+  territoryconflict: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'world', label: 'World', sortable: false },
+      { key: 'status', label: 'Status', sortable: false },
+      { key: 'stillOverlapping', label: 'Still overlapping', sortable: false, render: (row: any) => row.stillOverlapping ? 'Yes' : 'No' },
+      { key: 'chunkCount', label: 'Chunks', sortable: false },
+      { key: 'flaggedStructureCount', label: 'Flagged structures', sortable: false },
+      { key: 'detectedAt', label: 'Detected', sortable: false, render: (row: any) => row.detectedAt ? new Date(row.detectedAt).toLocaleDateString() : '-' },
+    ]
+  },
   // Off-road navigation phase 5.1 (PandiO/knk-workspace#708): landmarks.
   landmark: {
     default: [

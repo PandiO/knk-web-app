@@ -22,6 +22,9 @@ import { refusedDeleteDetails } from '../components/ReferenceDetails';
 import { isReferenceRefusal } from '../utils/referenceDetails';
 import { GroupPermissionsPanel } from '../components/admin/permissionGroups/GroupPermissionsPanel';
 import { DomainLandmarksPanel, showsDomainLandmarks } from '../components/landmarks/DomainLandmarksPanel';
+import { TownTerritoryPanel } from '../components/territory/TownTerritoryPanel';
+import { TerritoryConflictPanel } from '../components/territory/TerritoryConflictPanel';
+import { StructureTerritoryPanel } from '../components/territory/StructureTerritoryPanel';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -183,6 +186,18 @@ export const DisplayWizardPage: React.FC = () => {
       {/* Off-road navigation phase 5.1 (PandiO/knk-workspace#708): the landmarks linked to a domain. */}
       {showsDomainLandmarks(entityName) && numericId != null && (
         <DomainLandmarksPanel domainId={numericId} domainName={entityLabel ?? `${typeLabel} #${numericId}`} returnTo={here} />
+      )}
+      {/* Territory V1 (PandiO/knk-workspace#690): a town's power and ranges, a conflict's resolution, a structure's
+          flag and loyalty. A save re-reads the details above. */}
+      {entityName.toLowerCase() === 'town' && numericId != null && (
+        <TownTerritoryPanel townId={numericId} townName={entityLabel ?? `Town #${numericId}`} returnTo={here}
+          onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {entityName.toLowerCase() === 'territoryconflict' && numericId != null && (
+        <TerritoryConflictPanel conflictId={numericId} returnTo={here} onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {entityName.toLowerCase() === 'structure' && numericId != null && (
+        <StructureTerritoryPanel structureId={numericId} returnTo={here} />
       )}
       {confirmModal}
       <FeedbackModal

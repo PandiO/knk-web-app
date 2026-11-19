@@ -13,6 +13,7 @@ import {
   mockLandmarkSearch,
 } from './fixtures/landmarks';
 import { cinix, townDisplay, townMetadata } from './fixtures/towns';
+import { mockNoTownTerritory } from './fixtures/territory';
 import type { PagedQueryDto } from '../src/types/dtos/common/PagedQuery';
 import type { DisplayConfigurationDto } from '../src/types/dtos/displayConfig/DisplayModels';
 import type { FieldValidationRuleDto } from '../src/types/dtos/forms/FieldValidationRuleDtos';
@@ -94,6 +95,8 @@ test.describe("a town's page", () => {
     api.json<DisplayConfigurationDto>('GET', 'DisplayConfigurations/entity/Town', townDisplay);
     api.json<TownDto>('GET', 'Towns/4', cinix);
     mockLandmarkSearch(api);
+    // The territory panel below the details (PandiO/knk-workspace#690): empty here; e2e/territory.spec.ts covers it.
+    mockNoTownTerritory(api, 4);
   });
 
   test('lists the landmarks linked to the town, each linking to its page', async ({ page, api }) => {
