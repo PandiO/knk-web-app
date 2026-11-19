@@ -280,3 +280,14 @@ export function mockNoTownTerritory(api: MockApi, townId: number): void {
   api.json<KingdomDto[]>('GET', /^Kingdoms\/?$/, []);
   api.json<ProvinceDto[]>('GET', /^Provinces\/?$/, []);
 }
+
+/**
+ * The structure page's territory panel (PandiO/knk-workspace#690) for specs about other parts of the page: no flag,
+ * loyal to its own town, no towns to pick. e2e/territory.spec.ts covers it.
+ */
+export function mockNoStructureTerritory(api: MockApi, structureId: number): void {
+  api.json<StructureTerritoryDto>('GET', `Territory/structures/${structureId}`, {
+    structureId, townId: null, loyaltyTownId: null, territoryFlag: 'None', territoryConflictId: null,
+  });
+  api.json<unknown[]>('GET', /^Towns\/?$/, []);
+}
