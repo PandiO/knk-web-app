@@ -106,3 +106,33 @@ describe('PagedEntityTable category filter', () => {
         expect(screen.queryByLabelText('Category filter')).not.toBeInTheDocument();
     });
 });
+
+/** P2 (PandiO/knk-workspace#676): structure tables filter the structures the territory report flagged. */
+describe('PagedEntityTable territory flag filter', () => {
+    it.each(['Structure', 'Warehouse', 'ProductionStructure'])('%s: sends territoryFlag, page 1, and clears it again', async (type) => {
+        search.mockImplementation(async () => page([{ id: 21, name: 'Quarry', territoryFlag: 'Contested' }]));
+        render(<PagedEntityTable<Row> entityTypeName={type} columns={columns} />);
+        await screen.findByText('Quarry');
+        const select = screen.getByLabelText('Territory flag filter');
+        expect(within(select).getAllByRole('option').map(o => o.textContent))
+            .toEqual(['All structures', 'Flagged: in a contested zone', "Flagged: outside its town's territory"]);
+
+        fireEvent.change(select, { target: { value: 'Contested' } });
+        await waitFor(() => expect(lastFilters()).toEqual({ territoryFlag: 'Contested' }));
+        expect(search.mock.calls[search.mock.calls.length - 1][0].page).toBe(1);
+
+        fireEvent.change(select, { target: { value: '' } });
+        await waitFor(() => expect(lastFilters()).toEqual({}));
+    });
+
+    it('is not offered on other tables or when the caller fixes the flag', async () => {
+        const { unmount } = render(<PagedEntityTable<Row> entityTypeName="ItemBlueprint" columns={columns} />);
+        await screen.findByText('Iron Sword');
+        expect(screen.queryByLabelText('Territory flag filter')).not.toBeInTheDocument();
+        unmount();
+
+        render(<PagedEntityTable<Row> entityTypeName="Structure" columns={columns} initialQuery={{ filters: { territoryFlag: 'Contested' } }} />);
+        await screen.findByText('Iron Sword');
+        expect(screen.queryByLabelText('Territory flag filter')).not.toBeInTheDocument();
+    });
+});

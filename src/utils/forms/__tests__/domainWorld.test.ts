@@ -3,7 +3,7 @@ import { buildDomainWorldResolveRequest, isDomainEntityType } from '../domainWor
 // KNG-111: the form sends the API what it knows about a domain's world before saving it.
 describe('domainWorld', () => {
     it('recognises every domain type, in any case', () => {
-        ['Town', 'district', 'Structure', 'GateStructure', 'Domain'].forEach(type =>
+        ['Town', 'district', 'Structure', 'GateStructure', 'Domain', 'Warehouse', 'productionstructure'].forEach(type =>
             expect(isDomainEntityType(type)).toBe(true));
         ['Location', 'GateDoor', '', undefined, null].forEach(type =>
             expect(isDomainEntityType(type as string)).toBe(false));

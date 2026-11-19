@@ -99,3 +99,26 @@ test('Publish names the new rule and publishes the saved draft', async ({ page, 
   await expect.poll(() => api.calls('POST', `FormConfigurations/${townForm.id}/publish`).length).toBe(1);
   expect(api.calls('POST', ruleWrites)).toHaveLength(0);
 });
+
+// P2 (PandiO/knk-workspace#676, production DESIGN § 3.4): the rule builder offers InsideTerritory (placement rules P-2
+// and P-3), filled with the town holder config and as a warning, the default for every placement rule.
+test('the rule builder offers InsideTerritory as a warning with the town holder config', async ({ page, api }) => {
+  await page.getByText('1. Basics').click();
+  await page.getByRole('button', { name: 'Edit field Spawn point' }).click();
+  const editor = page.getByRole('dialog', { name: 'Edit Field' });
+  await editor.getByRole('button', { name: '+ Add Rule' }).click();
+  await editor.getByLabel('Validation Type *').selectOption('InsideTerritory');
+  await expect(editor.getByTestId('rule-type-help')).toContainText("territory of the town the dependency field names");
+  await expect(editor.getByRole('checkbox', { name: 'Block step progression on validation failure' })).not.toBeChecked();
+  await editor.getByRole('button', { name: 'Add Rule', exact: true }).click();
+  await expect(editor.getByTestId('validation-rule')).toHaveCount(1);
+  await editor.getByRole('button', { name: 'Save Field' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  await expect.poll(() => api.calls('PUT', `FormConfigurations/${townForm.id}/draft`).length).toBe(1);
+  const body = api.calls('PUT', `FormConfigurations/${townForm.id}/draft`)[0].body as FormConfigurationDto;
+  expect(body.validationRules).toEqual([
+    expect.objectContaining({ fieldGuid: spawnGuid, validationType: 'InsideTerritory', isBlocking: false }),
+  ]);
+  expect(JSON.parse(body.validationRules?.[0].configJson ?? '{}')).toEqual({ holderKind: 'Town', holderIdPath: 'Id' });
+});

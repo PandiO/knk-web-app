@@ -158,6 +158,9 @@ export enum Controllers {
     // Stock core P1 (PandiO/knk-workspace#97 API, #675 web app)
     Storages = 'Storages',
     StockTransactions = 'StockTransactions',
+    // P2 world (PandiO/knk-workspace#91 API, #676 web app)
+    Warehouses = 'Warehouses',
+    ProductionStructures = 'ProductionStructures',
     TitleBrackets = 'TitleBrackets',
     // Player statistics (KNG-34)
     Statistics = 'statistics',

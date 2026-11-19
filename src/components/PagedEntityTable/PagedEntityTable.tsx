@@ -9,6 +9,7 @@ import { ColumnDefinition } from '../../types/common';
 import { useEntityMetadata } from '../../hooks/useEntityMetadata';
 import { buildPinnedSection, FilterScopes, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
 import { CategoryFilterSelect } from './CategoryFilterSelect';
+import { TERRITORY_FLAG_FILTER_ENTITIES, TERRITORY_FLAG_FILTER_KEY, TerritoryFlagFilterSelect } from './TerritoryFlagFilterSelect';
 import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
 import { DataTable, DataTableColumn, DataTableSection, nextSort } from '../DataTable';
 import { Pager } from '../Pager';
@@ -350,6 +351,15 @@ export function PagedEntityTable<T extends Record<string, any>>({
             };
         });
     };
+    // P2 (PandiO/knk-workspace#676): the structures the territory report flagged (contested, outside territory).
+    const showTerritoryFlagFilter = TERRITORY_FLAG_FILTER_ENTITIES.has(entityTypeName.toLowerCase())
+        && !Object.keys(initialQuery.filters ?? {}).some(filterKey => filterKey.toLowerCase() === TERRITORY_FLAG_FILTER_KEY.toLowerCase());
+    const handleTerritoryFlagFilterChange = (flag: string | undefined) => {
+        setQuery(prev => {
+            const { [TERRITORY_FLAG_FILTER_KEY]: _previous, ...otherFilters } = prev.filters ?? {};
+            return { ...prev, page: 1, filters: flag ? { ...otherFilters, [TERRITORY_FLAG_FILTER_KEY]: flag } : otherFilters };
+        });
+    };
     // KNG-200: numbers the fetches, so only the latest one's response reaches the table.
     const requestSeq = useRef(0);
 
@@ -644,7 +654,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
     return (
         <div className="w-full space-y-4">
             {/* Toolbar - changed: conditionally render based on showSearchBar prop */}
-            {(showSearchBar || toolbarActions || showCategoryFilter) && (
+            {(showSearchBar || toolbarActions || showCategoryFilter || showTerritoryFlagFilter) && (
                 <div className="flex items-center justify-between">
                     {showSearchBar && (
                         <div className="relative flex-1 max-w-md">
@@ -666,8 +676,16 @@ export function PagedEntityTable<T extends Record<string, any>>({
                             />
                         </div>
                     )}
-                    {toolbarActions && (
+                    {showTerritoryFlagFilter && (
                         <div className={showSearchBar || showCategoryFilter ? 'ml-4' : ''}>
+                            <TerritoryFlagFilterSelect
+                                value={query.filters?.[TERRITORY_FLAG_FILTER_KEY]}
+                                onChange={handleTerritoryFlagFilterChange}
+                            />
+                        </div>
+                    )}
+                    {toolbarActions && (
+                        <div className={showSearchBar || showCategoryFilter || showTerritoryFlagFilter ? 'ml-4' : ''}>
                             {toolbarActions}
                         </div>
                     )}

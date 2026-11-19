@@ -250,5 +250,48 @@ describe('ValidationRuleBuilder', () => {
       expect(config).toBeDefined();
       expect(JSON.parse((config as HTMLTextAreaElement).value)).toEqual({ condition: { op: 'equals', value: true } });
     });
+
+    it('offers InsideTerritory with the town holder config, as a warning by default (PandiO/knk-workspace#676)', async () => {
+      render(
+        <ValidationRuleBuilder
+          field={mockField}
+          availableFields={mockAvailableFields}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
+          onSave={mockOnSave}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      const type = screen.getByLabelText('Validation Type *') as HTMLSelectElement;
+      expect(Array.from(type.options).map(o => o.value)).toContain('InsideTerritory');
+      await userEvent.selectOptions(type, 'InsideTerritory');
+
+      const config = screen.getAllByRole('textbox').find(box => (box as HTMLTextAreaElement).value.includes('"holderKind"'));
+      expect(JSON.parse((config as HTMLTextAreaElement).value)).toEqual({ holderKind: 'Town', holderIdPath: 'Id' });
+      expect(screen.getByLabelText('Error Message *')).toHaveValue("The region is not inside {townName}'s territory (or part of it is contested).");
+      expect(screen.getByRole('checkbox', { name: 'Block step progression on validation failure' })).not.toBeChecked();
+      expect(screen.getByTestId('rule-type-help')).toHaveTextContent('never blocks a save');
+    });
+
+    it('keeps a saved InsideTerritory rule selected with its own settings', () => {
+      render(
+        <ValidationRuleBuilder
+          field={mockField}
+          availableFields={mockAvailableFields}
+          entityTypeName="Town"
+          entityMetadata={mockEntityMetadataMap}
+          onSave={mockOnSave}
+          onCancel={mockOnCancel}
+          initialRule={{
+            validationType: 'InsideTerritory', configJson: '{"holderKind": "Town", "holderIdPath": "Id"}',
+            errorMessage: 'P-2: not inside its town', isBlocking: true, requiresDependencyFilled: false,
+          } as DraftValidationRuleDto}
+        />
+      );
+
+      expect(screen.getByLabelText('Validation Type *')).toHaveValue('InsideTerritory');
+      expect(screen.getByRole('checkbox', { name: 'Block step progression on validation failure' })).toBeChecked();
+    });
   });
 });

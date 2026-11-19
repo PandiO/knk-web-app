@@ -3,7 +3,8 @@ import { DomainWorldResolveRequestDto } from '../../types/dtos/domain/DomainWorl
 // KNG-111: every domain (Town, District, Structure, GateStructure, or a plain Domain) is in one Minecraft world. The API
 // works the world out from the region world task, the Location or the parent; when none gives one the form asks.
 
-const DOMAIN_ENTITY_TYPES = ['domain', 'town', 'district', 'structure', 'gatestructure'];
+// P2 (PandiO/knk-workspace#676): warehouses and production structures are structures; a rural one's parent is its town.
+const DOMAIN_ENTITY_TYPES = ['domain', 'town', 'district', 'structure', 'gatestructure', 'warehouse', 'productionstructure'];
 
 export const isDomainEntityType = (entityTypeName?: string | null): boolean =>
     !!entityTypeName && DOMAIN_ENTITY_TYPES.includes(entityTypeName.toLowerCase());

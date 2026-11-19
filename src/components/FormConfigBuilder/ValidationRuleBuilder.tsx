@@ -30,7 +30,7 @@ const dependencyKeyOf = (rule?: DraftValidationRuleDto): string => {
     return '';
 };
 
-const CONFIG_TEMPLATES: Record<string, { config: unknown; error: string; success?: string }> = {
+const CONFIG_TEMPLATES: Record<string, { config: unknown; error: string; success?: string; isBlocking?: boolean }> = {
     LocationInsideRegion: {
         config: { regionPropertyPath: 'WgRegionId', allowBoundary: false },
         error: "Location is outside {townName}'s boundaries. Please select a location within the region.",
@@ -40,6 +40,14 @@ const CONFIG_TEMPLATES: Record<string, { config: unknown; error: string; success
         config: { parentRegionPath: 'WgRegionId', requireFullContainment: true },
         error: 'Region extends outside parent boundaries. All boundaries must be within {townName}.',
         success: 'Region is fully contained within parent.'
+    },
+    // P2 (PandiO/knk-workspace#676, production DESIGN § 3.4): placement rules P-2/P-3, checked by the game server's
+    // territory lookup. Every placement rule warns by default; an admin can make it blocking.
+    InsideTerritory: {
+        config: { holderKind: 'Town', holderIdPath: 'Id' },
+        error: "The region is not inside {townName}'s territory (or part of it is contested).",
+        success: "Inside {townName}'s territory.",
+        isBlocking: false
     },
     ConditionalRequired: {
         config: { condition: { op: 'equals', value: true } },
@@ -112,6 +120,7 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
             setConfigJson(JSON.stringify(template.config, null, 2));
             setErrorMessage(template.error);
             setSuccessMessage(template.success ?? '');
+            setIsBlocking(template.isBlocking ?? true);
         }
     }, [validationType, initialRule]);
 
@@ -221,8 +230,16 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                     >
                         <option value="LocationInsideRegion">Location Inside Region</option>
                         <option value="RegionContainment">Region Containment</option>
+                        <option value="InsideTerritory">Inside Territory</option>
                         <option value="ConditionalRequired">Conditional Required</option>
                     </select>
+                    {validationType === 'InsideTerritory' && (
+                        <p className="mt-1 text-xs text-muted" data-testid="rule-type-help">
+                            The field's region (or location) must lie inside the territory of the town the dependency
+                            field names (holderKind Town or Kingdom). The game server answers it; while it is offline or
+                            production.enabled is off the rule is not checked and never blocks a save.
+                        </p>
+                    )}
                 </div>
                 <div>
                     <label htmlFor="rule-depends-on" className="block text-sm font-medium text-gray-700 mb-1">Depends On Field</label>

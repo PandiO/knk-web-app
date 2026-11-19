@@ -10,6 +10,8 @@ import {
 } from '../utils/forms/pickerRowValues';
 import { MinecraftIcon } from '../components/minecraft/MinecraftIcon';
 import { landmarkAreaLabel, landmarkDomainLabel, landmarkPointLabel } from '../utils/landmarks';
+import { territoryFlagCell } from '../utils/territory';
+import { roadConnectionCell } from '../utils/productionWorld';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
   default: [
@@ -48,6 +50,22 @@ const streetAddressColumn: ColumnDefinition<any> = {
   label: 'Street',
   sortable: false,
   render: (row: any) => pickerStreetAddress(row) ?? '-'
+};
+
+// P2 world (PandiO/knk-workspace#676, production DESIGN § 3.3-3.4): a structure is in a district or rural (its town
+// only), and the territory report flags one whose land is contested or outside its town's territory (A07).
+const placementColumn: ColumnDefinition<any> = {
+  key: 'isRural',
+  label: 'Placement',
+  sortable: false,
+  render: (row: any) => row.isRural === true ? 'Rural' : row.isRural === false ? 'District' : '-'
+};
+
+const territoryFlagColumn: ColumnDefinition<any> = {
+  key: 'territoryFlag',
+  label: 'Territory flag',
+  sortable: false,
+  render: (row: any) => territoryFlagCell(row.territoryFlag)
 };
 
 // KNG-200 phase 4: material and block icons go through MinecraftIcon, which shows a neutral
@@ -166,6 +184,36 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       streetAddressColumn,
       districtNameColumn,
       townNameColumn,
+      worldColumn,
+      // P2 (#676): rural structures and the flagged ones (the Territory flag filter above the table).
+      placementColumn,
+      territoryFlagColumn
+    ]
+  },
+  // P2 world (PandiO/knk-workspace#676): warehouses and production structures, in a district or rural.
+  warehouse: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      townNameColumn,
+      placementColumn,
+      districtNameColumn,
+      { key: 'acceptsDeliveries', label: 'Accepts deliveries', sortable: false, render: (row: any) => row.acceptsDeliveries === false ? 'No' : 'Yes' },
+      { key: 'priority', label: 'Priority', sortable: false, render: (row: any) => row.priority ?? 0 },
+      territoryFlagColumn,
+      worldColumn
+    ]
+  },
+  productionstructure: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      townNameColumn,
+      placementColumn,
+      districtNameColumn,
+      { key: 'level', label: 'Level', sortable: false, render: (row: any) => row.level ?? 1 },
+      { key: 'productionEnabled', label: 'Production', sortable: false, render: (row: any) => row.productionEnabled === false ? 'Off' : 'On' },
+      // #65 insight (health: unconnected producers, D5): only a rural structure needs its own road connection.
+      { key: 'roadConnection', label: 'Road connection', sortable: false, render: (row: any) => roadConnectionCell(row) },
+      territoryFlagColumn,
       worldColumn
     ]
   },

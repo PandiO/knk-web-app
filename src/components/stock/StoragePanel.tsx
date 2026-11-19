@@ -26,6 +26,8 @@ interface Props {
     returnTo: string | null;
     /** After stock moved: the details above re-read the totals. */
     onChanged?: () => void;
+    /** P2 (PandiO/knk-workspace#676): the heading when several storages share a page (a structure's), default "Stock". */
+    title?: string;
 }
 
 /**
@@ -33,7 +35,7 @@ interface Props {
  * weight against the cap, the lock, the stock lines (each amount links to the moves that made it, the ledger
  * explorer's drill-down) and the unique items (A03), with the adjust and move dialogs for holders of knk.economy.admin.
  */
-export const StoragePanel: React.FC<Props> = ({ storageId, returnTo, onChanged }) => {
+export const StoragePanel: React.FC<Props> = ({ storageId, returnTo, onChanged, title }) => {
     const economyGate = useActionGate(ECONOMY_ADMIN_NODE);
     const [storage, setStorage] = useState<StorageDto | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -69,11 +71,11 @@ export const StoragePanel: React.FC<Props> = ({ storageId, returnTo, onChanged }
     const gateProps = { disabled: !economyGate.allowed, title: economyGate.hint ?? undefined };
 
     return (
-        <section className="panel mt-6 p-4 sm:p-6" aria-labelledby="storage-stock-heading" data-testid="storage-stock">
+        <section className="panel mt-6 p-4 sm:p-6" aria-labelledby={`storage-stock-heading-${storageId}`} data-testid="storage-stock">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <h2 id="storage-stock-heading" className="flex items-center text-lg font-semibold text-fg">
+                <h2 id={`storage-stock-heading-${storageId}`} className="flex items-center text-lg font-semibold text-fg">
                     <Package className="mr-2 h-5 w-5" aria-hidden="true" />
-                    Stock
+                    {title ?? 'Stock'}
                 </h2>
                 {storage && (
                     <div className="flex flex-wrap gap-2">
