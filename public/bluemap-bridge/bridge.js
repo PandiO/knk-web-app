@@ -526,6 +526,13 @@
     }
   }
 
+  // Escape while the focus is inside this iframe (#757): the page's own keydown listener cannot hear it, so report it
+  // as the v1 type `escapePressed` (added under O14: new type, no v1 meaning changed). The page decides what it closes;
+  // the key still reaches BlueMap.
+  function onKeyDown(event) {
+    if (event.key === 'Escape' && !event.repeat) post('escapePressed', {});
+  }
+
   function onMapChanged() {
     state.heightTries = 0;
     renderAll();
@@ -540,6 +547,7 @@
     getSet(SET_REGIONS, 'Knights and Kings regions');
     getSet(SET_PLAYERS, 'Knights and Kings players');
     window.addEventListener('message', onMessage);
+    window.addEventListener('keydown', onKeyDown, true);
     if (app.events && app.events.addEventListener) {
       app.events.addEventListener('bluemapCameraMoved', onCameraMoved);
       app.events.addEventListener('bluemapMapChanged', onMapChanged);

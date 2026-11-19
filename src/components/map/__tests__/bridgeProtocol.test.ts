@@ -40,6 +40,13 @@ describe('parseBridgeMessage', () => {
     expect(parseBridgeMessage(event(player), frame, origin)).toEqual(player);
     expect(parseBridgeMessage(event(camera), frame, origin)).toEqual(camera);
   });
+
+  it('accepts escapePressed, the type added to v1 for Escape inside the iframe (#757, O14)', () => {
+    const escape = { v: 1, type: 'escapePressed', payload: {} };
+    expect(parseBridgeMessage(event(escape), frame, origin)).toEqual(escape);
+    expect(parseBridgeMessage(event({ v: 2, type: 'escapePressed', payload: {} }), frame, origin)).toBeNull();
+    expect(parseBridgeMessage(event({ v: 1, type: 'escapePressed' }), frame, origin)).toBeNull();
+  });
 });
 
 describe('protocol helpers', () => {

@@ -66,6 +66,19 @@ test.describe('anonymous, map on', () => {
     expect(api.calls('GET', 'Map/towns/1')).toHaveLength(1);
   });
 
+  test('Escape closes the panel after a click inside the map frame (#757)', async ({ page }) => {
+    await page.goto('/map');
+    const frame = await mapFrame(page);
+    await label(frame, 'town', 1).click();
+    const panel = page.getByRole('complementary', { name: 'Place details' });
+    await expect(panel.getByRole('heading', { name: 'Aldmoor' })).toBeVisible();
+    // The keyboard focus is inside BlueMap's iframe now, where the page's own keydown listener cannot hear it;
+    // the bridge reports the key (escapePressed).
+    expect(await frame.evaluate(() => document.hasFocus())).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
+  });
+
   test('"Show region" shows the town and all its districts by name, and hides them again (A08)', async ({ page }) => {
     await page.goto('/map');
     const frame = await mapFrame(page);
