@@ -144,6 +144,11 @@ export enum Controllers {
     SiegeObjectives = 'SiegeObjectives',
     SiegeLobbies = 'SiegeLobbies',
     SiegeConfiguration = 'SiegeConfiguration',
+    // Siege weapons phase 1 (PandiO/knk-workspace#782)
+    SiegeWeaponTemplates = 'SiegeWeaponTemplates',
+    SiegeAmmoTypes = 'SiegeAmmoTypes',
+    SiegeWeaponSpots = 'SiegeWeaponSpots',
+    UserSiegeWeaponUnlocks = 'UserSiegeWeaponUnlocks',
     TitleBrackets = 'TitleBrackets',
     // Player statistics (KNG-34)
     Statistics = 'statistics',
