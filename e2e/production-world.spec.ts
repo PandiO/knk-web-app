@@ -38,6 +38,7 @@ import {
   warehouseMetadata,
   warehouseRows,
 } from './fixtures/productionWorld';
+import { mockConfiguredYield } from './fixtures/productionYield';
 import type { DisplayConfigurationDto } from '../src/types/dtos/displayConfig/DisplayModels';
 import type { DomainWorldResolutionDto } from '../src/types/dtos/domain/DomainWorldDtos';
 import type { FieldValidationRuleDto } from '../src/types/dtos/forms/FieldValidationRuleDtos';
@@ -292,6 +293,8 @@ test.describe('the detail pages', () => {
     api.on<StructureTerritoryDto>('GET', /^Territory\/structures\/\d+$/, ({ path }) => ({ body: territory[Number(path.split('/').pop())] }));
     api.json('GET', /^Towns\/?$/, [{ id: PHOENIX, name: 'Phoenix', allowEntry: true, requiredTitle: 0 }]);
     api.on('POST', 'hubs/web/negotiate', { status: 404 });
+    // P4c (#680): the yield panel of a production structure (e2e/production-yield.spec.ts covers it).
+    mockConfiguredYield(api);
     // P3b (#678): the production panel of a production structure; no kind and no lines here (e2e/production-engine.spec.ts covers it).
     api.on<ProductionOverviewDto>('GET', /^ProductionStructures\/\d+\/production$/, ({ path }) => ({
       body: {

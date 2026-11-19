@@ -86,15 +86,19 @@ export const StructureYieldPanel: React.FC<Props> = ({ structureId, returnTo, on
         void load();
     }, [load, refreshKey]);
 
-    const run = async (action: () => Promise<void>) => {
+    /** Runs a change, reads the yield again and only then says it is done (so an edit made after the message isn't reset). */
+    const run = async (action: () => Promise<string>): Promise<boolean> => {
         setBusy(true);
         setActionError(null);
         try {
-            await action();
+            const done = await action();
             await load();
+            toast.success(done);
             onChanged?.();
+            return true;
         } catch (err) {
             setActionError(productionRefusalReason(err) ?? 'The change was refused.');
+            return false;
         } finally {
             setBusy(false);
         }
@@ -102,12 +106,12 @@ export const StructureYieldPanel: React.FC<Props> = ({ structureId, returnTo, on
 
     const surveyNow = () => run(async () => {
         const areas = await productionStructureClient.requestSurvey(structureId, {});
-        toast.success(`Survey requested for ${areas.length} ${areas.length === 1 ? 'area' : 'areas'}: the game server surveys at its next poll.`);
+        return `Survey requested for ${areas.length} ${areas.length === 1 ? 'area' : 'areas'}: the game server surveys at its next poll.`;
     });
 
     const remakeLines = () => run(async () => {
         const result = await productionStructureClient.materialize(structureId);
-        toast.success(`Lines made again: ${result.linesCreated.length} created, ${result.linesUpdated.length} updated.`);
+        return `Lines made again: ${result.linesCreated.length} created, ${result.linesUpdated.length} updated.`;
     });
 
     const overrideOf = (blueprintId: number) => overrides.find(o => o.itemBlueprintId === blueprintId) ?? null;
@@ -124,8 +128,7 @@ export const StructureYieldPanel: React.FC<Props> = ({ structureId, returnTo, on
         const stored = overrideOf(blueprintId);
         if (draft.kind === 'None') {
             if (stored) await productionYieldOverrideClient.delete(stored.id);
-            toast.success('Override removed.');
-            return;
+            return 'Override removed.';
         }
         const body = {
             productionStructureId: structureId,
@@ -135,7 +138,7 @@ export const StructureYieldPanel: React.FC<Props> = ({ structureId, returnTo, on
         };
         if (stored) await productionYieldOverrideClient.update({ id: stored.id, ...body });
         else await productionYieldOverrideClient.create({ id: 0, ...body });
-        toast.success(`Override saved: ${overrideLabel(draft.kind, body.value)}.`);
+        return `Override saved: ${overrideLabel(draft.kind, body.value)}.`;
     });
 
     const canEdit = gate.allowed && !busy;
@@ -343,7 +346,7 @@ export const StructureYieldPanel: React.FC<Props> = ({ structureId, returnTo, on
                                             onClick={() => {
                                                 const blueprintId = newPin.blueprint!.id;
                                                 void saveOverride(blueprintId, { kind: newPin.kind, value: newPin.value })
-                                                    .then(() => setNewPin({ blueprint: null, kind: 'Pin', value: '' }));
+                                                    .then(saved => { if (saved) setNewPin({ blueprint: null, kind: 'Pin', value: '' }); });
                                             }}>
                                             Add override
                                         </button>
