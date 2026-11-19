@@ -10,13 +10,15 @@ import { expectNoSidewaysScroll } from './support/layout';
  * The player context panel with moderation actions on the overview map (PandiO/knk-workspace#743; OVERVIEW_MAP_DESIGN
  * § 4.4, § 5 rule 12, O11, O25; A20, A21): a viewer holding any of knk.freeze, knk.unfreeze, knk.kick, knk.ban or
  * knk.admin.user.manage gets a Moderation section under the clicked player's name card; each action shows only under
- * its own node and calls the profile page's endpoints; "Open profile" links to the player profile page. Everyone
- * else gets only the name card and causes no account or moderation request. Mocked API; BlueMap is the fake web app
+ * its own node and calls the profile page's endpoints; "Open profile" links to the player profile page, or is disabled
+ * with a tooltip for a viewer without its node (#809). Everyone else gets only the name card and causes no account or
+ * moderation request. Mocked API; BlueMap is the fake web app
  * running the real bridge script. Smoke test: knk-workspace docs/guides/overview-map-smoke-test.md § 9.
  */
 
 test.use({ strictApi: true });
 
+const PROFILE_TOOLTIP = 'You need access to player profiles (knk.admin.user.manage) to open this.';
 const MODERATION_NODES = ['knk.freeze', 'knk.unfreeze', 'knk.kick', 'knk.ban', 'knk.admin.user.manage'];
 
 async function clickJoe(page: Page): Promise<void> {
@@ -37,7 +39,7 @@ test.beforeEach(async ({ page }) => {
   await serveFakeBlueMap(page);
 });
 
-test('a viewer with only knk.kick sees only Kick and "Open profile"; kicking works as on the profile (A20)', async ({ page, api }) => {
+test('a viewer with only knk.kick sees only Kick and a disabled "Open profile"; kicking works as on the profile (A20, #809)', async ({ page, api }) => {
   await startLoggedIn(page, 'access-1');
   mockSession(api, alex, node => node === 'knk.kick');
   mockContentDefaults(api);
@@ -46,7 +48,23 @@ test('a viewer with only knk.kick sees only Kick and "Open profile"; kicking wor
 
   await expect(moderation(page).getByRole('heading', { name: 'Moderation' })).toBeVisible();
   await expect(actions(page).getByRole('button')).toHaveText(['Kick…']);
-  await expect(moderation(page).getByRole('link', { name: 'Open profile' })).toHaveAttribute('href', `/admin/users/${JOE_USER_ID}`);
+  // Without knk.admin.user.manage (the profile page's node): a disabled control with a tooltip, not a link (#809).
+  const openProfile = moderation(page).getByRole('button', { name: 'Open profile' });
+  await expect(openProfile).toHaveAttribute('aria-disabled', 'true');
+  await expect(moderation(page).getByRole('link', { name: 'Open profile' })).toHaveCount(0);
+  await expect(openProfile).toHaveAccessibleDescription(PROFILE_TOOLTIP);
+  await openProfile.hover();
+  await expect(page.getByRole('tooltip')).toHaveText(PROFILE_TOOLTIP);
+  await page.mouse.move(0, 0);
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await openProfile.focus();
+  await expect(page.getByRole('tooltip')).toHaveText(PROFILE_TOOLTIP);
+  // A tap or click goes nowhere (Playwright waits on an aria-disabled control unless forced).
+  await openProfile.click({ force: true });
+  await expect(page).toHaveURL(/\/map$/);
+  await expect(page.getByRole('tooltip')).toHaveText(PROFILE_TOOLTIP);
+  await openProfile.blur();
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
   expect(accountReads(api)).toHaveLength(1);
 
   await actions(page).getByRole('button', { name: 'Kick…' }).click();
@@ -64,6 +82,8 @@ test('a viewer with every moderation node freezes, unfreezes and bans from the p
   const fake = mockMapModeration(api);
   await clickJoe(page);
   await expect(actions(page).getByRole('button')).toHaveText(['Freeze…', 'Kick…', 'Ban…']);
+  // With the profile page's node: the working link, unchanged (#809).
+  await expect(moderation(page).getByRole('link', { name: 'Open profile' })).toHaveAttribute('href', `/admin/users/${JOE_USER_ID}`);
 
   await actions(page).getByRole('button', { name: 'Freeze…' }).click();
   const freeze = page.getByRole('alertdialog', { name: 'Freeze Joe?' });

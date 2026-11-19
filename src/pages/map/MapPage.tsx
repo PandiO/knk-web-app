@@ -136,6 +136,11 @@ const MapView: React.FC<{ initialConfig: MapConfigDto; registry: MapActionRegist
         setSelection(null);
         setSelectedPlayer(message.payload.uuid);
         break;
+      case 'escapePressed':
+        // Escape inside the map's iframe (#757): the page's keydown listener never hears it, so the bridge reports it.
+        setSelection(null);
+        setSelectedPlayer(null);
+        break;
       default:
         break; // cameraChanged: not used yet
     }
