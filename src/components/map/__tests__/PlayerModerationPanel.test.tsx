@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { MODERATION_NODES, PlayerModerationPanel, playerProfilePath } from '../PlayerModerationPanel';
+import { MODERATION_NODES, PlayerModerationPanel, PROFILE_DENIED_TOOLTIP, playerProfilePath } from '../PlayerModerationPanel';
 import type { MapPlayerDto } from '../../../types/dtos/map/MapDtos';
 
 // Jest 27 can't read react-router-dom v7's exports map; react-router has the same router and components.
@@ -81,12 +81,14 @@ it('renders nothing while the node checks run', () => {
   expect(client.getByUuid).not.toHaveBeenCalled();
 });
 
-it('with only knk.kick: Kick and "Open profile", nothing else; kick sends the reason (A20)', async () => {
+it('with only knk.kick: Kick and a disabled "Open profile" with its tooltip; kick sends the reason (A20, #809)', async () => {
   grant('knk.kick');
   renderPanel();
-  const link = await screen.findByRole('link', { name: 'Open profile' });
-  expect(link).toHaveAttribute('href', playerProfilePath(7));
-  expect(playerProfilePath(7)).toBe('/admin/users/7');
+  const control = await screen.findByRole('button', { name: 'Open profile' });
+  expect(screen.queryByRole('link', { name: 'Open profile' })).not.toBeInTheDocument();
+  expect(control).toHaveAttribute('aria-disabled', 'true');
+  expect(control).toHaveAccessibleDescription(PROFILE_DENIED_TOOLTIP);
+  expect(PROFILE_DENIED_TOOLTIP).toBe('You need access to player profiles (knk.admin.user.manage) to open this.');
   expect(client.getByUuid).toHaveBeenCalledWith(steve.uuid);
   const actions = screen.getByRole('group', { name: 'Moderation actions' });
   expect(within(actions).getAllByRole('button').map(button => button.textContent)).toEqual(['Kick…']);
@@ -164,4 +166,60 @@ it('a failed account read shows an error', async () => {
   client.getByUuid.mockRejectedValue({ status: 500 });
   renderPanel();
   expect(await screen.findByRole('alert')).toHaveTextContent('The player’s account could not be read.');
+});
+
+describe('"Open profile" without the profile node (#809)', () => {
+  const tooltip = () => screen.queryByRole('tooltip');
+
+  it('shows the tooltip on hover, keyboard focus and tap, and goes nowhere', async () => {
+    grant('knk.ban');
+    renderPanel();
+    const control = await screen.findByRole('button', { name: 'Open profile' });
+    expect(tooltip()).not.toBeInTheDocument();
+
+    fireEvent.mouseEnter(control.parentElement as HTMLElement);
+    expect(tooltip()).toHaveTextContent(PROFILE_DENIED_TOOLTIP);
+    fireEvent.mouseLeave(control.parentElement as HTMLElement);
+    expect(tooltip()).not.toBeInTheDocument();
+
+    fireEvent.focus(control);
+    expect(tooltip()).toHaveTextContent(PROFILE_DENIED_TOOLTIP);
+    fireEvent.blur(control);
+    expect(tooltip()).not.toBeInTheDocument();
+
+    // A tap on a phone: focus, then click; the tooltip stays until the focus leaves.
+    fireEvent.focus(control);
+    fireEvent.click(control);
+    expect(tooltip()).toHaveTextContent(PROFILE_DENIED_TOOLTIP);
+    fireEvent.blur(control);
+    expect(tooltip()).not.toBeInTheDocument();
+    fireEvent.click(control);
+    expect(tooltip()).toHaveTextContent(PROFILE_DENIED_TOOLTIP);
+  });
+
+  it('Escape hides the tooltip without reaching the page; a second Escape does', async () => {
+    grant('knk.freeze');
+    renderPanel();
+    const control = await screen.findByRole('button', { name: 'Open profile' });
+    const onWindowKey = jest.fn();
+    window.addEventListener('keydown', onWindowKey);
+    try {
+      fireEvent.focus(control);
+      fireEvent.keyDown(control, { key: 'Escape' });
+      expect(tooltip()).not.toBeInTheDocument();
+      expect(onWindowKey).not.toHaveBeenCalled();
+      fireEvent.keyDown(control, { key: 'Escape' });
+      expect(onWindowKey).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener('keydown', onWindowKey);
+    }
+  });
+
+  it('with knk.admin.user.manage: the working link, no tooltip (unchanged)', async () => {
+    grant('knk.kick', 'knk.admin.user.manage');
+    renderPanel();
+    expect(await screen.findByRole('link', { name: 'Open profile' })).toHaveAttribute('href', '/admin/users/7');
+    expect(screen.queryByRole('button', { name: 'Open profile' })).not.toBeInTheDocument();
+    expect(tooltip()).not.toBeInTheDocument();
+  });
 });
