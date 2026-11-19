@@ -11,6 +11,9 @@ import {
   mockTemplateSearch,
   SIEGE,
   siegeMetadata,
+  SPOT_TASK_OUTPUT,
+  spotForm,
+  spotFormMetadata,
   templateForm,
   templateFormMetadata,
 } from './fixtures/siegeWeapons';
@@ -18,14 +21,23 @@ import type { PagedQueryDto } from '../src/types/dtos/common/PagedQuery';
 import type { FieldValidationRuleDto } from '../src/types/dtos/forms/FieldValidationRuleDtos';
 import type { FormConfigurationDto, FormSubmissionProgressDto } from '../src/types/dtos/forms/FormModels';
 import type { EntityMetadataDto } from '../src/types/dtos/metadata/MetadataModels';
-import type { SiegeAmmoTypeDto, SiegeWeaponTemplateDto } from '../src/types/dtos/siege/SiegeWeaponDtos';
-import type { StepProgressReadDto, WorkflowSessionReadDto } from '../src/types/dtos/workflow/WorkflowDtos';
+import type { SiegeAmmoTypeDto, SiegeWeaponSpotDto, SiegeWeaponTemplateDto } from '../src/types/dtos/siege/SiegeWeaponDtos';
+import type {
+  StepProgressReadDto,
+  WorkflowSessionReadDto,
+  WorldTaskCreateDto,
+  WorldTaskReadDto,
+} from '../src/types/dtos/workflow/WorkflowDtos';
 
 /**
  * Siege weapons in the web app (phase 1, PandiO/knk-workspace#782, acceptance A01, web part): the dashboard lists weapon
  * templates and ammo types through their search endpoints with their own columns, staff without the siege node don't
  * get the types, and the form wizard saves a template and an ammo type (with structure damage) through their POST
  * endpoints. Smoke test: knk-workspace docs/guides/siege-weapons-smoke-test.md § 1.
+ *
+ * Phase 2b (PandiO/knk-workspace#799, A02 web part): the weapon spot form's SiegeWeaponSpot world task. The completed
+ * task's result is spread over the bounds, facing, size class and region fields, its warnings are shown, and the form
+ * saves the spot. Smoke test § 2.
  */
 
 const nodes = (...held: string[]) => (node: string) => held.includes(node);
@@ -157,5 +169,76 @@ test.describe('the form wizard', () => {
     await expect.poll(() => api.calls('POST', /^SiegeAmmoTypes\/?$/).length).toBe(1);
     const [create] = api.calls('POST', /^SiegeAmmoTypes\/?$/);
     expect(create.body).toMatchObject({ Name: 'Heavy boulder', Damage: 12, StructureDamage: 120, PricePerShot: 20 });
+  });
+});
+
+test.describe('the weapon spot world task (#799)', () => {
+  test.beforeEach(async ({ api }) => {
+    mockSession(api, alex, () => true);
+    mockContentDefaults(api);
+    api.json<StepProgressReadDto[]>('GET', 'Workflows/501/progress', noStepProgress);
+    for (const method of ['POST', 'PUT'] as const) {
+      api.on<FormSubmissionProgressDto>(method, /^FormSubmissionProgress(\/.*)?$/, ({ body }) => ({
+        body: savedProgress(body as FormSubmissionProgressDto),
+      }));
+    }
+    api.json<FormConfigurationDto[]>('GET', 'FormConfigurations/SiegeWeaponSpot', [spotForm]);
+    api.json<FormConfigurationDto>('GET', `FormConfigurations/${spotForm.id}`, spotForm);
+    api.json<EntityMetadataDto>('GET', 'Metadata/entities/SiegeWeaponSpot', spotFormMetadata);
+    api.json<FieldValidationRuleDto[]>('GET', `field-validation-rules/by-configuration/${spotForm.id}`, noValidationRules);
+    api.json<WorkflowSessionReadDto>('POST', /^Workflows\/?$/, workflowSession(alex.id, spotForm));
+  });
+
+  test('fills bounds, facing, size class and region from the completed task, shows its warning and saves the spot', async ({ page, api }) => {
+    const pending: WorldTaskReadDto = {
+      id: 9001, workflowSessionId: 501, stepNumber: 0, fieldName: 'MinX', taskType: 'SiegeWeaponSpot',
+      status: 'Pending', linkCode: 'SPOT42', createdAt: '2026-11-19T12:00:00Z',
+    };
+    let completed = false;
+    api.on<WorldTaskReadDto>('POST', /^WorldTasks\/?$/, ({ body }) => ({
+      status: 201, body: { ...pending, inputJson: (body as WorldTaskCreateDto).inputJson },
+    }));
+    api.on<WorldTaskReadDto>('GET', 'WorldTasks/9001', () => ({
+      body: completed
+        ? { ...pending, status: 'Completed', claimedByMinecraftUsername: 'Alex', outputJson: JSON.stringify(SPOT_TASK_OUTPUT), completedAt: '2026-11-19T12:01:00Z' }
+        : pending,
+    }));
+    api.on<SiegeWeaponSpotDto>('POST', /^SiegeScenarios\/3\/weapon-spots$/, ({ body }) => ({
+      status: 201, body: { ...(body as SiegeWeaponSpotDto), id: 41 },
+    }));
+
+    await page.goto('/forms/SiegeWeaponSpot');
+    await page.getByRole('button', { name: 'Use' }).click();
+    await page.getByRole('spinbutton', { name: 'Scenario id' }).fill('3');
+    await page.getByRole('textbox', { name: 'Name*' }).fill('East tower');
+    await page.getByRole('button', { name: 'Send to Minecraft' }).click();
+
+    // The task is created for the Min X field with the SiegeWeaponSpot type, and its code is shown for /knk task-claim.
+    await expect.poll(() => api.calls('POST', /^WorldTasks\/?$/).length).toBe(1);
+    const [create] = api.calls('POST', /^WorldTasks\/?$/);
+    expect(create.body).toMatchObject({ fieldName: 'MinX', taskType: 'SiegeWeaponSpot' });
+    await expect(page.getByText('SPOT42').first()).toBeVisible();
+
+    // The admin confirms in game: the plugin completes the task.
+    completed = true;
+    await expect(page.getByRole('spinbutton', { name: 'Min X' })).toHaveValue('100', { timeout: 10_000 });
+    await expect(page.getByRole('spinbutton', { name: 'Min Y' })).toHaveValue('64');
+    await expect(page.getByRole('spinbutton', { name: 'Min Z' })).toHaveValue('-20');
+    await expect(page.getByRole('spinbutton', { name: 'Max X' })).toHaveValue('114');
+    await expect(page.getByRole('spinbutton', { name: 'Max Y' })).toHaveValue('79');
+    await expect(page.getByRole('spinbutton', { name: 'Max Z' })).toHaveValue('-12');
+    await expect(page.getByRole('combobox', { name: 'Facing' })).toHaveValue('East');
+    await expect(page.getByRole('combobox', { name: 'Size class' })).toHaveValue('Large');
+    await expect(page.getByRole('textbox', { name: 'WorldGuard region' })).toHaveValue('spot_east_tower');
+    await expect(page.getByText("The floor isn't solid: 3 of 135 blocks under the spot")).toBeVisible();
+    await expect(page.getByText('(100, 64, -20) to (114, 79, -12)')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Submit' }).click();
+    await expect.poll(() => api.calls('POST', /^SiegeScenarios\/3\/weapon-spots$/).length).toBe(1);
+    const [save] = api.calls('POST', /^SiegeScenarios\/3\/weapon-spots$/);
+    expect(save.body).toMatchObject({
+      Name: 'East tower', MinX: 100, MinY: 64, MinZ: -20, MaxX: 114, MaxY: 79, MaxZ: -12,
+      Facing: 'East', SizeClass: 'Large', WgRegionId: 'spot_east_tower',
+    });
   });
 });
