@@ -2,7 +2,7 @@ import { matchRoutes } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   Activity, BookOpen, Boxes, Coins, Compass, Gift, Home, LayoutGrid, Mail, MapPinOff, Map as MapIcon, Route as RouteIcon,
-  Settings, ShieldAlert, ShieldOff, SlidersHorizontal, Swords, Table2, Ticket, Trophy, Users,
+  ScrollText, Settings, ShieldAlert, ShieldOff, SlidersHorizontal, Swords, Table2, Ticket, Trophy, Users,
 } from 'lucide-react';
 import {
   AREA_NODES, CONTENT_PERMISSION_NODE, PermissionStatus, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE,
@@ -14,6 +14,7 @@ import { ROAD_ADMIN_NODE } from '../types/dtos/road/RoadDtos';
 import { EMAIL_ADMIN_NODE } from '../types/dtos/email/EmailOutboxDtos';
 import { INVITATION_NODES } from '../types/dtos/invitations/InvitationDtos';
 import { CURRENCY_NODES } from '../types/dtos/currency/CurrencyDtos';
+import { STOCK_LEDGER_READ_NODES } from '../types/dtos/stock/StockDtos';
 import { LOCATION_RETENTION_NODES } from '../types/dtos/locationRetention/LocationRetentionDtos';
 import { OWNER_ANALYTICS_VIEW_NODE } from '../types/dtos/analytics/WorldAnalyticsDtos';
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from '../types/dtos/telemetry/TelemetryDtos';
@@ -203,6 +204,11 @@ export const ROUTES = defineRoutes({
   currencyAlerts: {
     path: '/admin/economy/alerts', layout: 'admin', access: staff(CURRENCY_NODES.alerts), title: 'Currency alerts', group: 'economy',
     sidebar: { icon: ShieldAlert, description: 'Anomalies found by the currency monitor, and reconciliation.' },
+  },
+  // Stock core P1 (PandiO/knk-workspace#675): the ledger explorer; reads with the World area or knk.economy.admin.
+  stockLedger: {
+    path: '/admin/stock/ledger', layout: 'admin', access: staffAny(STOCK_LEDGER_READ_NODES), title: 'Stock ledger', group: 'economy',
+    sidebar: { icon: ScrollText, description: 'Stock transactions, moves and roll-ups, with the reconciler.' },
   },
 
   // Settings (#185: the node each page's API checks).

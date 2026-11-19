@@ -25,6 +25,8 @@ import { DomainLandmarksPanel, showsDomainLandmarks } from '../components/landma
 import { TownTerritoryPanel } from '../components/territory/TownTerritoryPanel';
 import { TerritoryConflictPanel } from '../components/territory/TerritoryConflictPanel';
 import { StructureTerritoryPanel } from '../components/territory/StructureTerritoryPanel';
+import { StoragePanel } from '../components/stock/StoragePanel';
+import { StockTransactionPanel } from '../components/stock/StockTransactionPanel';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -198,6 +200,14 @@ export const DisplayWizardPage: React.FC = () => {
       )}
       {entityName.toLowerCase() === 'structure' && numericId != null && (
         <StructureTerritoryPanel structureId={numericId} returnTo={here} />
+      )}
+      {/* Stock core P1 (PandiO/knk-workspace#675): a storage's capacity, lock, lines and unique items with the adjust and
+          move dialogs; a ledger transaction's moves and Reverse. Stock that moved re-reads the details above. */}
+      {entityName.toLowerCase() === 'storage' && numericId != null && (
+        <StoragePanel storageId={numericId} returnTo={here} onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {entityName.toLowerCase() === 'stocktransaction' && numericId != null && (
+        <StockTransactionPanel transactionId={numericId} returnTo={here} onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
       )}
       {confirmModal}
       <FeedbackModal
