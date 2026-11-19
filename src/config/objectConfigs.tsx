@@ -326,6 +326,35 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'rotationCount', label: 'Scenarios', sortable: false },
     ]
   },
+  // Siege weapons phase 1 (PandiO/knk-workspace#782). Weapon spots are owned by their scenario (no table of their own).
+  siegeweapontemplate: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'kind', label: 'Kind', sortable: false },
+      { key: 'sizeClass', label: 'Size', sortable: false },
+      { key: 'matchPrice', label: 'Match price', sortable: true },
+      { key: 'unlockPrice', label: 'Unlock price', sortable: false },
+      { key: 'ammoTypeCount', label: 'Ammo types', sortable: false },
+    ]
+  },
+  siegeammotype: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'effect', label: 'Effect', sortable: false },
+      { key: 'damage', label: 'Damage', sortable: false },
+      { key: 'structureDamage', label: 'Structure damage', sortable: false },
+      { key: 'blastRadius', label: 'Radius', sortable: false },
+      { key: 'pricePerShot', label: 'Price per shot', sortable: false },
+    ]
+  },
+  usersiegeweaponunlock: {
+    default: [
+      { key: 'id', label: 'ID', sortable: false },
+      { key: 'username', label: 'Player', sortable: false, render: (row: any) => row.username ?? '-' },
+      { key: 'siegeWeaponTemplateName', label: 'Weapon type', sortable: false, render: (row: any) => row.siegeWeaponTemplateName ?? '-' },
+      { key: 'unlockedAt', label: 'Unlocked', sortable: false, render: (row: any) => row.unlockedAt ? new Date(row.unlockedAt).toLocaleDateString() : '-' },
+    ]
+  },
   // Off-road navigation phase 5.1 (PandiO/knk-workspace#708): landmarks.
   landmark: {
     default: [

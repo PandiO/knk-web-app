@@ -1,6 +1,7 @@
 // Siege Phase 3 - mirrors knk-web-api Dtos/SiegeDtos.cs (docs/specs/siege-minigame/DESIGN.md §3.3-3.9).
 // Only the shapes the web app reads or writes; the runtime-config payload is plugin-only.
 import { LocationDto } from '../locations/LocationModels';
+import { SiegeWeaponSpotDto } from './SiegeWeaponDtos';
 
 export type SiegeTeamRole = 'Defender' | 'Attacker';
 export type SiegeLobbyMode = 'Continuous' | 'Scheduled';
@@ -51,6 +52,8 @@ export interface SiegeTeamDto {
     resolvedChatColor?: string | null;
     resolvedBannerDesignId?: number | null;
     spawnpoints?: SiegeSpawnpointDto[];
+    /** Siege weapons (PandiO/knk-workspace#782, W30): how many of the team's weapon spots are usable; 0 = none. */
+    activeWeaponSpots?: number;
 }
 
 export interface SiegeObjectiveDto {
@@ -110,6 +113,11 @@ export interface SiegeScenarioDto {
     teams?: SiegeTeamDto[];
     objectives?: SiegeObjectiveDto[];
     gates?: SiegeScenarioGateDto[] | null;
+    /** Siege weapons (PandiO/knk-workspace#782): W23 friendly fire (off by default) and W11's spot cooldown override (null = the templates' own). */
+    friendlyFire?: boolean;
+    weaponSpotCooldownOverrideSeconds?: number | null;
+    /** Owned weapon spots, read-only here (POST SiegeScenarios/{id}/weapon-spots creates them). */
+    weaponSpots?: SiegeWeaponSpotDto[];
 }
 
 export interface SiegeScenarioListDto {

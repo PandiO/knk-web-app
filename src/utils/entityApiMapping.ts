@@ -33,6 +33,10 @@ import { SiegeTeamClient } from '../apiClients/siegeTeamClient';
 import { SiegeSpawnpointClient } from '../apiClients/siegeSpawnpointClient';
 import { SiegeObjectiveClient } from '../apiClients/siegeObjectiveClient';
 import { SiegeLobbyClient } from '../apiClients/siegeLobbyClient';
+import { SiegeWeaponTemplateClient } from '../apiClients/siegeWeaponTemplateClient';
+import { SiegeAmmoTypeClient } from '../apiClients/siegeAmmoTypeClient';
+import { SiegeWeaponSpotClient } from '../apiClients/siegeWeaponSpotClient';
+import { UserSiegeWeaponUnlockClient } from '../apiClients/userSiegeWeaponUnlockClient';
 import { TitleBracketClient } from '../apiClients/titleBracketClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
@@ -135,6 +139,13 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
         // only exist under their team/scenario and are edited from the parent's own wizard.
         case 'siegelobby':
             return withPagedQueryMapping((query) => SiegeLobbyClient.getInstance().searchPaged(query));
+        // Siege weapons phase 1 (PandiO/knk-workspace#782); 'siegeweaponspot' has no search, like 'siegeobjective'.
+        case 'siegeweapontemplate':
+            return withPagedQueryMapping((query) => SiegeWeaponTemplateClient.getInstance().searchPaged(query));
+        case 'siegeammotype':
+            return withPagedQueryMapping((query) => SiegeAmmoTypeClient.getInstance().searchPaged(query));
+        case 'usersiegeweaponunlock':
+            return withPagedQueryMapping((query) => UserSiegeWeaponUnlockClient.getInstance().searchPaged(query));
         // Read-only reference data (seeded): search + fetch only, for TitleBracket object pickers
         // (the siege scenario's minimum title, a domain's warp settings - teleport Phase 5).
         case 'titlebracket':
@@ -214,6 +225,14 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => SiegeObjectiveClient.getInstance().getById(Number(id));
         case 'siegelobby':
             return (id) => SiegeLobbyClient.getInstance().getById(Number(id));
+        case 'siegeweapontemplate':
+            return (id) => SiegeWeaponTemplateClient.getInstance().getById(Number(id));
+        case 'siegeammotype':
+            return (id) => SiegeAmmoTypeClient.getInstance().getById(Number(id));
+        case 'siegeweaponspot':
+            return (id) => SiegeWeaponSpotClient.getInstance().getById(Number(id));
+        case 'usersiegeweaponunlock':
+            return (id) => UserSiegeWeaponUnlockClient.getInstance().getById(Number(id));
         case 'titlebracket':
             return (id) => TitleBracketClient.getInstance().getById(Number(id));
         default:
@@ -289,6 +308,14 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => SiegeObjectiveClient.getInstance().update(entity);
         case 'siegelobby':
             return (entity) => SiegeLobbyClient.getInstance().update(entity);
+        case 'siegeweapontemplate':
+            return (entity) => SiegeWeaponTemplateClient.getInstance().update(entity);
+        case 'siegeammotype':
+            return (entity) => SiegeAmmoTypeClient.getInstance().update(entity);
+        case 'siegeweaponspot':
+            return (entity) => SiegeWeaponSpotClient.getInstance().update(entity);
+        case 'usersiegeweaponunlock':
+            return (entity) => UserSiegeWeaponUnlockClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -360,6 +387,14 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => SiegeObjectiveClient.getInstance().delete(Number(id));
         case 'siegelobby':
             return (id) => SiegeLobbyClient.getInstance().delete(Number(id));
+        case 'siegeweapontemplate':
+            return (id) => SiegeWeaponTemplateClient.getInstance().delete(Number(id));
+        case 'siegeammotype':
+            return (id) => SiegeAmmoTypeClient.getInstance().delete(Number(id));
+        case 'siegeweaponspot':
+            return (id) => SiegeWeaponSpotClient.getInstance().delete(Number(id));
+        case 'usersiegeweaponunlock':
+            return (id) => UserSiegeWeaponUnlockClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -433,6 +468,14 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => SiegeObjectiveClient.getInstance().create(entity);
         case 'siegelobby':
             return (entity) => SiegeLobbyClient.getInstance().create(entity);
+        case 'siegeweapontemplate':
+            return (entity) => SiegeWeaponTemplateClient.getInstance().create(entity);
+        case 'siegeammotype':
+            return (entity) => SiegeAmmoTypeClient.getInstance().create(entity);
+        case 'siegeweaponspot':
+            return (entity) => SiegeWeaponSpotClient.getInstance().create(entity);
+        case 'usersiegeweaponunlock':
+            return (entity) => UserSiegeWeaponUnlockClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }
