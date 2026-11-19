@@ -10,6 +10,8 @@ import { DataRetentionCard } from '../../components/admin/DataRetentionCard';
 import { GroupOverridesCard } from '../../components/admin/gameSettings/GroupOverridesCard';
 import { HubSettingsCard, defaultHubRules, defaultHubSettings } from '../../components/admin/gameSettings/HubSettingsCard';
 import { ChatTokensCard, defaultChatTokenSettings } from '../../components/admin/gameSettings/ChatTokensCard';
+import { TerritorySettingsCard } from '../../components/admin/gameSettings/TerritorySettingsCard';
+import { normalizeProductionSettings } from '../../utils/territory';
 import { LocationReferencePicker } from '../../components/admin/gameSettings/LocationReferencePicker';
 import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
 import { UNIT, describeWorldTime, joinHint } from '../../utils/settingsUnits';
@@ -126,6 +128,7 @@ const normalizeSettings = (settings: GameSettingsDto): GameSettingsDto => {
     next.groupOverrides = next.groupOverrides || [];
     next.hub = { ...defaultHubSettings(), ...(next.hub || {}), rules: { ...defaultHubRules(), ...(next.hub?.rules || {}) } };
     next.chatTokens = { ...defaultChatTokenSettings(), ...(next.chatTokens || {}) };
+    next.production = normalizeProductionSettings(next.production);
 
     if (!next.defaultRespawnPolicy) {
         next.defaultRespawnPolicy = {
@@ -151,6 +154,7 @@ const CHANGE_GROUPS: Array<{ key: string; pick: (s: GameSettingsDto) => unknown 
     { key: 'defaultRespawnPolicy', pick: s => s.defaultRespawnPolicy ?? null },
     { key: 'hub', pick: s => s.hub ?? null },
     { key: 'groupOverrides', pick: s => s.groupOverrides ?? [] },
+    { key: 'production', pick: s => s.production ?? null },
 ];
 
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
@@ -269,6 +273,7 @@ export const GameSettingsPage: React.FC = () => {
             groupOverrides: settings.groupOverrides ?? [],
             hub: settings.hub ?? defaultHubSettings(),
             chatTokens: settings.chatTokens ?? defaultChatTokenSettings(),
+            production: normalizeProductionSettings(settings.production),
         };
 
         try {
@@ -398,6 +403,12 @@ export const GameSettingsPage: React.FC = () => {
                 <ChatTokensCard
                     value={settings.chatTokens ?? defaultChatTokenSettings()}
                     onChange={chatTokens => updateSettings(prev => ({ ...prev, chatTokens }))}
+                />
+
+                <TerritorySettingsCard
+                    value={normalizeProductionSettings(settings.production)}
+                    changed={isChanged('production')}
+                    onChange={production => updateSettings(prev => ({ ...prev, production }))}
                 />
 
                 <SettingsSection

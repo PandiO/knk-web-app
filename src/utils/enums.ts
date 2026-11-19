@@ -149,6 +149,12 @@ export enum Controllers {
     SiegeAmmoTypes = 'SiegeAmmoTypes',
     SiegeWeaponSpots = 'SiegeWeaponSpots',
     UserSiegeWeaponUnlocks = 'UserSiegeWeaponUnlocks',
+    // Territory V1 (PandiO/knk-workspace#326 API, #690 web app)
+    Kingdoms = 'Kingdoms',
+    Provinces = 'Provinces',
+    CrownLands = 'CrownLands',
+    TerritoryConflicts = 'TerritoryConflicts',
+    Territory = 'Territory',
     TitleBrackets = 'TitleBrackets',
     // Player statistics (KNG-34)
     Statistics = 'statistics',
