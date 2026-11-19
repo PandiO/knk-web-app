@@ -494,7 +494,12 @@ test.describe('game settings', () => {
 
     await expect.poll(() => api.calls('PUT', /^GameSettings\/?$/).length).toBe(1);
     expect((api.calls('PUT', /^GameSettings\/?$/)[0].body as GameSettingsUpdateDto).production)
-      .toEqual({ enabled: true, territory: { baseRange: 100, powerFactor: 3, capitalMultiplier: 1.5 } });
+      // P3 (#678): the engine timing goes back with the section (the defaults here), so a save never resets it.
+      .toEqual({
+        enabled: true,
+        territory: { baseRange: 100, powerFactor: 3, capitalMultiplier: 1.5 },
+        engine: { baseCycleMinutes: 10, catchUpCapHours: 24, weatherDayMinutes: 20 },
+      });
   });
 
   test('says which value the API would refuse', async ({ page }) => {
