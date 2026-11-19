@@ -33,8 +33,10 @@ export interface WarehouseDto extends StructureDto {
 
 /** `api/ProductionStructures`. */
 export interface ProductionStructureDto extends StructureDto {
-    /** A plain id until P3 adds the production kind catalogue. */
+    /** The production kind (P3, `api/ProductionKinds`); a new structure gets the kind's default workers and storages. */
     productionKindId?: number | null;
+    /** Read only (P3): `{ id, name }` of the kind. */
+    productionKind?: { id: number; name: string } | null;
     level?: number | null;
     productionEnabled?: boolean | null;
     automaticTransport?: boolean | null;

@@ -30,6 +30,12 @@ import { StockTransactionPanel } from '../components/stock/StockTransactionPanel
 import { StructurePlacementPanel } from '../components/production/StructurePlacementPanel';
 import { StructureStoragesPanel } from '../components/production/StructureStoragesPanel';
 import { isProductionWorldType } from '../utils/productionWorld';
+import { StructureProductionPanel } from '../components/production/StructureProductionPanel';
+import { ProductionKindLevelsPanel } from '../components/production/ProductionKindLevelsPanel';
+import { ProductionKindLevelItemsPanel } from '../components/production/ProductionKindLevelItemsPanel';
+import { ProductionLinePanel } from '../components/production/ProductionLinePanel';
+import { ClimateZonePanel } from '../components/production/ClimateZonePanel';
+import { WeatherTypeEffectsPanel } from '../components/production/WeatherTypeEffectsPanel';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -221,6 +227,28 @@ export const DisplayWizardPage: React.FC = () => {
           <StructureStoragesPanel structureId={numericId} structureName={entityLabel ?? `${typeLabel} #${numericId}`} returnTo={here}
             onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
         </>
+      )}
+      {/* Production engine P3 (PandiO/knk-workspace#678): a production structure's production (why not producing, line
+          rates, workers, upgrade, cycle trace), a kind's levels, a level's items, a line's inputs and cycles, a climate
+          zone's odds, towns and rolls, a weather type's effects. A save re-reads the details above. */}
+      {entityName.toLowerCase() === 'productionstructure' && numericId != null && (
+        <StructureProductionPanel structureId={numericId} returnTo={here} refreshKey={liveRefreshKey}
+          onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {entityName.toLowerCase() === 'productionkind' && numericId != null && (
+        <ProductionKindLevelsPanel kindId={numericId} returnTo={here} refreshKey={liveRefreshKey} />
+      )}
+      {entityName.toLowerCase() === 'productionkindlevel' && numericId != null && (
+        <ProductionKindLevelItemsPanel levelId={numericId} onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {entityName.toLowerCase() === 'productionline' && numericId != null && (
+        <ProductionLinePanel lineId={numericId} returnTo={here} onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {entityName.toLowerCase() === 'climatezone' && numericId != null && (
+        <ClimateZonePanel zoneId={numericId} returnTo={here} onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {entityName.toLowerCase() === 'weathertype' && numericId != null && (
+        <WeatherTypeEffectsPanel weatherTypeId={numericId} onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
       )}
       {confirmModal}
       <FeedbackModal

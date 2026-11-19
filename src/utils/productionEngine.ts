@@ -7,11 +7,22 @@ import type {
     ProductionLineInputDto,
     WeatherTypeEffectDto,
 } from '../types/dtos/production/ProductionEngineDtos';
+import { placementRefusalReason } from './productionWorld';
 
 // Production engine P3 in the web app (PandiO/knk-workspace#678; production DESIGN § 9, § 11.1, PRODUCTION_KINDS § 4-5):
 // the rate breakdown of a line (base, modifiers in applied order, unlock and workers), the line states in words, and the
 // checks of the child-list editors (a level's items, a line's inputs, a zone's odds, a weather type's effects) before
 // they go to the API. Pure functions: the panels use them, Jest tests them.
+
+/** The node every production engine edit needs (the World area, as in the API's access rules). */
+export const PRODUCTION_WRITE_NODE = 'knk.admin.world';
+/** The upgrade also spends stock and coins. */
+export const PRODUCTION_UPGRADE_NODES: readonly string[] = ['knk.admin.world', 'knk.economy.admin'];
+
+/** The reason of a refused production engine call: the API's `{ error }` sentence, else the generic reason. */
+export function productionRefusalReason(error: unknown): string | undefined {
+    return placementRefusalReason(error);
+}
 
 /** The engine's timing defaults (knk-web-api `ProductionEngineSettingsDto`). */
 export const defaultProductionEngineSettings = (): ProductionEngineSettingsDto => ({
