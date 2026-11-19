@@ -24,7 +24,7 @@ export const TerritoryFlagFilterSelect: React.FC<TerritoryFlagFilterSelectProps>
         value={value ?? ''}
         onChange={event => onChange(event.target.value || undefined)}
         title="Structures the territory report flagged"
-        className="block rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+        className="block rounded-md border-field shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
     >
         <option value="">All structures</option>
         {FLAGS.map(flag => (

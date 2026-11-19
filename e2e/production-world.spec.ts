@@ -246,7 +246,7 @@ test.describe('the forms', () => {
   test('a refused save shows the API\'s reason: both a district and a town (A06)', async ({ page, api }) => {
     api.json<WorkflowSessionReadDto>('POST', /^Workflows\/?$/, workflowSession(alex.id, productionStructureForm));
     api.on('POST', /^ProductionStructures\/?$/, {
-      status: 400, body: { error: 'Set exactly one of districtId (a structure in a district) and townId (a rural structure).' },
+      status: 400, body: { error: "A structure is either in a district (districtId) or rural (townId): set exactly one of the two. (Parameter 'dto')" },
     });
 
     await page.goto('/forms/ProductionStructure');
@@ -262,7 +262,7 @@ test.describe('the forms', () => {
     await page.getByRole('button', { name: 'Next' }).click();
     await page.getByRole('button', { name: 'Submit' }).click();
 
-    await expect(page.getByText('Set exactly one of districtId (a structure in a district) and townId (a rural structure).')).toBeVisible();
+    await expect(page.getByText('The form could not be submitted. A structure is either in a district (districtId) or rural (townId): set exactly one of the two.', { exact: true })).toBeVisible();
     expect(api.calls('POST', /^ProductionStructures\/?$/)).toHaveLength(1);
   });
 });

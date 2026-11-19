@@ -50,6 +50,8 @@ describe('productionWorld', () => {
         const refusal = (status: number, response: unknown) => Object.assign(new Error(`HTTP ${status}: Bad Request`), { status, response });
         expect(placementRefusalReason(refusal(400, { error: 'Set exactly one of districtId and townId.' })))
             .toBe('Set exactly one of districtId and townId.');
+        expect(placementRefusalReason(refusal(400, { error: "A rural structure (townId) has no street: leave streetId empty. (Parameter 'dto')" })))
+            .toBe('A rural structure (townId) has no street: leave streetId empty.');
         expect(placementRefusalReason(refusal(400, { error: 'NotFound' }))).toBeUndefined();
         expect(placementRefusalReason(refusal(400, 'level must be 1 to 10.'))).toBe('level must be 1 to 10.');
         expect(placementRefusalReason(refusal(500, { error: 'Boom happened here' }))).toBeUndefined();

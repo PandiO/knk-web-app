@@ -123,7 +123,10 @@ describe('picker column definitions (KNG-166)', () => {
             ['streetName', 'Main Street 12'],
             ['districtName', 'Harbour'],
             ['townName', 'York'],
-            ['worldName', 'world']
+            ['worldName', 'world'],
+            // P2 (PandiO/knk-workspace#676): placement and territory flag (a dash when the row doesn't say).
+            ['isRural', '-'],
+            ['territoryFlag', '-']
         ]);
     });
 

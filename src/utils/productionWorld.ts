@@ -60,7 +60,8 @@ export function placementRefusalReason(error: unknown): string | undefined {
     const e = error as { status?: number; response?: unknown } | null;
     const body = e?.response as { error?: unknown } | null | undefined;
     if (e?.status && e.status >= 400 && e.status < 500 && body && typeof body === 'object') {
-        const text = typeof body.error === 'string' ? body.error.trim() : '';
+        // .NET adds " (Parameter 'dto')" to an ArgumentException's message; staff don't need it.
+        const text = typeof body.error === 'string' ? body.error.replace(/\s*\(Parameter '[^']*'\)\s*$/, '').trim() : '';
         // A sentence, not a bare code such as "NotFound".
         if (text && /\s/.test(text)) return text;
     }

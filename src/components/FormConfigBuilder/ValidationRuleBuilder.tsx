@@ -234,7 +234,7 @@ export const ValidationRuleBuilder: React.FC<ValidationRuleBuilderProps> = ({
                         <option value="ConditionalRequired">Conditional Required</option>
                     </select>
                     {validationType === 'InsideTerritory' && (
-                        <p className="mt-1 text-xs text-gray-500" data-testid="rule-type-help">
+                        <p className="mt-1 text-xs text-muted" data-testid="rule-type-help">
                             The field's region (or location) must lie inside the territory of the town the dependency
                             field names (holderKind Town or Kingdom). The game server answers it; while it is offline or
                             production.enabled is off the rule is not checked and never blocks a save.
