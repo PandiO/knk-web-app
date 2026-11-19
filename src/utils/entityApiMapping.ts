@@ -44,6 +44,8 @@ import { CrownLandClient } from '../apiClients/crownLandClient';
 import { TerritoryConflictClient } from '../apiClients/territoryConflictClient';
 import { StorageClient } from '../apiClients/storageClient';
 import { StockTransactionClient } from '../apiClients/stockTransactionClient';
+import { WarehouseClient } from '../apiClients/warehouseClient';
+import { ProductionStructureClient } from '../apiClients/productionStructureClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -166,6 +168,11 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => StorageClient.getInstance().searchPaged(query));
         case 'stocktransaction':
             return withPagedQueryMapping((query) => StockTransactionClient.getInstance().searchPaged(query));
+        // P2 world (PandiO/knk-workspace#676): warehouses and production structures, in a district or rural.
+        case 'warehouse':
+            return withPagedQueryMapping((query) => WarehouseClient.getInstance().searchPaged(query));
+        case 'productionstructure':
+            return withPagedQueryMapping((query) => ProductionStructureClient.getInstance().searchPaged(query));
         // Read-only reference data (seeded): search + fetch only, for TitleBracket object pickers
         // (the siege scenario's minimum title, a domain's warp settings - teleport Phase 5).
         case 'titlebracket':
@@ -265,6 +272,10 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => StorageClient.getInstance().getById(Number(id));
         case 'stocktransaction':
             return (id) => StockTransactionClient.getInstance().getById(Number(id));
+        case 'warehouse':
+            return (id) => WarehouseClient.getInstance().getById(Number(id));
+        case 'productionstructure':
+            return (id) => ProductionStructureClient.getInstance().getById(Number(id));
         case 'titlebracket':
             return (id) => TitleBracketClient.getInstance().getById(Number(id));
         default:
@@ -358,6 +369,11 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
         // Stock core P1 (PandiO/knk-workspace#675); ledger transactions are append-only (no update).
         case 'storage':
             return (entity) => StorageClient.getInstance().update(entity);
+        // P2 world (PandiO/knk-workspace#676)
+        case 'warehouse':
+            return (entity) => WarehouseClient.getInstance().update(entity);
+        case 'productionstructure':
+            return (entity) => ProductionStructureClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -447,6 +463,10 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => TerritoryConflictClient.getInstance().delete(Number(id));
         case 'storage':
             return (id) => StorageClient.getInstance().delete(Number(id));
+        case 'warehouse':
+            return (id) => WarehouseClient.getInstance().delete(Number(id));
+        case 'productionstructure':
+            return (id) => ProductionStructureClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -538,6 +558,11 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
         // Stock core P1 (PandiO/knk-workspace#675); transactions are written by moves and adjustments only.
         case 'storage':
             return (entity) => StorageClient.getInstance().create(entity);
+        // P2 world (PandiO/knk-workspace#676): the answer carries `placementWarnings` (shown after the save).
+        case 'warehouse':
+            return (entity) => WarehouseClient.getInstance().create(entity);
+        case 'productionstructure':
+            return (entity) => ProductionStructureClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }

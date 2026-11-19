@@ -2,7 +2,7 @@ import { ObjectManager } from './objectManager';
 import { logging } from '../utils';
 import { Controllers, HttpMethod } from '../utils/enums';
 import { PagedQueryDto, PagedResultDto } from '../types/dtos/common/PagedQuery';
-import { StorageDto, StorageListDto } from '../types/dtos/stock/StockDtos';
+import { StockPagedQueryDto, StockPagedResultDto, StorageDto, StorageListDto } from '../types/dtos/stock/StockDtos';
 
 // Stock core P1 (PandiO/knk-workspace#97 API, #675 web app): storage CRUD + search (api/Storages). The totals, lines and
 // units are written by the stock service only; stock moves through api/StockTransactions.
@@ -42,6 +42,12 @@ export class StorageClient extends ObjectManager {
     /** Filters: `kind`, `purpose`, `domainId`, `userId`, `clanId`, `locked`. */
     searchPaged(queryParams: PagedQueryDto): Promise<PagedResultDto<StorageListDto>> {
         return this.invokeServiceCall(queryParams, 'search', Controllers.Storages, HttpMethod.Post);
+    }
+
+    /** P2 (PandiO/knk-workspace#676): the same search with the API's own paging (`pageNumber`), e.g. a structure's
+     *  storages with `filters: { domainId }`. */
+    searchStorages(query: StockPagedQueryDto): Promise<StockPagedResultDto<StorageListDto>> {
+        return this.invokeServiceCall(query, 'search', Controllers.Storages, HttpMethod.Post);
     }
 }
 

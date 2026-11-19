@@ -27,6 +27,9 @@ import { TerritoryConflictPanel } from '../components/territory/TerritoryConflic
 import { StructureTerritoryPanel } from '../components/territory/StructureTerritoryPanel';
 import { StoragePanel } from '../components/stock/StoragePanel';
 import { StockTransactionPanel } from '../components/stock/StockTransactionPanel';
+import { StructurePlacementPanel } from '../components/production/StructurePlacementPanel';
+import { StructureStoragesPanel } from '../components/production/StructureStoragesPanel';
+import { isProductionWorldType } from '../utils/productionWorld';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -208,6 +211,16 @@ export const DisplayWizardPage: React.FC = () => {
       )}
       {entityName.toLowerCase() === 'stocktransaction' && numericId != null && (
         <StockTransactionPanel transactionId={numericId} returnTo={here} onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {/* P2 world (PandiO/knk-workspace#676): a warehouse's or production structure's placement (district or rural) and
+          warnings, its territory flag and loyalty (A07, the structure territory panel) and its storages with their stock. */}
+      {isProductionWorldType(entityName) && numericId != null && (
+        <>
+          <StructurePlacementPanel entityTypeName={entityName} structureId={numericId} returnTo={here} refreshKey={liveRefreshKey} />
+          <StructureTerritoryPanel structureId={numericId} returnTo={here} />
+          <StructureStoragesPanel structureId={numericId} structureName={entityLabel ?? `${typeLabel} #${numericId}`} returnTo={here}
+            onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+        </>
       )}
       {confirmModal}
       <FeedbackModal

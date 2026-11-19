@@ -163,3 +163,8 @@ const FLAG_LABELS: Record<StructureTerritoryFlag, string> = {
 export function territoryFlagLabel(flag: string | null | undefined): string {
     return FLAG_LABELS[(flag ?? 'None') as StructureTerritoryFlag] ?? flag ?? '-';
 }
+
+/** P2 (PandiO/knk-workspace#676): a structure list's flag cell, a dash for an unflagged structure. */
+export function territoryFlagCell(flag: string | null | undefined): string {
+    return !flag || flag === 'None' ? '-' : territoryFlagLabel(flag);
+}

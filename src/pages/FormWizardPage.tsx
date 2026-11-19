@@ -13,6 +13,7 @@ import { isReferenceRefusal } from '../utils/referenceDetails';
 import { DomainWorldPromptModal } from '../components/DomainWorldPromptModal';
 import { DomainClient } from '../apiClients/domainClient';
 import { buildDomainWorldResolveRequest, isDomainEntityType } from '../utils/forms/domainWorld';
+import { isProductionWorldType, placementRefusalReason, placementWarningsOf } from '../utils/productionWorld';
 import { DisplayConfigurationTable } from '../components/FormWizard/DisplayConfigurationTable';
 import { EntityMetadataNavigator } from '../components/FormWizard/EntityMetadataNavigator';
 import { FormConfigurationTable } from '../components/FormWizard/FormConfigurationTable';
@@ -1035,12 +1036,15 @@ export const FormWizardPage: React.FC<Props> = ({
                 }
 
                 let createdEntityId: any;
+                // P2 (PandiO/knk-workspace#676): placement rules P-1 to P-3 warn by default; the create says which.
+                let placementWarnings: string[] = [];
                 if (entityIdToUse) {
                     await updateFn(entityData);
                     createdEntityId = entityIdToUse;
                 } else {
                     const createdEntity = await createFn(entityData);
                     createdEntityId = createdEntity?.id;
+                    placementWarnings = placementWarningsOf(createdEntity);
                 }
 
                 // added: if this was a child entity creation for a parent relationship, update parent
@@ -1072,6 +1076,7 @@ export const FormWizardPage: React.FC<Props> = ({
                     setWizardConfig(null);
                     setWizardProgressId(undefined);
                     toast.success(savedLabel);
+                    placementWarnings.forEach(warning => toast.warning(`Saved with a placement warning: ${warning}`, { durationMs: null }));
                     navigate(target);
                 };
                 return true;
@@ -1081,7 +1086,12 @@ export const FormWizardPage: React.FC<Props> = ({
             logging.errorHandler.next('ErrorMessage.Entity.SaveFailed');
             console.error('Failed to create/update entity:', err);
             // Show the API's own reason when it gave one (e.g. a siege save-time rule).
-            const reason = err instanceof Error && err.message && !/^HTTP \d+/.test(err.message) && err.message !== 'promise timeout'
+            // P2 (#676): the warehouse and production structure endpoints answer a refusal with { error: "<sentence>" }
+            // (District-xor-Town, a blocking placement rule).
+            const placementReason = isProductionWorldType(progress?.entityTypeName) ? placementRefusalReason(err) : undefined;
+            const reason = placementReason
+                ? ` ${placementReason}`
+                : err instanceof Error && err.message && !/^HTTP \d+/.test(err.message) && err.message !== 'promise timeout'
                 ? ` ${err.message}`
                 : '';
             showFeedback({
