@@ -50,4 +50,10 @@ describe('userManagementClient', () => {
     await userManagementClient.ban(7, 'X-ray');
     expect(invokeSpy).toHaveBeenLastCalledWith({ reason: 'X-ray' }, '7/ban', Controllers.Users, HttpMethod.Post);
   });
+
+  // #743: the overview map's moderation panel finds the user behind a Minecraft UUID.
+  it('getByUuid reads the user by UUID, encoded in the path', async () => {
+    await userManagementClient.getByUuid('00000000-0000-4000-8000-0000000000f1');
+    expect(invokeSpy).toHaveBeenCalledWith(null, 'uuid/00000000-0000-4000-8000-0000000000f1', Controllers.Users, HttpMethod.Get);
+  });
 });

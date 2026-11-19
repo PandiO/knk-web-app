@@ -43,7 +43,7 @@ const LEGACY_COLOR_MAP: Record<string, string> = {
     f: '#FFFFFF',
 };
 
-const translateAlternateColorCodes = (altColorChar: string, textToTranslate: string): string => {
+export const translateAlternateColorCodes = (altColorChar: string, textToTranslate: string): string => {
     if (!textToTranslate) {
         return '';
     }

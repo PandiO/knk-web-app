@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { appConfig } from '../config/appConfig';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { usePublicSurface } from '../theme/surface';
+import { useMapAvailability } from '../components/map/useMapAvailability';
 
 const SLIDES = [
   { id: '1', url: '/images/1.jpg', title: 'Cinix from the north-west gate' },
@@ -94,6 +95,7 @@ export function LandingPage() {
   usePageTitle(null);
   usePublicSurface();
   const { isLoggedIn } = useAuth();
+  const mapOn = useMapAvailability().status === 'on';
   const serverAddress = appConfig.minecraft.serverAddress;
 
   return (
@@ -178,6 +180,12 @@ export function LandingPage() {
             <p className="mt-2 text-sm text-white/80">
               How do the enchantments work? Read the <Link to="/guides" className="underline">player guides</Link>.
             </p>
+            {/* #737: the overview map, only while the API says it is on (O27). */}
+            {mapOn && (
+              <p className="mt-2 text-sm text-white/80">
+                Explore the world on the <Link to="/map" className="underline">map</Link>.
+              </p>
+            )}
           </div>
         </div>
       </div>
