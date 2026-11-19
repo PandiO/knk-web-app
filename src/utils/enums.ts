@@ -155,6 +155,9 @@ export enum Controllers {
     CrownLands = 'CrownLands',
     TerritoryConflicts = 'TerritoryConflicts',
     Territory = 'Territory',
+    // Stock core P1 (PandiO/knk-workspace#97 API, #675 web app)
+    Storages = 'Storages',
+    StockTransactions = 'StockTransactions',
     TitleBrackets = 'TitleBrackets',
     // Player statistics (KNG-34)
     Statistics = 'statistics',

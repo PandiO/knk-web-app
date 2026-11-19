@@ -42,6 +42,8 @@ import { KingdomClient } from '../apiClients/kingdomClient';
 import { ProvinceClient } from '../apiClients/provinceClient';
 import { CrownLandClient } from '../apiClients/crownLandClient';
 import { TerritoryConflictClient } from '../apiClients/territoryConflictClient';
+import { StorageClient } from '../apiClients/storageClient';
+import { StockTransactionClient } from '../apiClients/stockTransactionClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -159,6 +161,11 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => CrownLandClient.getInstance().searchPaged(query));
         case 'territoryconflict':
             return withPagedQueryMapping((query) => TerritoryConflictClient.getInstance().searchPaged(query));
+        // Stock core P1 (PandiO/knk-workspace#675): storages, and the ledger's transactions (read-only).
+        case 'storage':
+            return withPagedQueryMapping((query) => StorageClient.getInstance().searchPaged(query));
+        case 'stocktransaction':
+            return withPagedQueryMapping((query) => StockTransactionClient.getInstance().searchPaged(query));
         // Read-only reference data (seeded): search + fetch only, for TitleBracket object pickers
         // (the siege scenario's minimum title, a domain's warp settings - teleport Phase 5).
         case 'titlebracket':
@@ -254,6 +261,10 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => CrownLandClient.getInstance().getById(Number(id));
         case 'territoryconflict':
             return (id) => TerritoryConflictClient.getInstance().getById(Number(id));
+        case 'storage':
+            return (id) => StorageClient.getInstance().getById(Number(id));
+        case 'stocktransaction':
+            return (id) => StockTransactionClient.getInstance().getById(Number(id));
         case 'titlebracket':
             return (id) => TitleBracketClient.getInstance().getById(Number(id));
         default:
@@ -344,6 +355,9 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => ProvinceClient.getInstance().update(entity);
         case 'crownland':
             return (entity) => CrownLandClient.getInstance().update(entity);
+        // Stock core P1 (PandiO/knk-workspace#675); ledger transactions are append-only (no update).
+        case 'storage':
+            return (entity) => StorageClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -431,6 +445,8 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => CrownLandClient.getInstance().delete(Number(id));
         case 'territoryconflict':
             return (id) => TerritoryConflictClient.getInstance().delete(Number(id));
+        case 'storage':
+            return (id) => StorageClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -519,6 +535,9 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => ProvinceClient.getInstance().create(entity);
         case 'crownland':
             return (entity) => CrownLandClient.getInstance().create(entity);
+        // Stock core P1 (PandiO/knk-workspace#675); transactions are written by moves and adjustments only.
+        case 'storage':
+            return (entity) => StorageClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }

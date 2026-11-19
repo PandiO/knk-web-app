@@ -67,6 +67,8 @@ describe('route-meta table', () => {
       '/admin/invitations': 'staff:knk.admin.invites',
       '/admin/users/balance-log': 'staff:knk.admin.currency.history', '/admin/economy/transactions/:publicId': 'staff:knk.admin.currency.history',
       '/admin/economy/policy': 'staff:knk.admin.currency.policy', '/admin/economy/alerts': 'staff:knk.admin.currency.alerts',
+      // Stock core P1 (PandiO/knk-workspace#675): the ledger explorer reads with the World area or the economy node.
+      '/admin/stock/ledger': 'staffAny:knk.admin.world|knk.economy.admin',
       '/admin/game-settings': 'staff:knk.admin.config', '/admin/siege-configuration': 'staff:knk.siege.admin.manage',
       '/admin/email': 'staff:knk.admin.config',
       '/owner/telemetry': 'owner:knk.owner.telemetry.view', '/owner/privacy': 'owner:knk.owner.privacy.manage',

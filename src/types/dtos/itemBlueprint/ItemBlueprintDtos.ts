@@ -19,6 +19,8 @@ export interface ItemBlueprintDto {
     shieldBannerLayers?: ItemBannerLayerDto[];
     armorTrimPattern?: string | null;
     armorTrimMaterial?: string | null;
+    /** Stock core P1 (#97, #675): capacity use = amount × this, in raw units (default 1); on save null keeps it. */
+    storageWeight?: number | null;
 }
 
 /** One banner pattern layer of a shield (#232); lists are bottom to top. Mirrors the API's ItemBannerLayerDto. */
@@ -39,6 +41,8 @@ export interface ItemBlueprintListDto {
     /** KNG-200: the icon material's picture (manual override first); null when it has none. */
     iconUrl?: string | null;
     defaultEnchantmentsCount?: number;
+    /** Stock core P1 (#97, #675): capacity use = amount × this, in raw units (default 1). */
+    storageWeight?: number;
 }
 
 export interface ItemBlueprintDefaultEnchantmentDto {

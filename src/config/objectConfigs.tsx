@@ -138,6 +138,8 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'id', label: 'ID', sortable: true },
       minecraftIconColumn(24),
       { key: 'name', label: 'Name', sortable: true },
+      // Stock core P1 (PandiO/knk-workspace#675): capacity use = amount × storage weight (DESIGN § 4.4).
+      { key: 'storageWeight', label: 'Storage weight', sortable: false, render: (row: any) => row.storageWeight ?? 1 },
       // KNG-263: next to the table's Category filter.
       { key: 'categoryName', label: 'Category', sortable: false, render: (row: any) => row.categoryName ?? '-' }
     ]
@@ -387,6 +389,29 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'chunkCount', label: 'Chunks', sortable: false },
       { key: 'flaggedStructureCount', label: 'Flagged structures', sortable: false },
       { key: 'detectedAt', label: 'Detected', sortable: false, render: (row: any) => row.detectedAt ? new Date(row.detectedAt).toLocaleDateString() : '-' },
+    ]
+  },
+  // Stock core P1 (PandiO/knk-workspace#675): storages with their holder, fill and lock; the ledger's transactions.
+  storage: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'kind', label: 'Kind', sortable: false },
+      { key: 'purpose', label: 'Purpose', sortable: false },
+      { key: 'holderName', label: 'Holder', sortable: false, render: (row: any) => row.holderName ?? '-' },
+      { key: 'totalUnits', label: 'Total units', sortable: false, render: (row: any) => row.maxUnits != null ? `${row.totalUnits ?? 0} / ${row.maxUnits}` : String(row.totalUnits ?? 0) },
+      { key: 'distinctItems', label: 'Distinct items', sortable: false },
+      { key: 'lockedUntil', label: 'Locked', sortable: false, render: (row: any) => row.lockedUntil && new Date(row.lockedUntil).getTime() > Date.now() ? `Until ${new Date(row.lockedUntil).toLocaleString()}` : '-' },
+    ]
+  },
+  stocktransaction: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'reason', label: 'Reason', sortable: false },
+      { key: 'createdAt', label: 'When', sortable: false, render: (row: any) => row.createdAt ? new Date(row.createdAt).toLocaleString() : '-' },
+      { key: 'actorUserId', label: 'Actor', sortable: false, render: (row: any) => row.actorUserId != null ? `User #${row.actorUserId}` : (row.actorKind ?? '-') },
+      { key: 'moveCount', label: 'Moves', sortable: false },
+      { key: 'totalAmount', label: 'Amount', sortable: false },
+      { key: 'note', label: 'Note', sortable: false, render: (row: any) => row.note ?? '-' },
     ]
   },
   // Off-road navigation phase 5.1 (PandiO/knk-workspace#708): landmarks.
