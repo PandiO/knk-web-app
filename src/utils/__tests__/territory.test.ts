@@ -28,9 +28,15 @@ describe('territory helpers', () => {
     });
 
     it('fills a missing production section with the design defaults, flag off', () => {
-        expect(normalizeProductionSettings(undefined)).toEqual({ enabled: false, territory: settings });
+        const engine = { baseCycleMinutes: 10, catchUpCapHours: 24, weatherDayMinutes: 20 };
+        expect(normalizeProductionSettings(undefined)).toEqual({ enabled: false, territory: settings, engine });
         expect(normalizeProductionSettings({ enabled: true, territory: { baseRange: 50 } as any }))
-            .toEqual({ enabled: true, territory: { ...settings, baseRange: 50 } });
+            .toEqual({ enabled: true, territory: { ...settings, baseRange: 50 }, engine });
+    });
+
+    it('keeps the production engine timing, so a save does not reset it (#678)', () => {
+        const engine = { baseCycleMinutes: 5, catchUpCapHours: 48, weatherDayMinutes: 30 };
+        expect(normalizeProductionSettings({ enabled: true, territory: settings, engine }).engine).toEqual(engine);
     });
 
     it('reports the settings the API would refuse, in its words', () => {

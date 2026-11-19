@@ -46,6 +46,13 @@ import { StorageClient } from '../apiClients/storageClient';
 import { StockTransactionClient } from '../apiClients/stockTransactionClient';
 import { WarehouseClient } from '../apiClients/warehouseClient';
 import { ProductionStructureClient } from '../apiClients/productionStructureClient';
+import { ProductionKindClient } from '../apiClients/productionKindClient';
+import { ProductionKindLevelClient } from '../apiClients/productionKindLevelClient';
+import { ProductionLineClient } from '../apiClients/productionLineClient';
+import { ProductionModifierClient } from '../apiClients/productionModifierClient';
+import { ClimateZoneClient } from '../apiClients/climateZoneClient';
+import { WeatherTypeClient } from '../apiClients/weatherTypeClient';
+import { ProductionCycleRecordClient } from '../apiClients/productionCycleRecordClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -173,6 +180,22 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => WarehouseClient.getInstance().searchPaged(query));
         case 'productionstructure':
             return withPagedQueryMapping((query) => ProductionStructureClient.getInstance().searchPaged(query));
+        // Production engine P3 (PandiO/knk-workspace#678): kinds, levels (no create or delete), lines, modifiers, climate
+        // zones, weather types and the cycle trace (search and fetch only).
+        case 'productionkind':
+            return withPagedQueryMapping((query) => ProductionKindClient.getInstance().searchPaged(query));
+        case 'productionkindlevel':
+            return withPagedQueryMapping((query) => ProductionKindLevelClient.getInstance().searchPaged(query));
+        case 'productionline':
+            return withPagedQueryMapping((query) => ProductionLineClient.getInstance().searchPaged(query));
+        case 'productionmodifier':
+            return withPagedQueryMapping((query) => ProductionModifierClient.getInstance().searchPaged(query));
+        case 'climatezone':
+            return withPagedQueryMapping((query) => ClimateZoneClient.getInstance().searchPaged(query));
+        case 'weathertype':
+            return withPagedQueryMapping((query) => WeatherTypeClient.getInstance().searchPaged(query));
+        case 'productioncyclerecord':
+            return withPagedQueryMapping((query) => ProductionCycleRecordClient.getInstance().searchPaged(query));
         // Read-only reference data (seeded): search + fetch only, for TitleBracket object pickers
         // (the siege scenario's minimum title, a domain's warp settings - teleport Phase 5).
         case 'titlebracket':
@@ -276,6 +299,22 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => WarehouseClient.getInstance().getById(Number(id));
         case 'productionstructure':
             return (id) => ProductionStructureClient.getInstance().getById(Number(id));
+        // Production engine P3 (PandiO/knk-workspace#678): kinds, levels (no create or delete), lines, modifiers, climate
+        // zones, weather types and the cycle trace (search and fetch only).
+        case 'productionkind':
+            return (id) => ProductionKindClient.getInstance().getById(Number(id));
+        case 'productionkindlevel':
+            return (id) => ProductionKindLevelClient.getInstance().getById(Number(id));
+        case 'productionline':
+            return (id) => ProductionLineClient.getInstance().getById(Number(id));
+        case 'productionmodifier':
+            return (id) => ProductionModifierClient.getInstance().getById(Number(id));
+        case 'climatezone':
+            return (id) => ClimateZoneClient.getInstance().getById(Number(id));
+        case 'weathertype':
+            return (id) => WeatherTypeClient.getInstance().getById(Number(id));
+        case 'productioncyclerecord':
+            return (id) => ProductionCycleRecordClient.getInstance().getById(Number(id));
         case 'titlebracket':
             return (id) => TitleBracketClient.getInstance().getById(Number(id));
         default:
@@ -374,6 +413,20 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => WarehouseClient.getInstance().update(entity);
         case 'productionstructure':
             return (entity) => ProductionStructureClient.getInstance().update(entity);
+        // Production engine P3 (PandiO/knk-workspace#678): kinds, levels (no create or delete), lines, modifiers, climate
+        // zones, weather types and the cycle trace (search and fetch only).
+        case 'productionkind':
+            return (entity) => ProductionKindClient.getInstance().update(entity);
+        case 'productionkindlevel':
+            return (entity) => ProductionKindLevelClient.getInstance().update(entity);
+        case 'productionline':
+            return (entity) => ProductionLineClient.getInstance().update(entity);
+        case 'productionmodifier':
+            return (entity) => ProductionModifierClient.getInstance().update(entity);
+        case 'climatezone':
+            return (entity) => ClimateZoneClient.getInstance().update(entity);
+        case 'weathertype':
+            return (entity) => WeatherTypeClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -467,6 +520,18 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => WarehouseClient.getInstance().delete(Number(id));
         case 'productionstructure':
             return (id) => ProductionStructureClient.getInstance().delete(Number(id));
+        // Production engine P3 (PandiO/knk-workspace#678): kinds, levels (no create or delete), lines, modifiers, climate
+        // zones, weather types and the cycle trace (search and fetch only).
+        case 'productionkind':
+            return (id) => ProductionKindClient.getInstance().delete(Number(id));
+        case 'productionline':
+            return (id) => ProductionLineClient.getInstance().delete(Number(id));
+        case 'productionmodifier':
+            return (id) => ProductionModifierClient.getInstance().delete(Number(id));
+        case 'climatezone':
+            return (id) => ClimateZoneClient.getInstance().delete(Number(id));
+        case 'weathertype':
+            return (id) => WeatherTypeClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -563,6 +628,18 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => WarehouseClient.getInstance().create(entity);
         case 'productionstructure':
             return (entity) => ProductionStructureClient.getInstance().create(entity);
+        // Production engine P3 (PandiO/knk-workspace#678): kinds, levels (no create or delete), lines, modifiers, climate
+        // zones, weather types and the cycle trace (search and fetch only).
+        case 'productionkind':
+            return (entity) => ProductionKindClient.getInstance().create(entity);
+        case 'productionline':
+            return (entity) => ProductionLineClient.getInstance().create(entity);
+        case 'productionmodifier':
+            return (entity) => ProductionModifierClient.getInstance().create(entity);
+        case 'climatezone':
+            return (entity) => ClimateZoneClient.getInstance().create(entity);
+        case 'weathertype':
+            return (entity) => WeatherTypeClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }

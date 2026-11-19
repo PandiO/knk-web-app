@@ -12,6 +12,8 @@ import { MinecraftIcon } from '../components/minecraft/MinecraftIcon';
 import { landmarkAreaLabel, landmarkDomainLabel, landmarkPointLabel } from '../utils/landmarks';
 import { territoryFlagCell } from '../utils/territory';
 import { roadConnectionCell } from '../utils/productionWorld';
+import { formatNumber, formatRate, lineStatusLabel, modifierStepLabel, modifierWindowLabel } from '../utils/productionEngine';
+import { formatDateTime } from '../utils/format';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
   default: [
@@ -215,6 +217,77 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'roadConnection', label: 'Road connection', sortable: false, render: (row: any) => roadConnectionCell(row) },
       territoryFlagColumn,
       worldColumn
+    ]
+  },
+  // Production engine P3 (PandiO/knk-workspace#678): the kind catalogue and its levels, lines, stored modifiers, climate
+  // zones, weather types and the cycle trace.
+  productionkind: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'name', label: 'Name', sortable: true },
+      { key: 'areaModel', label: 'Area model', sortable: false },
+      { key: 'resourceCategory', label: 'Resource category', sortable: false },
+      { key: 'defaultWorkers', label: 'Default workers', sortable: false },
+      { key: 'structureCount', label: 'Structures', sortable: false },
+      { key: 'isActive', label: 'Active', sortable: false, render: (row: any) => row.isActive === false ? 'No' : 'Yes' }
+    ]
+  },
+  productionkindlevel: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'productionKindName', label: 'Kind', sortable: false },
+      { key: 'level', label: 'Level', sortable: true },
+      { key: 'yieldMultiplier', label: 'Yield multiplier', sortable: false, render: (row: any) => `× ${formatNumber(row.yieldMultiplier, 3)}` },
+      { key: 'cycleSpeedMultiplier', label: 'Cycle speed', sortable: false, render: (row: any) => `× ${formatNumber(row.cycleSpeedMultiplier, 3)}` },
+      { key: 'upgradeCoins', label: 'Upgrade coins', sortable: false, render: (row: any) => row.upgradeCoins ?? 0 }
+    ]
+  },
+  productionline: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'productionStructureName', label: 'Structure', sortable: false },
+      { key: 'itemBlueprintName', label: 'Output', sortable: false },
+      { key: 'configuredRatePerHour', label: 'Rate', sortable: false, render: (row: any) => formatRate(row.configuredRatePerHour) },
+      { key: 'status', label: 'Status', sortable: false, render: (row: any) => lineStatusLabel(row.status) },
+      { key: 'nextSettleAt', label: 'Next settle', sortable: false, render: (row: any) => row.nextSettleAt ? formatDateTime(row.nextSettleAt) : '-' }
+    ]
+  },
+  productionmodifier: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'name', label: 'Name', sortable: true },
+      { key: 'scope', label: 'Scope', sortable: false, render: (row: any) => row.scopeRefId ? `${row.scope} #${row.scopeRefId}` : row.scope },
+      { key: 'target', label: 'Target', sortable: false },
+      { key: 'effect', label: 'Effect', sortable: false, render: (row: any) => modifierStepLabel({ effect: row.effect, value: Number(row.value) }) },
+      { key: 'activeFrom', label: 'Active', sortable: false, render: (row: any) => modifierWindowLabel(row.activeFrom, row.activeUntil) },
+      { key: 'enabled', label: 'Enabled', sortable: false, render: (row: any) => row.enabled === false ? 'No' : 'Yes' }
+    ]
+  },
+  climatezone: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'name', label: 'Name', sortable: true },
+      { key: 'isDefault', label: 'Default', sortable: false, render: (row: any) => row.isDefault ? 'Yes' : 'No' },
+      { key: 'townCount', label: 'Towns', sortable: false },
+      { key: 'weatherTypeCount', label: 'Weather types', sortable: false }
+    ]
+  },
+  weathertype: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'name', label: 'Name', sortable: true },
+      { key: 'effectCount', label: 'Effects', sortable: false }
+    ]
+  },
+  productioncyclerecord: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'settledAt', label: 'Settled', sortable: false, render: (row: any) => formatDateTime(row.settledAt) },
+      { key: 'productionStructureId', label: 'Structure', sortable: false, render: (row: any) => `#${row.productionStructureId}` },
+      { key: 'itemBlueprintName', label: 'Output', sortable: false, render: (row: any) => row.itemBlueprintName ?? `#${row.itemBlueprintId}` },
+      { key: 'effectiveRatePerHour', label: 'Rate', sortable: false, render: (row: any) => formatRate(row.effectiveRatePerHour) },
+      { key: 'accepted', label: 'Accepted', sortable: false, render: (row: any) => `${row.accepted} of ${row.emitted}` },
+      { key: 'statusAfter', label: 'Status after', sortable: false, render: (row: any) => lineStatusLabel(row.statusAfter) }
     ]
   },
   gatestructure: {

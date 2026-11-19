@@ -44,6 +44,7 @@ import type { FieldValidationRuleDto } from '../src/types/dtos/forms/FieldValida
 import type { FormConfigurationDto, FormSubmissionProgressDto } from '../src/types/dtos/forms/FormModels';
 import type { EntityMetadataDto } from '../src/types/dtos/metadata/MetadataModels';
 import type { StorageDto, StorageListDto } from '../src/types/dtos/stock/StockDtos';
+import type { ProductionOverviewDto } from '../src/types/dtos/production/ProductionEngineDtos';
 import type { ProductionStructureDto, WarehouseDto } from '../src/types/dtos/structure/ProductionWorldDtos';
 import type { StructureTerritoryDto } from '../src/types/dtos/territory/TerritoryDtos';
 import type {
@@ -291,6 +292,14 @@ test.describe('the detail pages', () => {
     api.on<StructureTerritoryDto>('GET', /^Territory\/structures\/\d+$/, ({ path }) => ({ body: territory[Number(path.split('/').pop())] }));
     api.json('GET', /^Towns\/?$/, [{ id: PHOENIX, name: 'Phoenix', allowEntry: true, requiredTitle: 0 }]);
     api.on('POST', 'hubs/web/negotiate', { status: 404 });
+    // P3b (#678): the production panel of a production structure; no kind and no lines here (e2e/production-engine.spec.ts covers it).
+    api.on<ProductionOverviewDto>('GET', /^ProductionStructures\/\d+\/production$/, ({ path }) => ({
+      body: {
+        productionStructureId: Number(path.split('/')[1]), featureEnabled: true, productionEnabled: true, productionKind: null, level: 1,
+        workersPresent: 0, workersTotal: 2, outputStorageId: null, inputStorageId: null, climateZone: null, weatherToday: null,
+        notProducingReasons: ['It has no production kind.'], lines: [], recentCycles: [],
+      },
+    }));
     mockStoragesOf(api, [quarryOutput, millOutput, delivery]);
     for (const [row, stone] of [[quarryOutput, 5], [millOutput, 0], [delivery, 0]] as [StorageListDto, number][]) {
       api.json<StorageDto>('GET', `Storages/${row.id}`, storageDetail(row, stone));

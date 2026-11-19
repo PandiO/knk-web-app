@@ -7,6 +7,12 @@ import {
     ProductionWorldListDto,
     RoadConnectionUpdateDto,
 } from '../types/dtos/structure/ProductionWorldDtos';
+import {
+    ProductionOverviewDto,
+    ProductionUpgradeRequestDto,
+    ProductionUpgradeResultDto,
+    WorkersPresentUpdateDto,
+} from '../types/dtos/production/ProductionEngineDtos';
 
 // P2 world (PandiO/knk-workspace#91 API, #676 web app): production structures (api/ProductionStructures), mostly rural.
 // The create answers the structure with its output storage and any placement warnings (`placementWarnings`); a read
@@ -52,6 +58,23 @@ export class ProductionStructureClient extends ObjectManager {
     /** The road connection the game server measured (plugin key or knk.admin.world). */
     setRoadConnection(id: number, data: RoadConnectionUpdateDto): Promise<ProductionStructureDto> {
         return this.invokeServiceCall(data, `${id}/road-connection`, Controllers.ProductionStructures, HttpMethod.Put);
+    }
+
+    /** P3 (#678): the production view: lines with their rate breakdown, why not producing, the latest cycles. Settles
+     *  first while the feature is on. */
+    getProduction(id: number): Promise<ProductionOverviewDto> {
+        return this.invokeServiceCall(null, `${id}/production`, Controllers.ProductionStructures, HttpMethod.Get);
+    }
+
+    /** P3: the workers at the structure now (0..workersTotal); settles first. Answers the production view. */
+    setWorkers(id: number, data: WorkersPresentUpdateDto): Promise<ProductionOverviewDto> {
+        return this.invokeServiceCall(data, `${id}/workers`, Controllers.ProductionStructures, HttpMethod.Put);
+    }
+
+    /** P3: raise the level by one, paying the next level's cost (knk.admin.world and knk.economy.admin). 400 without a
+     *  payer when the level costs coins, 409 when the cost can't be paid or at level 10. */
+    upgrade(id: number, data: ProductionUpgradeRequestDto): Promise<ProductionUpgradeResultDto> {
+        return this.invokeServiceCall(data, `${id}/upgrade`, Controllers.ProductionStructures, HttpMethod.Post);
     }
 }
 

@@ -12,6 +12,8 @@ import { HubSettingsCard, defaultHubRules, defaultHubSettings } from '../../comp
 import { ChatTokensCard, defaultChatTokenSettings } from '../../components/admin/gameSettings/ChatTokensCard';
 import { TerritorySettingsCard } from '../../components/admin/gameSettings/TerritorySettingsCard';
 import { normalizeProductionSettings, territorySettingsErrors } from '../../utils/territory';
+import { productionEngineSettingsErrors } from '../../utils/productionEngine';
+import { ProductionEngineSettingsCard } from '../../components/admin/gameSettings/ProductionEngineSettingsCard';
 import { LocationReferencePicker } from '../../components/admin/gameSettings/LocationReferencePicker';
 import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
 import { UNIT, describeWorldTime, joinHint } from '../../utils/settingsUnits';
@@ -296,7 +298,8 @@ export const GameSettingsPage: React.FC = () => {
             lastSaved={{ at: saved?.updatedAt }}
             dirtyCount={changed.length}
             onSave={handleSave}
-            canSave={!settings || territorySettingsErrors(normalizeProductionSettings(settings.production).territory).length === 0}
+            canSave={!settings || (territorySettingsErrors(normalizeProductionSettings(settings.production).territory).length === 0
+                && productionEngineSettingsErrors(normalizeProductionSettings(settings.production).engine!).length === 0)}
             onDiscard={() => saved && setSettings(saved)}
             onReload={loadAll}
             saveErrorMessage={error => gameSettingsErrorMessage(error, 'The settings could not be saved.')}
@@ -410,6 +413,14 @@ export const GameSettingsPage: React.FC = () => {
                     value={normalizeProductionSettings(settings.production)}
                     changed={isChanged('production')}
                     onChange={production => updateSettings(prev => ({ ...prev, production }))}
+                />
+
+                {/* Production engine P3 (PandiO/knk-workspace#678): the engine's timing, kept on every save. */}
+                <ProductionEngineSettingsCard
+                    value={normalizeProductionSettings(settings.production).engine}
+                    enabled={normalizeProductionSettings(saved?.production).enabled}
+                    changed={isChanged('production')}
+                    onChange={engine => updateSettings(prev => ({ ...prev, production: { ...normalizeProductionSettings(prev.production), engine } }))}
                 />
 
                 <SettingsSection
