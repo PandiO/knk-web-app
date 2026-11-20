@@ -136,6 +136,20 @@ export const siegeConfig: SiegeConfigurationDto = {
   playerSkipMatchmakingSeconds: 60,
   adminSkipMatchmakingSeconds: 31,
   postMatchSeconds: 30,
+  // Siege points (#866, page section #878): the design's defaults.
+  pointsPerKill: 100,
+  pointsStreakStep: 0.1,
+  pointsStreakCap: 1.5,
+  pointsPerAssist: 40,
+  assistMinDamage: 4,
+  assistWindowSeconds: 10,
+  pointsPerDeath: 15,
+  gateHpPerPoint: 5,
+  pointsPerCapturePercent: 3,
+  pointsPerCapture: 100,
+  trickleAmount: 10,
+  trickleIntervalSeconds: 60,
+  pointTransfersEnabled: false,
   updatedAt: '2026-09-25T17:00:00Z',
 };
 

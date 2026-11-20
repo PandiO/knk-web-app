@@ -37,6 +37,9 @@ import { SiegeWeaponTemplateClient } from '../apiClients/siegeWeaponTemplateClie
 import { SiegeAmmoTypeClient } from '../apiClients/siegeAmmoTypeClient';
 import { SiegeWeaponSpotClient } from '../apiClients/siegeWeaponSpotClient';
 import { UserSiegeWeaponUnlockClient } from '../apiClients/userSiegeWeaponUnlockClient';
+import { SiegeShopCategoryClient } from '../apiClients/siegeShopCategoryClient';
+import { SiegeShopEntryClient } from '../apiClients/siegeShopEntryClient';
+import { SiegeScenarioShopOverrideClient } from '../apiClients/siegeScenarioShopOverrideClient';
 import { TitleBracketClient } from '../apiClients/titleBracketClient';
 import { KingdomClient } from '../apiClients/kingdomClient';
 import { ProvinceClient } from '../apiClients/provinceClient';
@@ -164,6 +167,11 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => SiegeAmmoTypeClient.getInstance().searchPaged(query));
         case 'usersiegeweaponunlock':
             return withPagedQueryMapping((query) => UserSiegeWeaponUnlockClient.getInstance().searchPaged(query));
+        // Siege shop catalogue (PandiO/knk-workspace#867); 'siegescenarioshopoverride' has no search, like 'siegeweaponspot'.
+        case 'siegeshopcategory':
+            return withPagedQueryMapping((query) => SiegeShopCategoryClient.getInstance().searchPaged(query));
+        case 'siegeshopentry':
+            return withPagedQueryMapping((query) => SiegeShopEntryClient.getInstance().searchPaged(query));
         // Territory V1 (PandiO/knk-workspace#690): holders, crown land and the conflicts the game server reports.
         case 'kingdom':
             return withPagedQueryMapping((query) => KingdomClient.getInstance().searchPaged(query));
@@ -293,6 +301,12 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => SiegeWeaponSpotClient.getInstance().getById(Number(id));
         case 'usersiegeweaponunlock':
             return (id) => UserSiegeWeaponUnlockClient.getInstance().getById(Number(id));
+        case 'siegeshopcategory':
+            return (id) => SiegeShopCategoryClient.getInstance().getById(Number(id));
+        case 'siegeshopentry':
+            return (id) => SiegeShopEntryClient.getInstance().getById(Number(id));
+        case 'siegescenarioshopoverride':
+            return (id) => SiegeScenarioShopOverrideClient.getInstance().getById(Number(id));
         case 'kingdom':
             return (id) => KingdomClient.getInstance().getById(Number(id));
         case 'province':
@@ -415,6 +429,12 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => SiegeWeaponSpotClient.getInstance().update(entity);
         case 'usersiegeweaponunlock':
             return (entity) => UserSiegeWeaponUnlockClient.getInstance().update(entity);
+        case 'siegeshopcategory':
+            return (entity) => SiegeShopCategoryClient.getInstance().update(entity);
+        case 'siegeshopentry':
+            return (entity) => SiegeShopEntryClient.getInstance().update(entity);
+        case 'siegescenarioshopoverride':
+            return (entity) => SiegeScenarioShopOverrideClient.getInstance().update(entity);
         // Territory V1 (PandiO/knk-workspace#690); a conflict has no update (it is resolved on its page).
         case 'kingdom':
             return (entity) => KingdomClient.getInstance().update(entity);
@@ -528,6 +548,12 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => SiegeWeaponSpotClient.getInstance().delete(Number(id));
         case 'usersiegeweaponunlock':
             return (id) => UserSiegeWeaponUnlockClient.getInstance().delete(Number(id));
+        case 'siegeshopcategory':
+            return (id) => SiegeShopCategoryClient.getInstance().delete(Number(id));
+        case 'siegeshopentry':
+            return (id) => SiegeShopEntryClient.getInstance().delete(Number(id));
+        case 'siegescenarioshopoverride':
+            return (id) => SiegeScenarioShopOverrideClient.getInstance().delete(Number(id));
         case 'kingdom':
             return (id) => KingdomClient.getInstance().delete(Number(id));
         case 'province':
@@ -640,6 +666,12 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => SiegeWeaponSpotClient.getInstance().create(entity);
         case 'usersiegeweaponunlock':
             return (entity) => UserSiegeWeaponUnlockClient.getInstance().create(entity);
+        case 'siegeshopcategory':
+            return (entity) => SiegeShopCategoryClient.getInstance().create(entity);
+        case 'siegeshopentry':
+            return (entity) => SiegeShopEntryClient.getInstance().create(entity);
+        case 'siegescenarioshopoverride':
+            return (entity) => SiegeScenarioShopOverrideClient.getInstance().create(entity);
         // Territory V1 (PandiO/knk-workspace#690); conflicts are created by the game server's report only.
         case 'kingdom':
             return (entity) => KingdomClient.getInstance().create(entity);

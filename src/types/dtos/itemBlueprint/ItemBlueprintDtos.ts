@@ -19,6 +19,8 @@ export interface ItemBlueprintDto {
     shieldBannerLayers?: ItemBannerLayerDto[];
     armorTrimPattern?: string | null;
     armorTrimMaterial?: string | null;
+    /** Siege shop (#867): the potion type key, e.g. "minecraft:strong_healing"; null = none. */
+    potionType?: string | null;
     /** Stock core P1 (#97, #675): capacity use = amount × this, in raw units (default 1); on save null keeps it. */
     storageWeight?: number | null;
 }

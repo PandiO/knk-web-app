@@ -149,6 +149,11 @@ export enum Controllers {
     SiegeAmmoTypes = 'SiegeAmmoTypes',
     SiegeWeaponSpots = 'SiegeWeaponSpots',
     UserSiegeWeaponUnlocks = 'UserSiegeWeaponUnlocks',
+    // Siege shop catalogue (PandiO/knk-workspace#867)
+    SiegeShopCategories = 'SiegeShopCategories',
+    SiegeShopEntries = 'SiegeShopEntries',
+    SiegeScenarioShopOverrides = 'SiegeScenarioShopOverrides',
+    SiegeShop = 'SiegeShop',
     // Territory V1 (PandiO/knk-workspace#326 API, #690 web app)
     Kingdoms = 'Kingdoms',
     Provinces = 'Provinces',

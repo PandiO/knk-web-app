@@ -2,6 +2,7 @@
 // Only the shapes the web app reads or writes; the runtime-config payload is plugin-only.
 import { LocationDto } from '../locations/LocationModels';
 import { SiegeWeaponSpotDto } from './SiegeWeaponDtos';
+import { SiegeScenarioShopOverrideDto, SiegeShopEntryDto } from './SiegeShopDtos';
 
 export type SiegeTeamRole = 'Defender' | 'Attacker';
 export type SiegeLobbyMode = 'Continuous' | 'Scheduled';
@@ -118,6 +119,13 @@ export interface SiegeScenarioDto {
     weaponSpotCooldownOverrideSeconds?: number | null;
     /** Owned weapon spots, read-only here (POST SiegeScenarios/{id}/weapon-spots creates them). */
     weaponSpots?: SiegeWeaponSpotDto[];
+    /**
+     * Siege shop (PandiO/knk-workspace#867), read-only here: the overrides of the mode's default entries
+     * (POST SiegeScenarios/{id}/shop-overrides creates them) and the scenario-only entries (POST SiegeShopEntries with
+     * siegeScenarioId).
+     */
+    shopOverrides?: SiegeScenarioShopOverrideDto[];
+    shopEntries?: SiegeShopEntryDto[];
 }
 
 export interface SiegeScenarioListDto {
@@ -215,6 +223,31 @@ export interface SiegeConfigurationDto {
     adminSkipMatchmakingSeconds: number;
     /** Alpha run 1 (#198): seconds the players wait at the scenario hub with the result before they return (0-600, default 30). */
     postMatchSeconds: number;
+    /**
+     * Siege points earned in PvP Siege (siege shop DESIGN § 5.2, § 6.1.4; PandiO/knk-workspace#866, web app #878). Only
+     * paid while the plugin's siege.points.enabled is on. Amounts are whole points (never negative); the n-th kill of a
+     * streak pays pointsPerKill × min(1 + pointsStreakStep × (n − 1), pointsStreakCap).
+     */
+    pointsPerKill: number;
+    /** 0–10 (default 0.1). */
+    pointsStreakStep: number;
+    /** 1–100 (default 1.5); 1 = no streak bonus. */
+    pointsStreakCap: number;
+    pointsPerAssist: number;
+    /** Half hearts, 0–1000 (default 4). */
+    assistMinDamage: number;
+    /** 0–600 (default 10). */
+    assistWindowSeconds: number;
+    pointsPerDeath: number;
+    /** One point per this many gate HP, 0–100000 (default 5); 0 = gate damage pays nothing. */
+    gateHpPerPoint: number;
+    pointsPerCapturePercent: number;
+    pointsPerCapture: number;
+    trickleAmount: number;
+    /** 1–3600 (default 60). */
+    trickleIntervalSeconds: number;
+    /** P07: teammates may send each other points with /siege pay (off in PvP Siege). */
+    pointTransfersEnabled: boolean;
     updatedAt?: string;
 }
 
