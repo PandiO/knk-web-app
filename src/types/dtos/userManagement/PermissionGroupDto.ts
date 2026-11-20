@@ -16,6 +16,11 @@ export interface PermissionGroupDto {
   chatSuffix?: string | null;
   parentGroupId?: number | null;
   /**
+   * PandiO/knk-workspace#852: the route /navigate takes for members who type no mode word. Read: the stored word or
+   * null (no default). Write: omitted keeps the stored value, '' clears it.
+   */
+  defaultRouteMode?: RouteModeWord | '' | null;
+  /**
    * KNG-41: teleport fees and cooldowns per kind (/tpa = Request, /warp, /spawn). Each kind's
    * price mode is its switch on update: omitted keeps that kind's stored fields, sent sets all of
    * them (null = not set here). Authored on the PermissionGroup FormConfiguration.
@@ -45,6 +50,14 @@ export interface PermissionGroupDto {
  * price, Fixed = exact coins/gems/XP, Multiplier = the default price times a factor.
  */
 export type TeleportPriceMode = 'None' | 'Fixed' | 'Multiplier';
+
+/**
+ * The /navigate route modes (knk-plugin RouteMode, PandiO/knk-workspace#707), as knk-web-api stores a group's default
+ * (Services/PermissionGroupRouteMode.cs). Without a group default the plugin uses 'preferred', today's route.
+ */
+export type RouteModeWord = 'shortest' | 'efficient' | 'preferred';
+export const ROUTE_MODE_WORDS: readonly RouteModeWord[] = ['shortest', 'efficient', 'preferred'];
+export const NO_DEFAULT_ROUTE_MODE_LABEL = 'None (default: preferred)';
 
 // Row shape returned by GET /api/PermissionGroups/{id}/expiring-memberships
 // (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 3 "premium expiring soon" view).
@@ -76,5 +89,7 @@ export interface PermissionGroupListDto {
   expBonusMultiplier: number;
   parentGroupId?: number | null;
   parentGroupName?: string | null;
+  /** PandiO/knk-workspace#852: null = no default. */
+  defaultRouteMode?: RouteModeWord | null;
   childrenCount: number;
 }
