@@ -79,7 +79,6 @@ export const StructureYieldPanel: React.FC<Props> = ({ structureId, returnTo, on
         } else {
             setOverrides([]);
         }
-        setDrafts({});
     }, [structureId]);
 
     useEffect(() => {
@@ -93,6 +92,8 @@ export const StructureYieldPanel: React.FC<Props> = ({ structureId, returnTo, on
         try {
             const done = await action();
             await load();
+            // Only a save of this panel drops the unsaved edits; a later re-read (the page's refresh) keeps them.
+            setDrafts({});
             toast.success(done);
             onChanged?.();
             return true;
