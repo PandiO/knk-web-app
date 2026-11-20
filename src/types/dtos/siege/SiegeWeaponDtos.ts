@@ -42,6 +42,10 @@ export interface SiegeWeaponTemplateDto {
     spotCooldownSeconds: number;
     matchPrice: number;
     unlockPrice: number;
+    /** Siege shop L4 (PandiO/knk-workspace#869): the TitleBracket id needed to unlock the type; null = none. */
+    unlockMinTitleLevel?: number | null;
+    /** Read only: the minimum title's name. */
+    unlockMinTitleName?: string | null;
     /** M2M set: null/omitted keeps the saved set, [] clears it. */
     allowedAmmoTypes?: SiegeWeaponTemplateAmmoTypeDto[] | null;
 }
@@ -53,6 +57,7 @@ export interface SiegeWeaponTemplateListDto {
     sizeClass: SiegeWeaponSizeClass;
     matchPrice: number;
     unlockPrice: number;
+    unlockMinTitleLevel?: number | null;
     ammoTypeCount: number;
 }
 
