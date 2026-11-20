@@ -17,7 +17,8 @@ import type {
  * (`window.bluemap`, `window.BlueMap.MarkerSet`, the root marker set, `terrainHeightAt`, the controls manager) and then
  * loads the **real** `public/bluemap-bridge/bridge.js` from the build, so the specs run the actual bridge script. It
  * draws html markers as DOM elements (a click calls `elementObject.onClick`, as BlueMap's CSS2DObject does) and
- * extrude markers as `.fake-extrude` elements with their label, and records how often the flash group appeared. Its
+ * the other markers (shape, extrude, line: #826) as `.fake-region.fake-<type>` elements with their label, keeps each
+ * marker's data for `__fake.markerData(set, id)`, and records how often the flash group appeared. Its
  * maps are named like the NAS render's (`overworld`, `nether`), so the bridge's `?worlds=` mapping is exercised too.
  */
 
@@ -138,12 +139,12 @@ export function mockMapOff(api: MockApi): void {
 
 const FAKE_BLUEMAP = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Fake BlueMap</title>
-<style>body{margin:0;font:12px sans-serif} .fake-html,.fake-extrude{display:inline-block;margin:4px;padding:4px;border:1px solid #999;vertical-align:top} .fake-html *{transform:none!important;margin:0!important;position:static!important}</style>
+<style>body{margin:0;font:12px sans-serif} .fake-html,.fake-region{display:inline-block;margin:4px;padding:4px;border:1px solid #999;vertical-align:top} .fake-html *{transform:none!important;margin:0!important;position:static!important}</style>
 </head><body>
 <div id="markers"></div>
 <script>
 (function () {
-  var fake = { flashOn: 0, flashVisible: false, renders: 0, received: [] };
+  var fake = { flashOn: 0, flashVisible: false, flashTypes: [], renders: 0, received: [] };
   window.__fake = fake;
   window.addEventListener('message', function (e) { fake.received.push(e.data && e.data.type); });
 
@@ -197,6 +198,12 @@ const FAKE_BLUEMAP = `<!doctype html>
   };
   // BlueMap's NormalMarkerManager reloading live/markers.json (it keeps only the player and popup sets).
   fake.reloadMarkerFile = function () { root.updateMarkerSetsFromData({}, ['bm-players', 'bm-popup-set']); };
+  // The data the bridge gave one marker, for the specs to check how it is drawn.
+  fake.markerData = function (setId, id) {
+    var set = root.markerSets.get(setId);
+    var m = set && set.markers.get(id);
+    return m ? JSON.parse(JSON.stringify(m.markerData)) : null;
+  };
 
   function render() {
     fake.renders++;
@@ -216,9 +223,14 @@ const FAKE_BLUEMAP = `<!doctype html>
           el.setAttribute('data-max-distance', d.maxDistance === undefined ? 'none' : String(d.maxDistance));
           el.addEventListener('click', function (e) { m.elementObject.onClick({ event: e, data: { doubleTap: false } }); });
         } else {
-          el.className = 'fake-extrude';
+          // Region markers (#826): a town's flat 'shape', a district's 'extrude' volume, the 'line' along an outline.
+          el.className = 'fake-region fake-' + m.data.type;
+          el.setAttribute('data-type', m.data.type);
           el.textContent = d.label;
-          if (id.indexOf('__flash__|') === 0) flashNow = true;
+          if (id.indexOf('__flash__|') === 0) {
+            flashNow = true;
+            if (fake.flashTypes.indexOf(m.data.type) < 0) fake.flashTypes.push(m.data.type);
+          }
           el.addEventListener('click', function () { m.onClick({ data: { doubleTap: false } }); });
         }
         box.appendChild(el);

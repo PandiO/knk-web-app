@@ -47,7 +47,7 @@ test.describe('anonymous, map on', () => {
     await expect(label(frame, 'structure', 9)).toHaveAttribute('data-max-distance', '600');
     // Only the current BlueMap map's world; no region outlines until asked for.
     await expect(label(frame, 'structure', 11)).toHaveCount(0);
-    await expect(frame.locator('.fake-extrude')).toHaveCount(0);
+    await expect(frame.locator('.fake-region')).toHaveCount(0);
     expect(api.calls('GET', 'Map/markers')).toHaveLength(1);
   });
 
@@ -61,8 +61,10 @@ test.describe('anonymous, map on', () => {
     await expect(panel.getByText('A harbour town on the west coast.')).toBeVisible();
     await expect(panel.getByText('Districts')).toBeVisible();
     await expect.poll(() => fake<number>(frame, 'flashOn')).toBe(mapConfig.flash.count);
+    // Drawn like "Show region" (#826): the town's flat shape and its outline line, no volume.
+    expect((await fake<string[]>(frame, 'flashTypes')).sort()).toEqual(['line', 'shape']);
     await expect.poll(() => fake<boolean>(frame, 'flashVisible')).toBe(false);
-    await expect(frame.locator('.fake-extrude')).toHaveCount(0);
+    await expect(frame.locator('.fake-region')).toHaveCount(0);
     expect(api.calls('GET', 'Map/towns/1')).toHaveLength(1);
   });
 
@@ -88,7 +90,10 @@ test.describe('anonymous, map on', () => {
 
     await toggle.check();
     const shown = frame.locator('[data-set="knk-regions"]');
-    await expect(frame.locator('.fake-extrude[data-set="knk-regions"]')).toHaveText(['Aldmoor', 'Harbour', 'Old Market']);
+    // The town as a flat shape, its districts as volumes, each with one outline line (#826).
+    await expect(frame.locator('.fake-shape[data-set="knk-regions"]')).toHaveText(['Aldmoor']);
+    await expect(frame.locator('.fake-extrude[data-set="knk-regions"]')).toHaveText(['Harbour', 'Old Market']);
+    await expect(frame.locator('.fake-line[data-set="knk-regions"]')).toHaveText(['Aldmoor', 'Harbour', 'Old Market']);
     await expect(shown.locator('.knk-region-label')).toHaveText(['Aldmoor', 'Harbour', 'Old Market']);
     // Brightwater's district is not part of it; nothing shows a region id.
     await expect(shown.getByText('Riverside', { exact: true })).toHaveCount(0);
@@ -97,11 +102,72 @@ test.describe('anonymous, map on', () => {
     // Closing the panel keeps the region; switching it off hides it.
     await page.keyboard.press('Escape');
     await expect(page.getByRole('complementary', { name: 'Place details' })).toHaveCount(0);
-    await expect(frame.locator('.fake-extrude')).toHaveCount(3);
+    await expect(frame.locator('.fake-region')).toHaveCount(6);
     await label(frame, 'town', 1).click();
     await expect(page.getByRole('switch', { name: 'Show region' })).toBeChecked();
     await page.getByRole('switch', { name: 'Show region' }).uncheck();
-    await expect(frame.locator('.fake-extrude')).toHaveCount(0);
+    await expect(frame.locator('.fake-region')).toHaveCount(0);
+  });
+
+  test('"Show region" draws the town flat with holes for its districts and one outline line each (#826)', async ({ page }) => {
+    await page.goto('/map');
+    const frame = await mapFrame(page);
+    await label(frame, 'town', 1).click();
+    await page.getByRole('switch', { name: 'Show region' }).check();
+    await expect(frame.locator('.fake-line[data-marker^="town-toggle|"]')).toHaveCount(3);
+    const marker = (id: string) => frame.evaluate(
+      ([set, markerId]) => (window as unknown as { __fake: { markerData: (s: string, m: string) => unknown } })
+        .__fake.markerData(set, markerId),
+      ['knk-regions', `town-toggle|${id}`] as const,
+    ) as Promise<Record<string, any>>;
+
+    // The town: a flat shape at the town pin's height, no edge lines, a hole where each of its districts is.
+    const town = await marker('town:1|0');
+    expect(town.type).toBe('shape');
+    expect(town.shapeY).toBe(70);
+    expect(town.lineWidth).toBe(0);
+    expect(town.shape).toHaveLength(4);
+    expect(town.holes).toEqual([
+      [{ x: 0.5, z: 0.5 }, { x: 50.5, z: 0.5 }, { x: 50.5, z: 50.5 }, { x: 0.5, z: 50.5 }],
+      [{ x: 50.5, z: 50.5 }, { x: 100.5, z: 50.5 }, { x: 100.5, z: 100.5 }, { x: 50.5, z: 100.5 }],
+    ]);
+    // One closed line along the town's outline, at the shape's height.
+    const townLine = await marker('town:1|0|outline');
+    expect(townLine.type).toBe('line');
+    expect(townLine.lineWidth).toBe(3);
+    expect(townLine.line).toHaveLength(5);
+    expect(townLine.line[0]).toEqual(townLine.line[4]);
+    expect(townLine.line.every((p: { y: number }) => p.y === 70)).toBe(true);
+
+    // A district: a see-through volume without edge lines, its outline line along the top.
+    const harbour = await marker('district:4|0');
+    expect(harbour.type).toBe('extrude');
+    expect(harbour.lineWidth).toBe(0);
+    expect([harbour.shapeMinY, harbour.shapeMaxY]).toEqual([60, 100]);
+    expect(harbour.holes).toBeUndefined();
+    const harbourLine = await marker('district:4|0|outline');
+    expect(harbourLine.lineWidth).toBe(2);
+    expect(harbourLine.line.every((p: { y: number }) => p.y === 100)).toBe(true);
+
+    // A click on the district's volume opens the district (the town's panel closed first: it covers the fake's row).
+    await page.keyboard.press('Escape');
+    await frame.locator('[data-marker="town-toggle|district:4|0"]').click();
+    await expect(page.getByRole('complementary', { name: 'Place details' }).getByRole('heading', { name: 'Harbour' })).toBeVisible();
+  });
+
+  test('district and structure dots hide with their labels when zoomed out; town dots always show (#825)', async ({ page }) => {
+    await page.goto('/map');
+    const frame = await mapFrame(page);
+    const dot = (kind: string, id: number) => frame.locator(`[data-set="knk-pins"][data-marker="${kind}:${id}|pin"]`);
+    await expect(dot('town', 1)).toHaveAttribute('data-max-distance', 'none');
+    await expect(dot('district', 4)).toHaveAttribute('data-max-distance', '1500');
+    await expect(label(frame, 'district', 4)).toHaveAttribute('data-max-distance', '1500');
+    await expect(dot('structure', 9)).toHaveAttribute('data-max-distance', '600');
+    await expect(label(frame, 'structure', 9)).toHaveAttribute('data-max-distance', '600');
+
+    // A visible dot still opens its place.
+    await dot('district', 4).click();
+    await expect(page.getByRole('complementary', { name: 'Place details' }).getByRole('heading', { name: 'Harbour' })).toBeVisible();
   });
 
   test('clicking a gate shows its doors with open/closed, destroyed and a health bar (A09)', async ({ page }) => {

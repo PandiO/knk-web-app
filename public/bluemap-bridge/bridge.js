@@ -8,11 +8,12 @@
  * `map.terrainHeightAt(x, z)` and the `bluemapCameraMoved` / `bluemapMapChanged` events. Recheck this file on every
  * BlueMap upgrade.
  *
- * The bridge only draws and reports: pins with labels, region outlines (flash, show, hide), players, camera moves,
- * clicks. It knows nothing of panels or actions; those live in the page's mapActionRegistry. Messages are versioned
- * envelopes `{ v: 1, type, payload }`, accepted only from the parent page on this page's own origin. Keep the
- * constants below in step with knk-web-app `src/components/map/bridgeProtocol.ts`. Version 1 is frozen: new features
- * (the siege tactical map, #613) add new message types or a new version, never change a v1 message.
+ * The bridge only draws and reports: pins with labels, region outlines (flash, show, hide; drawn like the spike's
+ * wg2bluemap markers, #826), players, camera moves, clicks. It knows nothing of panels or actions; those live in the
+ * page's mapActionRegistry. Messages are versioned envelopes `{ v: 1, type, payload }`, accepted only from the parent
+ * page on this page's own origin. Keep the constants below in step with knk-web-app
+ * `src/components/map/bridgeProtocol.ts`. Version 1 is frozen: new features (the siege tactical map, #613) add new
+ * message types or a new version, never change a v1 message.
  *
  * Plain ES2017, no build step, no dependencies.
  */
@@ -71,6 +72,14 @@
   var CSS_COLOR = /^#[0-9a-fA-F]{6}$/;
   var TAG_KINDS = ['afk', 'staff', 'owner', 'hidden', 'minigame'];
   var PLAYER_HEAD_HEIGHT = 1.8;
+  // Region drawing (#826, after the spike's scripts/bluemap/wg2bluemap.py in knk-workspace): volumes are clamped to
+  // this height range so a full-height region doesn't become a sky-high wall; outline line widths per kind.
+  var VOLUME_FLOOR_Y = 20;
+  var VOLUME_CEIL_Y = 120;
+  var OUTLINE_WIDTH = { town: 3 };
+  var DEFAULT_OUTLINE_WIDTH = 2;
+  // Kinds whose dot hides with its label beyond the label's maxDistance (#825); town and arena dots always show.
+  var DOT_FADES = { district: true, structure: true };
 
   var COLORS = {
     town: { line: { r: 250, g: 204, b: 21, a: 1 }, fill: { r: 250, g: 204, b: 21, a: 0.18 } },
@@ -259,8 +268,10 @@
       }
       var base = pin.kind + ':' + pin.id;
       var attrs = ' data-knk-kind="' + escapeHtml(pin.kind) + '" data-knk-id="' + escapeHtml(pin.id) + '"';
+      // A district or structure dot hides with its label beyond the label's distance (#825); a town dot always shows.
       data[base + '|pin'] = htmlMarker(pin.x, y, pin.z,
-        '<div class="knk-pin knk-pin-' + escapeHtml(pin.kind) + '"' + attrs + ' title="' + escapeHtml(pin.label) + '"></div>');
+        '<div class="knk-pin knk-pin-' + escapeHtml(pin.kind) + '"' + attrs + ' title="' + escapeHtml(pin.label) + '"></div>',
+        DOT_FADES[pin.kind] ? pin.maxDistance : null);
       var label = '<div class="knk-label knk-label-' + escapeHtml(pin.kind) + '"' + attrs + '>' + escapeHtml(pin.label)
         + (pin.sublabel ? '<div class="knk-label-sub">' + escapeHtml(pin.sublabel) + '</div>' : '') + '</div>';
       data[base + '|label'] = htmlMarker(pin.x, y, pin.z, label, pin.maxDistance);
@@ -287,6 +298,80 @@
     }, HEIGHT_RETRY_MS);
   }
 
+  // ---- Region geometry (#826). Pure functions; exposed as window.__knkBridgeGeometry for the Jest suite. ----
+
+  // Twice the signed area of the triangle a-b-c: 0 when the three points lie on one line.
+  function cross(a, b, c) {
+    return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  }
+
+  // Drops points that lie on the straight line between their neighbours (and repeated points), as wg2bluemap does,
+  // so a polygon with many corners on straight edges draws as its real corners. Never goes below three points.
+  function simplifyOutline(points) {
+    var out = points.slice();
+    var changed = true;
+    while (changed && out.length > 3) {
+      changed = false;
+      for (var i = 0; i < out.length; i++) {
+        var a = out[(i - 1 + out.length) % out.length];
+        var c = out[(i + 1) % out.length];
+        if (Math.abs(cross(a, out[i], c)) < 1e-9) {
+          out.splice(i, 1);
+          changed = true;
+          break;
+        }
+      }
+    }
+    return out;
+  }
+
+  // Even-odd ray test: is (x, z) inside the polygon?
+  function pointInPolygon(x, z, points) {
+    var inside = false;
+    for (var i = 0, j = points.length - 1; i < points.length; j = i++) {
+      var xi = points[i][0], zi = points[i][1], xj = points[j][0], zj = points[j][1];
+      if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+
+  function centroid(points) {
+    var sx = 0, sz = 0;
+    points.forEach(function (p) { sx += p[0]; sz += p[1]; });
+    return { x: sx / points.length, z: sz / points.length };
+  }
+
+  // A volume's height range clamped to VOLUME_FLOOR_Y..VOLUME_CEIL_Y; a region entirely outside that range keeps its
+  // own range.
+  function clampVolume(minY, maxY) {
+    var lo = Math.max(minY, VOLUME_FLOOR_Y);
+    var hi = Math.min(maxY, VOLUME_CEIL_Y);
+    return hi > lo ? { minY: lo, maxY: hi } : { minY: minY, maxY: maxY };
+  }
+
+  // The holes of a town outline: every district outline on the same world whose centre lies inside it, so a click
+  // inside a district reaches the district (wg2bluemap `town-y`). The protocol carries no town of a district region
+  // (v1 stays unchanged, O14), so the bridge decides by position.
+  function districtHoles(townPoints, world, regions) {
+    var holes = [];
+    regions.forEach(function (region) {
+      if (!region || region.kind !== 'district' || region.world !== world || !Array.isArray(region.outlines)) return;
+      region.outlines.forEach(function (outline) {
+        if (!outline.points || outline.points.length < 3) return;
+        var c = centroid(outline.points);
+        if (pointInPolygon(c.x, c.z, townPoints)) holes.push(simplifyOutline(outline.points));
+      });
+    });
+    return holes;
+  }
+
+  window.__knkBridgeGeometry = {
+    simplifyOutline: simplifyOutline,
+    pointInPolygon: pointInPolygon,
+    clampVolume: clampVolume,
+    districtHoles: districtHoles
+  };
+
   function regionCentre(region) {
     var first = region.outlines[0];
     if (!first || !first.points.length) return null;
@@ -295,26 +380,77 @@
     return { x: sx / first.points.length, z: sz / first.points.length };
   }
 
+  function xz(points) {
+    return points.map(function (p) { return { x: p[0], z: p[1] }; });
+  }
+
+  // The height of a town's flat shape: the town pin's own height (its spawn location), else the terrain under the
+  // outline's centre, else DEFAULT_Y.
+  function townShapeY(region, centre) {
+    var pins = state.markers.pins;
+    for (var i = 0; i < pins.length; i++) {
+      if (pins[i].kind === 'town' && pins[i].id === region.id && typeof pins[i].y === 'number') return pins[i].y;
+    }
+    var y = terrainY(centre.x, centre.z);
+    return y === null ? DEFAULT_Y : y;
+  }
+
+  // Draws a region in the style of the spike's wg2bluemap markers (#826): outlines simplified; a town as a flat shape
+  // with holes where its districts are; any other kind as a see-through volume without edge lines; and for each
+  // outline one line marker that traces it once, along the top.
   function regionMarkers(prefix, region, data, handlers, withLabel) {
     var colors = COLORS[region.kind] || COLORS.town;
+    var click = clickHandler(region.kind, region.id);
     region.outlines.forEach(function (outline, index) {
       if (!outline.points || outline.points.length < 3) return;
       var id = prefix + '|' + region.key + '|' + index;
-      var first = outline.points[0];
-      data[id] = {
-        type: 'extrude',
-        position: { x: first[0], y: outline.minY, z: first[1] },
-        shape: outline.points.map(function (p) { return { x: p[0], z: p[1] }; }),
-        shapeMinY: outline.minY,
-        shapeMaxY: outline.maxY,
+      var points = simplifyOutline(outline.points);
+      var centre = centroid(points);
+      var top;
+      if (region.kind === 'town') {
+        top = townShapeY(region, centre);
+        data[id] = {
+          type: 'shape',
+          position: { x: centre.x, y: top, z: centre.z },
+          shape: xz(points),
+          holes: districtHoles(outline.points, region.world, state.markers.regions).map(xz),
+          shapeY: top,
+          label: escapeHtml(region.label),
+          depthTest: false,
+          lineWidth: 0,
+          lineColor: colors.line,
+          fillColor: colors.fill,
+          listed: false
+        };
+      } else {
+        var range = clampVolume(outline.minY, outline.maxY);
+        top = range.maxY;
+        data[id] = {
+          type: 'extrude',
+          position: { x: centre.x, y: top, z: centre.z },
+          shape: xz(points),
+          shapeMinY: range.minY,
+          shapeMaxY: range.maxY,
+          label: escapeHtml(region.label),
+          depthTest: false,
+          lineWidth: 0,
+          lineColor: colors.line,
+          fillColor: colors.fill,
+          listed: false
+        };
+      }
+      handlers[id] = click;
+      data[id + '|outline'] = {
+        type: 'line',
+        position: { x: centre.x, y: top, z: centre.z },
+        line: points.concat([points[0]]).map(function (p) { return { x: p[0], y: top, z: p[1] }; }),
         label: escapeHtml(region.label),
         depthTest: false,
-        lineWidth: 3,
+        lineWidth: OUTLINE_WIDTH[region.kind] || DEFAULT_OUTLINE_WIDTH,
         lineColor: colors.line,
-        fillColor: colors.fill,
         listed: false
       };
-      handlers[id] = clickHandler(region.kind, region.id);
+      handlers[id + '|outline'] = click;
     });
     if (withLabel) {
       var centre = regionCentre(region);
