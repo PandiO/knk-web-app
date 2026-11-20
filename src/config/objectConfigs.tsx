@@ -14,6 +14,7 @@ import { territoryFlagCell } from '../utils/territory';
 import { roadConnectionCell } from '../utils/productionWorld';
 import { formatNumber, formatRate, lineStatusLabel, modifierStepLabel, modifierWindowLabel } from '../utils/productionEngine';
 import { formatDateTime } from '../utils/format';
+import { transportStatusLabel } from '../utils/transport';
 import { NO_DEFAULT_ROUTE_MODE_LABEL, ROUTE_MODE_WORDS } from '../types/dtos/userManagement/PermissionGroupDto';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
@@ -212,6 +213,8 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       townNameColumn,
       placementColumn,
       districtNameColumn,
+      // #838: the kind's name from the list row (was only its id).
+      { key: 'productionKindName', label: 'Kind', sortable: false, render: (row: any) => row.productionKindName ?? '-' },
       { key: 'level', label: 'Level', sortable: false, render: (row: any) => row.level ?? 1 },
       { key: 'productionEnabled', label: 'Production', sortable: false, render: (row: any) => row.productionEnabled === false ? 'Off' : 'On' },
       // #65 insight (health: unconnected producers, D5): only a rural structure needs its own road connection.
@@ -322,6 +325,30 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'trigger', label: 'Trigger', sortable: false },
       { key: 'profileVersion', label: 'Profile', sortable: false, render: (row: any) => `v${row.profileVersion}` },
       { key: 'totalUnits', label: 'Units', sortable: false }
+    ]
+  },
+  // Transport core P5 (PandiO/knk-workspace#682): orders (made on the manual order page; the order page has the timeline,
+  // cargo and route) and lanes (the seeded form).
+  transportorder: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'status', label: 'Status', sortable: false, render: (row: any) => transportStatusLabel(row.status) },
+      { key: 'origin', label: 'Origin', sortable: false },
+      { key: 'sourceStructureName', label: 'From', sortable: false, render: (row: any) => row.sourceStructureName ?? row.sourceStorageName ?? `Storage #${row.sourceStorageId}` },
+      { key: 'destinations', label: 'To', sortable: false, render: (row: any) => row.destinations || '-' },
+      { key: 'unitsDelivered', label: 'Delivered', sortable: false, render: (row: any) => `${row.unitsDelivered ?? 0} of ${row.unitsRequested ?? 0}` },
+      { key: 'etaAt', label: 'ETA', sortable: false, render: (row: any) => row.completedAt ? `Done ${formatDateTime(row.completedAt)}` : row.etaAt ? formatDateTime(row.etaAt) : '-' }
+    ]
+  },
+  transportlane: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'fromStructureName', label: 'From', sortable: false, render: (row: any) => row.fromStructureName ?? `#${row.fromStructureId}` },
+      { key: 'toStructureName', label: 'To', sortable: false, render: (row: any) => row.toStructureName ?? `#${row.toStructureId}` },
+      { key: 'roadDistance', label: 'Road distance', sortable: false, render: (row: any) => row.reachable === false ? 'Unreachable' : row.roadDistance != null ? `${formatNumber(row.roadDistance, 1)} blocks` : '-' },
+      { key: 'straightDistance', label: 'Straight', sortable: false, render: (row: any) => row.straightDistance != null ? `${formatNumber(row.straightDistance, 1)} blocks` : '-' },
+      { key: 'source', label: 'Source', sortable: false },
+      { key: 'measuredAt', label: 'Measured', sortable: false, render: (row: any) => row.measuredAt ? formatDateTime(row.measuredAt) : '-' }
     ]
   },
   gatestructure: {

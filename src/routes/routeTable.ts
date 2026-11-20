@@ -2,7 +2,7 @@ import { matchRoutes } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   Activity, BookOpen, Boxes, Coins, Compass, Gift, Home, LayoutGrid, Mail, MapPinOff, Map as MapIcon, Route as RouteIcon,
-  ScrollText, Settings, ShieldAlert, ShieldOff, SlidersHorizontal, Swords, Table2, Ticket, Trophy, Users,
+  ScrollText, Settings, ShieldAlert, ShieldOff, SlidersHorizontal, Swords, Table2, Ticket, Trophy, Truck, Users,
 } from 'lucide-react';
 import {
   AREA_NODES, CONTENT_PERMISSION_NODE, PermissionStatus, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE,
@@ -15,6 +15,7 @@ import { EMAIL_ADMIN_NODE } from '../types/dtos/email/EmailOutboxDtos';
 import { INVITATION_NODES } from '../types/dtos/invitations/InvitationDtos';
 import { CURRENCY_NODES } from '../types/dtos/currency/CurrencyDtos';
 import { STOCK_LEDGER_READ_NODES } from '../types/dtos/stock/StockDtos';
+import { TRANSPORT_WRITE_NODE } from '../utils/transport';
 import { LOCATION_RETENTION_NODES } from '../types/dtos/locationRetention/LocationRetentionDtos';
 import { OWNER_ANALYTICS_VIEW_NODE } from '../types/dtos/analytics/WorldAnalyticsDtos';
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from '../types/dtos/telemetry/TelemetryDtos';
@@ -176,6 +177,15 @@ export const ROUTES = defineRoutes({
   orphanedLocations: {
     path: '/admin/locations/orphans', layout: 'admin', access: staff(LOCATION_RETENTION_NODES.view), title: 'Orphaned Locations', group: 'world',
     sidebar: { icon: MapPinOff, description: 'Locations nothing points at any more, to review by hand.' },
+  },
+  // Transport core P5 (PandiO/knk-workspace#682): the order list and the manual order form (the World area's node).
+  transportOrders: {
+    path: '/admin/transport/orders', layout: 'admin', access: staff(TRANSPORT_WRITE_NODE), title: 'Transport orders', group: 'world',
+    sidebar: { icon: Truck, description: 'Goods on the road: automatic and manual orders, their timeline and route.' },
+  },
+  transportOrderNew: {
+    path: '/admin/transport/orders/new', layout: 'admin', access: staff(TRANSPORT_WRITE_NODE), title: 'New transport order', group: 'world',
+    parent: 'transportOrders',
   },
 
   // Players & support (Moderation: knk.admin.user.manage, StaffRoute's default node).
