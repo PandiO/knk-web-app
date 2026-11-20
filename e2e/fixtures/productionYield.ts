@@ -1,4 +1,6 @@
+import type { FormConfigurationDto, FormFieldDto, FormStepDto } from '../../src/types/dtos/forms/FormModels';
 import type { EntityMetadataDto } from '../../src/types/dtos/metadata/MetadataModels';
+import { FieldType } from '../../src/utils/enums';
 import type {
   AreaSurveyDto,
   AreaSurveyListDto,
@@ -133,3 +135,39 @@ export function mockConfiguredYield(api: MockApi): void {
     },
   }));
 }
+
+function field(values: Pick<FormFieldDto, 'id' | 'fieldName' | 'label' | 'fieldType' | 'order'> & Partial<FormFieldDto>): FormFieldDto {
+  return { isRequired: false, isReadOnly: false, isReusable: false, isLinkedToSource: false, hasCompatibilityIssues: false, validations: [], ...values };
+}
+
+function step(values: Pick<FormStepDto, 'id' | 'stepName' | 'order' | 'fields'> & Partial<FormStepDto>): FormStepDto {
+  return { isReusable: false, isLinkedToSource: false, hasCompatibilityIssues: false, isManyToManyRelationship: false, childFormSteps: [], conditions: [], ...values };
+}
+
+/** Part of knk-web-api `Data/FormConfigurationSeeds/ProductionArea.json`: the name and a radius (the structure picker left out). */
+export const productionAreaForm: FormConfigurationDto = {
+  id: '871',
+  entityTypeName: 'ProductionArea',
+  configurationName: 'ProductionArea - Default (seed v1)',
+  isDefault: true,
+  steps: [
+    step({
+      id: '872', stepName: 'Area', order: 0,
+      fields: [
+        field({ id: '873', fieldName: 'Name', label: 'Name', fieldType: FieldType.String, isRequired: true, order: 0 }),
+        field({ id: '874', fieldName: 'Radius', label: 'Radius', fieldType: FieldType.Integer, order: 1 }),
+      ],
+    }),
+  ],
+};
+
+export const productionAreaFormMetadata: EntityMetadataDto = {
+  ...productionAreaMetadata,
+  fields: [
+    { fieldName: 'Name', fieldType: 'String', isNullable: false, isRelatedEntity: false, hasDefaultValue: false },
+    { fieldName: 'Radius', fieldType: 'Int32', isNullable: true, isRelatedEntity: false, hasDefaultValue: false },
+  ],
+};
+
+/** The API's refusal of an area over the level's cap (A11, G6). */
+export const OVER_CAP = 'The area is 33 (radius); level 1 of Logger allows at most 32.';

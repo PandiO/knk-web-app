@@ -5,6 +5,7 @@ import {
     compositionRows,
     footprintOf,
     isSurveyed,
+    isYieldFormType,
     overrideErrors,
     overrideLabel,
     plotBox,
@@ -99,5 +100,12 @@ describe('productionYield', () => {
         const box = plotBox([circle!, rect!]);
         expect(box).toEqual({ minX: -14, minZ: -14, width: 43, height: 33 });
         expect(plotBox([])).toBeNull();
+    });
+
+    it('names the P4 form types whose refusals carry a sentence', () => {
+        expect(isYieldFormType('ProductionArea')).toBe(true);
+        expect(isYieldFormType('productionyieldoverride')).toBe(true);
+        expect(isYieldFormType('ProductionKind')).toBe(false);
+        expect(isYieldFormType(undefined)).toBe(false);
     });
 });

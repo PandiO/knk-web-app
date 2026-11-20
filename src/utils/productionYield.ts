@@ -212,3 +212,9 @@ export function plotBox(footprints: Footprint[]): PlotBox | null {
 export function sizeCapHint(maxSize: number | null | undefined, sizeUnit: string | null | undefined): string {
     return maxSize == null ? 'The level sets no size cap.' : `The level allows at most ${maxSize} ${sizeUnit ?? ''}`.trim() + '.';
 }
+
+/** The P4 types whose seeded forms are saved through endpoints that answer a refusal with `{ error: "<sentence>" }`. */
+export function isYieldFormType(entityTypeName: string | null | undefined): boolean {
+    const name = (entityTypeName ?? '').toLowerCase();
+    return name === 'productionarea' || name === 'productionyieldoverride';
+}

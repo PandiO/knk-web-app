@@ -14,6 +14,7 @@ import { DomainWorldPromptModal } from '../components/DomainWorldPromptModal';
 import { DomainClient } from '../apiClients/domainClient';
 import { buildDomainWorldResolveRequest, isDomainEntityType } from '../utils/forms/domainWorld';
 import { isProductionWorldType, placementRefusalReason, placementWarningsOf } from '../utils/productionWorld';
+import { isYieldFormType } from '../utils/productionYield';
 import { DisplayConfigurationTable } from '../components/FormWizard/DisplayConfigurationTable';
 import { EntityMetadataNavigator } from '../components/FormWizard/EntityMetadataNavigator';
 import { FormConfigurationTable } from '../components/FormWizard/FormConfigurationTable';
@@ -1088,7 +1089,10 @@ export const FormWizardPage: React.FC<Props> = ({
             // Show the API's own reason when it gave one (e.g. a siege save-time rule).
             // P2 (#676): the warehouse and production structure endpoints answer a refusal with { error: "<sentence>" }
             // (District-xor-Town, a blocking placement rule).
-            const placementReason = isProductionWorldType(progress?.entityTypeName) ? placementRefusalReason(err) : undefined;
+            // P4 (#680): an area over the level's cap or overlapping an exclusive area, or a second override of an output,
+            // is refused the same way.
+            const placementReason = isProductionWorldType(progress?.entityTypeName) || isYieldFormType(progress?.entityTypeName)
+                ? placementRefusalReason(err) : undefined;
             const reason = placementReason
                 ? ` ${placementReason}`
                 : err instanceof Error && err.message && !/^HTTP \d+/.test(err.message) && err.message !== 'promise timeout'

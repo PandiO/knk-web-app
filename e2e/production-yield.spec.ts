@@ -1,6 +1,7 @@
 import { test, expect } from './support/mockApi';
 import { alex, mockSession, startLoggedIn } from './fixtures/auth';
 import { mockContentDefaults } from './fixtures/content';
+import { noStepProgress, noValidationRules, savedProgress, workflowSession } from './fixtures/forms';
 import { generalDisplay } from './fixtures/territory';
 import {
   PHOENIX,
@@ -27,6 +28,7 @@ import {
 import {
   COAL_OVERRIDE,
   MILL_WOOD,
+  OVER_CAP,
   PIT,
   SURVEY_2,
   areaRows,
@@ -34,6 +36,8 @@ import {
   latestSurvey,
   pitOverlaps,
   pitTrend,
+  productionAreaForm,
+  productionAreaFormMetadata,
   productionAreaMetadata,
   quarryOverrides,
   quarryPit,
@@ -41,7 +45,9 @@ import {
   surveyRows,
 } from './fixtures/productionYield';
 import type { DisplayConfigurationDto } from '../src/types/dtos/displayConfig/DisplayModels';
-import type { FormConfigurationDto } from '../src/types/dtos/forms/FormModels';
+import type { FieldValidationRuleDto } from '../src/types/dtos/forms/FieldValidationRuleDtos';
+import type { FormConfigurationDto, FormSubmissionProgressDto } from '../src/types/dtos/forms/FormModels';
+import type { StepProgressReadDto, WorkflowSessionReadDto } from '../src/types/dtos/workflow/WorkflowDtos';
 import type { EntityMetadataDto } from '../src/types/dtos/metadata/MetadataModels';
 import type { StorageDto } from '../src/types/dtos/stock/StockDtos';
 import type { ProductionKindDto, ProductionOverviewDto } from '../src/types/dtos/production/ProductionEngineDtos';
@@ -336,5 +342,37 @@ test.describe('dashboard', () => {
     }
     await expect(table.getByRole('row').filter({ hasText: 'North slope' })).toContainText('Never');
     await expect(table.getByRole('row').filter({ hasText: 'Quarry pit' })).toContainText('Cuboid');
+  });
+});
+
+test.describe('the area form', () => {
+  test.use({ strictApi: true });
+
+  test('an area over the level\'s cap is refused with the maximum (A11, G6)', async ({ page, api }) => {
+    mockSession(api, alex, () => true);
+    mockContentDefaults(api);
+    api.json<StepProgressReadDto[]>('GET', 'Workflows/501/progress', noStepProgress);
+    api.on<StepProgressReadDto>('POST', /^Workflows\/501\/steps\/[^/]+\/complete$/, ({ path }) => ({
+      body: { id: 1, workflowSessionId: 501, stepKey: decodeURIComponent(path.split('/')[3]), stepIndex: 0, status: 'Completed', createdAt: '2026-11-19T12:00:00Z' },
+    }));
+    for (const method of ['POST', 'PUT'] as const) {
+      api.on<FormSubmissionProgressDto>(method, /^FormSubmissionProgress(\/.*)?$/, ({ body }) => ({ body: savedProgress(body as FormSubmissionProgressDto) }));
+    }
+    api.json<EntityMetadataDto[]>('GET', 'Metadata/entities', [productionAreaFormMetadata]);
+    api.json<FormConfigurationDto[]>('GET', 'FormConfigurations/ProductionArea', [productionAreaForm]);
+    api.json<FormConfigurationDto>('GET', `FormConfigurations/${productionAreaForm.id}`, productionAreaForm);
+    api.json<EntityMetadataDto>('GET', 'Metadata/entities/ProductionArea', productionAreaFormMetadata);
+    api.json<FieldValidationRuleDto[]>('GET', `field-validation-rules/by-configuration/${productionAreaForm.id}`, noValidationRules);
+    api.json<WorkflowSessionReadDto>('POST', /^Workflows\/?$/, workflowSession(alex.id, productionAreaForm));
+    api.on('POST', /^ProductionAreas\/?$/, { status: 400, body: { error: OVER_CAP } });
+
+    await page.goto('/forms/ProductionArea');
+    await page.getByRole('button', { name: 'Use', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Name*' }).fill('Forest');
+    await page.getByRole('spinbutton', { name: 'Radius' }).fill('33');
+    await page.getByRole('button', { name: 'Submit' }).click();
+
+    await expect(page.getByText(`The form could not be submitted. ${OVER_CAP}`, { exact: true })).toBeVisible();
+    expect(api.calls('POST', /^ProductionAreas\/?$/)).toHaveLength(1);
   });
 });
