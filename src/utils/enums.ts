@@ -179,6 +179,9 @@ export enum Controllers {
     ProductionAreas = 'ProductionAreas',
     AreaSurveys = 'AreaSurveys',
     ProductionYieldOverrides = 'ProductionYieldOverrides',
+    // Transport core P5 (PandiO/knk-workspace#79 API, #682 web app)
+    TransportOrders = 'TransportOrders',
+    TransportLanes = 'TransportLanes',
     TitleBrackets = 'TitleBrackets',
     // Player statistics (KNG-34)
     Statistics = 'statistics',

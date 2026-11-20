@@ -71,6 +71,7 @@ import type {
 import type { ProductionStructureDto } from '../src/types/dtos/structure/ProductionWorldDtos';
 import type { StructureTerritoryDto } from '../src/types/dtos/territory/TerritoryDtos';
 
+import { mockNoTransport } from './fixtures/transport';
 /**
  * Production engine P3 in the web app (PandiO/knk-workspace#678; production DESIGN § 9, § 11.1, PRODUCTION_KINDS § 4-5,
  * decisions G8, D4, G17, acceptance A08, A09, A23): the catalogue on the dashboard, a kind's levels, a level's unlocks
@@ -350,6 +351,8 @@ test.describe('the production structure page', () => {
     api.json<ProductionKindDto>('GET', `ProductionKinds/${QUARRY_KIND}`, quarryKind());
     // P4c (#680): the yield panel (e2e/production-yield.spec.ts covers it).
     mockConfiguredYield(api);
+    // P5c (#682): the transport panel (e2e/transport.spec.ts covers it).
+    mockNoTransport(api);
   });
 
   test('shows each line\'s rate with its modifiers in order and why the blocked one is not producing (A08, D4)', async ({ page, api }) => {

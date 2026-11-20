@@ -19,6 +19,7 @@ import {
     SurveyRequestDto,
     YieldMaterializationDto,
 } from '../types/dtos/production/ProductionYieldDtos';
+import { TransportStructureViewDto } from '../types/dtos/production/TransportDtos';
 
 // P2 world (PandiO/knk-workspace#91 API, #676 web app): production structures (api/ProductionStructures), mostly rural.
 // The create answers the structure with its output storage and any placement warnings (`placementWarnings`); a read
@@ -98,6 +99,12 @@ export class ProductionStructureClient extends ObjectManager {
     /** P4 staff tool: makes the lines from the latest surveys and pins again (it also runs after every survey). */
     materialize(id: number): Promise<YieldMaterializationDto> {
         return this.invokeServiceCall(null, `${id}/materialize`, Controllers.ProductionStructures, HttpMethod.Post);
+    }
+
+    /** P5 (#682): the structure's transport: warnings (no road, Output full, no warehouse, no workers), why the automatic
+     *  trigger fires or is held, the order it would make now, its open orders and the workers away. Writes nothing. */
+    getTransport(id: number): Promise<TransportStructureViewDto> {
+        return this.invokeServiceCall(null, `${id}/transport`, Controllers.ProductionStructures, HttpMethod.Get);
     }
 }
 

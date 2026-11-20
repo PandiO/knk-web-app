@@ -289,6 +289,8 @@ export interface AppliedModifierDto {
 
 export interface ConsumedInputDto {
     itemBlueprintId: number;
+    /** The blueprint's name (#838), filled on read. */
+    itemBlueprintName?: string | null;
     consumed: number;
 }
 

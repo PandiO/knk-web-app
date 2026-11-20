@@ -494,11 +494,16 @@ test.describe('game settings', () => {
 
     await expect.poll(() => api.calls('PUT', /^GameSettings\/?$/).length).toBe(1);
     expect((api.calls('PUT', /^GameSettings\/?$/)[0].body as GameSettingsUpdateDto).production)
-      // P3 (#678): the engine timing goes back with the section (the defaults here), so a save never resets it.
+      // P3 (#678), P5c (#682): the engine timing and transport go back with the section, so a save never resets them.
       .toEqual({
         enabled: true,
         territory: { baseRange: 100, powerFactor: 3, capitalMultiplier: 1.5 },
         engine: { baseCycleMinutes: 10, catchUpCapHours: 24, weatherDayMinutes: 20 },
+        // P5c (#682): the transport section too (the defaults here).
+        transport: {
+          walkingSpeedBlocksPerSecond: 4.317, defaultCarrierCapacity: 64, defaultThresholdPercent: 75, defaultThresholdUnits: 64,
+          unmeasuredRouteFactor: 1.4, fallbackDistanceBlocks: 200, awaitingSpaceMinutes: 30, maxReroutes: 2, laneMaxAgeHours: 24,
+        },
       });
   });
 

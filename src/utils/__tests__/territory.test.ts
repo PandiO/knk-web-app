@@ -1,3 +1,4 @@
+import { defaultTransportSettings } from '../transport';
 import {
     conflictAreaLabel,
     conflictStateLabel,
@@ -29,14 +30,20 @@ describe('territory helpers', () => {
 
     it('fills a missing production section with the design defaults, flag off', () => {
         const engine = { baseCycleMinutes: 10, catchUpCapHours: 24, weatherDayMinutes: 20 };
-        expect(normalizeProductionSettings(undefined)).toEqual({ enabled: false, territory: settings, engine });
+        const transport = defaultTransportSettings();
+        expect(normalizeProductionSettings(undefined)).toEqual({ enabled: false, territory: settings, engine, transport });
         expect(normalizeProductionSettings({ enabled: true, territory: { baseRange: 50 } as any }))
-            .toEqual({ enabled: true, territory: { ...settings, baseRange: 50 }, engine });
+            .toEqual({ enabled: true, territory: { ...settings, baseRange: 50 }, engine, transport });
     });
 
     it('keeps the production engine timing, so a save does not reset it (#678)', () => {
         const engine = { baseCycleMinutes: 5, catchUpCapHours: 48, weatherDayMinutes: 30 };
         expect(normalizeProductionSettings({ enabled: true, territory: settings, engine }).engine).toEqual(engine);
+    });
+
+    it('keeps the transport settings, so a save does not reset them (#682)', () => {
+        const transport = { ...defaultTransportSettings(), walkingSpeedBlocksPerSecond: 6, maxReroutes: 0 };
+        expect(normalizeProductionSettings({ enabled: true, territory: settings, transport }).transport).toEqual(transport);
     });
 
     it('reports the settings the API would refuse, in its words', () => {

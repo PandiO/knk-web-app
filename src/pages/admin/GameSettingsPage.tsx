@@ -16,6 +16,8 @@ import { TerritorySettingsCard } from '../../components/admin/gameSettings/Terri
 import { normalizeProductionSettings, territorySettingsErrors } from '../../utils/territory';
 import { productionEngineSettingsErrors } from '../../utils/productionEngine';
 import { ProductionEngineSettingsCard } from '../../components/admin/gameSettings/ProductionEngineSettingsCard';
+import { TransportSettingsCard } from '../../components/admin/gameSettings/TransportSettingsCard';
+import { transportSettingsErrors } from '../../utils/transport';
 import { LocationReferencePicker } from '../../components/admin/gameSettings/LocationReferencePicker';
 import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
 import { UNIT, describeWorldTime, joinHint } from '../../utils/settingsUnits';
@@ -305,6 +307,7 @@ export const GameSettingsPage: React.FC = () => {
             onSave={handleSave}
             canSave={!settings || (territorySettingsErrors(normalizeProductionSettings(settings.production).territory).length === 0
                 && productionEngineSettingsErrors(normalizeProductionSettings(settings.production).engine!).length === 0
+                && transportSettingsErrors(normalizeProductionSettings(settings.production).transport!).length === 0
                 && menuItemSettingsErrors(normalizeMenuItemSettings(settings.menuItem)).length === 0)}
             onDiscard={() => saved && setSettings(saved)}
             onReload={loadAll}
@@ -434,6 +437,14 @@ export const GameSettingsPage: React.FC = () => {
                     enabled={normalizeProductionSettings(saved?.production).enabled}
                     changed={isChanged('production')}
                     onChange={engine => updateSettings(prev => ({ ...prev, production: { ...normalizeProductionSettings(prev.production), engine } }))}
+                />
+
+                {/* Transport core P5 (PandiO/knk-workspace#682): speed, capacity, triggers, waits and lanes, kept on every save. */}
+                <TransportSettingsCard
+                    value={normalizeProductionSettings(settings.production).transport}
+                    enabled={normalizeProductionSettings(saved?.production).enabled}
+                    changed={isChanged('production')}
+                    onChange={transport => updateSettings(prev => ({ ...prev, production: { ...normalizeProductionSettings(prev.production), transport } }))}
                 />
 
                 <SettingsSection

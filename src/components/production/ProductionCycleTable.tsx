@@ -94,7 +94,7 @@ export const ProductionCycleTable: React.FC<Props> = ({ cycles, returnTo, label 
                                             <div>
                                                 <dt className="inline text-muted">Inputs taken: </dt>
                                                 <dd className="inline">
-                                                    {cycle.inputs.length === 0 ? 'None' : cycle.inputs.map(input => `${input.consumed} × blueprint #${input.itemBlueprintId}`).join(', ')}
+                                                    {cycle.inputs.length === 0 ? 'None' : cycle.inputs.map(input => `${input.consumed} × ${input.itemBlueprintName ?? `blueprint #${input.itemBlueprintId}`}`).join(', ')}
                                                 </dd>
                                             </div>
                                             {cycle.stockTransactionId != null && (

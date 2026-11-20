@@ -1,4 +1,5 @@
 import type { ProductionEngineSettingsDto } from '../production/ProductionEngineDtos';
+import type { ProductionTransportSettingsDto } from '../production/TransportDtos';
 
 /**
  * Territory V1 (PandiO/knk-workspace#326 API, #690 web app; knk-workspace docs/specs/territory/DESIGN.md): the JSON
@@ -21,6 +22,9 @@ export interface ProductionSettingsDto {
     /** The production engine's timing (P3, PandiO/knk-workspace#86, #678). The API resets it to the defaults when a
      *  `PUT api/GameSettings` sends a `production` section without it, so the settings page always sends it back. */
     engine?: ProductionEngineSettingsDto;
+    /** Transport (P5, PandiO/knk-workspace#79, #682). A save without it keeps the stored values; the settings page
+     *  shows it and always sends it back. */
+    transport?: ProductionTransportSettingsDto;
 }
 
 export type TerritoryHolderKind = 'Town' | 'Kingdom';

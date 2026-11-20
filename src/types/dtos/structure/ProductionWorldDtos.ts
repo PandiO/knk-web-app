@@ -76,6 +76,8 @@ export interface ProductionWorldListDto extends StructureListDto {
     acceptsDeliveries?: boolean | null;
     priority?: number | null;
     productionKindId?: number | null;
+    /** #838: the kind's name. */
+    productionKindName?: string | null;
     level?: number | null;
     productionEnabled?: boolean | null;
     roadConnection?: RoadConnectionState | null;
