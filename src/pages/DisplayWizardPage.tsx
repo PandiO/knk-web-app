@@ -40,6 +40,8 @@ import { StructureYieldPanel } from '../components/production/StructureYieldPane
 import { ProductionAreaPanel } from '../components/production/ProductionAreaPanel';
 import { AreaSurveyPanel } from '../components/production/AreaSurveyPanel';
 import { ProductionKindYieldTablePanel } from '../components/production/ProductionKindYieldTablePanel';
+import { StructureTransportPanel } from '../components/transport/StructureTransportPanel';
+import { TransportOrderPanel } from '../components/transport/TransportOrderPanel';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -270,6 +272,15 @@ export const DisplayWizardPage: React.FC = () => {
       )}
       {entityName.toLowerCase() === 'productionkind' && numericId != null && (
         <ProductionKindYieldTablePanel kindId={numericId} refreshKey={liveRefreshKey}
+          onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {/* Transport core P5 (PandiO/knk-workspace#682): a production structure's transport (warnings, the automatic
+          trigger's dry run, open orders, lanes) and an order's status, cargo, route and timeline with Cancel. */}
+      {entityName.toLowerCase() === 'productionstructure' && numericId != null && (
+        <StructureTransportPanel structureId={numericId} returnTo={here} refreshKey={liveRefreshKey} />
+      )}
+      {entityName.toLowerCase() === 'transportorder' && numericId != null && (
+        <TransportOrderPanel orderId={numericId} returnTo={here} refreshKey={liveRefreshKey}
           onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
       )}
       {confirmModal}

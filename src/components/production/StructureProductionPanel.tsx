@@ -9,7 +9,7 @@ import {
     ProductionOverviewDto,
     ProductionUpgradeResultDto,
 } from '../../types/dtos/production/ProductionEngineDtos';
-import { displayPath, newFormPath } from '../../utils/returnTo';
+import { dashboardPath, displayPath, newFormPath } from '../../utils/returnTo';
 import { toast } from '../../utils/toast';
 import {
     blueprintName,
@@ -282,6 +282,10 @@ export const StructureProductionPanel: React.FC<Props> = ({ structureId, returnT
 
                     <h3 className="mt-6 mb-2 text-base font-semibold text-fg">Latest cycles</h3>
                     <ProductionCycleTable cycles={overview.recentCycles} returnTo={returnTo} label="Recent cycles" />
+                    {/* #838: cycle records are a dashboard list of their own now (filters: structure, line). */}
+                    <p className="mt-2 text-sm">
+                        <Link to={dashboardPath('ProductionCycleRecord')} className="text-primary hover:underline">All cycle records</Link>
+                    </p>
                 </>
             )}
         </section>

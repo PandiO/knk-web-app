@@ -69,6 +69,8 @@ describe('route-meta table', () => {
       '/admin/economy/policy': 'staff:knk.admin.currency.policy', '/admin/economy/alerts': 'staff:knk.admin.currency.alerts',
       // Stock core P1 (PandiO/knk-workspace#675): the ledger explorer reads with the World area or the economy node.
       '/admin/stock/ledger': 'staffAny:knk.admin.world|knk.economy.admin',
+      // Transport P5c (#682): the order list and the manual order form, the World area's node.
+      '/admin/transport/orders': 'staff:knk.admin.world', '/admin/transport/orders/new': 'staff:knk.admin.world',
       '/admin/game-settings': 'staff:knk.admin.config', '/admin/siege-configuration': 'staff:knk.siege.admin.manage',
       '/admin/email': 'staff:knk.admin.config',
       '/owner/telemetry': 'owner:knk.owner.telemetry.view', '/owner/privacy': 'owner:knk.owner.privacy.manage',
