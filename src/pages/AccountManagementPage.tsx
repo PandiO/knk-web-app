@@ -8,6 +8,7 @@ import { validateEmailFormat } from '../utils/passwordValidator';
 import { MyDiscoveriesSection } from '../components/discovery/MyDiscoveriesSection';
 import { MyStatisticsSection } from './statistics/MyStatisticsSection';
 import { MyDataDeletionSection } from '../components/privacy/MyDataDeletionSection';
+import { MySiegeUnlocksSection } from '../components/siege/MySiegeUnlocksSection';
 import { apiRefusalReason } from '../utils/apiRefusalReason';
 import { usePublicSurface } from '../theme/surface';
 
@@ -198,6 +199,9 @@ export const AccountManagementPage: React.FC = () => {
             {user.uuid && <MyDiscoveriesSection userId={user.id} />}
             {/* Player statistics (KNG-34): gathered in-game, so also only when linked. */}
             {user.uuid && <MyStatisticsSection userId={user.id} username={user.username} />}
+
+            {/* Siege unlocks (siege shop L4, PandiO/knk-workspace#869): unlock siege weapon types with coins. */}
+            {user.uuid && <MySiegeUnlocksSection />}
 
             {/* Email Management */}
             <div className="border-b pb-6">

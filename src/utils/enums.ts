@@ -149,6 +149,8 @@ export enum Controllers {
     SiegeAmmoTypes = 'SiegeAmmoTypes',
     SiegeWeaponSpots = 'SiegeWeaponSpots',
     UserSiegeWeaponUnlocks = 'UserSiegeWeaponUnlocks',
+    // Siege shop L4 (PandiO/knk-workspace#869): a player's own unlock purchases.
+    SiegeWeaponUnlocks = 'SiegeWeaponUnlocks',
     // Siege shop catalogue (PandiO/knk-workspace#867)
     SiegeShopCategories = 'SiegeShopCategories',
     SiegeShopEntries = 'SiegeShopEntries',
