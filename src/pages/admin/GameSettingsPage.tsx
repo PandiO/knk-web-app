@@ -10,6 +10,8 @@ import { DataRetentionCard } from '../../components/admin/DataRetentionCard';
 import { GroupOverridesCard } from '../../components/admin/gameSettings/GroupOverridesCard';
 import { HubSettingsCard, defaultHubRules, defaultHubSettings } from '../../components/admin/gameSettings/HubSettingsCard';
 import { ChatTokensCard, defaultChatTokenSettings } from '../../components/admin/gameSettings/ChatTokensCard';
+import { MenuItemCard } from '../../components/admin/gameSettings/MenuItemCard';
+import { menuItemSettingsErrors, menuItemSettingsPayload, normalizeMenuItemSettings } from '../../utils/menuItemSettings';
 import { TerritorySettingsCard } from '../../components/admin/gameSettings/TerritorySettingsCard';
 import { normalizeProductionSettings, territorySettingsErrors } from '../../utils/territory';
 import { productionEngineSettingsErrors } from '../../utils/productionEngine';
@@ -131,6 +133,7 @@ const normalizeSettings = (settings: GameSettingsDto): GameSettingsDto => {
     next.hub = { ...defaultHubSettings(), ...(next.hub || {}), rules: { ...defaultHubRules(), ...(next.hub?.rules || {}) } };
     next.chatTokens = { ...defaultChatTokenSettings(), ...(next.chatTokens || {}) };
     next.production = normalizeProductionSettings(next.production);
+    next.menuItem = normalizeMenuItemSettings(next.menuItem);
 
     if (!next.defaultRespawnPolicy) {
         next.defaultRespawnPolicy = {
@@ -157,6 +160,7 @@ const CHANGE_GROUPS: Array<{ key: string; pick: (s: GameSettingsDto) => unknown 
     { key: 'hub', pick: s => s.hub ?? null },
     { key: 'groupOverrides', pick: s => s.groupOverrides ?? [] },
     { key: 'production', pick: s => s.production ?? null },
+    { key: 'menuItem', pick: s => s.menuItem ?? null },
 ];
 
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
@@ -276,6 +280,7 @@ export const GameSettingsPage: React.FC = () => {
             hub: settings.hub ?? defaultHubSettings(),
             chatTokens: settings.chatTokens ?? defaultChatTokenSettings(),
             production: normalizeProductionSettings(settings.production),
+            menuItem: menuItemSettingsPayload(normalizeMenuItemSettings(settings.menuItem)),
         };
 
         try {
@@ -299,7 +304,8 @@ export const GameSettingsPage: React.FC = () => {
             dirtyCount={changed.length}
             onSave={handleSave}
             canSave={!settings || (territorySettingsErrors(normalizeProductionSettings(settings.production).territory).length === 0
-                && productionEngineSettingsErrors(normalizeProductionSettings(settings.production).engine!).length === 0)}
+                && productionEngineSettingsErrors(normalizeProductionSettings(settings.production).engine!).length === 0
+                && menuItemSettingsErrors(normalizeMenuItemSettings(settings.menuItem)).length === 0)}
             onDiscard={() => saved && setSettings(saved)}
             onReload={loadAll}
             saveErrorMessage={error => gameSettingsErrorMessage(error, 'The settings could not be saved.')}
@@ -407,6 +413,13 @@ export const GameSettingsPage: React.FC = () => {
                 <ChatTokensCard
                     value={settings.chatTokens ?? defaultChatTokenSettings()}
                     onChange={chatTokens => updateSettings(prev => ({ ...prev, chatTokens }))}
+                />
+
+                {/* Menu item (PandiO/knk-workspace#870, siege shop DESIGN § 4.3): look, clicks and situation overrides. */}
+                <MenuItemCard
+                    value={normalizeMenuItemSettings(settings.menuItem)}
+                    changed={isChanged('menuItem')}
+                    onChange={menuItem => updateSettings(prev => ({ ...prev, menuItem }))}
                 />
 
                 <TerritorySettingsCard

@@ -169,6 +169,8 @@ export interface GameSettingsDto {
   chatTokens?: ChatTokenSettingsDto | null;
   /** Production flag and territory ranges (PandiO/knk-workspace#326, #690); never null from the API. */
   production?: ProductionSettingsDto | null;
+  /** The menu item (PandiO/knk-workspace#870); never null from the API (the seeded defaults when unset). */
+  menuItem?: MenuItemSettingsDto | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -191,6 +193,44 @@ export interface GameSettingsUpdateDto {
   chatTokens?: ChatTokenSettingsDto | null;
   /** null/undefined keeps the stored production settings (PandiO/knk-workspace#326). */
   production?: ProductionSettingsDto | null;
+  /** null/undefined keeps the stored menu item settings (PandiO/knk-workspace#870). */
+  menuItem?: MenuItemSettingsDto | null;
+}
+
+/** What one click on the menu item does (siege shop DESIGN § 4.3.2, P26). */
+export type MenuItemActionType = 'OpenMenu' | 'RunCommand' | 'None';
+
+export interface MenuItemActionDto {
+  type: MenuItemActionType;
+  /** OpenMenu: a menu template key such as main, siege.information or siege.shop. */
+  menuKey?: string | null;
+  /** RunCommand: the player command without the slash, such as `siege shop`. */
+  command?: string | null;
+}
+
+/** LEFT_CLICK, RIGHT_CLICK, SHIFT_LEFT_CLICK, SHIFT_RIGHT_CLICK, INVENTORY_CLICK → action. */
+export type MenuItemClickTable = Record<string, MenuItemActionDto>;
+
+/**
+ * The menu item (the nether star of #160) in the game settings (siege shop DESIGN § 4.3, PandiO/knk-workspace#870):
+ * its look, the default click table and partial click tables per situation (siege.hub, siege.match,
+ * siege.survival.match). A click an override leaves out uses the default table.
+ */
+export interface MenuItemSettingsDto {
+  enabled: boolean;
+  /** all | bedrock (Floodgate players only). */
+  giveTo: string;
+  giveOnJoin: boolean;
+  keepOnDeath: boolean;
+  material: string;
+  name: string;
+  lore: string[];
+  /** 0-8 hotbar, 9-35 main inventory. */
+  slot: number;
+  droppable: boolean;
+  movable: boolean;
+  clicks: MenuItemClickTable;
+  overrides: Record<string, MenuItemClickTable>;
 }
 
 /**
