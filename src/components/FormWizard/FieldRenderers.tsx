@@ -470,7 +470,7 @@ const StringField: React.FC<FieldRendererProps> = ({ field, value, onChange, err
                             : 'border-gray-300 focus:border-primary focus:ring-primary'
                     } ${field.isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 >
-                    <option value="">Select {field.label}</option>
+                    <option value="">{emptyOptionText(field)}</option>
                     {enumValues.map(option => <option key={option} value={option}>{option}</option>)}
                 </select>
             ) : multiline ? (
@@ -859,7 +859,7 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
                         : 'border-gray-300 focus:border-primary focus:ring-primary'
                 }`}
             >
-                <option value="">Select {field.label}</option>
+                <option value="">{emptyOptionText(field)}</option>
                 {enumValues.map(val => (
                     <option key={val} value={val}>{val}</option>
                 ))}
@@ -867,6 +867,24 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
             {error && <p className="mt-1 text-sm field-error">{error}</p>}
         </div>
     );
+};
+
+/**
+ * The text of a dropdown's empty option: settingsJson.emptyOptionLabel when set (a permission group's default route
+ * mode says "None (default: preferred)", PandiO/knk-workspace#852), else "Select <label>". Picking it sends "".
+ */
+export const emptyOptionText = (field: FormFieldDto): string => {
+    if (field.settingsJson) {
+        try {
+            const settings = JSON.parse(field.settingsJson) as { emptyOptionLabel?: unknown };
+            if (typeof settings.emptyOptionLabel === 'string' && settings.emptyOptionLabel.trim() !== '') {
+                return settings.emptyOptionLabel;
+            }
+        } catch {
+            // Existing configurations can omit or contain non-JSON settings.
+        }
+    }
+    return `Select ${field.label}`;
 };
 
 /** Options from settingsJson.enumValues only; a String field is a dropdown only when these are configured. */

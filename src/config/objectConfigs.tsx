@@ -14,6 +14,7 @@ import { territoryFlagCell } from '../utils/territory';
 import { roadConnectionCell } from '../utils/productionWorld';
 import { formatNumber, formatRate, lineStatusLabel, modifierStepLabel, modifierWindowLabel } from '../utils/productionEngine';
 import { formatDateTime } from '../utils/format';
+import { NO_DEFAULT_ROUTE_MODE_LABEL, ROUTE_MODE_WORDS } from '../types/dtos/userManagement/PermissionGroupDto';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
   default: [
@@ -352,6 +353,8 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'gemBonusMultiplier', label: 'Gem bonus x', sortable: true },
       { key: 'expBonusMultiplier', label: 'XP bonus x', sortable: true },
       { key: 'parentGroupName', label: 'Parent', sortable: false, render: (row: any) => row.parentGroupName ?? '-' },
+      // PandiO/knk-workspace#852: the group's default /navigate route mode.
+      { key: 'defaultRouteMode', label: 'Default route', sortable: false, render: (row: any) => row.defaultRouteMode ?? '-' },
     ]
   },
   // #408: the dashboard's PermissionGrant table (no name column; the API sorts by each sortable key).
@@ -1255,6 +1258,18 @@ const permissionGroupConfig: ObjectConfig = {
       label: 'Parent Group Id',
       type: 'number',
       required: false,
+    },
+    // PandiO/knk-workspace#852: the route /navigate takes for members who type no mode word ('' = no default).
+    defaultRouteMode: {
+      name: 'defaultRouteMode',
+      label: 'Default Route Mode',
+      type: 'select',
+      required: false,
+      defaultValue: '',
+      options: [
+        { label: NO_DEFAULT_ROUTE_MODE_LABEL, value: '' },
+        ...ROUTE_MODE_WORDS.map(word => ({ label: word, value: word })),
+      ],
     },
   },
 };
