@@ -56,6 +56,8 @@ import { ProductionYieldOverrideClient } from '../apiClients/productionYieldOver
 import { ClimateZoneClient } from '../apiClients/climateZoneClient';
 import { WeatherTypeClient } from '../apiClients/weatherTypeClient';
 import { ProductionCycleRecordClient } from '../apiClients/productionCycleRecordClient';
+import { TransportOrderClient } from '../apiClients/transportOrderClient';
+import { TransportLaneClient } from '../apiClients/transportLaneClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -206,6 +208,12 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => ProductionYieldOverrideClient.getInstance().searchPaged(query));
         case 'areasurvey':
             return withPagedQueryMapping((query) => AreaSurveyClient.getInstance().searchPaged(query));
+        // Transport core P5 (PandiO/knk-workspace#682): orders (search and fetch; made on the manual order page, no edit
+        // or delete) and lanes (full CRUD with the seeded form).
+        case 'transportorder':
+            return withPagedQueryMapping((query) => TransportOrderClient.getInstance().searchPaged(query));
+        case 'transportlane':
+            return withPagedQueryMapping((query) => TransportLaneClient.getInstance().searchPaged(query));
         // Read-only reference data (seeded): search + fetch only, for TitleBracket object pickers
         // (the siege scenario's minimum title, a domain's warp settings - teleport Phase 5).
         case 'titlebracket':
@@ -332,6 +340,11 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => ProductionYieldOverrideClient.getInstance().getById(Number(id));
         case 'areasurvey':
             return (id) => AreaSurveyClient.getInstance().getById(Number(id));
+        // Transport core P5 (PandiO/knk-workspace#682)
+        case 'transportorder':
+            return (id) => TransportOrderClient.getInstance().getById(Number(id));
+        case 'transportlane':
+            return (id) => TransportLaneClient.getInstance().getById(Number(id));
         case 'titlebracket':
             return (id) => TitleBracketClient.getInstance().getById(Number(id));
         default:
@@ -449,6 +462,9 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => ProductionAreaClient.getInstance().update(entity);
         case 'productionyieldoverride':
             return (entity) => ProductionYieldOverrideClient.getInstance().update(entity);
+        // Transport core P5 (PandiO/knk-workspace#682): lanes only (orders are never edited).
+        case 'transportlane':
+            return (entity) => TransportLaneClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -559,6 +575,9 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => ProductionAreaClient.getInstance().delete(Number(id));
         case 'productionyieldoverride':
             return (id) => ProductionYieldOverrideClient.getInstance().delete(Number(id));
+        // Transport core P5 (PandiO/knk-workspace#682): lanes only (orders are never deleted).
+        case 'transportlane':
+            return (id) => TransportLaneClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -672,6 +691,9 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => ProductionAreaClient.getInstance().create(entity);
         case 'productionyieldoverride':
             return (entity) => ProductionYieldOverrideClient.getInstance().create(entity);
+        // Transport core P5 (PandiO/knk-workspace#682): lanes only (a manual order has its own page).
+        case 'transportlane':
+            return (entity) => TransportLaneClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }
