@@ -170,6 +170,10 @@ export enum Controllers {
     WeatherTypes = 'WeatherTypes',
     ProductionCycleRecords = 'ProductionCycleRecords',
     Production = 'Production',
+    // Yield areas P4 (PandiO/knk-workspace#138 API, #680 web app)
+    ProductionAreas = 'ProductionAreas',
+    AreaSurveys = 'AreaSurveys',
+    ProductionYieldOverrides = 'ProductionYieldOverrides',
     TitleBrackets = 'TitleBrackets',
     // Player statistics (KNG-34)
     Statistics = 'statistics',

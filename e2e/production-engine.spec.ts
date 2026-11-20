@@ -49,6 +49,7 @@ import {
   weatherTypeMetadata,
   zoneRolls,
 } from './fixtures/productionEngine';
+import { mockConfiguredYield } from './fixtures/productionYield';
 import type { DisplayConfigurationDto } from '../src/types/dtos/displayConfig/DisplayModels';
 import type { FormConfigurationDto } from '../src/types/dtos/forms/FormModels';
 import type { GameSettingsDto, GameSettingsUpdateDto } from '../src/types/dtos/gameSettings/GameSettingsModels';
@@ -347,6 +348,8 @@ test.describe('the production structure page', () => {
     mockStoragesOf(api, [output]);
     api.json<StorageDto>('GET', `Storages/${QUARRY_OUTPUT}`, storageDetail(output, 5));
     api.json<ProductionKindDto>('GET', `ProductionKinds/${QUARRY_KIND}`, quarryKind());
+    // P4c (#680): the yield panel (e2e/production-yield.spec.ts covers it).
+    mockConfiguredYield(api);
   });
 
   test('shows each line\'s rate with its modifiers in order and why the blocked one is not producing (A08, D4)', async ({ page, api }) => {

@@ -36,6 +36,10 @@ import { ProductionKindLevelItemsPanel } from '../components/production/Producti
 import { ProductionLinePanel } from '../components/production/ProductionLinePanel';
 import { ClimateZonePanel } from '../components/production/ClimateZonePanel';
 import { WeatherTypeEffectsPanel } from '../components/production/WeatherTypeEffectsPanel';
+import { StructureYieldPanel } from '../components/production/StructureYieldPanel';
+import { ProductionAreaPanel } from '../components/production/ProductionAreaPanel';
+import { AreaSurveyPanel } from '../components/production/AreaSurveyPanel';
+import { ProductionKindYieldTablePanel } from '../components/production/ProductionKindYieldTablePanel';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -249,6 +253,24 @@ export const DisplayWizardPage: React.FC = () => {
       )}
       {entityName.toLowerCase() === 'weathertype' && numericId != null && (
         <WeatherTypeEffectsPanel weatherTypeId={numericId} onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {/* Yield areas P4 (PandiO/knk-workspace#680): a production structure's yield (source, areas, Survey now, why each
+          rate is what it is, Hybrid overrides), an area's plot, composition, trend and history, a survey's composition,
+          and a kind's yield table and primary outputs. */}
+      {entityName.toLowerCase() === 'productionstructure' && numericId != null && (
+        <StructureYieldPanel structureId={numericId} returnTo={here} refreshKey={liveRefreshKey}
+          onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {entityName.toLowerCase() === 'productionarea' && numericId != null && (
+        <ProductionAreaPanel areaId={numericId} returnTo={here} refreshKey={liveRefreshKey}
+          onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {entityName.toLowerCase() === 'areasurvey' && numericId != null && (
+        <AreaSurveyPanel surveyId={numericId} returnTo={here} refreshKey={liveRefreshKey} />
+      )}
+      {entityName.toLowerCase() === 'productionkind' && numericId != null && (
+        <ProductionKindYieldTablePanel kindId={numericId} refreshKey={liveRefreshKey}
+          onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
       )}
       {confirmModal}
       <FeedbackModal

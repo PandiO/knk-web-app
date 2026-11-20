@@ -1,4 +1,5 @@
 import { StructureDto, StructureListDto } from './StructureDto';
+import type { ProductionAreaListDto, YieldSource } from '../production/ProductionYieldDtos';
 
 // P2 world (PandiO/knk-workspace#91 API, #676 web app; production DESIGN § 3.3-3.4): warehouses and production
 // structures, mirroring knk-web-api `Dtos/ProductionWorldDtos.cs` and `Enums/ProductionWorldEnums.cs`. Both carry every
@@ -58,6 +59,11 @@ export interface ProductionStructureDto extends StructureDto {
     warnings?: string[] | null;
     /** Read only: the storages the structure holds (Kind Domain). */
     storages?: StructureStorageNavDto[] | null;
+    /** P4 (#680): "Hybrid" (the default for new structures), "Derived" or "Configured"; one the kind allows. Surveys run
+     *  only for Derived and Hybrid (G5). */
+    yieldSource?: YieldSource | string | null;
+    /** P4, read only: the yield areas, edited through `api/ProductionAreas`. */
+    areas?: ProductionAreaListDto[] | null;
 }
 
 /** `PUT api/ProductionStructures/{id}/road-connection` (the game server's lane measurement, P5b). */

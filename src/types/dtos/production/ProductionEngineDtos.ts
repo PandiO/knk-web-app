@@ -3,6 +3,8 @@
 // a null field means "keep" (create: the default); child lists (a level's items, a line's inputs, a zone's odds and
 // towns, a weather type's effects) replace the stored list when sent and are kept when null.
 
+import type { ProductionKindPrimaryOutputDto, ProductionYieldRowDto } from './ProductionYieldDtos';
+
 /** Where a production kind's resources come from (PRODUCTION_KINDS § 3.1). */
 export type ProductionAreaModel = 'BorderedField' | 'ExclusiveVolume' | 'SharedRadius' | 'Pasture' | 'HuntingGround';
 
@@ -79,6 +81,17 @@ export interface ProductionKindDto {
     createdAt?: string;
     /** Read only. */
     levels?: ProductionKindLevelDto[] | null;
+    // ---- P4 yield areas (PandiO/knk-workspace#138 API, #680 web app) ----
+    /** A JSON object the plugin's survey reads (e.g. `{"unitTypes":["TREE"]}`); a change raises the version. */
+    surveyProfileJson?: string | null;
+    /** Read only. */
+    surveyProfileVersion?: number;
+    /** The primary outputs' factor on Derived and Hybrid lines (default 1.5). */
+    primaryMultiplier?: number | null;
+    /** Replaces the stored yield table when sent. */
+    yieldTable?: ProductionYieldRowDto[] | null;
+    /** Replaces the stored primary outputs when sent. */
+    primaryOutputs?: ProductionKindPrimaryOutputDto[] | null;
 }
 
 export interface ProductionKindListDto {
