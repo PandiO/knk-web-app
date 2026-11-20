@@ -514,6 +514,26 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'unlockedAt', label: 'Unlocked', sortable: false, render: (row: any) => row.unlockedAt ? new Date(row.unlockedAt).toLocaleDateString() : '-' },
     ]
   },
+  // Siege shop catalogue (PandiO/knk-workspace#867). Overrides are owned by their scenario (no table of their own).
+  siegeshopcategory: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'key', label: 'Key', sortable: true },
+      { key: 'sortOrder', label: 'Order', sortable: false },
+    ]
+  },
+  siegeshopentry: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'gameMode', label: 'Mode', sortable: false, render: (row: any) => row.gameMode === 'SiegeSurvival' ? 'Siege Survival' : 'PvP Siege' },
+      { key: 'siegeScenarioName', label: 'Scenario', sortable: false, render: (row: any) => row.siegeScenarioName ?? 'Default' },
+      { key: 'categoryName', label: 'Category', sortable: false, render: (row: any) => row.categoryName ?? '-' },
+      { key: 'kind', label: 'Kind', sortable: false },
+      { key: 'price', label: 'Price', sortable: true, render: (row: any) => row.price ?? 'Template price' },
+      { key: 'maxPerMatch', label: 'Max per match', sortable: false, render: (row: any) => row.maxPerMatch ?? '-' },
+      { key: 'enabled', label: 'Enabled', sortable: false, render: (row: any) => row.enabled ? 'Yes' : 'No' },
+    ]
+  },
   // Territory V1 (PandiO/knk-workspace#690): holders, crown land and the conflicts the game server reports.
   kingdom: {
     default: [

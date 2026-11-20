@@ -76,6 +76,25 @@ const SECTIONS: Array<{ title: string; description: string; fields: FieldSpec[] 
         ],
     },
     {
+        title: 'Siege points',
+        description: 'What PvP Siege pays in siege points, the balance players spend in the siege shop during a match (#866). Paid only while the game server has siege.points.enabled on; changes apply from the next match. Amounts are whole points and can\'t be negative.',
+        fields: [
+            { key: 'pointsPerKill', label: 'Points per kill', kind: 'int', unit: 'points', help: 'Killing blow on an enemy member, weapon kills included (default 100).' },
+            { key: 'pointsStreakStep', label: 'Kill streak step', kind: 'decimal', unit: UNIT.multiplier, help: 'The n-th kill of a streak pays the kill points × (1 + step × (n − 1)), up to the cap. 0–10 (default 0.1).' },
+            { key: 'pointsStreakCap', label: 'Kill streak cap', kind: 'decimal', unit: UNIT.multiplier, help: 'Highest streak multiplier, 1–100 (default 1.5: the 6th kill and later pay 150). 1 = no streak bonus.' },
+            { key: 'pointsPerAssist', label: 'Points per assist', kind: 'int', unit: 'points', help: 'To each member who hurt the victim enough in the window, except the killer (default 40).' },
+            { key: 'assistMinDamage', label: 'Assist minimum damage', kind: 'decimal', unit: 'half hearts', help: 'Damage to the victim that counts as an assist, 0–1000 (default 4 = 2 hearts).' },
+            { key: 'assistWindowSeconds', label: 'Assist window', kind: 'int', ...seconds, help: 'Damage this long before the death counts, 0–600 (default 10).' },
+            { key: 'pointsPerDeath', label: 'Points per death', kind: 'int', unit: 'points', help: 'Catch-up for each own death by an enemy or the environment (default 15). Friendly fire and suicide pay nothing.' },
+            { key: 'gateHpPerPoint', label: 'Gate HP per point', kind: 'decimal', unit: 'HP', help: 'One point per this many gate HP removed, 0–100000 (default 5). 0 = gate damage pays nothing.' },
+            { key: 'pointsPerCapturePercent', label: 'Points per capture percent', kind: 'int', unit: 'points', help: 'Per percent an objective moves towards a side, to each of its living members in the capture radius, both directions (default 3).' },
+            { key: 'pointsPerCapture', label: 'Points per capture', kind: 'int', unit: 'points', help: 'To the members in the radius when the objective is captured (default 100).' },
+            { key: 'trickleAmount', label: 'Trickle amount', kind: 'int', unit: 'points', help: 'Paid every interval to each member who was active in it; AFK players get nothing (default 10).' },
+            { key: 'trickleIntervalSeconds', label: 'Trickle interval', kind: 'int', ...seconds, help: '1–3600 (default 60).' },
+            { key: 'pointTransfersEnabled', label: 'Allow teammate transfers', kind: 'boolean', help: 'Members may send siege points to a teammate in the same match with /siege pay. Off by default in PvP Siege.' },
+        ],
+    },
+    {
         title: 'Combat and chat',
         description: 'Kill announcements, headshots, respawn and the command filter.',
         fields: [

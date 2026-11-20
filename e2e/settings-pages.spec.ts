@@ -216,6 +216,24 @@ test.describe('Siege settings (data primitives § 4)', () => {
     await expect(header).toContainText('No unsaved changes.');
     expect(api.calls('PUT', /^SiegeConfiguration\/?$/).map(r => r.body)).toEqual([{ captureAttackBase: 6, headshotMultiplier: 2 }]);
   });
+
+  test('the siege points section shows the earn amounts and saves them with the transfer switch (#878)', async ({ page, api }) => {
+    await page.goto('/admin/siege-configuration');
+    const header = page.getByRole('banner', { name: 'Siege settings' });
+    await expect(page.getByRole('heading', { name: 'Siege points' })).toBeVisible();
+    await expect(page.getByLabel('Points per kill')).toHaveValue('100');
+    await expect(page.getByLabel('Kill streak cap')).toHaveValue('1.5');
+    await expect(page.getByLabel('Assist window')).toHaveAccessibleDescription(/0–600/);
+    await expect(page.getByLabel('Allow teammate transfers')).not.toBeChecked();
+
+    await page.getByLabel('Points per kill').fill('120');
+    await page.getByLabel('Trickle interval').fill('30');
+    await page.getByLabel('Allow teammate transfers').check();
+    await header.getByRole('button', { name: 'Save (3)' }).click();
+    await expect(page.getByText('Saved 3 settings.')).toBeVisible();
+    expect(api.calls('PUT', /^SiegeConfiguration\/?$/).map(r => r.body))
+      .toEqual([{ pointsPerKill: 120, trickleIntervalSeconds: 30, pointTransfersEnabled: true }]);
+  });
 });
 
 test('at phone width the settings pages do not scroll sideways', async ({ page, api }) => {

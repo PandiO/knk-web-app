@@ -22,7 +22,12 @@ const DEFAULTS = {
     headshotMultiplier: 1.5, allowedCommands: ['/siege', '/msg'], spawnPickerDelayTicks: 20,
     enchantDropChancePerMille: 30, allowedEnchantmentKeys: ['minecraft:sharpness'], enchantLevelMin: 1, enchantLevelMax: 2,
     maxBooksAlive: 10, nonMemberGateView: 'PreLockdownView', giveNavigationItem: false,
-    playerSkipMatchmakingSeconds: 60, adminSkipMatchmakingSeconds: 31, postMatchSeconds: 30, updatedAt: '2026-09-25T17:00:00Z'
+    playerSkipMatchmakingSeconds: 60, adminSkipMatchmakingSeconds: 31, postMatchSeconds: 30,
+    // Siege points (#866/#878); values chosen so no display value repeats one the tests above look up.
+    pointsPerKill: 100, pointsStreakStep: 0.1, pointsStreakCap: 1.75, pointsPerAssist: 40, assistMinDamage: 4,
+    assistWindowSeconds: 12, pointsPerDeath: 15, gateHpPerPoint: 5.5, pointsPerCapturePercent: 6, pointsPerCapture: 101,
+    trickleAmount: 11, trickleIntervalSeconds: 61, pointTransfersEnabled: false,
+    updatedAt: '2026-09-25T17:00:00Z'
 };
 
 describe('SiegeConfigurationPage', () => {
@@ -97,6 +102,36 @@ describe('SiegeConfigurationPage', () => {
         fireEvent.click(screen.getByRole('button', { name: /save \(1\)/i }));
 
         await waitFor(() => expect(siegeConfigurationClient.update).toHaveBeenCalledWith({ postMatchSeconds: 45 }));
+    });
+
+    it('shows the siege points section (#878) and sends only the changed earn amounts and the transfer switch', async () => {
+        render(<SiegeConfigurationPage />);
+        const kill = await screen.findByLabelText(/Points per kill/);
+        expect(kill).toHaveValue('100');
+        expect(screen.getByText('Siege points')).toBeInTheDocument();
+        expect(screen.getByLabelText(/Kill streak cap/)).toHaveValue('1.75');
+        expect(screen.getByLabelText(/Gate HP per point/)).toHaveValue('5.5');
+        expect(screen.getByLabelText(/Trickle interval/)).toHaveValue('61');
+        const transfers = screen.getByLabelText(/Allow teammate transfers/);
+        expect(transfers).not.toBeChecked();
+
+        fireEvent.change(kill, { target: { value: '120' } });
+        fireEvent.change(screen.getByLabelText(/Kill streak step/), { target: { value: '0,2' } });
+        fireEvent.change(screen.getByLabelText(/Assist minimum damage/), { target: { value: '6' } });
+        fireEvent.click(transfers);
+        fireEvent.click(screen.getByRole('button', { name: /save \(4\)/i }));
+
+        await waitFor(() => expect(siegeConfigurationClient.update).toHaveBeenCalledWith({
+            pointsPerKill: 120, pointsStreakStep: 0.2, assistMinDamage: 6, pointTransfersEnabled: true
+        }));
+    });
+
+    it('keeps Save off for a fractional siege point amount', async () => {
+        render(<SiegeConfigurationPage />);
+        const assist = await screen.findByLabelText(/Points per assist/);
+        fireEvent.change(assist, { target: { value: '2.5' } });
+        expect(screen.getByText('Whole number required.')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
     });
 
     it('switches the global navigation compass on with a checkbox and sends only that', async () => {
