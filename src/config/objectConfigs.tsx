@@ -16,6 +16,7 @@ import { formatNumber, formatRate, lineStatusLabel, modifierStepLabel, modifierW
 import { formatDateTime } from '../utils/format';
 import { transportStatusLabel } from '../utils/transport';
 import { reservationStatusLabel, ruleTypeLabel } from '../utils/logistics';
+import { formatUtcHour } from '../utils/shops';
 import { NO_DEFAULT_ROUTE_MODE_LABEL, ROUTE_MODE_WORDS } from '../types/dtos/userManagement/PermissionGroupDto';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
@@ -350,6 +351,74 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'straightDistance', label: 'Straight', sortable: false, render: (row: any) => row.straightDistance != null ? `${formatNumber(row.straightDistance, 1)} blocks` : '-' },
       { key: 'source', label: 'Source', sortable: false },
       { key: 'measuredAt', label: 'Measured', sortable: false, render: (row: any) => row.measuredAt ? formatDateTime(row.measuredAt) : '-' }
+    ]
+  },
+  // Shops P10 (PandiO/knk-workspace#688): shop types (accepted categories and levels on the type's page), levels, shops
+  // (production structures underneath; the shop's page has its offer, catalogue, sales and trade stats), catalogue
+  // entries, and the read-only hourly trade stats and town accounts.
+  shoptype: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'name', label: 'Name', sortable: false },
+      { key: 'defaultKind', label: 'Default kind', sortable: false },
+      { key: 'acceptedCategoryCount', label: 'Accepted categories', sortable: false, render: (row: any) => row.acceptedCategoryCount ? row.acceptedCategoryCount : 'None (buys nothing)' },
+      { key: 'levelCount', label: 'Levels', sortable: false },
+      { key: 'isActive', label: 'Active', sortable: false, render: (row: any) => row.isActive === false ? 'No' : 'Yes' }
+    ]
+  },
+  shoptypelevel: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'shopTypeName', label: 'Shop type', sortable: false, render: (row: any) => row.shopTypeName ?? `#${row.shopTypeId}` },
+      { key: 'level', label: 'Level', sortable: false },
+      { key: 'priceMultiplier', label: 'Price', sortable: false, render: (row: any) => `× ${formatNumber(row.priceMultiplier, 3)}` },
+      { key: 'cycleSpeedMultiplier', label: 'Speed', sortable: false, render: (row: any) => `× ${formatNumber(row.cycleSpeedMultiplier, 3)}` },
+      { key: 'yieldMultiplier', label: 'Yield', sortable: false, render: (row: any) => `× ${formatNumber(row.yieldMultiplier, 3)}` },
+      { key: 'merchandiseMaxUnits', label: 'Merchandise cap', sortable: false, render: (row: any) => row.merchandiseMaxUnits ?? '-' }
+    ]
+  },
+  shop: {
+    default: [
+      ...defaultColumnDefinitions.default,
+      townNameColumn,
+      placementColumn,
+      districtNameColumn,
+      { key: 'level', label: 'Level', sortable: false, render: (row: any) => row.level ?? 1 },
+      { key: 'productionEnabled', label: 'Processing', sortable: false, render: (row: any) => row.productionEnabled === false ? 'Off' : 'On' },
+      territoryFlagColumn,
+      worldColumn
+    ]
+  },
+  shopcatalogueentry: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'shopName', label: 'Shop', sortable: false, render: (row: any) => row.shopName ?? `#${row.shopId}` },
+      { key: 'itemBlueprintName', label: 'Item', sortable: false, render: (row: any) => `${row.itemBlueprintName ?? `#${row.itemBlueprintId}`}${row.itemInstanceId != null ? ` (item #${row.itemInstanceId})` : ''}` },
+      { key: 'staticPrice', label: 'Static price', sortable: false, render: (row: any) => row.staticPrice != null ? `${row.staticPrice} coins` : 'Formula' },
+      { key: 'stockMode', label: 'Stock', sortable: false },
+      { key: 'pinned', label: 'Pinned', sortable: false, render: (row: any) => row.pinned ? 'Pinned' : '-' },
+      { key: 'enabled', label: 'On', sortable: false, render: (row: any) => row.enabled === false ? 'Off' : 'Yes' }
+    ]
+  },
+  shoptradestat: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'hourStart', label: 'Hour (UTC)', sortable: false, render: (row: any) => row.hourStart ? formatUtcHour(row.hourStart) : '-' },
+      { key: 'shopName', label: 'Shop', sortable: false, render: (row: any) => row.shopName ?? `#${row.shopId}` },
+      { key: 'itemBlueprintName', label: 'Item', sortable: false, render: (row: any) => row.itemBlueprintName ?? `#${row.itemBlueprintId}` },
+      { key: 'unitsSold', label: 'Sold', sortable: false },
+      { key: 'revenue', label: 'Revenue', sortable: false },
+      { key: 'unitsBoughtBack', label: 'Bought back', sortable: false },
+      { key: 'unitsSupplied', label: 'Supplied', sortable: false },
+      { key: 'stockAtEnd', label: 'Stock at end', sortable: false }
+    ]
+  },
+  townaccount: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'townName', label: 'Town', sortable: false, render: (row: any) => row.townName ?? `#${row.townId}` },
+      { key: 'coins', label: 'Balance', sortable: false, render: (row: any) => `${row.coins ?? 0} coins` },
+      { key: 'updatedAt', label: 'Updated', sortable: false, render: (row: any) => row.updatedAt ? formatDateTime(row.updatedAt) : '-' }
     ]
   },
   // Town logistics P9 (PandiO/knk-workspace#686): policies (current versions; the policy's page edits the rules and

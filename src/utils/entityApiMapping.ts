@@ -66,6 +66,12 @@ import { LogisticsRuleClient } from '../apiClients/logisticsRuleClient';
 import { ConsumerReplenishmentClient } from '../apiClients/consumerReplenishmentClient';
 import { LogisticsReservationClient } from '../apiClients/logisticsReservationClient';
 import { LogisticsPlannerRunClient } from '../apiClients/logisticsPlannerRunClient';
+import { ShopTypeClient } from '../apiClients/shopTypeClient';
+import { ShopTypeLevelClient } from '../apiClients/shopTypeLevelClient';
+import { ShopClient } from '../apiClients/shopClient';
+import { ShopCatalogueEntryClient } from '../apiClients/shopCatalogueEntryClient';
+import { ShopTradeStatClient } from '../apiClients/shopTradeStatClient';
+import { TownAccountClient } from '../apiClients/townAccountClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -239,6 +245,20 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => LogisticsReservationClient.getInstance().searchPaged(query));
         case 'logisticsplannerrun':
             return withPagedQueryMapping((query) => LogisticsPlannerRunClient.getInstance().searchPaged(query));
+        // Shops P10 (PandiO/knk-workspace#688): shop types, levels, shops and catalogue entries (full CRUD; a shop type's
+        // accepted categories and levels are edited on its page), trade stats and town accounts (read only).
+        case 'shoptype':
+            return withPagedQueryMapping((query) => ShopTypeClient.getInstance().searchPaged(query));
+        case 'shoptypelevel':
+            return withPagedQueryMapping((query) => ShopTypeLevelClient.getInstance().searchPaged(query));
+        case 'shop':
+            return withPagedQueryMapping((query) => ShopClient.getInstance().searchPaged(query));
+        case 'shopcatalogueentry':
+            return withPagedQueryMapping((query) => ShopCatalogueEntryClient.getInstance().searchPaged(query));
+        case 'shoptradestat':
+            return withPagedQueryMapping((query) => ShopTradeStatClient.getInstance().searchPaged(query));
+        case 'townaccount':
+            return withPagedQueryMapping((query) => TownAccountClient.getInstance().searchPaged(query));
         // Read-only reference data (seeded): search + fetch only, for TitleBracket object pickers
         // (the siege scenario's minimum title, a domain's warp settings - teleport Phase 5).
         case 'titlebracket':
@@ -387,6 +407,19 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => LogisticsReservationClient.getInstance().getById(Number(id));
         case 'logisticsplannerrun':
             return (id) => LogisticsPlannerRunClient.getInstance().getById(Number(id));
+        // Shops P10 (PandiO/knk-workspace#688)
+        case 'shoptype':
+            return (id) => ShopTypeClient.getInstance().getById(Number(id));
+        case 'shoptypelevel':
+            return (id) => ShopTypeLevelClient.getInstance().getById(Number(id));
+        case 'shop':
+            return (id) => ShopClient.getInstance().getById(Number(id));
+        case 'shopcatalogueentry':
+            return (id) => ShopCatalogueEntryClient.getInstance().getById(Number(id));
+        case 'shoptradestat':
+            return (id) => ShopTradeStatClient.getInstance().getById(Number(id));
+        case 'townaccount':
+            return (id) => TownAccountClient.getInstance().getById(Number(id));
         case 'titlebracket':
             return (id) => TitleBracketClient.getInstance().getById(Number(id));
         default:
@@ -518,6 +551,15 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => LogisticsPolicyClient.getInstance().updateKeepingRules(entity);
         case 'consumerreplenishment':
             return (entity) => ConsumerReplenishmentClient.getInstance().update(entity);
+        // Shops P10 (PandiO/knk-workspace#688): a shop type's form save keeps its accepted categories (the form sends none).
+        case 'shoptype':
+            return (entity) => ShopTypeClient.getInstance().update(entity);
+        case 'shoptypelevel':
+            return (entity) => ShopTypeLevelClient.getInstance().update(entity);
+        case 'shop':
+            return (entity) => ShopClient.getInstance().update(entity);
+        case 'shopcatalogueentry':
+            return (entity) => ShopCatalogueEntryClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -642,6 +684,15 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
             return (id) => LogisticsPolicyClient.getInstance().delete(Number(id));
         case 'consumerreplenishment':
             return (id) => ConsumerReplenishmentClient.getInstance().delete(Number(id));
+        // Shops P10 (PandiO/knk-workspace#688): a shop type in use by a shop is refused (409).
+        case 'shoptype':
+            return (id) => ShopTypeClient.getInstance().delete(Number(id));
+        case 'shoptypelevel':
+            return (id) => ShopTypeLevelClient.getInstance().delete(Number(id));
+        case 'shop':
+            return (id) => ShopClient.getInstance().delete(Number(id));
+        case 'shopcatalogueentry':
+            return (id) => ShopCatalogueEntryClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -769,6 +820,15 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
             return (entity) => LogisticsPolicyClient.getInstance().create(entity);
         case 'consumerreplenishment':
             return (entity) => ConsumerReplenishmentClient.getInstance().create(entity);
+        // Shops P10 (PandiO/knk-workspace#688): a shop gets its Input and Merchandise storages.
+        case 'shoptype':
+            return (entity) => ShopTypeClient.getInstance().create(entity);
+        case 'shoptypelevel':
+            return (entity) => ShopTypeLevelClient.getInstance().create(entity);
+        case 'shop':
+            return (entity) => ShopClient.getInstance().create(entity);
+        case 'shopcatalogueentry':
+            return (entity) => ShopCatalogueEntryClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }

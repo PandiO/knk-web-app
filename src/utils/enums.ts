@@ -191,6 +191,13 @@ export enum Controllers {
     LogisticsReservations = 'LogisticsReservations',
     LogisticsPlannerRuns = 'LogisticsPlannerRuns',
     Logistics = 'Logistics',
+    // Shops P10 (PandiO/knk-workspace#248 API, #688 web app)
+    ShopTypes = 'ShopTypes',
+    ShopTypeLevels = 'ShopTypeLevels',
+    Shops = 'Shops',
+    ShopCatalogueEntries = 'ShopCatalogueEntries',
+    ShopTradeStats = 'ShopTradeStats',
+    TownAccounts = 'TownAccounts',
     TitleBrackets = 'TitleBrackets',
     // Player statistics (KNG-34)
     Statistics = 'statistics',
