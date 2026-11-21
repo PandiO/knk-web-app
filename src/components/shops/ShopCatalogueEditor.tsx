@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { shopCatalogueEntryClient } from '../../apiClients/shopCatalogueEntryClient';
-import { useActionGate } from '../../hooks/useActionGate';
+import { useActionGate, useAllNodesGate } from '../../hooks/useActionGate';
 import { SHOP_STOCK_MODES, ShopCatalogueEntryListDto, ShopStockMode } from '../../types/dtos/production/ShopDtos';
 import { productionRefusalReason } from '../../utils/productionEngine';
 import {
     CatalogueForm,
+    SHOP_CHANGE_NODES,
     SHOP_DELETE_NODE,
     catalogueBody,
     catalogueFormErrors,
@@ -31,6 +32,7 @@ const entryName = (entry: ShopCatalogueEntryListDto) =>
  */
 export const ShopCatalogueEditor: React.FC<Props> = ({ shopId, entries, onChanged }) => {
     const deleteGate = useActionGate(SHOP_DELETE_NODE);
+    const changeGate = useAllNodesGate(SHOP_CHANGE_NODES);
     const [form, setForm] = useState<CatalogueForm | null>(null);
     const [editing, setEditing] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
@@ -116,6 +118,7 @@ export const ShopCatalogueEditor: React.FC<Props> = ({ shopId, entries, onChange
                                     <td className="py-1">
                                         <span className="flex gap-1">
                                             <button type="button" className="btn-secondary text-xs" aria-label={`Edit the entry for ${entryName(entry)}`}
+                                                disabled={!changeGate.allowed} title={changeGate.hint ?? undefined}
                                                 onClick={() => edit(entry)}>Edit</button>
                                             <button type="button" className="btn-secondary text-xs" disabled={!deleteGate.allowed} title={deleteGate.hint ?? undefined}
                                                 aria-label={`Delete the entry for ${entryName(entry)}`} onClick={() => void remove(entry)}>Delete</button>
@@ -128,7 +131,8 @@ export const ShopCatalogueEditor: React.FC<Props> = ({ shopId, entries, onChange
                 </div>
             )}
             {!form && entries != null && (
-                <button type="button" className="btn-secondary mt-2 text-sm" onClick={() => { setError(null); setEditing(null); setForm(emptyCatalogueForm()); }}>
+                <button type="button" className="btn-secondary mt-2 text-sm" disabled={!changeGate.allowed} title={changeGate.hint ?? undefined}
+                    onClick={() => { setError(null); setEditing(null); setForm(emptyCatalogueForm()); }}>
                     Add an entry
                 </button>
             )}

@@ -8,6 +8,11 @@ import type { LookupPick } from '../components/stock/LookupPicker';
 export const SHOP_NODE = 'knk.admin.world';
 /** Deletes also need the delete node. */
 export const SHOP_DELETE_NODE = 'knk.admin.delete';
+/**
+ * Creates and edits of shop types, levels, shops and catalogue entries: the World area's node and knk.admin.content
+ * (knk-web-api `RequireDashboardChange`, the dashboard's change rule, #374).
+ */
+export const SHOP_CHANGE_NODES: readonly string[] = [SHOP_NODE, 'knk.admin.content'];
 /** The API's highest shop level (`ShopTypeLevel.MaxLevel`). */
 export const SHOP_MAX_LEVEL = 100;
 /** The API's highest static price (`ShopCatalogueService.MaxStaticPrice`). */

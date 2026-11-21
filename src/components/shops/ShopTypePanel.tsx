@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom';
 import { Layers, Tags } from 'lucide-react';
 import { shopTypeClient } from '../../apiClients/shopTypeClient';
 import { shopTypeLevelClient } from '../../apiClients/shopTypeLevelClient';
-import { useActionGate } from '../../hooks/useActionGate';
+import { useActionGate, useAllNodesGate } from '../../hooks/useActionGate';
 import type { NamedRefDto } from '../../types/dtos/production/ProductionEngineDtos';
 import type { ShopTypeDto, ShopTypeLevelDto } from '../../types/dtos/production/ShopDtos';
 import { formatNumber, productionRefusalReason } from '../../utils/productionEngine';
 import { displayPath } from '../../utils/returnTo';
-import { LevelForm, SHOP_DELETE_NODE, SHOP_NODE, levelBody, levelForm, levelFormErrors } from '../../utils/shops';
+import { LevelForm, SHOP_CHANGE_NODES, SHOP_DELETE_NODE, SHOP_NODE, levelBody, levelForm, levelFormErrors } from '../../utils/shops';
 import { LookupPicker, LookupPick } from '../stock/LookupPicker';
 
 interface Props {
@@ -42,6 +42,7 @@ const capText = (value: number | null | undefined) => (value ? formatNumber(valu
 export const ShopTypePanel: React.FC<Props> = ({ shopTypeId, returnTo, refreshKey, onChanged }) => {
     const gate = useActionGate(SHOP_NODE);
     const deleteGate = useActionGate(SHOP_DELETE_NODE);
+    const changeGate = useAllNodesGate(SHOP_CHANGE_NODES);
     const [type, setType] = useState<ShopTypeDto | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [categories, setCategories] = useState<NamedRefDto[] | null>(null);
@@ -161,6 +162,7 @@ export const ShopTypePanel: React.FC<Props> = ({ shopTypeId, returnTo, refreshKe
                                 <li key={category.id} className="flex items-center gap-1 rounded border border-line px-2 py-1 text-sm">
                                     <Link to={displayPath('Category', category.id, returnTo)} className="text-primary hover:underline">{category.name}</Link>
                                     <button type="button" className="btn-secondary px-1 text-xs" aria-label={`Remove ${category.name}`}
+                                        disabled={!changeGate.allowed} title={changeGate.hint ?? undefined}
                                         onClick={() => setCategories(previous => (previous ?? []).filter(c => c.id !== category.id))}>×</button>
                                 </li>
                             ))}
@@ -168,10 +170,11 @@ export const ShopTypePanel: React.FC<Props> = ({ shopTypeId, returnTo, refreshKe
                     )}
                     <div className="max-w-sm">
                         <LookupPicker entityType="Category" label="Add a category" value={picked} onChange={addCategory}
-                            excludeIds={current} />
+                            excludeIds={current} disabled={!changeGate.allowed} />
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
-                        <button type="button" className="btn-primary text-sm" disabled={!categoriesChanged || savingCategories} onClick={() => void saveCategories()}>
+                        <button type="button" className="btn-primary text-sm" disabled={!changeGate.allowed || !categoriesChanged || savingCategories}
+                            title={changeGate.hint ?? undefined} onClick={() => void saveCategories()}>
                             {savingCategories ? 'Saving…' : 'Save the categories'}
                         </button>
                         {categoriesChanged && (
@@ -220,6 +223,7 @@ export const ShopTypePanel: React.FC<Props> = ({ shopTypeId, returnTo, refreshKe
                                             <td className="py-1">
                                                 <span className="flex gap-1">
                                                     <button type="button" className="btn-secondary text-xs" aria-label={`Edit level ${level.level}`}
+                                                        disabled={!changeGate.allowed} title={changeGate.hint ?? undefined}
                                                         onClick={() => { setNotice(null); setLevelError(null); setForm(levelForm(level)); }}>Edit</button>
                                                     <button type="button" className="btn-secondary text-xs" disabled={!deleteGate.allowed} title={deleteGate.hint ?? undefined}
                                                         aria-label={`Delete level ${level.level}`} onClick={() => void removeLevel(level)}>Delete</button>
@@ -232,7 +236,7 @@ export const ShopTypePanel: React.FC<Props> = ({ shopTypeId, returnTo, refreshKe
                         </div>
                     )}
                     {!form && (
-                        <button type="button" className="btn-secondary mt-2 text-sm"
+                        <button type="button" className="btn-secondary mt-2 text-sm" disabled={!changeGate.allowed} title={changeGate.hint ?? undefined}
                             onClick={() => { setNotice(null); setLevelError(null); setForm(levelForm(null, nextLevel)); }}>
                             Add a level
                         </button>
