@@ -48,6 +48,9 @@ import { StructureLogisticsPanel } from '../components/logistics/StructureLogist
 import { LogisticsPolicyPanel } from '../components/logistics/LogisticsPolicyPanel';
 import { LogisticsPlannerRunPanel } from '../components/logistics/LogisticsPlannerRunPanel';
 import { LogisticsReservationPanel } from '../components/logistics/LogisticsReservationPanel';
+import { ShopTypePanel } from '../components/shops/ShopTypePanel';
+import { ShopPanel } from '../components/shops/ShopPanel';
+import { TownAccountPanel } from '../components/shops/TownAccountPanel';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -311,6 +314,24 @@ export const DisplayWizardPage: React.FC = () => {
       {entityName.toLowerCase() === 'logisticsreservation' && numericId != null && (
         <LogisticsReservationPanel reservationId={numericId} returnTo={here} refreshKey={liveRefreshKey}
           onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {/* Shops P10 (PandiO/knk-workspace#688): a shop type's accepted categories and levels; a shop's summary, town account,
+          offer, catalogue, sales and hourly trade stats, then its processing view and restocking (a shop is a production
+          structure underneath); a town account's balance and ledger. Staff with the World area's node only. */}
+      {entityName.toLowerCase() === 'shoptype' && numericId != null && (
+        <ShopTypePanel shopTypeId={numericId} returnTo={here} refreshKey={liveRefreshKey}
+          onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {entityName.toLowerCase() === 'shop' && numericId != null && (
+        <>
+          <ShopPanel shopId={numericId} returnTo={here} refreshKey={liveRefreshKey} />
+          <StructureProductionPanel structureId={numericId} returnTo={here} refreshKey={liveRefreshKey}
+            onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+          <StructureLogisticsPanel structureId={numericId} returnTo={here} refreshKey={liveRefreshKey} />
+        </>
+      )}
+      {entityName.toLowerCase() === 'townaccount' && numericId != null && (
+        <TownAccountPanel accountId={numericId} returnTo={here} refreshKey={liveRefreshKey} />
       )}
       {confirmModal}
       <FeedbackModal

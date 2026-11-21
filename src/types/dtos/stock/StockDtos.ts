@@ -15,7 +15,9 @@ export type StockReason =
     | 'TransportLoad' | 'TransportDeliver' | 'TransportReturn' | 'TransportRobbed' | 'TransportLost'
     | 'Distribution' | 'Trade' | 'Deposit' | 'Withdraw'
     | 'RewardInbox' | 'InboxClaim' | 'InboxOverflow' | 'InboxExpired'
-    | 'ContainerSync' | 'PlayerHarvest' | 'Spoilage' | 'AdminAdjust' | 'Correction';
+    | 'ContainerSync' | 'PlayerHarvest' | 'Spoilage' | 'AdminAdjust' | 'Correction'
+    // Written by the API only (P3 upgrades; shops P10, PandiO/knk-workspace#248): not offered for manual moves.
+    | 'Upgrade' | 'ShopSale' | 'ShopBuyBack';
 export type StockMoveMode = 'AllOrNothing' | 'Partial';
 export type StockRejectReason = 'None' | 'CapacityFull' | 'DistinctCapReached' | 'NotEnoughStock' | 'Locked' | 'OtherLineRejected';
 export type StockResultStatus = 'Applied' | 'PartiallyApplied' | 'Rejected';

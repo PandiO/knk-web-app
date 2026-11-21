@@ -65,6 +65,8 @@ const SOURCE_WORDS: Record<string, string> = {
     Setting: 'its replenishment setting',
     Rule: 'a Replenishment rule',
     Inputs: 'its line inputs (4 h / 12 h)',
+    // Shops P10 (PandiO/knk-workspace#248, #688): a shop's catalogue at its level's default min and max.
+    ShopLevel: "its shop level's default min and max",
     Town: "the town's policy",
     DefaultTemplate: 'the default template',
     None: 'no policy',

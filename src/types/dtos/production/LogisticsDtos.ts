@@ -41,7 +41,7 @@ export type LogisticsPlanOutcome =
 export type LogisticsPolicySource = 'Town' | 'DefaultTemplate' | 'None';
 
 /** Where a consumer line's min and max came from: its setting, a Replenishment rule, or the line inputs × hours. */
-export type LogisticsSettingSource = 'Setting' | 'Rule' | 'Inputs';
+export type LogisticsSettingSource = 'Setting' | 'Rule' | 'Inputs' | 'ShopLevel';
 
 /** Game settings section `production.logistics` (kept on a save that leaves it out). */
 export interface ProductionLogisticsSettingsDto {
