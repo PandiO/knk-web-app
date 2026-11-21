@@ -2,7 +2,7 @@ import { matchRoutes } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   Activity, BookOpen, Boxes, Coins, Compass, Gift, Home, LayoutGrid, Mail, MapPinOff, Map as MapIcon, Route as RouteIcon,
-  ScrollText, Settings, ShieldAlert, ShieldOff, SlidersHorizontal, Swords, Table2, Ticket, Trophy, Truck, Users,
+  Network, ScrollText, Settings, ShieldAlert, ShieldOff, SlidersHorizontal, Swords, Table2, Ticket, Trophy, Truck, Users,
 } from 'lucide-react';
 import {
   AREA_NODES, CONTENT_PERMISSION_NODE, PermissionStatus, SERVER_CONFIG_PERMISSION_NODE, SIEGE_ADMIN_PERMISSION_NODE,
@@ -16,6 +16,7 @@ import { INVITATION_NODES } from '../types/dtos/invitations/InvitationDtos';
 import { CURRENCY_NODES } from '../types/dtos/currency/CurrencyDtos';
 import { STOCK_LEDGER_READ_NODES } from '../types/dtos/stock/StockDtos';
 import { TRANSPORT_WRITE_NODE } from '../utils/transport';
+import { LOGISTICS_NODE } from '../utils/logistics';
 import { LOCATION_RETENTION_NODES } from '../types/dtos/locationRetention/LocationRetentionDtos';
 import { OWNER_ANALYTICS_VIEW_NODE } from '../types/dtos/analytics/WorldAnalyticsDtos';
 import { OWNER_PRIVACY_MANAGE_NODE, OWNER_TELEMETRY_VIEW_NODE } from '../types/dtos/telemetry/TelemetryDtos';
@@ -186,6 +187,11 @@ export const ROUTES = defineRoutes({
   transportOrderNew: {
     path: '/admin/transport/orders/new', layout: 'admin', access: staff(TRANSPORT_WRITE_NODE), title: 'New transport order', group: 'world',
     parent: 'transportOrders',
+  },
+  // Town logistics P9 (PandiO/knk-workspace#686): policies and templates; a town's plan is on its page (the World node).
+  logistics: {
+    path: '/admin/logistics', layout: 'admin', access: staff(LOGISTICS_NODE), title: 'Town logistics', group: 'world',
+    sidebar: { icon: Network, description: 'Warehouse reserves, consumer supply, policies and templates, the planner.' },
   },
 
   // Players & support (Moderation: knk.admin.user.manage, StaffRoute's default node).

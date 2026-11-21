@@ -277,6 +277,37 @@ export function fromLocalInput(value: string): string | null {
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+// ---------------------------------------------------------------- consumer settings
+
+/** The replenishment setting form on a consumer's page (PandiO/knk-workspace#686). */
+export interface SettingForm {
+    id: number | null;
+    storageId: string;
+    blueprint: { id: number; label: string } | null;
+    reorderPoint: string;
+    targetLevel: string;
+    priorityClass: string;
+    enabled: boolean;
+    note: string;
+}
+
+export const emptySettingForm = (storageId: number | undefined): SettingForm => ({
+    id: null, storageId: storageId != null ? String(storageId) : '', blueprint: null, reorderPoint: '', targetLevel: '', priorityClass: '', enabled: true, note: '',
+});
+
+/** What the API would refuse in a setting, one sentence each. */
+export function settingFormErrors(form: SettingForm): string[] {
+    const errors: string[] = [];
+    if (!form.storageId) errors.push('Pick the storage.');
+    if (!form.blueprint) errors.push('Pick the item.');
+    const min = Number(form.reorderPoint);
+    const max = Number(form.targetLevel);
+    if (form.reorderPoint.trim() === '' || !Number.isInteger(min) || min < 0) errors.push('The min is a whole number, 0 or more.');
+    if (form.targetLevel.trim() === '' || !Number.isInteger(max) || max <= 0) errors.push('The max is a whole number above 0.');
+    if (Number.isInteger(min) && Number.isInteger(max) && min > max) errors.push('The min is above the max.');
+    return errors;
+}
+
 // ---------------------------------------------------------------- settings
 
 export const defaultLogisticsSettings = (): ProductionLogisticsSettingsDto => ({

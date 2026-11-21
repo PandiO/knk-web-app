@@ -13,7 +13,7 @@ import {
 } from '../../types/dtos/production/LogisticsDtos';
 import { formatNumber, productionRefusalReason } from '../../utils/productionEngine';
 import { displayPath } from '../../utils/returnTo';
-import { LOGISTICS_DELETE_NODE, LOGISTICS_NODE, logisticsSourceLabel } from '../../utils/logistics';
+import { LOGISTICS_DELETE_NODE, LOGISTICS_NODE, SettingForm, emptySettingForm, logisticsSourceLabel, settingFormErrors } from '../../utils/logistics';
 import { LookupPicker, LookupPick } from '../stock/LookupPicker';
 import { LogisticsReservationTable } from './LogisticsReservationTable';
 import { ReservationReleaseForm } from './ReservationReleaseForm';
@@ -22,34 +22,6 @@ interface Props {
     structureId: number;
     returnTo: string | null;
     refreshKey?: number;
-}
-
-interface SettingForm {
-    id: number | null;
-    storageId: string;
-    blueprint: LookupPick | null;
-    reorderPoint: string;
-    targetLevel: string;
-    priorityClass: string;
-    enabled: boolean;
-    note: string;
-}
-
-const emptyForm = (storageId: number | undefined): SettingForm => ({
-    id: null, storageId: storageId != null ? String(storageId) : '', blueprint: null, reorderPoint: '', targetLevel: '', priorityClass: '', enabled: true, note: '',
-});
-
-/** What the API would refuse in a setting, one sentence each. */
-export function settingFormErrors(form: SettingForm): string[] {
-    const errors: string[] = [];
-    if (!form.storageId) errors.push('Pick the storage.');
-    if (!form.blueprint) errors.push('Pick the item.');
-    const min = Number(form.reorderPoint);
-    const max = Number(form.targetLevel);
-    if (form.reorderPoint.trim() === '' || !Number.isInteger(min) || min < 0) errors.push('The min is a whole number, 0 or more.');
-    if (form.targetLevel.trim() === '' || !Number.isInteger(max) || max <= 0) errors.push('The max is a whole number above 0.');
-    if (Number.isInteger(min) && Number.isInteger(max) && min > max) errors.push('The min is above the max.');
-    return errors;
 }
 
 /**
@@ -276,7 +248,7 @@ export const StructureLogisticsPanel: React.FC<Props> = ({ structureId, returnTo
                         </div>
                     )}
                     {!form && (
-                        <button type="button" className="btn-secondary mt-2 text-sm" onClick={() => { setNotice(null); setForm(emptyForm(view.storages[0]?.storageId)); }}>
+                        <button type="button" className="btn-secondary mt-2 text-sm" onClick={() => { setNotice(null); setForm(emptySettingForm(view.storages[0]?.storageId)); }}>
                             Add a setting
                         </button>
                     )}
