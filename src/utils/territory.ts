@@ -8,6 +8,7 @@ import {
 } from '../types/dtos/territory/TerritoryDtos';
 import { defaultProductionEngineSettings } from './productionEngine';
 import { defaultTransportSettings } from './transport';
+import { defaultLogisticsSettings } from './logistics';
 
 /**
  * Territory V1 helpers for the web app (PandiO/knk-workspace#690; knk-workspace docs/specs/territory/DESIGN.md § 1-4).
@@ -32,6 +33,7 @@ export const defaultProductionSettings = (): ProductionSettingsDto => ({
     territory: defaultTerritorySettings(),
     engine: defaultProductionEngineSettings(),
     transport: defaultTransportSettings(),
+    logistics: defaultLogisticsSettings(),
 });
 
 /** Fills a section the API sent (or did not send) with the defaults, so the settings card always has every field. */
@@ -43,6 +45,8 @@ export function normalizeProductionSettings(value?: Partial<ProductionSettingsDt
         engine: { ...defaultProductionEngineSettings(), ...(value?.engine ?? {}) },
         // P5 (#682): the transport section, kept as sent and always sent back.
         transport: { ...defaultTransportSettings(), ...(value?.transport ?? {}) },
+        // P9 (#686): the town logistics section, kept as sent and always sent back.
+        logistics: { ...defaultLogisticsSettings(), ...(value?.logistics ?? {}) },
     };
 }
 

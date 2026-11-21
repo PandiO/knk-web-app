@@ -1,5 +1,6 @@
 import type { ProductionEngineSettingsDto } from '../production/ProductionEngineDtos';
 import type { ProductionTransportSettingsDto } from '../production/TransportDtos';
+import type { ProductionLogisticsSettingsDto } from '../production/LogisticsDtos';
 
 /**
  * Territory V1 (PandiO/knk-workspace#326 API, #690 web app; knk-workspace docs/specs/territory/DESIGN.md): the JSON
@@ -25,6 +26,9 @@ export interface ProductionSettingsDto {
     /** Transport (P5, PandiO/knk-workspace#79, #682). A save without it keeps the stored values; the settings page
      *  shows it and always sends it back. */
     transport?: ProductionTransportSettingsDto;
+    /** Town logistics (P9, PandiO/knk-workspace#127, #686). A save without it keeps the stored values; the settings
+     *  page shows it and always sends it back. */
+    logistics?: ProductionLogisticsSettingsDto;
 }
 
 export type TerritoryHolderKind = 'Town' | 'Kingdom';

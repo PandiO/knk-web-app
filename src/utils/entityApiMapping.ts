@@ -61,6 +61,11 @@ import { WeatherTypeClient } from '../apiClients/weatherTypeClient';
 import { ProductionCycleRecordClient } from '../apiClients/productionCycleRecordClient';
 import { TransportOrderClient } from '../apiClients/transportOrderClient';
 import { TransportLaneClient } from '../apiClients/transportLaneClient';
+import { LogisticsPolicyClient } from '../apiClients/logisticsPolicyClient';
+import { LogisticsRuleClient } from '../apiClients/logisticsRuleClient';
+import { ConsumerReplenishmentClient } from '../apiClients/consumerReplenishmentClient';
+import { LogisticsReservationClient } from '../apiClients/logisticsReservationClient';
+import { LogisticsPlannerRunClient } from '../apiClients/logisticsPlannerRunClient';
 
 type EntitySearchFunction<T = any> = (query: PagedQueryDto) => Promise<PagedResultDto<T>>;
 
@@ -222,6 +227,18 @@ export function getSearchFunctionForEntity(entityTypeName: string): EntitySearch
             return withPagedQueryMapping((query) => TransportOrderClient.getInstance().searchPaged(query));
         case 'transportlane':
             return withPagedQueryMapping((query) => TransportLaneClient.getInstance().searchPaged(query));
+        // Town logistics P9 (PandiO/knk-workspace#686): policies (create with the seeded form, rules on the policy's
+        // page, delete with every version), consumer settings (full CRUD), rules, reservations and runs (read only).
+        case 'logisticspolicy':
+            return withPagedQueryMapping((query) => LogisticsPolicyClient.getInstance().searchPaged(query));
+        case 'logisticsrule':
+            return withPagedQueryMapping((query) => LogisticsRuleClient.getInstance().searchPaged(query));
+        case 'consumerreplenishment':
+            return withPagedQueryMapping((query) => ConsumerReplenishmentClient.getInstance().searchPaged(query));
+        case 'logisticsreservation':
+            return withPagedQueryMapping((query) => LogisticsReservationClient.getInstance().searchPaged(query));
+        case 'logisticsplannerrun':
+            return withPagedQueryMapping((query) => LogisticsPlannerRunClient.getInstance().searchPaged(query));
         // Read-only reference data (seeded): search + fetch only, for TitleBracket object pickers
         // (the siege scenario's minimum title, a domain's warp settings - teleport Phase 5).
         case 'titlebracket':
@@ -359,6 +376,17 @@ export function getFetchByIdFunctionForEntity(entityTypeName: string): (id: stri
             return (id) => TransportOrderClient.getInstance().getById(Number(id));
         case 'transportlane':
             return (id) => TransportLaneClient.getInstance().getById(Number(id));
+        // Town logistics P9 (PandiO/knk-workspace#686)
+        case 'logisticspolicy':
+            return (id) => LogisticsPolicyClient.getInstance().getById(Number(id));
+        case 'logisticsrule':
+            return (id) => LogisticsRuleClient.getInstance().getById(Number(id));
+        case 'consumerreplenishment':
+            return (id) => ConsumerReplenishmentClient.getInstance().getById(Number(id));
+        case 'logisticsreservation':
+            return (id) => LogisticsReservationClient.getInstance().getById(Number(id));
+        case 'logisticsplannerrun':
+            return (id) => LogisticsPlannerRunClient.getInstance().getById(Number(id));
         case 'titlebracket':
             return (id) => TitleBracketClient.getInstance().getById(Number(id));
         default:
@@ -485,6 +513,11 @@ export function getUpdateFunctionForEntity(entityTypeName: string): (entity: any
         // Transport core P5 (PandiO/knk-workspace#682): lanes only (orders are never edited).
         case 'transportlane':
             return (entity) => TransportLaneClient.getInstance().update(entity);
+        // Town logistics P9 (PandiO/knk-workspace#686): a policy's form edit is a new version that keeps its rules.
+        case 'logisticspolicy':
+            return (entity) => LogisticsPolicyClient.getInstance().updateKeepingRules(entity);
+        case 'consumerreplenishment':
+            return (entity) => ConsumerReplenishmentClient.getInstance().update(entity);
         default:
             throw new Error(`No update function registered for entity type: ${entityTypeName}`);
     }
@@ -604,6 +637,11 @@ export function getDeleteFunctionForEntity(entityTypeName: string): (id: string 
         // Transport core P5 (PandiO/knk-workspace#682): lanes only (orders are never deleted).
         case 'transportlane':
             return (id) => TransportLaneClient.getInstance().delete(Number(id));
+        // Town logistics P9 (PandiO/knk-workspace#686): a policy goes with every version.
+        case 'logisticspolicy':
+            return (id) => LogisticsPolicyClient.getInstance().delete(Number(id));
+        case 'consumerreplenishment':
+            return (id) => ConsumerReplenishmentClient.getInstance().delete(Number(id));
         default:
             throw new Error(`No delete function registered for entity type: ${entityTypeName}`);
     }
@@ -726,6 +764,11 @@ export function getCreateFunctionForEntity(entityTypeName: string): (entity: any
         // Transport core P5 (PandiO/knk-workspace#682): lanes only (a manual order has its own page).
         case 'transportlane':
             return (entity) => TransportLaneClient.getInstance().create(entity);
+        // Town logistics P9 (PandiO/knk-workspace#686): a policy starts without rules (its page edits them).
+        case 'logisticspolicy':
+            return (entity) => LogisticsPolicyClient.getInstance().create(entity);
+        case 'consumerreplenishment':
+            return (entity) => ConsumerReplenishmentClient.getInstance().create(entity);
         default:
             throw new Error(`No create function registered for entity type: ${entityTypeName}`);
     }
