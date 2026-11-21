@@ -6,6 +6,7 @@ import { mockNoTownTerritory } from './fixtures/territory';
 import type { DisplayConfigurationDto } from '../src/types/dtos/displayConfig/DisplayModels';
 import type { EntityMetadataDto } from '../src/types/dtos/metadata/MetadataModels';
 import type { TownDto } from '../src/types/dtos/town/TownDto';
+import { mockNoTownLogistics } from './fixtures/logistics';
 
 /**
  * The town detail page (/display/Town/4), PandiO/knk-workspace#409: a town's streets are the streets of its districts.
@@ -25,6 +26,7 @@ test.beforeEach(async ({ page, api }) => {
   api.json<TownDto>('GET', 'Towns/4', cinix);
   // The territory panel below the details (PandiO/knk-workspace#690): empty here; e2e/territory.spec.ts covers it.
   mockNoTownTerritory(api, 4);
+  mockNoTownLogistics(api, 4);
   // The landmark list below the details (PandiO/knk-workspace#708): none here; e2e/landmarks.spec.ts covers it.
   api.on('POST', 'landmarks/search', { body: { items: [], totalCount: 0, page: 1, pageSize: 100, totalPages: 0 } });
   // Realtime stays offline: the page works without live updates.

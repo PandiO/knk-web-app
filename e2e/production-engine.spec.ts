@@ -72,6 +72,7 @@ import type { ProductionStructureDto } from '../src/types/dtos/structure/Product
 import type { StructureTerritoryDto } from '../src/types/dtos/territory/TerritoryDtos';
 
 import { mockNoTransport } from './fixtures/transport';
+import { mockNoConsumerLogistics } from './fixtures/logistics';
 /**
  * Production engine P3 in the web app (PandiO/knk-workspace#678; production DESIGN § 9, § 11.1, PRODUCTION_KINDS § 4-5,
  * decisions G8, D4, G17, acceptance A08, A09, A23): the catalogue on the dashboard, a kind's levels, a level's unlocks
@@ -353,6 +354,7 @@ test.describe('the production structure page', () => {
     mockConfiguredYield(api);
     // P5c (#682): the transport panel (e2e/transport.spec.ts covers it).
     mockNoTransport(api);
+    mockNoConsumerLogistics(api);
   });
 
   test('shows each line\'s rate with its modifiers in order and why the blocked one is not producing (A08, D4)', async ({ page, api }) => {

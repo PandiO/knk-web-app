@@ -14,7 +14,7 @@ import {
 import { formatNumber, productionRefusalReason } from '../../utils/productionEngine';
 import { displayPath } from '../../utils/returnTo';
 import { LOGISTICS_DELETE_NODE, LOGISTICS_NODE, SettingForm, emptySettingForm, logisticsSourceLabel, settingFormErrors } from '../../utils/logistics';
-import { LookupPicker, LookupPick } from '../stock/LookupPicker';
+import { LookupPicker } from '../stock/LookupPicker';
 import { LogisticsReservationTable } from './LogisticsReservationTable';
 import { ReservationReleaseForm } from './ReservationReleaseForm';
 

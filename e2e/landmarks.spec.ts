@@ -22,6 +22,7 @@ import type { LandmarkDto } from '../src/types/dtos/landmark/LandmarkDtos';
 import type { EntityMetadataDto } from '../src/types/dtos/metadata/MetadataModels';
 import type { TownDto } from '../src/types/dtos/town/TownDto';
 import type { StepProgressReadDto, WorkflowSessionReadDto } from '../src/types/dtos/workflow/WorkflowDtos';
+import { mockNoTownLogistics } from './fixtures/logistics';
 
 /**
  * Landmarks in the web app (off-road navigation phase 5.1, PandiO/knk-workspace#708, acceptance A12, web part): the
@@ -97,6 +98,7 @@ test.describe("a town's page", () => {
     mockLandmarkSearch(api);
     // The territory panel below the details (PandiO/knk-workspace#690): empty here; e2e/territory.spec.ts covers it.
     mockNoTownTerritory(api, 4);
+    mockNoTownLogistics(api, 4);
   });
 
   test('lists the landmarks linked to the town, each linking to its page', async ({ page, api }) => {

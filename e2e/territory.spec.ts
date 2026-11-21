@@ -46,6 +46,7 @@ import type {
 } from '../src/types/dtos/territory/TerritoryDtos';
 import type { TownDto } from '../src/types/dtos/town/TownDto';
 import type { StepProgressReadDto, WorkflowSessionReadDto } from '../src/types/dtos/workflow/WorkflowDtos';
+import { mockNoTownLogistics } from './fixtures/logistics';
 
 /**
  * Territory V1 in the web app (PandiO/knk-workspace#690; territory DESIGN § 1-4, G10, G11, acceptance A05, A07, A23):
@@ -194,6 +195,8 @@ test.describe('the town page', () => {
     api.on('POST', 'landmarks/search', { body: { items: [], totalCount: 0, page: 1, pageSize: 100, totalPages: 0 } });
     api.on('POST', 'hubs/web/negotiate', { status: 404 });
     mockTownTerritory(api);
+    // Town logistics P9b (#686): the logistics panel, empty here; e2e/logistics.spec.ts covers it.
+    mockNoTownLogistics(api, PHOENIX);
     // The panel re-reads the ranges after a save: answer with the current state.
     api.on<TownTerritoryDto>('GET', `Territory/towns/${PHOENIX}`, () => ({ body: territory }));
   });
@@ -503,6 +506,10 @@ test.describe('game settings', () => {
         transport: {
           walkingSpeedBlocksPerSecond: 4.317, defaultCarrierCapacity: 64, defaultThresholdPercent: 75, defaultThresholdUnits: 64,
           unmeasuredRouteFactor: 1.4, fallbackDistanceBlocks: 200, awaitingSpaceMinutes: 30, maxReroutes: 2, laneMaxAgeHours: 24,
+        },
+        // P9b (#686): the town logistics section too (the defaults here).
+        logistics: {
+          plannerIntervalMinutes: 10, reservationMinutes: 30, consumptionWindowDays: 7, defaultReorderHours: 4, defaultTargetHours: 12, runRetentionDays: 14,
         },
       });
   });

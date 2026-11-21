@@ -56,6 +56,7 @@ import type {
 } from '../src/types/dtos/workflow/WorkflowDtos';
 
 import { mockNoTransport } from './fixtures/transport';
+import { mockNoConsumerLogistics, mockNoWarehouseLogistics } from './fixtures/logistics';
 /**
  * P2 world in the web app (PandiO/knk-workspace#676; production DESIGN § 3.3-3.4, decisions R1-R3, acceptance A06, A07,
  * A23): warehouses and production structures on the dashboard (placement, road connection, the territory flag filter
@@ -298,6 +299,9 @@ test.describe('the detail pages', () => {
     mockConfiguredYield(api);
     // P5c (#682): the transport panel (e2e/transport.spec.ts covers it).
     mockNoTransport(api);
+    // Town logistics P9b (#686): the consumer and warehouse panels, empty here; e2e/logistics.spec.ts covers them.
+    mockNoConsumerLogistics(api);
+    mockNoWarehouseLogistics(api);
     // P3b (#678): the production panel of a production structure; no kind and no lines here (e2e/production-engine.spec.ts covers it).
     api.on<ProductionOverviewDto>('GET', /^ProductionStructures\/\d+\/production$/, ({ path }) => ({
       body: {

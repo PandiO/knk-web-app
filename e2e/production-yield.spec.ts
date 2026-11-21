@@ -64,6 +64,7 @@ import type { ProductionStructureDto } from '../src/types/dtos/structure/Product
 import type { StructureTerritoryDto } from '../src/types/dtos/territory/TerritoryDtos';
 
 import { mockNoTransport } from './fixtures/transport';
+import { mockNoConsumerLogistics } from './fixtures/logistics';
 /**
  * Yield areas P4 in the web app (PandiO/knk-workspace#680; PRODUCTION_KINDS § 3-4, decisions P-D1, G5, G7, G17,
  * acceptance A10, A23, insight #65): a production structure's yield source, areas, Survey now and why each rate is what
@@ -104,6 +105,7 @@ test.describe('the production structure page', () => {
     mockRows<ProductionYieldOverrideListDto>(api, 'ProductionYieldOverrides/search', quarryOverrides);
     // P5c (#682): the transport panel (e2e/transport.spec.ts covers it).
     mockNoTransport(api);
+    mockNoConsumerLogistics(api);
   });
 
   test('shows the yield source, the areas against the level cap and why each rate is what it is (A10, #65)', async ({ page, api }) => {
