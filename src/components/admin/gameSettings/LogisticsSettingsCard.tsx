@@ -1,7 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { ProductionLogisticsSettingsDto } from '../../../types/dtos/production/LogisticsDtos';
-import { LOGISTICS_PATH, LOGISTICS_SETTINGS_LIMITS, defaultLogisticsSettings, logisticsSettingsErrors } from '../../../utils/logistics';
+import { LOGISTICS_SETTINGS_LIMITS, defaultLogisticsSettings, logisticsSettingsErrors } from '../../../utils/logistics';
 
 interface Props {
     value: ProductionLogisticsSettingsDto | undefined;
@@ -37,8 +36,8 @@ export const LogisticsSettingsCard: React.FC<Props> = ({ value, changed, onChang
             </h2>
             <p className="text-sm text-muted">
                 The planner reserves warehouse stock for consumers at or below their min, and their own worker collects it.
-                It runs per town while production is enabled. Policies, templates and each town's plan are on
-                the <Link to={LOGISTICS_PATH} className="text-primary hover:underline">Town logistics</Link> page and the town pages.
+                It runs per town while production is enabled. Policies and templates are on the Town logistics page
+                (World group); each town's plan, dry run and Run now are on the town's page.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {FIELDS.map(field => {
