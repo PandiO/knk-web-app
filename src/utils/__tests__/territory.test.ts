@@ -12,6 +12,7 @@ import {
     townRange,
     townTerritoryPayload,
 } from '../territory';
+import { defaultLogisticsSettings } from '../logistics';
 
 /**
  * Territory V1 helpers (PandiO/knk-workspace#690; territory DESIGN § 1-4, G11): the range rule matches knk-web-api
@@ -31,9 +32,10 @@ describe('territory helpers', () => {
     it('fills a missing production section with the design defaults, flag off', () => {
         const engine = { baseCycleMinutes: 10, catchUpCapHours: 24, weatherDayMinutes: 20 };
         const transport = defaultTransportSettings();
-        expect(normalizeProductionSettings(undefined)).toEqual({ enabled: false, territory: settings, engine, transport });
+        // P9b (#686): the logistics section too.
+        expect(normalizeProductionSettings(undefined)).toEqual({ enabled: false, territory: settings, engine, transport, logistics: defaultLogisticsSettings() });
         expect(normalizeProductionSettings({ enabled: true, territory: { baseRange: 50 } as any }))
-            .toEqual({ enabled: true, territory: { ...settings, baseRange: 50 }, engine, transport });
+            .toEqual({ enabled: true, territory: { ...settings, baseRange: 50 }, engine, transport, logistics: defaultLogisticsSettings() });
     });
 
     it('keeps the production engine timing, so a save does not reset it (#678)', () => {

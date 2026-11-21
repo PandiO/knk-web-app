@@ -42,6 +42,12 @@ import { AreaSurveyPanel } from '../components/production/AreaSurveyPanel';
 import { ProductionKindYieldTablePanel } from '../components/production/ProductionKindYieldTablePanel';
 import { StructureTransportPanel } from '../components/transport/StructureTransportPanel';
 import { TransportOrderPanel } from '../components/transport/TransportOrderPanel';
+import { TownLogisticsPanel } from '../components/logistics/TownLogisticsPanel';
+import { WarehouseLogisticsPanel } from '../components/logistics/WarehouseLogisticsPanel';
+import { StructureLogisticsPanel } from '../components/logistics/StructureLogisticsPanel';
+import { LogisticsPolicyPanel } from '../components/logistics/LogisticsPolicyPanel';
+import { LogisticsPlannerRunPanel } from '../components/logistics/LogisticsPlannerRunPanel';
+import { LogisticsReservationPanel } from '../components/logistics/LogisticsReservationPanel';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -281,6 +287,29 @@ export const DisplayWizardPage: React.FC = () => {
       )}
       {entityName.toLowerCase() === 'transportorder' && numericId != null && (
         <TransportOrderPanel orderId={numericId} returnTo={here} refreshKey={liveRefreshKey}
+          onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {/* Town logistics P9 (PandiO/knk-workspace#686): a town's supply, reservations, planner dry run and service areas;
+          a warehouse's service area and local policy; a consumer's min/max settings; a policy's rule editor and versions;
+          a planner run's explanation; a reservation with Release. Staff with the World area's node only. */}
+      {entityName.toLowerCase() === 'town' && numericId != null && (
+        <TownLogisticsPanel townId={numericId} townName={entityLabel ?? `Town #${numericId}`} returnTo={here} refreshKey={liveRefreshKey} />
+      )}
+      {entityName.toLowerCase() === 'warehouse' && numericId != null && (
+        <WarehouseLogisticsPanel warehouseId={numericId} returnTo={here} refreshKey={liveRefreshKey} />
+      )}
+      {entityName.toLowerCase() === 'productionstructure' && numericId != null && (
+        <StructureLogisticsPanel structureId={numericId} returnTo={here} refreshKey={liveRefreshKey} />
+      )}
+      {entityName.toLowerCase() === 'logisticspolicy' && numericId != null && (
+        <LogisticsPolicyPanel policyId={numericId} returnTo={here} pageReturnTo={returnTo} refreshKey={liveRefreshKey}
+          onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
+      )}
+      {entityName.toLowerCase() === 'logisticsplannerrun' && numericId != null && (
+        <LogisticsPlannerRunPanel runId={numericId} returnTo={here} refreshKey={liveRefreshKey} />
+      )}
+      {entityName.toLowerCase() === 'logisticsreservation' && numericId != null && (
+        <LogisticsReservationPanel reservationId={numericId} returnTo={here} refreshKey={liveRefreshKey}
           onChanged={() => setLiveRefreshKey(previous => previous + 1)} />
       )}
       {confirmModal}

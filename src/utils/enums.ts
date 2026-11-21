@@ -184,6 +184,13 @@ export enum Controllers {
     // Transport core P5 (PandiO/knk-workspace#79 API, #682 web app)
     TransportOrders = 'TransportOrders',
     TransportLanes = 'TransportLanes',
+    // Town logistics P9 (PandiO/knk-workspace#127 API, #686 web app)
+    LogisticsPolicies = 'LogisticsPolicies',
+    LogisticsRules = 'LogisticsRules',
+    ConsumerReplenishments = 'ConsumerReplenishments',
+    LogisticsReservations = 'LogisticsReservations',
+    LogisticsPlannerRuns = 'LogisticsPlannerRuns',
+    Logistics = 'Logistics',
     TitleBrackets = 'TitleBrackets',
     // Player statistics (KNG-34)
     Statistics = 'statistics',

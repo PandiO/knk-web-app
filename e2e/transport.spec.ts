@@ -56,6 +56,7 @@ import type {
   TransportStructureViewDto,
   TransportSweepResultDto,
 } from '../src/types/dtos/production/TransportDtos';
+import { mockNoConsumerLogistics } from './fixtures/logistics';
 
 /**
  * Transport core P5 in the web app (PandiO/knk-workspace#682; production DESIGN § 7.1-7.4, § 7.6, § 11.1, decision G17,
@@ -351,6 +352,8 @@ test.describe('a production structure\'s transport', () => {
     api.json<ProductionOverviewDto>('GET', `ProductionStructures/${QUARRY}/production`, quarryProduction({ productionKind: null }));
     mockConfiguredYield(api);
     mockPaged<TransportLaneListDto>(api, 'TransportLanes/search', laneRows);
+    // Town logistics P9b (#686): the consumer panel, empty here.
+    mockNoConsumerLogistics(api);
   });
 
   test('shows the missing road and the full Output as warnings and why the trigger is held (A13)', async ({ page, api }) => {
@@ -446,6 +449,7 @@ test.describe('the production page\'s cycles (#838)', () => {
   test('names the blueprints a cycle consumed and links to all cycle records', async ({ page, api }) => {
     const output = storageRow(QUARRY_OUTPUT, 'Quarry - output', 'Output', QUARRY, 'Quarry', 5);
     mockDetailPage(api, productionStructureMetadata, '821');
+    mockNoConsumerLogistics(api);
     mockSession(api, alex, nodes(WORLD));
     api.json<ProductionStructureDto>('GET', `ProductionStructures/${QUARRY}`, quarry());
     api.json<StructureTerritoryDto>('GET', `Territory/structures/${QUARRY}`, territoryOf(QUARRY, 'Quarry'));

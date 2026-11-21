@@ -18,6 +18,8 @@ import { productionEngineSettingsErrors } from '../../utils/productionEngine';
 import { ProductionEngineSettingsCard } from '../../components/admin/gameSettings/ProductionEngineSettingsCard';
 import { TransportSettingsCard } from '../../components/admin/gameSettings/TransportSettingsCard';
 import { transportSettingsErrors } from '../../utils/transport';
+import { LogisticsSettingsCard } from '../../components/admin/gameSettings/LogisticsSettingsCard';
+import { logisticsSettingsErrors } from '../../utils/logistics';
 import { LocationReferencePicker } from '../../components/admin/gameSettings/LocationReferencePicker';
 import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
 import { UNIT, describeWorldTime, joinHint } from '../../utils/settingsUnits';
@@ -308,6 +310,7 @@ export const GameSettingsPage: React.FC = () => {
             canSave={!settings || (territorySettingsErrors(normalizeProductionSettings(settings.production).territory).length === 0
                 && productionEngineSettingsErrors(normalizeProductionSettings(settings.production).engine!).length === 0
                 && transportSettingsErrors(normalizeProductionSettings(settings.production).transport!).length === 0
+                && logisticsSettingsErrors(normalizeProductionSettings(settings.production).logistics!).length === 0
                 && menuItemSettingsErrors(normalizeMenuItemSettings(settings.menuItem)).length === 0)}
             onDiscard={() => saved && setSettings(saved)}
             onReload={loadAll}
@@ -445,6 +448,13 @@ export const GameSettingsPage: React.FC = () => {
                     enabled={normalizeProductionSettings(saved?.production).enabled}
                     changed={isChanged('production')}
                     onChange={transport => updateSettings(prev => ({ ...prev, production: { ...normalizeProductionSettings(prev.production), transport } }))}
+                />
+
+                {/* Town logistics P9 (PandiO/knk-workspace#686): the planner's interval, reservations and defaults, kept on every save. */}
+                <LogisticsSettingsCard
+                    value={normalizeProductionSettings(settings.production).logistics}
+                    changed={isChanged('production')}
+                    onChange={logistics => updateSettings(prev => ({ ...prev, production: { ...normalizeProductionSettings(prev.production), logistics } }))}
                 />
 
                 <SettingsSection

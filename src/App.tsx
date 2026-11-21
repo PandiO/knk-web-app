@@ -29,6 +29,7 @@ import { CurrencyAlertsPage } from './pages/admin/economy/CurrencyAlertsPage';
 import { StockLedgerPage } from './pages/admin/stock/StockLedgerPage';
 import { TransportOrdersPage } from './pages/admin/transport/TransportOrdersPage';
 import { TransportOrderNewPage } from './pages/admin/transport/TransportOrderNewPage';
+import { LogisticsPage } from './pages/admin/logistics/LogisticsPage';
 import { LocationRetentionPage } from './pages/admin/locations/LocationRetentionPage';
 import { LeaderboardsPage } from './pages/leaderboards/LeaderboardsPage';
 import { OwnerTelemetryPage } from './pages/owner/OwnerTelemetryPage';
@@ -128,6 +129,7 @@ function AppContent() {
     stockLedger: <StockLedgerPage />,
     transportOrders: <TransportOrdersPage />,
     transportOrderNew: <TransportOrderNewPage />,
+    logistics: <LogisticsPage />,
     gameSettings: <GameSettingsPage />,
     siegeSettings: <SiegeConfigurationPage />,
     mailLog: <EmailLogPage />,

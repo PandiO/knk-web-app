@@ -15,6 +15,7 @@ import { roadConnectionCell } from '../utils/productionWorld';
 import { formatNumber, formatRate, lineStatusLabel, modifierStepLabel, modifierWindowLabel } from '../utils/productionEngine';
 import { formatDateTime } from '../utils/format';
 import { transportStatusLabel } from '../utils/transport';
+import { reservationStatusLabel, ruleTypeLabel } from '../utils/logistics';
 import { NO_DEFAULT_ROUTE_MODE_LABEL, ROUTE_MODE_WORDS } from '../types/dtos/userManagement/PermissionGroupDto';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
@@ -349,6 +350,63 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'straightDistance', label: 'Straight', sortable: false, render: (row: any) => row.straightDistance != null ? `${formatNumber(row.straightDistance, 1)} blocks` : '-' },
       { key: 'source', label: 'Source', sortable: false },
       { key: 'measuredAt', label: 'Measured', sortable: false, render: (row: any) => row.measuredAt ? formatDateTime(row.measuredAt) : '-' }
+    ]
+  },
+  // Town logistics P9 (PandiO/knk-workspace#686): policies (current versions; the policy's page edits the rules and
+  // lists the versions), consumer settings (the seeded form), and the read-only rules, reservations and planner runs.
+  logisticspolicy: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'name', label: 'Name', sortable: false },
+      { key: 'scope', label: 'For', sortable: false, render: (row: any) => row.scope === 'Town' ? `Town: ${row.townName ?? `#${row.townId}`}` : row.scope === 'Warehouse' ? `Warehouse: ${row.warehouseName ?? `#${row.warehouseId}`}` : `Template: ${row.specialization || 'General'}, ${row.townSize || 'any size'}${row.isDefaultTemplate ? ' (default)' : ''}` },
+      { key: 'version', label: 'Version', sortable: false, render: (row: any) => `v${row.version}${row.isCurrent ? '' : ' (superseded)'}` },
+      { key: 'ruleCount', label: 'Rules', sortable: false },
+      { key: 'reason', label: 'Reason', sortable: false, render: (row: any) => row.reason ?? '-' },
+      { key: 'createdAt', label: 'Saved', sortable: false, render: (row: any) => row.createdAt ? formatDateTime(row.createdAt) : '-' }
+    ]
+  },
+  logisticsrule: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'policyName', label: 'Policy', sortable: false, render: (row: any) => `${row.policyName ?? `#${row.logisticsPolicyId}`} v${row.policyVersion}${row.policyIsCurrent ? '' : ' (superseded)'}` },
+      { key: 'sequence', label: '#', sortable: false },
+      { key: 'type', label: 'Type', sortable: false, render: (row: any) => ruleTypeLabel(row.type) },
+      { key: 'summary', label: 'Rule', sortable: false },
+      { key: 'reason', label: 'Reason', sortable: false, render: (row: any) => row.reason ?? '-' }
+    ]
+  },
+  consumerreplenishment: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'structureName', label: 'Consumer', sortable: false, render: (row: any) => row.structureName ?? `#${row.structureId}` },
+      { key: 'storageName', label: 'Storage', sortable: false, render: (row: any) => row.storageName ?? `#${row.storageId}` },
+      { key: 'itemBlueprintName', label: 'Item', sortable: false, render: (row: any) => row.itemBlueprintName ?? `#${row.itemBlueprintId}` },
+      { key: 'reorderPoint', label: 'Min', sortable: false },
+      { key: 'targetLevel', label: 'Max', sortable: false },
+      { key: 'priorityClass', label: 'Priority', sortable: false, render: (row: any) => row.priorityClass ?? 'From the policy' },
+      { key: 'enabled', label: 'On', sortable: false, render: (row: any) => row.enabled === false ? 'Off' : 'Yes' }
+    ]
+  },
+  logisticsreservation: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'status', label: 'Status', sortable: false, render: (row: any) => reservationStatusLabel(row.status) },
+      { key: 'consumerStructureName', label: 'Consumer', sortable: false, render: (row: any) => row.consumerStructureName ?? `#${row.consumerStructureId}` },
+      { key: 'itemBlueprintName', label: 'Item', sortable: false, render: (row: any) => row.itemBlueprintName ?? `#${row.itemBlueprintId}` },
+      { key: 'amount', label: 'Collected', sortable: false, render: (row: any) => `${row.collected ?? 0} of ${row.amount ?? 0}` },
+      { key: 'warehouseName', label: 'Warehouse', sortable: false, render: (row: any) => row.warehouseName ?? `#${row.warehouseId}` },
+      { key: 'expiresAt', label: 'Expires', sortable: false, render: (row: any) => row.expiresAt ? formatDateTime(row.expiresAt) : '-' }
+    ]
+  },
+  logisticsplannerrun: {
+    default: [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'townName', label: 'Town', sortable: false, render: (row: any) => row.townName ?? `#${row.townId}` },
+      { key: 'startedAt', label: 'Started', sortable: false, render: (row: any) => row.startedAt ? formatDateTime(row.startedAt) : '-' },
+      { key: 'trigger', label: 'Trigger', sortable: false },
+      { key: 'reservationsCreated', label: 'Reserved', sortable: false },
+      { key: 'shortfalls', label: 'Short', sortable: false },
+      { key: 'summary', label: 'Summary', sortable: false, render: (row: any) => row.summary ?? '-' }
     ]
   },
   gatestructure: {
