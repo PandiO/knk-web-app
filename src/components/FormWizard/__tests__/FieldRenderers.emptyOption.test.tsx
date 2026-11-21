@@ -6,12 +6,12 @@ import { FormFieldDto } from '../../../types/dtos/forms/FormModels';
 import { FieldType } from '../../../utils/enums';
 
 // PandiO/knk-workspace#852: a dropdown's empty option can be named in settingsJson.emptyOptionLabel, as the
-// permission group's "Default route mode" does ("None (default: preferred)"); picking it sends "".
+// permission group's "Default route mode" Enum field does ("None (default: Preferred)"); picking it sends "".
 
 const routeModeField = (overrides: Partial<FormFieldDto> = {}): FormFieldDto => ({
     fieldName: 'DefaultRouteMode',
     label: 'Default route mode',
-    fieldType: FieldType.String,
+    fieldType: FieldType.Enum,
     isRequired: false,
     isReadOnly: false,
     order: 0,
@@ -19,7 +19,7 @@ const routeModeField = (overrides: Partial<FormFieldDto> = {}): FormFieldDto => 
     isLinkedToSource: false,
     hasCompatibilityIssues: false,
     validations: [],
-    settingsJson: JSON.stringify({ enumValues: ['shortest', 'efficient', 'preferred'], emptyOptionLabel: 'None (default: preferred)' }),
+    settingsJson: JSON.stringify({ enumValues: ['Shortest', 'Efficient', 'Preferred'], emptyOptionLabel: 'None (default: Preferred)' }),
     ...overrides
 });
 
@@ -30,27 +30,27 @@ describe('dropdown empty option (#852)', () => {
         const select = screen.getByRole('combobox', { name: 'Default route mode' });
         expect(select).toHaveValue('');
         expect(Array.from((select as HTMLSelectElement).options).map(o => [o.value, o.text])).toEqual([
-            ['', 'None (default: preferred)'],
-            ['shortest', 'shortest'],
-            ['efficient', 'efficient'],
-            ['preferred', 'preferred'],
+            ['', 'None (default: Preferred)'],
+            ['Shortest', 'Shortest'],
+            ['Efficient', 'Efficient'],
+            ['Preferred', 'Preferred'],
         ]);
     });
 
     it('shows the stored mode and sends "" for None', () => {
         const onChange = jest.fn();
-        render(<FieldRenderer field={routeModeField()} value="efficient" onChange={onChange} />);
+        render(<FieldRenderer field={routeModeField()} value="Efficient" onChange={onChange} />);
 
         const select = screen.getByRole('combobox', { name: 'Default route mode' });
-        expect(select).toHaveValue('efficient');
+        expect(select).toHaveValue('Efficient');
         fireEvent.change(select, { target: { value: '' } });
         expect(onChange).toHaveBeenCalledWith('');
     });
 
-    it('works for an Enum field too', () => {
-        render(<FieldRenderer field={routeModeField({ fieldType: FieldType.Enum })} value={null} onChange={jest.fn()} />);
+    it('works for a String field with a value list too', () => {
+        render(<FieldRenderer field={routeModeField({ fieldType: FieldType.String })} value={null} onChange={jest.fn()} />);
 
-        expect(screen.getByRole('option', { name: 'None (default: preferred)' })).toHaveValue('');
+        expect(screen.getByRole('option', { name: 'None (default: Preferred)' })).toHaveValue('');
     });
 
     it.each([

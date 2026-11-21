@@ -14,8 +14,9 @@ import type { StepProgressReadDto, WorkflowSessionReadDto } from '../src/types/d
 
 /**
  * A permission group's default /navigate route mode in the web app (PandiO/knk-workspace#852, step A): the dashboard
- * shows it per group, and the group form offers "None (default: preferred)" plus the three modes, shows the stored
- * one, and saves the pick (or "" for None, which the API reads as "no default") through the group endpoints.
+ * shows it per group, and the group form's Enum field offers "None (default: Preferred)" plus the three modes (the
+ * names of the API's enum RouteMode since 2026-11-21), shows the stored one, and saves the pick (or "" for None,
+ * which the API reads as "no default") through the group endpoints.
  * Smoke test: knk-workspace docs/guides/navigation-offroad-smoke-test.md "L7b".
  */
 
@@ -35,12 +36,12 @@ test('the dashboard shows each group\'s default route mode', async ({ page, api 
 
   const table = page.getByRole('table');
   await expect(table.getByRole('columnheader', { name: 'Default route' })).toBeVisible();
-  await expect(table.getByRole('row').filter({ hasText: 'Staff' })).toContainText('efficient');
-  await expect(table.getByRole('row').filter({ hasText: 'Noble' })).toContainText('preferred');
+  await expect(table.getByRole('row').filter({ hasText: 'Staff' })).toContainText('Efficient');
+  await expect(table.getByRole('row').filter({ hasText: 'Noble' })).toContainText('Preferred');
   // The Default group sets none: its cell shows "-" (Noble's row also says Default, as its parent).
   const defaultRow = table.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Default', exact: true }) }).filter({ hasNotText: 'Noble' });
   await expect(defaultRow).toHaveCount(1);
-  await expect(defaultRow).not.toContainText(/shortest|efficient|preferred/);
+  await expect(defaultRow).not.toContainText(/shortest|efficient|preferred/i);
 });
 
 function mockGroupForm(api: MockApi) {
@@ -73,13 +74,13 @@ test('a new group saves the picked mode through POST api/PermissionGroups', asyn
   await page.getByRole('button', { name: 'Use' }).click();
   await page.getByRole('textbox', { name: 'Name*' }).fill('Builders');
   await expect(routeMode(page)).toHaveValue('');
-  await expect(routeMode(page).locator('option')).toHaveText(['None (default: preferred)', 'shortest', 'efficient', 'preferred']);
-  await routeMode(page).selectOption('shortest');
+  await expect(routeMode(page).locator('option')).toHaveText(['None (default: Preferred)', 'Shortest', 'Efficient', 'Preferred']);
+  await routeMode(page).selectOption('Shortest');
   await page.getByRole('button', { name: 'Submit' }).click();
 
   await expect.poll(() => api.calls('POST', /^PermissionGroups\/?$/).length).toBe(1);
   const [create] = api.calls('POST', /^PermissionGroups\/?$/);
-  expect(create.body).toMatchObject({ Name: 'Builders', DefaultRouteMode: 'shortest' });
+  expect(create.body).toMatchObject({ Name: 'Builders', DefaultRouteMode: 'Shortest' });
 });
 
 test('editing a group shows its stored mode, and None clears it', async ({ page, api }) => {
@@ -88,8 +89,8 @@ test('editing a group shows its stored mode, and None clears it', async ({ page,
   api.on('PUT', `PermissionGroups/${STAFF_ID}`, () => ({ status: 204 }));
 
   await page.goto(`/forms/PermissionGroup/edit/${STAFF_ID}`);
-  await expect(routeMode(page)).toHaveValue('efficient');
-  await routeMode(page).selectOption({ label: 'None (default: preferred)' });
+  await expect(routeMode(page)).toHaveValue('Efficient');
+  await routeMode(page).selectOption({ label: 'None (default: Preferred)' });
   await page.getByRole('button', { name: 'Submit' }).click();
 
   await expect.poll(() => api.calls('PUT', `PermissionGroups/${STAFF_ID}`).length).toBe(1);

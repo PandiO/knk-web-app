@@ -17,7 +17,7 @@ import { formatDateTime } from '../utils/format';
 import { transportStatusLabel } from '../utils/transport';
 import { reservationStatusLabel, ruleTypeLabel } from '../utils/logistics';
 import { formatUtcHour } from '../utils/shops';
-import { NO_DEFAULT_ROUTE_MODE_LABEL, ROUTE_MODE_WORDS } from '../types/dtos/userManagement/PermissionGroupDto';
+import { GROUP_ROUTE_MODES, NO_DEFAULT_ROUTE_MODE_LABEL } from '../types/dtos/userManagement/PermissionGroupDto';
 
 export const defaultColumnDefinitions: Record<string, ColumnDefinition<any>[]> = {
   default: [
@@ -1478,7 +1478,7 @@ const permissionGroupConfig: ObjectConfig = {
       defaultValue: '',
       options: [
         { label: NO_DEFAULT_ROUTE_MODE_LABEL, value: '' },
-        ...ROUTE_MODE_WORDS.map(word => ({ label: word, value: word })),
+        ...GROUP_ROUTE_MODES.map(mode => ({ label: mode, value: mode })),
       ],
     },
   },
