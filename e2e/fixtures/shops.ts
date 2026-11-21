@@ -96,6 +96,11 @@ export function bakeryShop(values: Partial<ShopDto> = {}): ShopDto {
 export const shopRows: ProductionWorldListDto[] = [{
   id: SHOP, name: 'Phoenix bakery', description: '', wgRegionId: 'domain_31', worldName: 'world', houseNumber: 5, streetId: MAIN, streetName: 'Main',
   districtId: MARKET, districtName: 'Market', townId: PHOENIX, townName: 'Phoenix', isRural: false, territoryFlag: 'None', level: 2, productionEnabled: true,
+  kind: 'Processing', shopTypeId: SHOP_TYPE, shopTypeName: 'Bakery',
+}, {
+  id: 32, name: 'Corner stall', description: '', wgRegionId: 'domain_32', worldName: 'world', houseNumber: 6, streetId: MAIN, streetName: 'Main',
+  districtId: MARKET, districtName: 'Market', townId: PHOENIX, townName: 'Phoenix', isRural: false, territoryFlag: 'None', level: 1, productionEnabled: false,
+  kind: 'Trading', shopTypeId: null, shopTypeName: null,
 }];
 
 /** `GET api/Shops/31/offer`: Bread at a static price, Apple sold out at the formula price, a bought-back enchanted sword. */
@@ -134,15 +139,15 @@ export const townAccountRows: TownAccountListDto[] = [{ id: TOWN_ACCOUNT, townId
 export const phoenixLedger: TownAccountEntryDto[] = [
   {
     entryId: 903, transactionPublicId: 'ctx-903', reasonCode: 'SHOP_BUYBACK', amount: -20, balanceBefore: 1270, balanceAfter: 1250,
-    sourceType: 'ShopBuyBack', sourceRef: String(SHOP), userId: 7, createdAt: '2026-11-21T10:40:00Z',
+    sourceType: 'ShopBuyBack', sourceRef: String(SHOP), userId: 7, username: 'Mara', stockTransactionId: 703, createdAt: '2026-11-21T10:40:00Z',
   },
   {
     entryId: 902, transactionPublicId: 'ctx-902', reasonCode: 'SHOP_PURCHASE', amount: 48, balanceBefore: 1222, balanceAfter: 1270,
-    sourceType: 'ShopPurchase', sourceRef: String(SHOP), userId: 7, createdAt: '2026-11-21T10:20:00Z',
+    sourceType: 'ShopPurchase', sourceRef: String(SHOP), userId: 7, username: 'Mara', stockTransactionId: 702, createdAt: '2026-11-21T10:20:00Z',
   },
   {
     entryId: 901, transactionPublicId: 'ctx-901', reasonCode: 'SHOP_PURCHASE', amount: 12, balanceBefore: 1210, balanceAfter: 1222,
-    sourceType: 'ShopPurchase', sourceRef: String(SHOP), userId: 8, createdAt: '2026-11-21T10:05:00Z',
+    sourceType: 'ShopPurchase', sourceRef: String(SHOP), userId: 8, username: null, stockTransactionId: null, createdAt: '2026-11-21T10:05:00Z',
   },
 ];
 
@@ -216,6 +221,14 @@ export function mockShopLookups(api: MockApi): void {
       return { body: { items: matches, total: matches.length } };
     });
   }
+}
+
+/**
+ * The town page's account summary (#938) for a town without an account yet (404). Strict specs that open a town page as
+ * staff with knk.admin.world use it (territory, landmarks, town detail, logistics); e2e/shops.spec.ts covers the summary.
+ */
+export function mockNoTownAccount(api: MockApi, townId: number): void {
+  api.on('GET', `TownAccounts/by-town/${townId}`, () => ({ status: 404, body: { message: `No town account for town ${townId}.` } }));
 }
 
 /** Everything the shop page reads, for the bakery. */

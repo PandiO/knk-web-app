@@ -29,7 +29,8 @@ function Source({ entry, returnTo }: { entry: TownAccountEntryDto; returnTo: str
 /**
  * A town's account (PandiO/knk-workspace#688; shops DESIGN § 3.1, F2): its balance, whether the balance matches the last
  * town leg of the currency ledger, and every town leg newest first (shop purchases in, buy-backs out) with the balance
- * after, the player and the shop. Read only: balances change only through the ledger. World area only.
+ * after, the player (#938: by username), the shop and the goods leg of a sale or buy-back (#938: its stock
+ * transaction). Read only: balances change only through the ledger. World area only.
  */
 export const TownAccountPanel: React.FC<Props> = ({ accountId, returnTo, refreshKey }) => {
     const gate = useActionGate(SHOP_NODE);
@@ -106,7 +107,7 @@ export const TownAccountPanel: React.FC<Props> = ({ accountId, returnTo, refresh
                                     <th className="pr-4 font-medium">When</th><th className="pr-4 font-medium">Reason</th>
                                     <th className="pr-4 font-medium">Amount</th><th className="pr-4 font-medium">Balance after</th>
                                     <th className="pr-4 font-medium">Player</th><th className="pr-4 font-medium">Source</th>
-                                    <th className="font-medium">Transaction</th>
+                                    <th className="pr-4 font-medium">Goods</th><th className="font-medium">Transaction</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -117,9 +118,15 @@ export const TownAccountPanel: React.FC<Props> = ({ accountId, returnTo, refresh
                                         <td className={`pr-4 py-1 ${entry.amount < 0 ? 'text-warning-strong' : ''}`}>{signedCoins(entry.amount)}</td>
                                         <td className="pr-4 py-1">{formatCoins(entry.balanceAfter)}</td>
                                         <td className="pr-4 py-1">
-                                            {entry.userId != null ? `User #${entry.userId}` : '-'}
+                                            {entry.userId != null ? (entry.username ?? `User #${entry.userId}`) : '-'}
                                         </td>
                                         <td className="pr-4 py-1"><Source entry={entry} returnTo={returnTo} /></td>
+                                        <td className="pr-4 py-1">
+                                            {entry.stockTransactionId != null
+                                                ? <Link to={displayPath('StockTransaction', entry.stockTransactionId, returnTo)} className="text-primary hover:underline"
+                                                    aria-label={`Stock transaction #${entry.stockTransactionId}`}>#{entry.stockTransactionId}</Link>
+                                                : '-'}
+                                        </td>
                                         <td className="py-1 font-mono text-xs">{entry.transactionPublicId}</td>
                                     </tr>
                                 ))}

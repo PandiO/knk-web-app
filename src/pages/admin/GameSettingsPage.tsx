@@ -20,6 +20,8 @@ import { TransportSettingsCard } from '../../components/admin/gameSettings/Trans
 import { transportSettingsErrors } from '../../utils/transport';
 import { LogisticsSettingsCard } from '../../components/admin/gameSettings/LogisticsSettingsCard';
 import { logisticsSettingsErrors } from '../../utils/logistics';
+import { ShopSettingsCard } from '../../components/admin/gameSettings/ShopSettingsCard';
+import { shopSettingsErrors } from '../../utils/shopSettings';
 import { LocationReferencePicker } from '../../components/admin/gameSettings/LocationReferencePicker';
 import { MinecraftLegacyPreview } from '../../components/admin/gameSettings/MinecraftLegacyPreview';
 import { UNIT, describeWorldTime, joinHint } from '../../utils/settingsUnits';
@@ -311,6 +313,7 @@ export const GameSettingsPage: React.FC = () => {
                 && productionEngineSettingsErrors(normalizeProductionSettings(settings.production).engine!).length === 0
                 && transportSettingsErrors(normalizeProductionSettings(settings.production).transport!).length === 0
                 && logisticsSettingsErrors(normalizeProductionSettings(settings.production).logistics!).length === 0
+                && shopSettingsErrors(normalizeProductionSettings(settings.production).shops!).length === 0
                 && menuItemSettingsErrors(normalizeMenuItemSettings(settings.menuItem)).length === 0)}
             onDiscard={() => saved && setSettings(saved)}
             onReload={loadAll}
@@ -455,6 +458,13 @@ export const GameSettingsPage: React.FC = () => {
                     value={normalizeProductionSettings(settings.production).logistics}
                     changed={isChanged('production')}
                     onChange={logistics => updateSettings(prev => ({ ...prev, production: { ...normalizeProductionSettings(prev.production), logistics } }))}
+                />
+
+                {/* Shops P10 (PandiO/knk-workspace#938): the enchantment surcharge and the trade stats' lookback, kept on every save. */}
+                <ShopSettingsCard
+                    value={normalizeProductionSettings(settings.production).shops}
+                    changed={isChanged('production')}
+                    onChange={shops => updateSettings(prev => ({ ...prev, production: { ...normalizeProductionSettings(prev.production), shops } }))}
                 />
 
                 <SettingsSection

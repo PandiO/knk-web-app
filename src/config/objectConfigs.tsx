@@ -383,6 +383,9 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       townNameColumn,
       placementColumn,
       districtNameColumn,
+      // #938: the search row's kind and shop type.
+      { key: 'kind', label: 'Kind', sortable: false, render: (row: any) => row.kind ?? '-' },
+      { key: 'shopTypeName', label: 'Shop type', sortable: false, render: (row: any) => row.shopTypeName ?? (row.shopTypeId != null ? `#${row.shopTypeId}` : 'None') },
       { key: 'level', label: 'Level', sortable: false, render: (row: any) => row.level ?? 1 },
       { key: 'productionEnabled', label: 'Processing', sortable: false, render: (row: any) => row.productionEnabled === false ? 'Off' : 'On' },
       territoryFlagColumn,

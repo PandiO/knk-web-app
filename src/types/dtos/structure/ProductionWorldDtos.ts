@@ -71,7 +71,7 @@ export interface RoadConnectionUpdateDto {
     roadConnection: RoadConnectionState;
 }
 
-/** Search row of `api/Warehouses/search` and `api/ProductionStructures/search` (knk-web-api `ProductionWorldListDto`). */
+/** Search row of `api/Warehouses/search`, `api/ProductionStructures/search` and `api/Shops/search` (knk-web-api `ProductionWorldListDto`). */
 export interface ProductionWorldListDto extends StructureListDto {
     acceptsDeliveries?: boolean | null;
     priority?: number | null;
@@ -81,4 +81,9 @@ export interface ProductionWorldListDto extends StructureListDto {
     level?: number | null;
     productionEnabled?: boolean | null;
     roadConnection?: RoadConnectionState | null;
+    /** #938: a shop's kind (Trading or Processing); null for any other structure. */
+    kind?: string | null;
+    /** #938: a shop's type; null for any other structure or a shop without a type. */
+    shopTypeId?: number | null;
+    shopTypeName?: string | null;
 }
