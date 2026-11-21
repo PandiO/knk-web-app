@@ -51,6 +51,7 @@ import { LogisticsReservationPanel } from '../components/logistics/LogisticsRese
 import { ShopTypePanel } from '../components/shops/ShopTypePanel';
 import { ShopPanel } from '../components/shops/ShopPanel';
 import { TownAccountPanel } from '../components/shops/TownAccountPanel';
+import { TownAccountSummary } from '../components/shops/TownAccountSummary';
 
 /** Tells the page the entity's label once the wizard loaded it (for the tab title). */
 const LabelReporter: React.FC<{ label: string; onLabel: (label: string) => void }> = ({ label, onLabel }) => {
@@ -297,6 +298,10 @@ export const DisplayWizardPage: React.FC = () => {
           a planner run's explanation; a reservation with Release. Staff with the World area's node only. */}
       {entityName.toLowerCase() === 'town' && numericId != null && (
         <TownLogisticsPanel townId={numericId} townName={entityLabel ?? `Town #${numericId}`} returnTo={here} refreshKey={liveRefreshKey} />
+      )}
+      {/* Shops P10 (PandiO/knk-workspace#938): the town's account (coins, a link to its ledger). World area only. */}
+      {entityName.toLowerCase() === 'town' && numericId != null && (
+        <TownAccountSummary townId={numericId} returnTo={here} refreshKey={liveRefreshKey} />
       )}
       {entityName.toLowerCase() === 'warehouse' && numericId != null && (
         <WarehouseLogisticsPanel warehouseId={numericId} returnTo={here} refreshKey={liveRefreshKey} />

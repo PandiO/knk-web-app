@@ -2,7 +2,7 @@ import { test, expect } from './support/mockApi';
 import type { MockApi } from './support/mockApi';
 import { alex, mockSession, startLoggedIn } from './fixtures/auth';
 import { mockContentDefaults } from './fixtures/content';
-import { generalDisplay } from './fixtures/territory';
+import { gameSettings, generalDisplay } from './fixtures/territory';
 import {
   APPLE,
   ENTRY_APPLE,
@@ -48,6 +48,8 @@ import type {
   TownAccountListDto,
 } from '../src/types/dtos/production/ShopDtos';
 import type { StockPagedResultDto } from '../src/types/dtos/stock/StockDtos';
+import type { GameSettingsDto, GameSettingsUpdateDto } from '../src/types/dtos/gameSettings/GameSettingsModels';
+import type { ProductionShopSettingsDto } from '../src/types/dtos/production/ShopDtos';
 
 /**
  * Shops P10c in the web app (PandiO/knk-workspace#688; shops DESIGN § 2-5, § 9, decision G17, acceptance A18, A23): a
@@ -383,8 +385,11 @@ test.describe('a town account', () => {
     await expect(panel.getByTestId('town-account-reconciled')).toHaveText('Matches the last ledger entry');
     const ledger = panel.getByRole('table', { name: 'Town account ledger' });
     await expect(ledger.getByRole('row')).toHaveCount(4);
-    await expect(ledger.getByRole('row').nth(1)).toHaveText(/Shop buyback\s*-20\s*1,250 coins\s*User #7\s*Shop #31\s*ctx-903/);
-    await expect(ledger.getByRole('row').nth(2)).toHaveText(/Shop purchase\s*\+48\s*1,270 coins/);
+    // #938: the player by username, and the sale's or buy-back's stock transaction linked.
+    await expect(ledger.getByRole('row').nth(1)).toHaveText(/Shop buyback\s*-20\s*1,250 coins\s*Mara\s*Shop #31\s*#703\s*ctx-903/);
+    await expect(ledger.getByRole('row').nth(2)).toHaveText(/Shop purchase\s*\+48\s*1,270 coins\s*Mara\s*Shop #31\s*#702/);
+    await expect(ledger.getByRole('row').nth(3)).toHaveText(/Shop purchase\s*\+12\s*1,222 coins\s*User #8\s*Shop #31\s*-\s*ctx-901/);
+    await expect(ledger.getByRole('link', { name: 'Stock transaction #703' })).toHaveAttribute('href', /^\/display\/StockTransaction\/703/);
     await expect(ledger.getByRole('link', { name: 'Shop #31' }).first()).toHaveAttribute('href', new RegExp(`/display/Shop/${SHOP}`));
     const call = api.calls('GET', `TownAccounts/${TOWN_ACCOUNT}/ledger`)[0];
     expect(call.query.get('pageNumber')).toBe('1');
@@ -431,8 +436,48 @@ test.describe('dashboard', () => {
     const shops = page.getByRole('table');
     await expect(shops.getByRole('columnheader', { name: 'Processing', exact: true })).toBeVisible();
     await expect(shops.getByRole('row').filter({ hasText: 'Phoenix bakery' })).toContainText('Phoenix');
+    // #938: the search row's kind and shop type.
+    await expect(shops.getByRole('columnheader', { name: 'Kind', exact: true })).toBeVisible();
+    await expect(shops.getByRole('columnheader', { name: 'Shop type', exact: true })).toBeVisible();
+    await expect(shops.getByRole('row').filter({ hasText: 'Phoenix bakery' })).toContainText(/Processing\s*Bakery/);
+    await expect(shops.getByRole('row').filter({ hasText: 'Corner stall' })).toContainText(/Trading\s*None/);
 
     await page.goto('/dashboard/TownAccount');
     await expect(page.getByRole('table').getByRole('row').filter({ hasText: 'Phoenix' })).toContainText('1250 coins');
+  });
+});
+
+test.describe('game settings', () => {
+  const shops: ProductionShopSettingsDto = { enchantmentPercentPerLevel: 15, statsLookbackHours: 3 };
+  const stored: GameSettingsDto = {
+    ...gameSettings,
+    production: { enabled: true, territory: { baseRange: 100, powerFactor: 2, capitalMultiplier: 1.5 }, engine: { baseCycleMinutes: 10, catchUpCapHours: 24, weatherDayMinutes: 20 }, shops },
+  };
+
+  test('shows and keeps the shops section on a save of another section, and checks a changed one (#938)', async ({ page, api }) => {
+    mockSession(api, alex, () => true);
+    api.json<GameSettingsDto>('GET', /^GameSettings\/?$/, stored);
+    api.on<GameSettingsDto>('PUT', /^GameSettings\/?$/, ({ body }) => ({ body: { ...stored, ...(body as GameSettingsUpdateDto), settingsVersion: '8' } as GameSettingsDto }));
+    await page.goto('/admin/game-settings');
+
+    const card = page.getByRole('region', { name: 'Shops' });
+    await expect(card.getByRole('spinbutton', { name: 'Enchantment surcharge (% per level)' })).toHaveValue('15');
+    await expect(card.getByRole('spinbutton', { name: 'Trade stats lookback (hours)' })).toHaveValue('3');
+    await page.getByRole('region', { name: 'Production engine' }).getByRole('spinbutton', { name: 'Base cycle (minutes)' }).fill('5');
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await expect.poll(() => api.calls('PUT', /^GameSettings\/?$/).length).toBe(1);
+    expect((api.calls('PUT', /^GameSettings\/?$/)[0].body as GameSettingsUpdateDto).production?.shops).toEqual(shops);
+
+    const changed = page.getByRole('region', { name: /^Shops/ });
+    await changed.getByRole('spinbutton', { name: 'Trade stats lookback (hours)' }).fill('2.5');
+    await expect(changed.getByRole('list', { name: 'Shop settings problems' }))
+      .toHaveText('production.shops.statsLookbackHours must be a whole number between 0 and 168.');
+    await expect(page.getByRole('button', { name: /^Save/ })).toBeDisabled();
+    await changed.getByRole('spinbutton', { name: 'Trade stats lookback (hours)' }).fill('6');
+    await changed.getByRole('spinbutton', { name: 'Enchantment surcharge (% per level)' }).fill('12.5');
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await expect.poll(() => api.calls('PUT', /^GameSettings\/?$/).length).toBe(2);
+    expect((api.calls('PUT', /^GameSettings\/?$/)[1].body as GameSettingsUpdateDto).production?.shops)
+      .toEqual({ enchantmentPercentPerLevel: 12.5, statsLookbackHours: 6 });
   });
 });

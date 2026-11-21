@@ -47,6 +47,7 @@ import type {
 import type { TownDto } from '../src/types/dtos/town/TownDto';
 import type { StepProgressReadDto, WorkflowSessionReadDto } from '../src/types/dtos/workflow/WorkflowDtos';
 import { mockNoTownLogistics } from './fixtures/logistics';
+import { mockNoTownAccount } from './fixtures/shops';
 
 /**
  * Territory V1 in the web app (PandiO/knk-workspace#690; territory DESIGN § 1-4, G10, G11, acceptance A05, A07, A23):
@@ -197,6 +198,7 @@ test.describe('the town page', () => {
     mockTownTerritory(api);
     // Town logistics P9b (#686): the logistics panel, empty here; e2e/logistics.spec.ts covers it.
     mockNoTownLogistics(api, PHOENIX);
+    mockNoTownAccount(api, PHOENIX);
     // The panel re-reads the ranges after a save: answer with the current state.
     api.on<TownTerritoryDto>('GET', `Territory/towns/${PHOENIX}`, () => ({ body: territory }));
   });
@@ -511,6 +513,8 @@ test.describe('game settings', () => {
         logistics: {
           plannerIntervalMinutes: 10, reservationMinutes: 30, consumptionWindowDays: 7, defaultReorderHours: 4, defaultTargetHours: 12, runRetentionDays: 14,
         },
+        // P10 (#938): the shops section too (the defaults here).
+        shops: { enchantmentPercentPerLevel: 10, statsLookbackHours: 2 },
       });
   });
 

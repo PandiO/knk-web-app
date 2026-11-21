@@ -42,6 +42,7 @@ import {
   storedRun,
   templateRow,
 } from './fixtures/logistics';
+import { mockNoTownAccount } from './fixtures/shops';
 import type { DisplayConfigurationDto } from '../src/types/dtos/displayConfig/DisplayModels';
 import type { GameSettingsDto, GameSettingsUpdateDto } from '../src/types/dtos/gameSettings/GameSettingsModels';
 import type { EntityMetadataDto } from '../src/types/dtos/metadata/MetadataModels';
@@ -99,6 +100,7 @@ test.describe("a town's logistics", () => {
     api.json<TownSupplyDto>('GET', `Logistics/towns/${PHOENIX}/supply`, phoenixSupply());
     api.json<TownServiceAreasDto>('GET', `Logistics/towns/${PHOENIX}/service-areas`, phoenixServiceAreas);
     mockPaged<LogisticsPlannerRunListDto>(api, 'LogisticsPlannerRuns/search', [lastRun]);
+    mockNoTownAccount(api, PHOENIX);
   });
 
   test('shows the supply per item across the warehouses, the reservations, the policy and the runs (A17, #65)', async ({ page, api }) => {
@@ -556,6 +558,7 @@ test.describe('the Town logistics page', () => {
     api.json<TownSupplyDto>('GET', `Logistics/towns/${PHOENIX}/supply`, phoenixSupply());
     api.json<TownServiceAreasDto>('GET', `Logistics/towns/${PHOENIX}/service-areas`, phoenixServiceAreas);
     mockPaged<LogisticsPlannerRunListDto>(api, 'LogisticsPlannerRuns/search', [lastRun]);
+    mockNoTownAccount(api, PHOENIX);
     await page.goto('/admin/logistics');
 
     const table = page.getByRole('table', { name: 'Logistics policies' });

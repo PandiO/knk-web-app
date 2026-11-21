@@ -9,6 +9,7 @@ import {
 import { defaultProductionEngineSettings } from './productionEngine';
 import { defaultTransportSettings } from './transport';
 import { defaultLogisticsSettings } from './logistics';
+import { defaultShopSettings } from './shopSettings';
 
 /**
  * Territory V1 helpers for the web app (PandiO/knk-workspace#690; knk-workspace docs/specs/territory/DESIGN.md § 1-4).
@@ -47,6 +48,8 @@ export function normalizeProductionSettings(value?: Partial<ProductionSettingsDt
         transport: { ...defaultTransportSettings(), ...(value?.transport ?? {}) },
         // P9 (#686): the town logistics section, kept as sent and always sent back.
         logistics: { ...defaultLogisticsSettings(), ...(value?.logistics ?? {}) },
+        // P10 (#938): the shops section, kept as sent and always sent back.
+        shops: { ...defaultShopSettings(), ...(value?.shops ?? {}) },
     };
 }
 

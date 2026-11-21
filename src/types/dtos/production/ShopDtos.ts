@@ -252,5 +252,9 @@ export interface TownAccountEntryDto {
     sourceType?: string | null;
     sourceRef?: string | null;
     userId?: number | null;
+    /** #938: the player's username; null when the leg has no user or the user is gone. */
+    username?: string | null;
+    /** #938: a shop sale's or buy-back's stock transaction (the goods leg of the same trade); null for any other leg. */
+    stockTransactionId?: number | null;
     createdAt: string;
 }
