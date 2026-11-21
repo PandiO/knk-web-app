@@ -15,14 +15,14 @@ import { permissionGroupMetadata } from './groupGrants';
 export const STAFF_ID = 40;
 
 export const groupRows: PermissionGroupListDto[] = [
-  { id: STAFF_ID, name: 'Staff', weight: 40, isPremiumTier: false, salaryMultiplier: 1, gemBonusMultiplier: 1, expBonusMultiplier: 1, parentGroupId: null, parentGroupName: null, defaultRouteMode: 'efficient', childrenCount: 0 },
-  { id: 20, name: 'Noble', weight: 20, isPremiumTier: true, salaryMultiplier: 1.5, gemBonusMultiplier: 1, expBonusMultiplier: 1, parentGroupId: 1, parentGroupName: 'Default', defaultRouteMode: 'preferred', childrenCount: 0 },
+  { id: STAFF_ID, name: 'Staff', weight: 40, isPremiumTier: false, salaryMultiplier: 1, gemBonusMultiplier: 1, expBonusMultiplier: 1, parentGroupId: null, parentGroupName: null, defaultRouteMode: 'Efficient', childrenCount: 0 },
+  { id: 20, name: 'Noble', weight: 20, isPremiumTier: true, salaryMultiplier: 1.5, gemBonusMultiplier: 1, expBonusMultiplier: 1, parentGroupId: 1, parentGroupName: 'Default', defaultRouteMode: 'Preferred', childrenCount: 0 },
   { id: 1, name: 'Default', weight: 0, isPremiumTier: false, salaryMultiplier: 1, gemBonusMultiplier: 1, expBonusMultiplier: 1, parentGroupId: null, parentGroupName: null, defaultRouteMode: null, childrenCount: 1 },
 ];
 
 export const staff: PermissionGroupDto = {
   id: STAFF_ID, name: 'Staff', weight: 40, isPremiumTier: false, salaryMultiplier: 1, gemBonusMultiplier: 1, expBonusMultiplier: 1,
-  parentGroupId: null, defaultRouteMode: 'efficient',
+  parentGroupId: null, defaultRouteMode: 'Efficient',
 };
 
 /** `POST PermissionGroups/search`: every row, one page. */
@@ -44,14 +44,14 @@ function step(values: Pick<FormStepDto, 'id' | 'stepName' | 'order' | 'fields'> 
   };
 }
 
-/** The seed's field, as the API sends it: a String dropdown of the three words with a named empty option. */
+/** The seed's field, as the API sends it: an Enum dropdown of the three mode names with a named empty option. */
 export const routeModeField = field({
   id: '83',
   fieldName: 'DefaultRouteMode',
   label: 'Default route mode',
-  fieldType: FieldType.String,
+  fieldType: FieldType.Enum,
   order: 2,
-  settingsJson: JSON.stringify({ enumValues: ['shortest', 'efficient', 'preferred'], emptyOptionLabel: 'None (default: preferred)' }),
+  settingsJson: JSON.stringify({ enumValues: ['Shortest', 'Efficient', 'Preferred'], emptyOptionLabel: 'None (default: Preferred)' }),
 });
 
 export const groupForm: FormConfigurationDto = {
@@ -78,6 +78,9 @@ export const groupFormMetadata: EntityMetadataDto = {
   fields: [
     { fieldName: 'Name', fieldType: 'String', isNullable: false, isRelatedEntity: false, hasDefaultValue: false },
     { fieldName: 'Weight', fieldType: 'Int32', isNullable: false, isRelatedEntity: false, hasDefaultValue: false },
-    { fieldName: 'DefaultRouteMode', fieldType: 'String', isNullable: true, isRelatedEntity: false, hasDefaultValue: false },
+    {
+      fieldName: 'DefaultRouteMode', fieldType: 'Enum', isNullable: true, isRelatedEntity: false, hasDefaultValue: false,
+      isEnum: true, enumTypeName: 'RouteMode', enumValues: ['Shortest', 'Efficient', 'Preferred'],
+    },
   ],
 };

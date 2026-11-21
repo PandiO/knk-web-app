@@ -16,10 +16,10 @@ export interface PermissionGroupDto {
   chatSuffix?: string | null;
   parentGroupId?: number | null;
   /**
-   * PandiO/knk-workspace#852: the route /navigate takes for members who type no mode word. Read: the stored word or
-   * null (no default). Write: omitted keeps the stored value, '' clears it.
+   * PandiO/knk-workspace#852: the route /navigate takes for members who type no mode word. Read: the stored mode or
+   * null (no default). Write: omitted keeps the stored value, '' or null clears it.
    */
-  defaultRouteMode?: RouteModeWord | '' | null;
+  defaultRouteMode?: GroupRouteMode | '' | null;
   /**
    * KNG-41: teleport fees and cooldowns per kind (/tpa = Request, /warp, /spawn). Each kind's
    * price mode is its switch on update: omitted keeps that kind's stored fields, sent sets all of
@@ -52,12 +52,13 @@ export interface PermissionGroupDto {
 export type TeleportPriceMode = 'None' | 'Fixed' | 'Multiplier';
 
 /**
- * The /navigate route modes (knk-plugin RouteMode, PandiO/knk-workspace#707), as knk-web-api stores a group's default
- * (Services/PermissionGroupRouteMode.cs). Without a group default the plugin uses 'preferred', today's route.
+ * The /navigate route modes (knk-plugin RouteMode, PandiO/knk-workspace#707) as a group's default: knk-web-api's enum
+ * RouteMode (Enums/NavigationEnums.cs), sent by name since 2026-11-21. Without a group default the plugin uses
+ * Preferred, today's route.
  */
-export type RouteModeWord = 'shortest' | 'efficient' | 'preferred';
-export const ROUTE_MODE_WORDS: readonly RouteModeWord[] = ['shortest', 'efficient', 'preferred'];
-export const NO_DEFAULT_ROUTE_MODE_LABEL = 'None (default: preferred)';
+export type GroupRouteMode = 'Shortest' | 'Efficient' | 'Preferred';
+export const GROUP_ROUTE_MODES: readonly GroupRouteMode[] = ['Shortest', 'Efficient', 'Preferred'];
+export const NO_DEFAULT_ROUTE_MODE_LABEL = 'None (default: Preferred)';
 
 // Row shape returned by GET /api/PermissionGroups/{id}/expiring-memberships
 // (docs/specs/user-management/IMPLEMENTATION_PLAN.md Phase 3 "premium expiring soon" view).
@@ -90,6 +91,6 @@ export interface PermissionGroupListDto {
   parentGroupId?: number | null;
   parentGroupName?: string | null;
   /** PandiO/knk-workspace#852: null = no default. */
-  defaultRouteMode?: RouteModeWord | null;
+  defaultRouteMode?: GroupRouteMode | null;
   childrenCount: number;
 }

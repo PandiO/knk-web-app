@@ -14,7 +14,7 @@ describe('permission group default route mode', () => {
   });
 
   it.each([
-    ['efficient', 'efficient'],
+    ['Efficient', 'Efficient'],
     [null, '-'],
     [undefined, '-'],
   ])('shows %s as %s', (mode, shown) => {
@@ -27,10 +27,10 @@ describe('permission group default route mode', () => {
     expect(field.type).toBe('select');
     expect(field.required).toBe(false);
     expect(field.options).toEqual([
-      { label: 'None (default: preferred)', value: '' },
-      { label: 'shortest', value: 'shortest' },
-      { label: 'efficient', value: 'efficient' },
-      { label: 'preferred', value: 'preferred' },
+      { label: 'None (default: Preferred)', value: '' },
+      { label: 'Shortest', value: 'Shortest' },
+      { label: 'Efficient', value: 'Efficient' },
+      { label: 'Preferred', value: 'Preferred' },
     ]);
   });
 });
