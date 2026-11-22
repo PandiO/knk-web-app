@@ -7,7 +7,9 @@
 export const DISCOVERY_ADMIN_NODE = 'knk.admin.discovery';
 
 /** The discoverable domain types, top-down - the order the API lists them in. */
-export const DISCOVERY_DOMAIN_TYPES = ['Town', 'District', 'Structure', 'GateStructure'] as const;
+// Landmark last, as the API lists its rule (landmark-domain LD15, PandiO/knk-workspace#986): off unless a landmark's override
+// turns it on.
+export const DISCOVERY_DOMAIN_TYPES = ['Town', 'District', 'Structure', 'GateStructure', 'Landmark'] as const;
 export type DiscoveryDomainType = typeof DISCOVERY_DOMAIN_TYPES[number];
 
 export const discoveryTypeLabel = (domainType: string): string =>

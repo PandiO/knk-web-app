@@ -12,8 +12,11 @@ import { landmarkAreaLabel, landmarkPointLabel } from '../../utils/landmarks';
 export const LANDMARK_WRITE_NODE = 'knk.admin.world.landmark';
 const ADD_NODES = [LANDMARK_WRITE_NODE, 'knk.admin.content'];
 
-/** The detail pages that show the panel: every domain type (a landmark links to any domain, DESIGN § 6.1). */
-export const LANDMARK_DOMAIN_TYPES = ['town', 'district', 'structure', 'gatestructure', 'domain'];
+/**
+ * The detail pages that show the panel: every domain type, a landmark too (a landmark's parent is any domain, also
+ * another landmark: landmark-domain LD09, LD23, DESIGN § 6.3 item 3).
+ */
+export const LANDMARK_DOMAIN_TYPES = ['town', 'district', 'structure', 'gatestructure', 'domain', 'landmark'];
 
 export function showsDomainLandmarks(entityTypeName: string | null | undefined): boolean {
     return LANDMARK_DOMAIN_TYPES.includes((entityTypeName ?? '').toLowerCase());
@@ -27,8 +30,9 @@ interface Props {
 }
 
 /**
- * The landmarks linked to a domain, on the domain's detail page (off-road navigation phase 5.1,
- * PandiO/knk-workspace#708, DESIGN § 6.4.3): name (to the landmark's page), area, point and whether /navigate offers it.
+ * The landmarks whose parent is a domain, on the domain's detail page (off-road navigation phase 5.1,
+ * PandiO/knk-workspace#708, DESIGN § 6.4.3; landmark-domain #986: the parent, also on a landmark's page for its child
+ * landmarks): name (to the landmark's page), area, point and whether /navigate offers it.
  * "Add landmark" opens the landmark form (the domain is picked there); it needs knk.admin.world.landmark and
  * knk.admin.content, like the dashboard's Create.
  */
@@ -46,8 +50,11 @@ export const DomainLandmarksPanel: React.FC<Props> = ({ domainId, domainName, re
         landmarkClient.getByDomain(domainId)
             .then(result => {
                 if (cancelled) return;
-                setRows(result?.items ?? []);
-                setTotal(result?.totalCount ?? 0);
+                // A landmark's own page lists its child landmarks, never the landmark itself (DESIGN § 6.3 item 3).
+                const items = result?.items ?? [];
+                const children = items.filter(row => row.id !== domainId);
+                setRows(children);
+                setTotal(Math.max(0, (result?.totalCount ?? 0) - (items.length - children.length)));
             })
             .catch(err => {
                 if (!cancelled) setError(apiRefusalReason(err) ?? "Couldn't load the landmarks.");
@@ -78,7 +85,7 @@ export const DomainLandmarksPanel: React.FC<Props> = ({ domainId, domainName, re
             {error && <p className="text-sm field-error" role="alert">{error}</p>}
             {!error && rows === null && <p className="text-sm text-muted">Loading landmarks…</p>}
             {!error && rows !== null && rows.length === 0 && (
-                <p className="text-sm text-muted">No landmarks are linked to {domainName}.</p>
+                <p className="text-sm text-muted">No landmarks have {domainName} as their parent.</p>
             )}
             {!error && rows !== null && rows.length > 0 && (
                 <ul className="divide-y divide-line rounded-md border border-line" aria-label="Landmarks">

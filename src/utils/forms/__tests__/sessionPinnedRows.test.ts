@@ -40,6 +40,14 @@ describe('sessionPinnedRows (KNG-136)', () => {
             expect(matchesPickerFilters({ id: 1 }, { preferTownId: '4' })).toBe(true);
         });
 
+        it('applies excludeSubtreeOf to the landmark itself and domainType to any listed type (landmark-domain #986)', () => {
+            expect(matchesPickerFilters({ id: 9, domainType: 'Landmark' }, { excludeSubtreeOf: '9' })).toBe(false);
+            expect(matchesPickerFilters({ id: 4, domainType: 'Town' }, { excludeSubtreeOf: ' 9 ' })).toBe(true);
+            expect(matchesPickerFilters({ id: 4, domainType: 'Town' }, { domainType: 'Landmark, town' })).toBe(true);
+            expect(matchesPickerFilters({ id: 5, domainType: 'GateStructure' }, { domainType: 'Structure' })).toBe(false);
+            expect(matchesPickerFilters({ id: 6 }, { domainType: 'Town' })).toBe(false);
+        });
+
         it('applies excludeIds', () => {
             expect(matchesPickerFilters({ id: 3 }, { excludeIds: '1, 3' })).toBe(false);
             expect(matchesPickerFilters({ id: 2 }, { excludeIds: '1,3' })).toBe(true);

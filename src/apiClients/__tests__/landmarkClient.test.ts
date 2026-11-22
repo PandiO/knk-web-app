@@ -9,7 +9,7 @@ import {
 } from '../../utils/entityApiMapping';
 
 // Off-road navigation phase 5.1 (PandiO/knk-workspace#708): the dashboard, detail page and form wizard reach
-// api/landmarks through the five entity mappings; the domain pages list a domain's landmarks with a domainId filter.
+// api/landmarks through the five entity mappings; the domain pages list a domain's child landmarks with a parentDomainId filter (landmark-domain #986).
 describe('LandmarkClient', () => {
   const client = LandmarkClient.getInstance();
   let invokeSpy: jest.SpyInstance;
@@ -33,7 +33,7 @@ describe('LandmarkClient', () => {
   it('lists the landmarks of one domain by name', async () => {
     await client.getByDomain(7);
     expect(invokeSpy).toHaveBeenCalledWith(
-      { pageNumber: 1, pageSize: 100, sortBy: 'name', filters: { domainId: '7' } }, 'search', Controllers.Landmarks, HttpMethod.Post);
+      { pageNumber: 1, pageSize: 100, sortBy: 'name', filters: { parentDomainId: '7' } }, 'search', Controllers.Landmarks, HttpMethod.Post);
   });
 
   it('refuses an update without an id', () => {

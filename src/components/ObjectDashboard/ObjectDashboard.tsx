@@ -26,6 +26,7 @@ import { formConfigClient } from '../../apiClients/formConfigClient';
 import { DisplayConfigurationDto } from '../../types/dtos/displayConfig/DisplayModels';
 import { logging } from '../../utils';
 import { apiRefusalReason } from '../../utils/apiRefusalReason';
+import { rowEntityType } from '../../utils/landmarks';
 import { buildReturnTo, dashboardPath, displayPath, editFormPath, entityEditPath, entitySetupPath, newFormPath, newFormWithConfigPath, resumeDraftPath } from '../../utils/returnTo';
 import { readTableQuery, toSearch, writeTableQuery } from '../../utils/tableQueryParams';
 import { PagedQueryDto } from '../../types/dtos/common/PagedQuery';
@@ -268,8 +269,9 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
 
     const handleView = (entityTypeName: string, item: any) => {
         if (!canView(entityTypeName)) return;
-        // The detail page (#81) comes back here with its Back button and breadcrumb.
-        navigate(displayPath(entityTypeName, item.id, returnTo()));
+        // The detail page (#81) comes back here with its Back button and breadcrumb. A landmark in the domain list
+        // opens as a landmark (landmark-domain DESIGN § 4.3, #986).
+        navigate(displayPath(rowEntityType(entityTypeName, item), item.id, returnTo()));
     };
 
     // A type from the URL is shown only once it's known; an unknown one is replaced by the fallback.
@@ -309,7 +311,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
 
     const handleEdit = (entityTypeName: string, item: any) => {
         // Users are edited on the player profile (#177 decision 2026-10-26).
-        navigate(entityEditPath(entityTypeName, item.id, returnTo()));
+        navigate(entityEditPath(rowEntityType(entityTypeName, item), item.id, returnTo()));
     };
 
     // "New" opens the default form (#177 decision 3: without one the Entity setup page says so).
@@ -678,7 +680,7 @@ const ObjectDashboard = ({ objectTypes }: Props) => {
                             onRowClick={canView(selectedType) ? (row) => handleView(selectedType, row) : undefined}
                             // #39 (CRUD-4): rows are links to the detail page (middle-click, keyboard).
                             rowHref={canView(selectedType)
-                                ? (row) => (row?.id != null ? displayPath(selectedType, row.id, returnTo()) : undefined)
+                                ? (row) => (row?.id != null ? displayPath(rowEntityType(selectedType, row), row.id, returnTo()) : undefined)
                                 : undefined}
                             refreshKey={refreshKey}
                             liveRefreshKey={liveRefreshKey}

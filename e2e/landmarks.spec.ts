@@ -16,6 +16,7 @@ import { cinix, townDisplay, townMetadata } from './fixtures/towns';
 import { mockNoTownTerritory } from './fixtures/territory';
 import type { PagedQueryDto } from '../src/types/dtos/common/PagedQuery';
 import type { DisplayConfigurationDto } from '../src/types/dtos/displayConfig/DisplayModels';
+import type { DomainWorldResolutionDto } from '../src/types/dtos/domain/DomainWorldDtos';
 import type { FieldValidationRuleDto } from '../src/types/dtos/forms/FieldValidationRuleDtos';
 import type { FormConfigurationDto, FormSubmissionProgressDto } from '../src/types/dtos/forms/FormModels';
 import type { LandmarkDto } from '../src/types/dtos/landmark/LandmarkDtos';
@@ -28,8 +29,9 @@ import { mockNoTownAccount } from './fixtures/shops';
 /**
  * Landmarks in the web app (off-road navigation phase 5.1, PandiO/knk-workspace#708, acceptance A12, web part): the
  * dashboard lists them through api/landmarks/search with their own columns, the search asks the API, staff without the
- * World area don't see the type, a town's page lists the landmarks linked to it, and the form saves through
- * POST api/landmarks. Smoke test: knk-workspace docs/guides/navigation-offroad-smoke-test.md "Phase 5.1".
+ * World area don't see the type, a town's page lists the landmarks whose parent it is, and the form saves through
+ * POST api/landmarks. Smoke test: knk-workspace docs/guides/navigation-offroad-smoke-test.md "Phase 5.1"; the
+ * landmark-domain model (#986): e2e/landmark-domain.spec.ts.
  */
 
 const nodes = (...held: string[]) => (node: string) => held.includes(node);
@@ -46,21 +48,23 @@ test.describe('dashboard', () => {
     mockLandmarkSearch(api);
   });
 
-  test('lists the landmarks with world, point, domain, area and /navigate', async ({ page, api }) => {
+  test('lists the landmarks with world, point, parent, area, region and /navigate', async ({ page, api }) => {
     mockSession(api, alex, nodes(WORLD, CONTENT, LANDMARK));
     await page.goto('/dashboard/Landmark');
 
     const table = page.getByRole('table');
-    for (const header of ['World', 'Point', 'Domain', 'Area', 'In /navigate']) {
+    for (const header of ['World', 'Point', 'Parent', 'Area', 'Region', 'In /navigate']) {
       await expect(table.getByRole('columnheader', { name: header })).toBeVisible();
     }
     const throne = table.getByRole('row').filter({ hasText: 'Throne room' });
     await expect(throne).toContainText('100 72 -41');
     await expect(throne).toContainText('Cinix (Town)');
-    await expect(throne).toContainText('Region');
+    await expect(throne).toContainText('Own region');
+    await expect(throne).toContainText('domain_1');
     const well = table.getByRole('row').filter({ hasText: 'Market well' });
-    await expect(well).toContainText('Radius');
+    await expect(well).toContainText("Linked domain's area");
     await expect(well).toContainText('No');
+    await expect(table.getByRole('row').filter({ hasText: 'Nether portal' })).toContainText('Point');
     await expect(table.getByRole('row').filter({ hasText: 'Nether portal' })).toContainText('world_nether');
   });
 
@@ -103,7 +107,7 @@ test.describe("a town's page", () => {
     mockNoTownAccount(api, 4);
   });
 
-  test('lists the landmarks linked to the town, each linking to its page', async ({ page, api }) => {
+  test('lists the landmarks whose parent is the town, each linking to its page', async ({ page, api }) => {
     mockSession(api, alex, () => true);
     await page.goto('/display/Town/4');
 
@@ -115,7 +119,7 @@ test.describe("a town's page", () => {
     await expect(section.getByRole('button', { name: 'Add landmark' })).toBeEnabled();
 
     const [search] = api.calls('POST', 'landmarks/search');
-    expect((search.body as PagedQueryDto & { filters: Record<string, string> }).filters).toEqual({ domainId: '4' });
+    expect((search.body as PagedQueryDto & { filters: Record<string, string> }).filters).toEqual({ parentDomainId: '4' });
   });
 
   test('Add landmark needs the landmark node, and says which', async ({ page, api }) => {
@@ -127,12 +131,12 @@ test.describe("a town's page", () => {
     await expect(add).toHaveAttribute('title', `Requires ${LANDMARK}`);
   });
 
-  test('says when no landmark is linked', async ({ page, api }) => {
+  test('says when no landmark has the town as parent', async ({ page, api }) => {
     mockSession(api, alex, () => true);
     api.on('POST', 'landmarks/search', { body: { items: [], totalCount: 0, page: 1, pageSize: 100, totalPages: 0 } });
     await page.goto('/display/Town/4');
 
-    await expect(page.getByRole('region', { name: 'Landmarks' })).toContainText(`No landmarks are linked to ${cinix.name}.`);
+    await expect(page.getByRole('region', { name: 'Landmarks' })).toContainText(`No landmarks have ${cinix.name} as their parent.`);
   });
 });
 
@@ -151,17 +155,21 @@ test('the landmark form saves through POST api/landmarks', async ({ page, api })
     }));
   }
   api.on<LandmarkDto>('POST', /^landmarks\/?$/, ({ body }) => ({ status: 201, body: { ...(body as LandmarkDto), id: 9 } }));
+  // A landmark is a domain (landmark-domain #986): the form checks its world first; the pin's world wins in the API.
+  api.json<DomainWorldResolutionDto>('POST', 'Domains/world/resolve', { worldName: 'world', source: 'location', needsWorld: false });
   mockLandmarkSearch(api, landmarkRows);
 
   await page.goto('/forms/Landmark');
   await page.getByRole('button', { name: 'Use' }).click();
   await page.getByRole('textbox', { name: 'Name*' }).fill('Great hall');
-  await page.getByRole('spinbutton', { name: 'Radius (blocks)' }).fill('12');
+  await page.getByRole('textbox', { name: 'Description' }).fill('Feasts');
+  await page.getByRole('combobox', { name: 'Area' }).selectOption({ label: 'Point' });
   await page.getByRole('spinbutton', { name: 'Route preference' }).fill('0.8');
   await page.getByRole('button', { name: 'Submit' }).click();
 
   await expect.poll(() => api.calls('POST', /^landmarks\/?$/).length).toBe(1);
   const [create] = api.calls('POST', /^landmarks\/?$/);
   // The wizard sends the form's field names; the API binds them without case (ASP.NET Core's web JSON defaults).
-  expect(create.body).toMatchObject({ Name: 'Great hall', Radius: 12, Preference: 0.8 });
+  expect(create.body).toMatchObject({ Name: 'Great hall', Description: 'Feasts', AreaKind: 'None', Preference: 0.8 });
+  expect(api.calls('POST', 'Domains/world/resolve')[0].body).toMatchObject({ entityType: 'Landmark' });
 });

@@ -10,6 +10,7 @@ import { useEntityMetadata } from '../../hooks/useEntityMetadata';
 import { buildPinnedSection, FilterScopes, isSameSelection, PinnedRow, tableRowKey } from '../../utils/forms/sessionPinnedRows';
 import { CategoryFilterSelect } from './CategoryFilterSelect';
 import { TERRITORY_FLAG_FILTER_ENTITIES, TERRITORY_FLAG_FILTER_KEY, TerritoryFlagFilterSelect } from './TerritoryFlagFilterSelect';
+import { DOMAIN_TYPE_FILTER_ENTITIES, DOMAIN_TYPE_FILTER_KEY, DomainTypeFilterSelect } from './DomainTypeFilterSelect';
 import { matchBuiltInColumn } from '../../utils/forms/savedColumns';
 import { DataTable, DataTableColumn, DataTableSection, nextSort } from '../DataTable';
 import { Pager } from '../Pager';
@@ -360,6 +361,17 @@ export function PagedEntityTable<T extends Record<string, any>>({
             return { ...prev, page: 1, filters: flag ? { ...otherFilters, [TERRITORY_FLAG_FILTER_KEY]: flag } : otherFilters };
         });
     };
+    // Landmark-domain A07 (PandiO/knk-workspace#986): domain lists and pickers filter on one domain type, unless the caller
+    // (a field's pickerFilters) already fixes the type.
+    const showDomainTypeFilter = DOMAIN_TYPE_FILTER_ENTITIES.has(entityTypeName.toLowerCase())
+        && !Object.keys(initialQuery.filters ?? {}).some(filterKey => filterKey.toLowerCase() === DOMAIN_TYPE_FILTER_KEY.toLowerCase());
+    const handleDomainTypeFilterChange = (domainType: string | undefined) => {
+        setQuery(prev => {
+            const { [DOMAIN_TYPE_FILTER_KEY]: _previous, ...otherFilters } = prev.filters ?? {};
+            return { ...prev, page: 1, filters: domainType ? { ...otherFilters, [DOMAIN_TYPE_FILTER_KEY]: domainType } : otherFilters };
+        });
+    };
+    const hasFilterBeforeActions = showSearchBar || showCategoryFilter || showTerritoryFlagFilter || showDomainTypeFilter;
     // KNG-200: numbers the fetches, so only the latest one's response reaches the table.
     const requestSeq = useRef(0);
 
@@ -654,7 +666,7 @@ export function PagedEntityTable<T extends Record<string, any>>({
     return (
         <div className="w-full space-y-4">
             {/* Toolbar - changed: conditionally render based on showSearchBar prop */}
-            {(showSearchBar || toolbarActions || showCategoryFilter || showTerritoryFlagFilter) && (
+            {(hasFilterBeforeActions || toolbarActions) && (
                 <div className="flex items-center justify-between">
                     {showSearchBar && (
                         <div className="relative flex-1 max-w-md">
@@ -684,8 +696,16 @@ export function PagedEntityTable<T extends Record<string, any>>({
                             />
                         </div>
                     )}
-                    {toolbarActions && (
+                    {showDomainTypeFilter && (
                         <div className={showSearchBar || showCategoryFilter || showTerritoryFlagFilter ? 'ml-4' : ''}>
+                            <DomainTypeFilterSelect
+                                value={query.filters?.[DOMAIN_TYPE_FILTER_KEY]}
+                                onChange={handleDomainTypeFilterChange}
+                            />
+                        </div>
+                    )}
+                    {toolbarActions && (
+                        <div className={hasFilterBeforeActions ? 'ml-4' : ''}>
                             {toolbarActions}
                         </div>
                     )}

@@ -842,6 +842,7 @@ const DateTimeField: React.FC<FieldRendererProps> = ({ field, value, onChange, e
 
 const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error, onBlur }) => {
     const enumValues = getEnumValues(field);
+    const enumLabels = getEnumLabels(field);
 
     return (
         <div>
@@ -864,12 +865,28 @@ const EnumField: React.FC<FieldRendererProps> = ({ field, value, onChange, error
             >
                 <option value="">{emptyOptionText(field)}</option>
                 {enumValues.map(val => (
-                    <option key={val} value={val}>{val}</option>
+                    <option key={val} value={val}>{enumLabels[val] ?? val}</option>
                 ))}
             </select>
             {error && <p className="mt-1 text-sm field-error">{error}</p>}
         </div>
     );
+};
+
+/**
+ * Words for an Enum field's options: settingsJson.enumLabels maps a value to its label (a landmark's `OwnRegion` reads
+ * "Own region", PandiO/knk-workspace#986); a value without one shows as it is.
+ */
+export const getEnumLabels = (field: FormFieldDto): Record<string, string> => {
+    if (!field.settingsJson) return {};
+    try {
+        const settings = JSON.parse(field.settingsJson) as { enumLabels?: unknown };
+        if (!settings.enumLabels || typeof settings.enumLabels !== 'object' || Array.isArray(settings.enumLabels)) return {};
+        return Object.fromEntries(Object.entries(settings.enumLabels as Record<string, unknown>)
+            .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1] !== ''));
+    } catch {
+        return {};
+    }
 };
 
 /**

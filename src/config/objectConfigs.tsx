@@ -9,7 +9,7 @@ import {
   pickerWorldName
 } from '../utils/forms/pickerRowValues';
 import { MinecraftIcon } from '../components/minecraft/MinecraftIcon';
-import { landmarkAreaLabel, landmarkDomainLabel, landmarkPointLabel } from '../utils/landmarks';
+import { domainTypeLabel, landmarkAreaLabel, landmarkParentLabel, landmarkPointLabel, landmarkRegionLabel } from '../utils/landmarks';
 import { territoryFlagCell } from '../utils/territory';
 import { roadConnectionCell } from '../utils/productionWorld';
 import { formatNumber, formatRate, lineStatusLabel, modifierStepLabel, modifierWindowLabel } from '../utils/productionEngine';
@@ -124,8 +124,14 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'townNames', label: 'Towns', sortable: false, render: (row: any) => pickerTownNames(row) ?? '-' }
     ]
   },
+  // Landmark-domain LD20 (PandiO/knk-workspace#986): domain lists and pickers hold every type, landmarks included, so they
+  // show the type (the search row's domainType) next to the name; the table's type filter is DomainTypeFilterSelect.
   domain: {
-    default: [...defaultColumnDefinitions.default, worldColumn]
+    default: [
+      ...defaultColumnDefinitions.default,
+      { key: 'domainType', label: 'Type', sortable: false, render: (row: any) => domainTypeLabel(row.domainType ?? row.domainSubType) },
+      worldColumn
+    ]
   },
   category: {
     //Used for category listing in ObjectDashboard. Currently also used for FormWizard PagedEntityTable
@@ -748,14 +754,16 @@ export const columnDefinitionsRegistry: Record<string, Record<string, ColumnDefi
       { key: 'note', label: 'Note', sortable: false, render: (row: any) => row.note ?? '-' },
     ]
   },
-  // Off-road navigation phase 5.1 (PandiO/knk-workspace#708): landmarks.
+  // Off-road navigation phase 5.1 (PandiO/knk-workspace#708): landmarks; parent, area and region since landmark-domain
+  // (LD16, #986).
   landmark: {
     default: [
       ...defaultColumnDefinitions.default,
       { key: 'world', label: 'World', sortable: true, render: (row: any) => row.world ?? '-' },
       { key: 'point', label: 'Point', sortable: false, render: (row: any) => landmarkPointLabel(row) },
-      { key: 'domainName', label: 'Domain', sortable: true, render: (row: any) => landmarkDomainLabel(row) },
-      { key: 'extentKind', label: 'Area', sortable: false, render: (row: any) => landmarkAreaLabel(row) },
+      { key: 'parentDomainName', label: 'Parent', sortable: true, render: (row: any) => landmarkParentLabel(row) },
+      { key: 'areaKind', label: 'Area', sortable: false, render: (row: any) => landmarkAreaLabel(row) },
+      { key: 'wgRegionId', label: 'Region', sortable: false, render: (row: any) => landmarkRegionLabel(row) },
       { key: 'navigationEnabled', label: 'In /navigate', sortable: false, render: (row: any) => row.navigationEnabled ? 'Yes' : 'No' },
     ]
   },
