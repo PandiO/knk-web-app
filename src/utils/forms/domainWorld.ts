@@ -4,7 +4,9 @@ import { DomainWorldResolveRequestDto } from '../../types/dtos/domain/DomainWorl
 // works the world out from the region world task, the Location or the parent; when none gives one the form asks.
 
 // P2 (PandiO/knk-workspace#676): warehouses and production structures are structures; a rural one's parent is its town.
-const DOMAIN_ENTITY_TYPES = ['domain', 'town', 'district', 'structure', 'gatestructure', 'warehouse', 'productionstructure'];
+// Landmark-domain (DESIGN § 6.3 item 1, PandiO/knk-workspace#986): a landmark is a domain too, so its form gets the world
+// check on save (its world is the pin's) and its sub-regions link back to it like any domain's.
+const DOMAIN_ENTITY_TYPES = ['domain', 'town', 'district', 'structure', 'gatestructure', 'warehouse', 'productionstructure', 'landmark'];
 
 export const isDomainEntityType = (entityTypeName?: string | null): boolean =>
     !!entityTypeName && DOMAIN_ENTITY_TYPES.includes(entityTypeName.toLowerCase());

@@ -48,13 +48,13 @@ export class LandmarkClient extends ObjectManager {
         return this.invokeServiceCall(queryParams, LandmarkOperation.SearchPaged, Controllers.Landmarks, HttpMethod.Post);
     }
 
-    /** The landmarks linked to one domain (the domain pages' list), by name. */
+    /** The landmarks whose parent is one domain (the domain pages' list, landmark-domain LD09), by name. */
     getByDomain(domainId: number, pageSize = 100): Promise<{ items: LandmarkListDto[]; totalCount: number }> {
         return this.searchPaged({
             pageNumber: 1,
             pageSize,
             sortBy: 'name',
-            filters: { domainId: String(domainId) },
+            filters: { parentDomainId: String(domainId) },
         } as unknown as PagedQueryDto);
     }
 }

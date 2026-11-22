@@ -7,7 +7,8 @@
  *  - search term: case-insensitive substring of the row's label fields (name, displayName, ...)
  *    or its exact id;
  *  - a filter `xId` / `x` compares with the row's `xId`, `x` or `x.id` (case-insensitive names);
- *  - `excludeIds` (comma-separated) drops those ids; filters named `prefer...` only order results
+ *  - `excludeIds` (comma-separated) drops those ids, `excludeSubtreeOf` the one id it names (landmark-domain, #986);
+ *    `domainType` accepts any of its comma-separated types; filters named `prefer...` only order results
  *    on the server and are ignored here;
  *  - any other filter the row can't answer hides the pinned row (the server might have excluded it);
  *  - a filter with a scope (KNG-263: `CategoryId` → that category and its children) accepts any
@@ -114,6 +115,17 @@ export function matchesPickerFilters(row: Record<string, unknown>, filters?: Rec
         if (filterKey.toLowerCase() === 'excludeids') {
             const excluded = String(expected).split(',').map(part => part.trim()).filter(Boolean);
             return !excluded.includes(String(idOf(row)));
+        }
+        // Landmark-domain LD20 (#986): a landmark's parent picker leaves out the landmark and its descendants. The
+        // client knows only the landmark itself; a row created in this form session can't be one of its descendants.
+        if (filterKey.toLowerCase() === 'excludesubtreeof') {
+            return String(idOf(row)) !== String(expected).trim();
+        }
+        // Landmark-domain A07 (#986): the API's domain type filter takes several types, comma separated.
+        if (filterKey.toLowerCase() === 'domaintype') {
+            const { value } = rowFilterValue(row, filterKey);
+            const wanted = String(expected).split(',').map(part => part.trim().toLowerCase()).filter(Boolean);
+            return present(value) && wanted.includes(String(value).toLowerCase());
         }
         const { found, value } = rowFilterValue(row, filterKey);
         if (!found) return false;

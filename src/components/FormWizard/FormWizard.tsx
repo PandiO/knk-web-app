@@ -59,6 +59,15 @@ import { ItemBlueprintClient } from '../../apiClients/itemBlueprintClient';
 import { enchantmentDefinitionClient } from '../../apiClients/enchantmentDefinitionClient';
 import { ScanConflictModal, ScanConflictField, ScanConflictChoice } from './ScanConflictModal';
 import { parsePickerFilterSettings, resolvePickerFilters } from '../../utils/forms/pickerFilters';
+import {
+    isLandmarkEntity,
+    LANDMARK_PARENT_FIELD,
+    landmarkFieldError,
+    landmarkPickerFilters,
+    withLandmarkAreaOptions
+} from '../../utils/forms/landmarkForm';
+import { useLandmarkParentRegion } from '../../hooks/useLandmarkParentRegion';
+import { isRegionTaskType, regionBoundsFromTaskOutput, regionBoundsPatch } from '../../utils/forms/regionTaskBounds';
 import { hydrateJoinRowsForEdit, joinFieldSeedValues } from '../../utils/forms/manyToManyEditLoad';
 import { seededFormFieldValue } from '../../utils/forms/formFieldDefaultValue';
 import { isSeedableInstance, overlayChildEditValues } from '../../utils/forms/childEditSeed';
@@ -1018,6 +1027,13 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
         if (!config) return { visibleStepIndices: [], visibleFieldNames: {}, visibleValues: {} };
         return reconcileVisibility(config, effectiveAllStepsData, hiddenStash).visibility;
     }, [config, effectiveAllStepsData, hiddenStash]);
+
+    // Landmark-domain A17 (PandiO/knk-workspace#986): "Linked domain's area" needs a parent with a region.
+    const landmarkForm = isLandmarkEntity(config?.entityTypeName || entityName);
+    const landmarkParentValue = landmarkForm && config
+        ? findValueByFieldName(flattenAllStepsData(config, effectiveAllStepsData), LANDMARK_PARENT_FIELD)
+        : undefined;
+    const landmarkParentHasRegion = useLandmarkParentRegion(landmarkForm, landmarkParentValue);
 
     // #109: every step's values, compared by value ('' / null / [] alike), so typing and clearing a
     // field again is no change, and values entered on earlier steps keep counting after Next.
@@ -3335,7 +3351,12 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         const geometryDerivedField = isDerivedGateGeometryField(entityName, field.fieldName, currentStepData)
                             ? { ...field, isReadOnly: true }
                             : field;
-                        const renderedField = withLiveEnumOptions(geometryDerivedField, entityMetadata?.fields);
+                        const renderedField = withLandmarkAreaOptions(
+                            config?.entityTypeName || entityName,
+                            withLiveEnumOptions(geometryDerivedField, entityMetadata?.fields),
+                            currentStepData[field.fieldName],
+                            landmarkParentHasRegion
+                        );
                         const canRenderWorldTaskPanel = worldTaskEnabled
                             && workflowSessionId != null
                             && !!taskType
@@ -3345,6 +3366,7 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         // KNG-132: shown as soon as the points disagree, not only on Next.
                         const fieldError = errors[field.fieldName]
                             ?? gateGeometryFieldError(entityName, field.fieldName, currentStepData)
+                            ?? landmarkFieldError(config?.entityTypeName || entityName, field.fieldName, currentStepData, landmarkParentHasRegion)
                             ?? conditionFieldErrors[field.fieldName]
                             ?? undefined;
                         const hasFieldError = !!fieldError;
@@ -3355,11 +3377,18 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                         const fieldValidationRules = fieldId ? (validationRules[fieldId] || []) : [];
                         // Parent forms' values too: a world-bound field's rules may depend on one.
                         const flatFormValues = config ? buildFormContextData(config, allStepsData) : {};
-                        const pickerFilters = resolvePickerFilters(
+                        const resolvedPickerFilters = resolvePickerFilters(
                             parsePickerFilterSettings(field.settingsJson),
                             config ? flattenAllStepsData(config, effectiveAllStepsData) : {},
                             parentContext
                         );
+                        // Landmark-domain A18 (#986): a saved landmark's parent picker leaves out the landmark and its subtree.
+                        const landmarkFilters = landmarkPickerFilters(
+                            config?.entityTypeName || entityName, field.fieldName, entityId, resolvedPickerFilters?.filters
+                        );
+                        const pickerFilters = landmarkFilters && landmarkFilters !== resolvedPickerFilters?.filters
+                            ? { ...(resolvedPickerFilters ?? {}), filters: landmarkFilters }
+                            : resolvedPickerFilters;
                         const canRetryValidation = !!fieldId && fieldValidationRules.length > 0;
                         const handleRetryValidation = () => {
                             if (!fieldId) return;
@@ -3474,6 +3503,16 @@ const FormWizardBody: React.FC<FormWizardProps> = ({
                                                     .catch(error => {
                                                         console.error('ItemScan: failed to apply scan result to form fields:', error);
                                                     });
+                                            }
+                                            // #951: a drawn region's bounding box fills this step's empty bounds (MinX..MaxZ).
+                                            if (isRegionTaskType(task?.taskType) && currentStep) {
+                                                const boundsPatch = regionBoundsPatch(
+                                                    regionBoundsFromTaskOutput(task.outputJson),
+                                                    currentStep.fields.filter(stepField =>
+                                                        visibility.visibleFieldNames[currentStepIndex]?.has(stepField.fieldName) ?? true),
+                                                    currentStepData
+                                                );
+                                                if (Object.keys(boundsPatch).length > 0) applyMultipleFieldChanges(boundsPatch);
                                             }
                                             if (task?.taskType === 'KitScan' && task?.outputJson) {
                                                 applyKitScanResult(task.outputJson)

@@ -22,20 +22,33 @@ export interface DomainNavigationDefaultSettingsDto {
     roadAccessOverride?: 'Applies' | 'Ignored' | '' | null;
 }
 
-export interface DomainDto extends DomainTeleportSettingsDto, DomainNavigationDefaultSettingsDto {
+/**
+ * The fields every domain type has (knk-web-api `Models/Domain.cs`). A landmark is a domain too (landmark-domain DESIGN
+ * § 6.3 item 1, PandiO/knk-workspace#986) and builds on this base, with an optional region (LD02, LD11) and its own
+ * parent shape; the other types keep the required region of {@link DomainDto}.
+ */
+export interface DomainBaseDto extends DomainTeleportSettingsDto {
     id?: number;
     name: string;
-    description: string;
+    description?: string | null;
     createdAt?: string;
     allowEntry?: boolean;
     allowExit?: boolean;
-    wgRegionId: string;
+    /** The main WorldGuard region; null for a landmark without its own region. */
+    wgRegionId?: string | null;
     /** KNG-111: the Minecraft world of the domain and its region. */
     worldName?: string | null;
+    locationId?: number | null;
+    /** KNG-254: the domain's sub-regions (read-only here; saved through DomainSubRegionClient). */
+    subRegions?: DomainSubRegionDto[] | null;
+}
+
+export interface DomainDto extends DomainBaseDto, DomainNavigationDefaultSettingsDto {
+    description: string;
+    wgRegionId: string;
     locationId?: number;
     parentDomainId?: number;
     parentDomain?: ParentDomainDto;
-    /** KNG-254: the domain's sub-regions (read-only here; saved through DomainSubRegionClient). */
     subRegions?: DomainSubRegionDto[];
 }
 
@@ -59,13 +72,14 @@ export interface ParentDomainDto {
     domainSubType: string;
 }
 
-// Concrete Domain subtype (Town/District/Structure/...) - lets a picker show "Ironhaven (Town)"
-// rather than an ambiguous bare name (docs/specs/items/IMPLEMENTATION_PLAN.md §3.2).
+// Concrete Domain subtype (Town/District/Structure/GateStructure/Landmark/...) - lets a picker show "Ironhaven (Town)"
+// rather than an ambiguous bare name (docs/specs/items/IMPLEMENTATION_PLAN.md §3.2). A landmark row has no region when
+// it has none of its own (landmark-domain LD02).
 export interface DomainListDto {
     id?: number;
     name: string;
     description: string;
-    wgRegionId: string;
+    wgRegionId: string | null;
     /** KNG-111: the Minecraft world of the domain and its region. */
     worldName?: string | null;
     parentDomainId?: number;
