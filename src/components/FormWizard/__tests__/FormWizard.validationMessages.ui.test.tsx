@@ -258,6 +258,26 @@ describe('FormWizard: one set of validation messages for every kind of failure (
         expectNoFooterMessage();
     });
 
+    it('#988: a blocking rule that passes but could not check shows "could not be completed" and does not block', async () => {
+        const message = 'Size class not checked: No game server is connected, so the region\'s size wasn\'t checked.';
+        (fieldValidationRuleClient.getByFormConfigurationId as jest.Mock).mockResolvedValue([rule(1, REGION_ID)]);
+        await toRegionStep();
+        const unchecked = {
+            isValid: true,
+            isBlocking: true,
+            message,
+            metadata: { validationType: 'SiegeWeaponSpotSize', executedAt: new Date().toISOString(), failureReason: 'GameServerUnavailable' }
+        };
+        answerRules({ [REGION_ID]: unchecked });
+        (fieldValidationRuleClient.validateField as jest.Mock).mockResolvedValue(unchecked);
+        fireEvent.change(screen.getByLabelText(/^region/i), { target: { value: 'tempregion_worldtask_7' } });
+        fireEvent.blur(screen.getByLabelText(/^region/i));
+
+        expect(await within(box('Region')).findByText('Validation could not be completed')).toBeInTheDocument();
+        expect(within(box('Region')).getByText(message)).toBeInTheDocument();
+        expect(screen.queryByRole('alert', { name: /^fix (this problem|these \d+ problems) to continue$/i })).not.toBeInTheDocument();
+    });
+
     it('a warning keeps its own line and is not in the summary', async () => {
         (fieldValidationRuleClient.getByFormConfigurationId as jest.Mock).mockResolvedValue([rule(1, REGION_ID, false)]);
         await toRegionStep({ regionConditions: [condition('Completion', [entryAllowed], 'Allow entry before you continue.')] });

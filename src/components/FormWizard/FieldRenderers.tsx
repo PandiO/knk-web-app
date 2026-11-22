@@ -388,7 +388,10 @@ const ValidationFeedback: React.FC<{
         return retryButton ? <div className="flex items-center justify-end text-xs">{checkedNote}{retryButton}</div> : null;
     }
 
-    if (validationResult.isValid) {
+    // PandiO/knk-workspace#988: a rule whose check couldn't run but that never blocks a save (the weapon spot size and
+    // site rules) passes with a failureReason; it still shows as "could not be completed", not as a green check.
+    const unchecked = !!validationResult.metadata?.failureReason;
+    if (validationResult.isValid && !unchecked) {
         if (!message) return null;
         return (
             <div className="flex items-center justify-between text-xs text-success">
@@ -403,7 +406,7 @@ const ValidationFeedback: React.FC<{
     // The check itself could not run (e.g. the Minecraft server/plugin is offline) rather than
     // the value genuinely failing a business rule — call this out distinctly so it isn't mistaken
     // for "this value is invalid".
-    if (validationResult.metadata?.failureReason) {
+    if (unchecked) {
         return (
             <div className="flex items-start justify-between gap-2 rounded-md border border-amber-300 bg-warning-soft px-3 py-2">
                 <div className="flex items-start">
