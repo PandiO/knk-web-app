@@ -1173,14 +1173,6 @@ export const FieldEditor: React.FC<Props> = ({
                             enchantments.
                         </p>
                     )}
-                    {worldTaskType === 'SiegeWeaponSpot' && (
-                        <p className="mt-1 text-xs text-blue-600">
-                            Requires a player on a game server with siege.weapons.enabled: claim the
-                            task code in-game, select the spot with WorldEdit (or name a WorldGuard
-                            region) and confirm, to fill the spot's bounds, facing, size class and
-                            region. Meant for the weapon spot form's Min X field.
-                        </p>
-                    )}
                     {worldTaskType === 'KitScan' && (
                         <p className="mt-1 text-xs text-blue-600">
                             Requires a player: equip and arrange the kit's items in your

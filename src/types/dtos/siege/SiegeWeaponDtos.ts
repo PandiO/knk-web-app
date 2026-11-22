@@ -97,12 +97,7 @@ export interface SiegeWeaponSpotDto {
     siegeTeamName?: string | null;
     sortOrder?: number | null;
     name: string;
-    minX?: number | null;
-    minY?: number | null;
-    minZ?: number | null;
-    maxX?: number | null;
-    maxY?: number | null;
-    maxZ?: number | null;
+    /** PandiO/knk-workspace#988: where the spot is (a box-shaped WorldGuard region); the six bounds are gone. */
     wgRegionId?: string | null;
     facing: SiegeWeaponFacing;
     sizeClass: SiegeWeaponSizeClass;

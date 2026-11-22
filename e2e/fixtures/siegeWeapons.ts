@@ -1,4 +1,5 @@
 import type { PagedQueryDto, PagedResultDto } from '../../src/types/dtos/common/PagedQuery';
+import type { FieldValidationRuleDto } from '../../src/types/dtos/forms/FieldValidationRuleDtos';
 import type { FormConfigurationDto, FormFieldDto, FormStepDto } from '../../src/types/dtos/forms/FormModels';
 import type { EntityMetadataDto } from '../../src/types/dtos/metadata/MetadataModels';
 import type { SiegeAmmoTypeListDto, SiegeWeaponTemplateListDto } from '../../src/types/dtos/siege/SiegeWeaponDtos';
@@ -119,9 +120,14 @@ export const ammoFormMetadata: EntityMetadataDto = {
 };
 
 /**
- * #799: the weapon spot form's "Place and size" step as the seed has it, with the SiegeWeaponSpot world task on Min X,
- * plus the scenario id the save path needs (read-only and filled from the scenario in the real form).
+ * PandiO/knk-workspace#988: the weapon spot form's "Place and size" step as the seed has it: the spot is its WorldGuard
+ * region, drawn with the normal region world task (ReagionCreate) on WgRegionId; Facing is an Enum field; SizeClass is
+ * read-only (the API works it out). Plus the scenario id the save path needs (read-only and filled from the scenario in
+ * the real form).
  */
+export const SPOT_REGION_FIELD_ID = 704;
+export const SPOT_FACING_FIELD_ID = 702;
+
 export const spotForm: FormConfigurationDto = {
   id: '71',
   entityTypeName: 'SiegeWeaponSpot',
@@ -136,54 +142,41 @@ export const spotForm: FormConfigurationDto = {
         field({ id: '700', fieldName: 'SiegeScenarioId', label: 'Scenario id', fieldType: FieldType.Integer, order: 0 }),
         field({ id: '701', fieldName: 'Name', label: 'Name', fieldType: FieldType.String, isRequired: true, order: 1 }),
         field({
-          id: '702', fieldName: 'Facing', label: 'Facing', fieldType: FieldType.Enum, defaultValue: 'North', order: 2,
+          id: String(SPOT_REGION_FIELD_ID), fieldName: 'WgRegionId', label: 'Region', fieldType: FieldType.String, isRequired: true,
+          order: 2, settingsJson: JSON.stringify({ worldTask: { enabled: true, taskType: 'ReagionCreate' } }),
+        }),
+        field({
+          id: String(SPOT_FACING_FIELD_ID), fieldName: 'Facing', label: 'Facing', fieldType: FieldType.Enum, defaultValue: 'North', order: 3,
           settingsJson: JSON.stringify({ enumValues: ['North', 'East', 'South', 'West'] }),
         }),
         field({
-          id: '703', fieldName: 'SizeClass', label: 'Size class', fieldType: FieldType.Enum, defaultValue: 'Small', order: 3,
-          settingsJson: JSON.stringify({ enumValues: ['Small', 'Medium', 'Large'] }),
+          id: '703', fieldName: 'SizeClass', label: 'Size class', fieldType: FieldType.Enum, defaultValue: 'Small', order: 4,
+          isReadOnly: true, settingsJson: JSON.stringify({ enumValues: ['Small', 'Medium', 'Large'] }),
         }),
-        field({ id: '704', fieldName: 'WgRegionId', label: 'WorldGuard region', fieldType: FieldType.String, order: 4 }),
-        field({
-          id: '705', fieldName: 'MinX', label: 'Min X', fieldType: FieldType.Integer, order: 5,
-          settingsJson: JSON.stringify({ worldTask: { enabled: true, taskType: 'SiegeWeaponSpot' } }),
-        }),
-        field({ id: '706', fieldName: 'MinY', label: 'Min Y', fieldType: FieldType.Integer, order: 6 }),
-        field({ id: '707', fieldName: 'MinZ', label: 'Min Z', fieldType: FieldType.Integer, order: 7 }),
-        field({ id: '708', fieldName: 'MaxX', label: 'Max X', fieldType: FieldType.Integer, order: 8 }),
-        field({ id: '709', fieldName: 'MaxY', label: 'Max Y', fieldType: FieldType.Integer, order: 9 }),
-        field({ id: '710', fieldName: 'MaxZ', label: 'Max Z', fieldType: FieldType.Integer, order: 10 }),
       ],
     }),
   ],
 };
+
+/** #988: the two seeded rules on the region field: the size check (blocking, depends on Facing) and the site check. */
+export const spotRules: FieldValidationRuleDto[] = [
+  {
+    id: 801, formFieldId: SPOT_REGION_FIELD_ID, validationType: 'SiegeWeaponSpotSize', dependsOnFieldId: SPOT_FACING_FIELD_ID,
+    configJson: '{}', errorMessage: '{sizeReason}', isBlocking: true, requiresDependencyFilled: false, createdAt: '2026-11-22T12:00:00Z',
+  },
+  {
+    id: 802, formFieldId: SPOT_REGION_FIELD_ID, validationType: 'SiegeWeaponSpotSite',
+    configJson: '{}', errorMessage: '{siteReason}', isBlocking: false, requiresDependencyFilled: false, createdAt: '2026-11-22T12:00:00Z',
+  },
+];
 
 export const spotFormMetadata: EntityMetadataDto = {
   ...siegeMetadata('SiegeWeaponSpot'),
   fields: [
     { fieldName: 'SiegeScenarioId', fieldType: 'Int32', isNullable: false, isRelatedEntity: false, hasDefaultValue: false },
     { fieldName: 'Name', fieldType: 'String', isNullable: false, isRelatedEntity: false, hasDefaultValue: false },
+    { fieldName: 'WgRegionId', fieldType: 'String', isNullable: true, isRelatedEntity: false, hasDefaultValue: false },
     { fieldName: 'Facing', fieldType: 'SiegeWeaponFacing', isNullable: false, isRelatedEntity: false, hasDefaultValue: true, defaultValue: 'North' },
     { fieldName: 'SizeClass', fieldType: 'SiegeWeaponSizeClass', isNullable: false, isRelatedEntity: false, hasDefaultValue: true, defaultValue: 'Small' },
-    { fieldName: 'WgRegionId', fieldType: 'String', isNullable: true, isRelatedEntity: false, hasDefaultValue: false },
-    ...['MinX', 'MinY', 'MinZ', 'MaxX', 'MaxY', 'MaxZ'].map(fieldName => (
-      { fieldName, fieldType: 'Int32', isNullable: true, isRelatedEntity: false, hasDefaultValue: false })),
   ],
-};
-
-/**
- * The world task the panel creates and the result the plugin's WeaponSpotTaskHandler completes it with
- * (knk-core SpotTaskOutput): 15 along x, 16 high, 9 along z, facing east (Large), from a WorldGuard region, with a
- * floor warning.
- */
-export const SPOT_TASK_OUTPUT = {
-  fieldName: 'SiegeWeaponSpot',
-  status: 'Warning',
-  minX: 100, minY: 64, minZ: -20, maxX: 114, maxY: 79, maxZ: -12,
-  facing: 'East',
-  sizeClass: 'Large',
-  wgRegionId: 'spot_east_tower',
-  world: 'siege',
-  warnings: ["The floor isn't solid: 3 of 135 blocks under the spot are air or not solid, so a weapon would hang in the air."],
-  capturedAt: 1763550000000,
 };
