@@ -127,7 +127,7 @@ export const landmarkFormMetadata: EntityMetadataDto = {
 
 const AREA_GUID = '11b2f868-53c0-5168-96a1-22188216ba5f';
 
-/** "Only with Own region": the display condition the landmark form's area-dependent steps and fields carry (A17). */
+/** "Only with Own region": the display condition the landmark form's own-region steps and field carry (A17). */
 const ownRegionOnly = (targetType: DisplayConditionTargetType): DisplayConditionGroupDto[] => [{
   targetType,
   innerLogic: DisplayConditionLogic.And,
@@ -138,9 +138,10 @@ const ownRegionOnly = (targetType: DisplayConditionTargetType): DisplayCondition
 }];
 
 /**
- * The Landmark form of seed v2 (knk-web-api `Data/FormConfigurationSeeds/Landmark.json`, field names and steps), without
- * the Location step (its world task has specs of its own), with the area-dependent steps behind "Area = Own region"
- * (DESIGN § 4.1, A17).
+ * The Landmark form of seed v4 (knk-web-api `Data/FormConfigurationSeeds/Landmark.json`, field names and steps), without
+ * the Location step (its world task has specs of its own): the Region field and the "Access and messages" and
+ * "Sub-regions" steps behind "Area = Own region" (DESIGN § 4.1, A17), the "Warp destination" step for every area kind
+ * (LD26, PandiO/knk-workspace#1003).
  */
 export const landmarkDomainForm: FormConfigurationDto = {
   id: '81',
@@ -176,7 +177,7 @@ export const landmarkDomainForm: FormConfigurationDto = {
       ],
     }),
     step({
-      id: '91', stepName: 'Warp destination', order: 3, displayConditionGroups: ownRegionOnly(DisplayConditionTargetType.FormStep),
+      id: '91', stepName: 'Warp destination', order: 3,
       fields: [field({ id: '92', fieldName: 'TeleportEnabled', label: 'Warp destination', fieldType: FieldType.Boolean, order: 0 })],
     }),
     step({
