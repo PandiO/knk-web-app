@@ -28,7 +28,7 @@ import { FieldType } from '../src/utils/enums';
  * Landmarks as a Domain subtype in the web app (landmark-domain phase 4, PandiO/knk-workspace#986; knk-workspace
  * docs/specs/landmark-domain/DESIGN.md § 4.1, § 4.3, § 6.3; smoke test docs/guides/landmark-domain-smoke-test.md § 4):
  * the domain list's type column and filter (A07), a landmark row opening as a landmark (§ 4.3), the landmark form's area
- * steps (A17), the parent picker with the type and without the landmark's own subtree (A18), the child landmarks on a
+ * steps (A17, with the warp step for every area kind since LD26, PandiO/knk-workspace#1003), the parent picker with the type and without the landmark's own subtree (A18), the child landmarks on a
  * landmark's page, and a drawn region's bounds filling a production area's empty bounds (PandiO/knk-workspace#951).
  */
 
@@ -129,20 +129,26 @@ test.describe('the landmark form', () => {
   const areaOptions = async (page: import('@playwright/test').Page) =>
     page.getByRole('combobox', { name: 'Area' }).locator('option').allTextContents();
 
-  test('shows the region, access, warp and sub-region steps only with Own region (A17)', async ({ page }) => {
+  test('shows the region, access and sub-region steps only with Own region, and the warp step for every area (A17, LD26)', async ({ page }) => {
     await page.goto('/forms/Landmark');
     await page.getByRole('button', { name: 'Use' }).click();
     await page.getByRole('textbox', { name: 'Name*' }).fill('Old well');
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.getByRole('heading', { name: 'Area', level: 2 })).toBeVisible();
 
-    // A point: no region field, and Area is the last step.
+    // A point: no region field; Next leads to the warp step, the last one (a point can be a warp destination, LD26).
     await page.getByRole('combobox', { name: 'Area' }).selectOption('None');
     await expect(page.getByRole('textbox', { name: 'Region' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByRole('heading', { name: 'Warp destination', level: 2 })).toBeVisible();
+    await expect(page.getByRole('checkbox', { name: 'Warp destination' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Submit' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Next' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Access and messages', level: 2 })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Previous' }).click();
+    await expect(page.getByRole('heading', { name: 'Area', level: 2 })).toBeVisible();
 
-    // Own region: the region field and the three steps after it.
+    // Own region: the region field and the three steps after it, the warp step between the other two.
     await page.getByRole('combobox', { name: 'Area' }).selectOption({ label: 'Own region' });
     await expect(page.getByRole('textbox', { name: 'Region' })).toBeVisible();
     await page.getByRole('button', { name: 'Next' }).click();
